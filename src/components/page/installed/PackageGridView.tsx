@@ -16,6 +16,7 @@ interface PackageGridViewProps {
   onUnhold: (pkgName: string) => void;
   onSwitchVersion: (pkgName: string, version: string) => void;
   onUninstall: (pkg: ScoopPackage) => void;
+  onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: Accessor<string | null>;
   isPackageVersioned: (packageName: string) => boolean;
 }
@@ -104,6 +105,12 @@ function PackageGridView(props: PackageGridViewProps) {
                         </li>
                       </Show>
                       <li>
+                        <a onClick={() => props.onChangeBucket(pkg)}>
+                          <RefreshCw class="w-4 h-4 mr-2" />
+                          Change Bucket
+                        </a>
+                      </li>
+                      <li>
                         <a class="text-error" onClick={() => props.onUninstall(pkg)}>
                           <Trash2 class="w-4 h-4 mr-2" />
                           Uninstall
@@ -127,4 +134,4 @@ function PackageGridView(props: PackageGridViewProps) {
   );
 }
 
-export default PackageGridView; 
+export default PackageGridView;

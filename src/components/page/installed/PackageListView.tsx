@@ -21,6 +21,7 @@ interface PackageListViewProps {
   onUnhold: (pkgName: string) => void;
   onSwitchVersion: (pkgName: string, version: string) => void;
   onUninstall: (pkg: ScoopPackage) => void;
+  onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: Accessor<string | null>;
   isPackageVersioned: (packageName: string) => boolean;
 }
@@ -148,6 +149,12 @@ function PackageListView(props: PackageListViewProps) {
                         </li>
                       </Show>
                       <li>
+                        <a onClick={() => props.onChangeBucket(pkg)}>
+                          <RefreshCw class="w-4 h-4 mr-2" />
+                          Change Bucket
+                        </a>
+                      </li>
+                      <li>
                         <a class="text-error" onClick={() => props.onUninstall(pkg)}>
                           <Trash2 class="w-4 h-4 mr-2" />
                           Uninstall
@@ -165,4 +172,4 @@ function PackageListView(props: PackageListViewProps) {
   );
 }
 
-export default PackageListView; 
+export default PackageListView;

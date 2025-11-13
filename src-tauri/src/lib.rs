@@ -193,6 +193,7 @@ pub fn run() {
             commands::linker::switch_package_version,
             commands::linker::get_versioned_packages,
             commands::linker::debug_package_structure,
+            commands::linker::change_package_bucket,
             commands::debug::get_debug_info,
             commands::debug::get_app_logs,
             commands::debug::read_app_log_file,

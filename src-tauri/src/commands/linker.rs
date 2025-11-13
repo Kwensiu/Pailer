@@ -584,3 +584,90 @@ pub async fn debug_package_structure(
 
     Ok(debug_info.join("\n"))
 }
+
+/// Change the bucket of an installed package by modifying its install.json
+#[tauri::command]
+pub async fn change_package_bucket(
+    state: State<'_, AppState>,
+    package_name: String,
+    new_bucket: String,
+) -> Result<String, String> {
+    let scoop_path = state.scoop_path();
+    let apps_dir = scoop_path.join("apps");
+    let package_dir = apps_dir.join(&package_name);
+
+    if !package_dir.exists() {
+        return Err(format!("Package '{}' is not installed", package_name));
+    }
+
+    // Find the current installation directory (either "current" or latest version)
+    let install_dir = {
+        let current_path = package_dir.join("current");
+        if current_path.exists() && current_path.is_dir() {
+            current_path
+        } else {
+            // Find the latest version directory
+            let mut candidates = Vec::new();
+            
+            if let Ok(entries) = fs::read_dir(&package_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if let Some(name) = path.file_name() {
+                            // Skip "current" directory
+                            if name.to_string_lossy() == "current" {
+                                continue;
+                            }
+                            
+                            // Check if it's a version directory (has install.json or manifest.json)
+                            let install_json = path.join("install.json");
+                            let manifest_json = path.join("manifest.json");
+                            
+                            if install_json.exists() || manifest_json.exists() {
+                                if let Ok(metadata) = fs::metadata(&path) {
+                                    if let Ok(modified) = metadata.modified() {
+                                        candidates.push((modified, path));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Sort by modification time and get the latest
+            candidates.sort_by(|a, b| b.0.cmp(&a.0));
+            candidates.into_iter().next().map(|(_, path)| path)
+                .ok_or_else(|| format!("Could not find installation directory for package '{}'", package_name))?
+        }
+    };
+
+    // Read the install.json file
+    let install_json_path = install_dir.join("install.json");
+    if !install_json_path.exists() {
+        return Err(format!("install.json not found for package '{}'", package_name));
+    }
+
+    let install_json_content = fs::read_to_string(&install_json_path)
+        .map_err(|e| format!("Failed to read install.json: {}", e))?;
+
+    // Parse the JSON
+    let mut install_data: serde_json::Value = serde_json::from_str(&install_json_content)
+        .map_err(|e| format!("Failed to parse install.json: {}", e))?;
+
+    // Update the bucket field
+    if let Some(obj) = install_data.as_object_mut() {
+        obj.insert("bucket".to_string(), serde_json::Value::String(new_bucket.clone()));
+    } else {
+        return Err("install.json is not a valid JSON object".to_string());
+    }
+
+    // Write back to the file
+    let updated_content = serde_json::to_string_pretty(&install_data)
+        .map_err(|e| format!("Failed to serialize updated install.json: {}", e))?;
+
+    fs::write(&install_json_path, updated_content)
+        .map_err(|e| format!("Failed to write updated install.json: {}", e))?;
+
+    Ok(format!("Successfully changed bucket for '{}' to '{}'", package_name, new_bucket))
+}

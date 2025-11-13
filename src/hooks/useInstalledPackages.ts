@@ -5,6 +5,8 @@ import heldStore from "../stores/held";
 import installedPackagesStore from "../stores/installedPackagesStore";
 import { usePackageOperations } from "./usePackageOperations";
 import { usePackageInfo } from "./usePackageInfo";
+import { ScoopPackage } from "../types/scoop";
+import { useBuckets } from "./useBuckets";
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -40,6 +42,7 @@ export function useInstalledPackages() {
   // Use shared hooks
   const packageOperations = usePackageOperations();
   const packageInfo = usePackageInfo();
+  const { buckets, fetchBuckets } = useBuckets();
   
   // State for auto-showing versions in modal
   const [autoShowVersions, setAutoShowVersions] = createSignal(false);
@@ -49,7 +52,15 @@ export function useInstalledPackages() {
   const [sortDirection, setSortDirection] = createStoredSignal<'asc' | 'desc'>('installedSortDirection', 'asc');
   const [selectedBucket, setSelectedBucket] = createStoredSignal<string>('installedSelectedBucket', 'all');
   
-  onMount(fetch);
+  // Change bucket states
+  const [changeBucketModalOpen, setChangeBucketModalOpen] = createSignal(false);
+  const [currentPackageForBucketChange, setCurrentPackageForBucketChange] = createSignal<ScoopPackage | null>(null);
+  const [newBucketName, setNewBucketName] = createSignal("");
+
+  onMount(() => {
+    fetch();
+    fetchBuckets();
+  });
 
   const checkForUpdates = () => {
     installedPackagesStore.checkForUpdates();
@@ -142,6 +153,42 @@ export function useInstalledPackages() {
     }
   };
 
+  const handleChangeBucket = async (pkg: ScoopPackage, newBucket: string) => {
+    setOperatingOn(pkg.name);
+    try {
+      await invoke("change_package_bucket", {
+        packageName: pkg.name,
+        newBucket: newBucket,
+      });
+    } catch (err) {
+      console.error(`Failed to change bucket for package ${pkg.name}:`, err);
+    } finally {
+      await refetch();
+      setOperatingOn(null);
+    }
+  };
+
+  const handleOpenChangeBucket = (pkg: ScoopPackage) => {
+    setCurrentPackageForBucketChange(pkg);
+    setNewBucketName(pkg.source);
+    setChangeBucketModalOpen(true);
+  };
+
+  const handleChangeBucketConfirm = async () => {
+    const pkg = currentPackageForBucketChange();
+    if (!pkg) return;
+
+    const newBucket = newBucketName().trim();
+    if (newBucket && newBucket !== pkg.source) {
+      await handleChangeBucket(pkg, newBucket);
+    }
+    setChangeBucketModalOpen(false);
+  };
+
+  const handleChangeBucketCancel = () => {
+    setChangeBucketModalOpen(false);
+  };
+
   const processedPackages = createMemo(() => {
     let pkgs = [...packages()];
     if (selectedBucket() !== 'all') {
@@ -214,7 +261,21 @@ export function useInstalledPackages() {
     handleHold,
     handleUnhold,
     handleSwitchVersion,
+    handleChangeBucket,
+    handleOpenChangeBucket,
     fetchInstalledPackages,
     checkForUpdates,
+    
+    // Change bucket states
+    changeBucketModalOpen,
+    setChangeBucketModalOpen,
+    currentPackageForBucketChange,
+    newBucketName,
+    setNewBucketName,
+    handleChangeBucketConfirm,
+    handleChangeBucketCancel,
+    
+    // Buckets for selection
+    buckets: buckets
   };
-} 
+}

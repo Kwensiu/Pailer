@@ -1,4 +1,4 @@
-import { Show, createSignal, createMemo } from "solid-js";
+import { For, Show, createSignal, createMemo } from "solid-js";
 import PackageInfoModal from "../components/PackageInfoModal";
 import OperationModal from "../components/OperationModal";
 import ScoopStatusModal from "../components/ScoopStatusModal";
@@ -7,6 +7,7 @@ import InstalledPageHeader from "../components/page/installed/InstalledPageHeade
 import PackageListView from "../components/page/installed/PackageListView";
 import PackageGridView from "../components/page/installed/PackageGridView";
 import { View } from "../types/scoop";
+import ConfirmationModal from "../components/ConfirmationModal";
 
 interface InstalledPageProps {
   onNavigate?: (view: View) => void;
@@ -39,6 +40,8 @@ function InstalledPage(props: InstalledPageProps) {
     handleUnhold,
     handleSwitchVersion,
     handleUninstall,
+    handleChangeBucket,
+    handleOpenChangeBucket,
     handleFetchPackageInfo,
     handleFetchPackageInfoForVersions,
     handleCloseInfoModal,
@@ -47,6 +50,16 @@ function InstalledPage(props: InstalledPageProps) {
     handleCloseOperationModal,
     fetchInstalledPackages,
     checkForUpdates,
+    // Change bucket states
+    changeBucketModalOpen,
+    setChangeBucketModalOpen,
+    currentPackageForBucketChange,
+    newBucketName,
+    setNewBucketName,
+    handleChangeBucketConfirm,
+    handleChangeBucketCancel,
+    // Buckets for selection
+    buckets
   } = useInstalledPackages();
 
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -114,6 +127,7 @@ function InstalledPage(props: InstalledPageProps) {
             onUnhold={handleUnhold}
             onSwitchVersion={handleSwitchVersion}
             onUninstall={handleUninstall}
+            onChangeBucket={handleOpenChangeBucket}
             operatingOn={operatingOn}
             isPackageVersioned={isPackageVersioned}
           />}
@@ -130,10 +144,38 @@ function InstalledPage(props: InstalledPageProps) {
             onUnhold={handleUnhold}
             onSwitchVersion={handleSwitchVersion}
             onUninstall={handleUninstall}
+            onChangeBucket={handleOpenChangeBucket}
             operatingOn={operatingOn}
             isPackageVersioned={isPackageVersioned}
           />
         </Show>
+      </Show>
+
+      <Show when={changeBucketModalOpen()}>
+        <ConfirmationModal
+          isOpen={changeBucketModalOpen()}
+          title={`Select new bucket for ${currentPackageForBucketChange()?.name}:`}
+          onConfirm={handleChangeBucketConfirm}
+          onCancel={handleChangeBucketCancel}
+          confirmText="Confirm"
+          cancelText="Cancel"
+        >
+          <select
+            value={newBucketName()}
+            onInput={(e) => setNewBucketName(e.currentTarget.value)}
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="" disabled>Select a bucket</option>
+            <For each={buckets()}>
+              {(bucket) => (
+                <option value={bucket.name}>{bucket.name}</option>
+              )}
+            </For>
+          </select>
+          <div class="text-sm text-base-content/70 mt-2">
+            Current bucket: {currentPackageForBucketChange()?.source}
+          </div>
+        </ConfirmationModal>
       </Show>
 
       <PackageInfoModal 
@@ -168,4 +210,4 @@ function InstalledPage(props: InstalledPageProps) {
   );
 }
 
-export default InstalledPage; 
+export default InstalledPage;
