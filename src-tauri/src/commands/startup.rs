@@ -1,6 +1,5 @@
 //! Commands for managing application startup settings on Windows.
 use std::env;
-use tauri::{AppHandle, Manager, Runtime};
 use winreg::enums::*;
 use winreg::RegKey;
 

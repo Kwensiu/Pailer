@@ -84,12 +84,10 @@ function BucketPage() {
     
     if (installedBucket) {
       // Bucket is installed locally - use the regular handler to show manifests
-      console.log(`Bucket "${searchBucket.name}" is installed locally, showing manifests...`);
       setSelectedSearchBucket(null); // Clear search bucket
       handleViewBucket(installedBucket);
     } else {
       // Bucket is not installed - show as external bucket with description
-      console.log(`Bucket "${searchBucket.name}" is not installed, showing description...`);
       const bucketInfo: BucketInfo = {
         name: searchBucket.name,
         path: searchBucket.url, // Use URL as path for external buckets
@@ -134,20 +132,16 @@ function BucketPage() {
 
   // Handle bucket installation/removal - refresh bucket list
   const handleBucketInstalled = async () => {
-    console.log('Bucket operation completed, refreshing bucket list...');
     markForRefresh();
     await fetchBuckets(true);
-    console.log('Bucket list refreshed successfully');
   };
 
   // Handle fetching manifests for newly installed bucket
   const handleFetchManifests = async (bucketName: string) => {
-    console.log('Fetching manifests for bucket:', bucketName);
     setManifestsLoading(true);
     try {
       const bucketManifests = await getBucketManifests(bucketName);
       setManifests(bucketManifests);
-      console.log(`Successfully fetched ${bucketManifests.length} manifests for bucket:`, bucketName);
     } catch (error) {
       console.error('Failed to fetch manifests for bucket:', bucketName, error);
     } finally {
@@ -157,8 +151,6 @@ function BucketPage() {
 
   // Handle updating a single bucket
   const handleUpdateBucket = async (bucketName: string) => {
-    console.log('Updating bucket:', bucketName);
-    
     // Add to updating set
     setUpdatingBuckets(prev => new Set([...prev, bucketName]));
     
@@ -173,7 +165,7 @@ function BucketPage() {
         [bucketName]: result.message
       }));
       
-      // 立即清除更新状态，提升响应速度
+      // Additionally remove from updating set
       setUpdatingBuckets(prev => {
         const newSet = new Set(prev);
         newSet.delete(bucketName);
@@ -183,8 +175,8 @@ function BucketPage() {
       if (result.success) {
         // Refresh bucket list without showing loading screen
         markForRefresh();
-        // 使用quiet模式刷新，不显示加载状态
-        await fetchBuckets(true, true); // 添加quiet参数
+        // Use quiet mode to refresh without showing loading state
+        await fetchBuckets(true, true);
         
         // If this bucket is currently selected, refresh its manifests
         const currentBucket = selectedBucket();
@@ -193,9 +185,7 @@ function BucketPage() {
         }
       }
       
-      console.log('Bucket update result:', result);
-      
-      // 2秒后清除结果消息，避免长时间显示
+      // Clear result message after 2 seconds to avoid long display
       setTimeout(() => {
         setUpdateResults(prev => {
           const newResults = { ...prev };
@@ -209,8 +199,8 @@ function BucketPage() {
         ...prev,
         [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`
       }));
-      
-      // 错误情况下也立即清除更新状态
+    } finally {
+      // Remove from updating set in all cases
       setUpdatingBuckets(prev => {
         const newSet = new Set(prev);
         newSet.delete(bucketName);
@@ -243,10 +233,8 @@ function BucketPage() {
 
   // Handle manual reload of local buckets
   const handleReloadLocalBuckets = async () => {
-    console.log('Reloading local buckets...');
     markForRefresh();
     await fetchBuckets(true);
-    console.log('Local buckets reloaded successfully');
   };
 
   return (
