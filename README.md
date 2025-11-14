@@ -23,8 +23,6 @@ Or refer to [README.md.old](README.md.old)
 
 但是绝大部分是由AI生成的！所以我不会向你推送代码。如果我添加的功能有你需要的，可以直接拉取，或用更规范的形式添加到你的项目。
 
-如果我的代码让你感到不满，我在这里表示抱歉，本人几乎没有真正的编程经验，请多多包涵。
-
 ---------------------------------------------------------------------
 
 ## ``AI Translation``
@@ -45,5 +43,3 @@ If you happen to come across my fork—
 Thank you for providing a relatively complete GUI. I've attempted to add some features to enhance its management capabilities.
 
 However, the vast majority of it was AI-generated! Therefore, I will not submit a pull request. If any of the features I've added are useful to you, feel free to pull them directly or implement them in a more standardized way into your project.
-
-If my code causes any dissatisfaction, I apologize sincerely. I have almost no practical programming experience, so please bear with me.
