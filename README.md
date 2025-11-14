@@ -1,129 +1,49 @@
-# Rscoop: Modern Windows Package Manager GUI for Scoop
+## 📘 原始文档
 
-![Installed Packages Grid View](pics/installedpackages.png) 
+原README内容请参考上游仓库，或参考[README.md.old](README.md.old)
 
-Rscoop (Rust + Scoop) is a fast, user-friendly graphical interface for [Scoop](https://scoop.sh), the Windows package manager.  
-Manage, search, and install applications with ease through a modern GUI instead of the command line.
+Original README content can be found in the upstream repository
+Or refer to [README.md.old](README.md.old)
 
-## 📚 Documentation
+---------------------------------------------------------------------
 
-For in-depth guides, usage examples, and detailed explanations, visit the official documentation site:  
-👉 [https://amarbego.github.io/Rscoop/](https://amarbego.github.io/Rscoop/)
+## 写给用户：
 
-## 🚀 Installation
+这是一个Scoop的GUI，用于管理 Windows 下的 Scoop仓库/软件 的 安装、卸载、更新。
 
-1.  Go to the [**Releases**](https://github.com/AmarBego/rscoop/releases) page.
-2.  Download the latest `.msi` installer file or portable `.exe` file.
-3.  Run the installer. That's it!
+添加了一些功能，至少不再需要打开终端管理了。
 
-## ✨ Features – Scoop GUI for Windows
+有计划添加"定时更新"的功能，但是目前够用，等我用几天看看有没有bug吧。
 
-Rscoop is more than just a package list. It's a full-fledged, native management toolkit that supercharges your Scoop experience.
+## 写给上游开发者：
 
-### 🚀 Blazing-Fast Native Performance
-At its core, Rscoop leverages a custom-built Rust backend to handle the heavy lifting. We've re-engineered critical logic to be native to Rscoop, delivering incredible speed and responsiveness.
-- **Instant Search**: Find the exact package you need in milliseconds. Our native search implementation scans all your buckets instantly.
-- **Package & Update Discovery**: Listing installed packages and checking for available updates is faster than ever.
+如果你碰巧看到了我的Fork——
 
-### 🪣 Bucket Management in Scoop GUI
-Rscoop introduces a full-featured bucket management system, allowing you to discover, add, and manage Scoop buckets without ever leaving the app.
-- **Browse & Search**: Explore thousands of community buckets, not just the default ones.
-- **Install & Remove**: Add or remove buckets with a single click.
-- **View Manifests**: Instantly view package manifests within any bucket.
-- **Offline Search**: A smart caching system downloads bucket data for lightning-fast offline searching.
+感谢你提供了一个较为完善的GUI，我尝试添加了一些功能，完善了GUI的管理功能。
 
-### ⚙️ Advanced Scoop Package Management
-Rscoop provides a level of control that goes far beyond the standard command line. Manage every aspect of your Scoop installation and packages through an intuitive UI.
-- **Shim Manager**: A complete interface to manage your Scoop shims. View, remove, and even `alter` shims without touching the command line.
-- **Hold Packages**: Prevent specific packages from being updated with a single click, giving you full control over your versions.
-- **Cache Manager**: Get a detailed view of all cached installer files, see how much space they're using, and selectively remove them.
-- **Package Details**: Instantly view detailed information, notes, and the full package manifest for any application.
-- **Version Management**: Seamlessly switch between versions on versioned installs of packages.
+但是绝大部分是由AI生成的！所以我不会向你推送代码。如果我添加的功能有你需要的，可以直接拉取，或用更规范的形式添加到你的项目。
 
-### 🛡️ System Health
-Keep your Scoop installation in top shape with our integrated System Doctor.
-- **Dependency Checkup**: Run diagnostics to find and fix common problems with your Scoop setup, like missing Git/7-Zip, with a single button click.
-- **Cache cleaner**: Clean-up junk with one click (doesn't clean versioned installs)
+如果我的代码让你感到不满，我在这里表示抱歉，本人几乎没有真正的编程经验，请多多包涵。
 
-### ✅ Seamless & Secure Operations
-For core actions, Rscoop acts as a seamless wrapper around the battle-tested official Scoop CLI, ensuring maximum compatibility and reliability. All operations are fully integrated into the UI—you'll never see a command prompt.
-- **Install, Uninstall, & Update**: Manage packages with the click of a button, backed by Scoop's robust engine.
-- **Security-First Installation**: A standout Rscoop feature. Before installing, the application can automatically scan the package with VirusTotal. This pre-install check protects you from malware by blocking the installation if threats are detected, a safety layer not present in standard Scoop.
-- **System Cleanup**: Easily clean up old package versions to free up disk space.
+---------------------------------------------------------------------
 
-## 🖼️ Screenshots
+## ``AI Translation``
 
-| Search Page | Installed Packages (Grid) | Package Details |
-| :---: | :---: | :---: |
-| ![Search Page](pics/packagesearch.png) | ![Installed Packages Grid View](pics/installedpackages.png) | ![Package Details Modal](pics/packagemodal.png) |
+### To users:
 
-| Bucket Finder | Bucket Management | Operation Modal |
-| :---: | :---: | :---: |
-| ![Bucket Management](pics/bucketsearch.png) | ![Bucket Details Modal](pics/bucket.png) | ![Operation Modal](pics/bucketmodal.png) |
+This is a GUI for Scoop, designed to manage the installation, uninstallation, and updating of Scoop buckets and software on Windows.
 
-| Settings | Shims | System Doctor |
-| :---: | :---: | :---: |
-| ![Settings Page](pics/settings.png) | ![Shims Manager View](pics/shims.png) | ![System Doctor Page](pics/doctor.png) |
+I've added several features so that you no longer need to open the terminal for management—at least for most tasks.
+
+There are plans to introduce a "scheduled update" feature in the future, but for now, the current version should be sufficient. I'll test it for a few days to see if there are any bugs.
 
 
+### To the upstream developer:
 
-## ❤️ Acknowledgements & Tech Stack
+If you happen to come across my fork—
 
-Rscoop wouldn't be possible without the incredible work of the open-source community.
+Thank you for providing a relatively complete GUI. I've attempted to add some features to enhance its management capabilities.
 
--   **[Scoop](https://scoop.sh/)**: For creating the best package manager for Windows.
--   **[sfsu (Stupid Fast Scoop Utils)](https://github.com/winpax/sfsu)**: For the original high-performance scoop logic that Rscoop's native backend is based on.
--   **[Tauri](https://tauri.app/)**: For the lightweight and secure desktop application framework.
--   **[SolidJS](https://www.solidjs.com/)**: For the fast and reactive UI library.
--   **[daisyUI](https://daisyui.com/)**: For the component library for Tailwind CSS.
+However, the vast majority of it was AI-generated! Therefore, I will not submit a pull request. If any of the features I've added are useful to you, feel free to pull them directly or implement them in a more standardized way into your project.
 
-## Privacy Policy
-
-This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
-
-## For Developers
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- [Scoop](https://scoop.sh/) installed on your system
-
-### Development
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/AmarBego/rscoop.git
-cd rscoop
-```
-
-2. Install dependencies:
-
-```bash
-npm install
-```
-
-3. Start the development server:
-
-```bash
-npm run tauri dev
-```
-
-### Building
-
-To build the application for production:
-
-```bash
-npm run tauri build
-```
-
-This will create an installer in the `src-tauri/target/release/bundle` directory.
-
-### Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### License
-
-MIT
+If my code causes any dissatisfaction, I apologize sincerely. I have almost no practical programming experience, so please bear with me.
