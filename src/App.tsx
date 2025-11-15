@@ -48,6 +48,12 @@ function App() {
     // Track initialization timeout
     const [initTimedOut, setInitTimedOut] = createSignal(false);
 
+    // Track update all operation
+    const [isUpdatingAll, setIsUpdatingAll] = createSignal(false);
+    
+    // Track update completion state
+    const [updateCompleted, setUpdateCompleted] = createSignal(false);
+
     // Debug: track state changes
     createEffect(() => {
         console.log("MSI State - hasCwdMismatch:", hasCwdMismatch(), "bypassCwdMismatch:", bypassCwdMismatch());
@@ -71,6 +77,23 @@ function App() {
             await invoke("close_app");
         } catch (e) {
             console.error("Failed to close app:", e);
+        }
+    };
+
+    const handleUpdateAll = async () => {
+        setIsUpdatingAll(true);
+        try {
+            await invoke("update_all_packages");
+            // Show completion state
+            setUpdateCompleted(true);
+            // Reset completion state after 2 seconds
+            setTimeout(() => {
+                setUpdateCompleted(false);
+            }, 2000);
+        } catch (e) {
+            console.error("Failed to update all packages", e);
+        } finally {
+            setIsUpdatingAll(false);
         }
     };
 
@@ -236,7 +259,7 @@ function App() {
                                 <div>
                                     <h3 class="font-bold text-lg">MSI Launch Notice</h3>
                                     <p class="text-sm opacity-90">
-                                        Everything is okay — this isn’t an error. Windows launched the app in a limited mode right after installation.
+                                        Everything is okay — this isn't an error. Windows launched the app in a limited mode right after installation.
                                     </p>
                                 </div>
                             </div>
@@ -363,6 +386,29 @@ function App() {
                         </ul>
                     </div>
                 </div>
+                {/* Update ALL floating button in the bottom-right corner */}
+                <button 
+                    classList={{
+                        "fixed bottom-6 right-6 bg-gray-500 hover:bg-gray-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg transition-all duration-200 ease-in-out": true,
+                        "transform scale-95": isUpdatingAll(), // Slightly compress when updating
+                        "bg-success": updateCompleted(), // Green when completed
+                        "w-auto px-4 rounded-xl": isUpdatingAll() || updateCompleted() // Expand when showing text
+                    }}
+                    onClick={handleUpdateAll}
+                    disabled={isUpdatingAll()}
+                >
+                    <Show when={isUpdatingAll() || updateCompleted()} fallback={
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    }>
+                        <Show when={updateCompleted()} fallback={
+                            <span>Updating All...</span>
+                        }>
+                            <span>Finish!</span>
+                        </Show>
+                    </Show>
+                </button>
                 <DebugModal />
             </Show>
         </>
