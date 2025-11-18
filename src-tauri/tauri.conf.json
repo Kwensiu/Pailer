@@ -26,6 +26,7 @@
   },
   "plugins": {
     "updater": {
+      "pubkey": "",
       "endpoints": [
         "https://github.com/Kwensiu/Rscoop/releases/latest/download/update.json"
       ],
@@ -37,7 +38,7 @@
     "dialog": null
   },
   "bundle": {
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "active": true,
     "targets": "all",
     "icon": [
