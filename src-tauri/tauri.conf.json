@@ -26,7 +26,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzMEJFNzU4QjcxNEEwNkQKUldSdG9CUzNXT2NMNDdWQnpoOE1vT01BbUFVYlhnOEZobVlkRklLYU1ndmxHRld3QnpBWitwb0EK",
+      "pubkey": "",
       "endpoints": [
         "https://github.com/Kwensiu/Rscoop/releases/latest/download/update.json"
       ],
