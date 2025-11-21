@@ -26,17 +26,24 @@ pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
         log::info!("Prefetching installed packages during cold start...");
 
         let state = app.state::<AppState>();
+        log::info!("Getting AppState for cold start initialization");
+        
         match crate::commands::installed::get_installed_packages_full(app.clone(), state).await {
             Ok(pkgs) => {
                 log::info!("Prefetched {} installed packages", pkgs.len());
 
                 // Warm the search manifest cache.
+                log::info!("Warming search manifest cache...");
                 if let Err(e) = crate::commands::search::warm_manifest_cache(app.clone()).await {
                     log::error!("Failed to warm search manifest cache: {}", e);
+                } else {
+                    log::info!("Search manifest cache warmed successfully");
                 }
 
                 // Emit events with retry logic
+                log::info!("Emitting cold start success events");
                 emit_ready_events_with_retry(&app, true).await;
+                log::info!("Cold start initialization completed successfully");
             }
             Err(e) => {
                 log::error!("Failed to prefetch installed packages: {}", e);
@@ -44,12 +51,14 @@ pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
                 COLD_START_DONE.store(false, Ordering::SeqCst);
 
                 // Emit failure events
+                log::info!("Emitting cold start failure events");
                 if let Err(err) = app.emit("cold-start-finished", false) {
                     log::error!("Failed to emit cold-start-finished failure event: {}", err);
                 }
                 if let Err(err) = app.emit("scoop-ready", false) {
                     log::error!("Failed to emit scoop-ready failure event: {}", err);
                 }
+                log::info!("Cold start failure events emitted");
             }
         }
     });
@@ -69,9 +78,10 @@ async fn emit_ready_events_with_retry<R: Runtime>(app: &AppHandle<R>, success: b
         };
 
         log::info!(
-            "Emitting cold start events (attempt {}/{})",
+            "Emitting cold start events (attempt {}/{}) with success={}",
             retry_count + 1,
-            max_retries
+            max_retries,
+            success
         );
 
         // Try to emit to main window specifically first

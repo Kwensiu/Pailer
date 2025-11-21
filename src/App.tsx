@@ -2,8 +2,8 @@ import { createSignal, Show, onMount, createMemo, createEffect } from "solid-js"
 import "./App.css";
 import Header from "./components/Header.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
-import InstalledPage from "./pages/InstalledPage.tsx";
 import BucketPage from "./pages/BucketPage.tsx";
+import PackagesPage from "./pages/PackagesPage.tsx";
 import { View } from "./types/scoop.ts";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import DoctorPage from "./pages/DoctorPage.tsx";
@@ -21,6 +21,25 @@ import installedPackagesStore from "./stores/installedPackagesStore";
 import { checkCwdMismatch } from "./utils/installCheck";
 import { BucketInfo, updateBucketsCache } from "./hooks/useBuckets";
 import { usePackageOperations } from "./hooks/usePackageOperations";
+
+// Create a component to manage persistent page states
+function PersistentPage(props: { view: View; currentView: View; children: any }) {
+  let containerRef: HTMLDivElement | undefined;
+  
+  // Always render the page but visually hide it when not active
+  return (
+    <div 
+      ref={containerRef}
+      style={{
+        display: props.view === props.currentView ? 'block' : 'none',
+        width: '100%',
+        height: '100%'
+      }}
+    >
+      {props.children}
+    </div>
+  );
+}
 
 function App() {
     // Persist selected view across sessions.
@@ -53,7 +72,7 @@ function App() {
     // Track initialization timeout
     const [initTimedOut, setInitTimedOut] = createSignal(false);
 
-
+    // Remove unused state signals since we're no longer using refs to track page elements
     // Debug: track state changes
     createEffect(() => {
         console.log("MSI State - hasCwdMismatch:", hasCwdMismatch(), "bypassCwdMismatch:", bypassCwdMismatch());
@@ -86,13 +105,17 @@ function App() {
 
     onMount(async () => {
         try {
+            info("App initialization started");
+            
             // Check for CWD mismatch (MSI installation issue)
             const cwdMismatch = await checkCwdMismatch();
             setHasCwdMismatch(cwdMismatch);
+            info(`CWD mismatch check result: ${cwdMismatch}`);
 
             // Check if app is installed via Scoop
             const scoopInstalled = await invoke<boolean>("is_scoop_installation");
             setIsScoopInstalled(scoopInstalled);
+            info(`Scoop installation check result: ${scoopInstalled}`);
 
             // Only check for updates if not installed via Scoop
             if (!scoopInstalled) {
@@ -109,6 +132,7 @@ function App() {
             }
         } catch (e) {
             console.error("Failed to check for updates", e);
+            logError(`Failed to check for updates: ${e}`);
         }
 
         // Setup event listeners for both global and window-specific events
@@ -176,6 +200,7 @@ function App() {
 
         // Handle cold start event payload
         const handleColdStartEvent = (payload: boolean) => {
+            info(`Handling cold start event with payload: ${payload}`);
             // Only update if not already ready
             if (!isReady() && !error()) {
                 if (payload) {
@@ -208,10 +233,10 @@ function App() {
                             });
                     }, 100);
                 } else {
-                    setError(
-                        "Scoop initialization failed. Please make sure Scoop is installed correctly and restart."
-                    );
+                    const errorMsg = "Scoop initialization failed. Please make sure Scoop is installed correctly and restart.";
+                    setError(errorMsg);
                     setReadyFlag("false");
+                    logError(errorMsg);
                 }
             }
         };
@@ -219,7 +244,8 @@ function App() {
         // Force ready state after a timeout as a fallback
         const timeoutId = setTimeout(() => {
             if (!isReady() && !error()) {
-                info("Forcing ready state after timeout");
+                const timeoutMsg = "Initialization is taking longer than expected. This might be due to a slow system or Scoop configuration issue.";
+                info(`Forcing ready state after timeout. ${timeoutMsg}`);
                 setInitTimedOut(true);
                 setReadyFlag("true");
             }
@@ -335,26 +361,30 @@ function App() {
             </Show>
 
             <Show when={isReady() && (!hasCwdMismatch() || bypassCwdMismatch())}>
-                <div class="drawer">
+                <div class="drawer" overflow-y-hidden>
                     <input id="my-drawer" type="checkbox" class="drawer-toggle" />
                     <div class="drawer-content flex flex-col h-screen">
                         <Header currentView={view()} onNavigate={setView} />
-                        <main class="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
-                            <Show when={view() === "search"}>
+                        <main class="flex-1 p-8 sm:p-8 md:p-8 overflow-y-auto overflow-x-hidden" style="padding-right: 16px;">
+                            <PersistentPage view="search" currentView={view()}>
                                 <SearchPage />
-                            </Show>
-                            <Show when={view() === "bucket"}>
+                            </PersistentPage>
+                            <PersistentPage view="bucket" currentView={view()}>
                                 <BucketPage />
-                            </Show>
-                            <Show when={view() === "installed"}>
-                                <InstalledPage onNavigate={setView} />
-                            </Show>
-                            <Show when={view() === "settings"}>
-                                <SettingsPage isScoopInstalled={isScoopInstalled()} />
-                            </Show>
-                            <Show when={view() === "doctor"}>
+                            </PersistentPage>
+                            <PersistentPage view="installed" currentView={view()}>
+                                <PackagesPage onNavigate={setView} />
+                            </PersistentPage>
+                            <PersistentPage view="settings" currentView={view()}>
+                                <SettingsPage 
+                                    activeSection="" 
+                                    onSectionChange={() => {}} 
+                                    isScoopInstalled={isScoopInstalled()} 
+                                />
+                            </PersistentPage>
+                            <PersistentPage view="doctor" currentView={view()}>
                                 <DoctorPage />
-                            </Show>
+                            </PersistentPage>
                         </main>
                     </div>
                     <div class="drawer-side">
@@ -365,10 +395,19 @@ function App() {
                         ></label>
                         <ul class="menu p-4 w-80 min-h-full bg-base-200 text-base-content">
                             <li>
-                                <a>Sidebar Item 1</a>
+                                <a onClick={() => setView("search")}>Search</a>
                             </li>
                             <li>
-                                <a>Sidebar Item 2</a>
+                                <a onClick={() => setView("bucket")}>Buckets</a>
+                            </li>
+                            <li>
+                                <a onClick={() => setView("installed")}>Installed Packages</a>
+                            </li>
+                            <li>
+                                <a onClick={() => setView("settings")}>Settings</a>
+                            </li>
+                            <li>
+                                <a onClick={() => setView("doctor")}>Doctor</a>
                             </li>
                         </ul>
                     </div>

@@ -32,24 +32,18 @@ function SearchPage() {
     cleanup
   } = useSearch();
 
-  // 添加分页状态
   const [currentPage, setCurrentPage] = createSignal(1);
 
   onMount(() => {
-    // 检查是否有缓存的结果并恢复
     restoreSearchResults();
   });
 
-  // 当搜索结果或标签页改变时，重置到第一页
   createEffect(() => {
-    // 监听resultsToShow和activeTab变化
     resultsToShow();
     activeTab();
-    // 重置到第一页
     setCurrentPage(1);
   });
 
-  // 清理资源
   onCleanup(() => {
     cleanup();
   });

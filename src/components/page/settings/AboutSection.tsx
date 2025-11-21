@@ -1,11 +1,26 @@
 import { ShieldCheck, Download, RefreshCw, Github, Star } from "lucide-solid";
 import { createSignal, Show, Component } from "solid-js";
-import { check, Update, type DownloadEvent } from '@tauri-apps/plugin-updater';
+import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import pkgJson from "../../../../package.json";
 
+// Define the types we need
+interface UpdateEvent {
+  event: 'Started' | 'Progress' | 'Finished';
+  data: {
+    contentLength?: number;
+    chunkLength?: number;
+  };
+}
+
+interface UpdateInfo {
+  available: boolean;
+  version?: string;
+  body?: string;
+  downloadAndInstall: (callback: (event: UpdateEvent) => void) => Promise<void>;
+}
 
 export interface AboutSectionRef {
   checkForUpdates: (manual: boolean) => Promise<void>;
@@ -65,7 +80,7 @@ const GitHubRepoCard: Component<{
 
 export default function AboutSection(props: AboutSectionProps) {
   const [updateStatus, setUpdateStatus] = createSignal<'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error'>('idle');
-  const [updateInfo, setUpdateInfo] = createSignal<Update | null>(null);
+  const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
   const [downloadProgress, setDownloadProgress] = createSignal<{ downloaded: number; total: number | null }>({ downloaded: 0, total: null });
 
@@ -134,7 +149,7 @@ export default function AboutSection(props: AboutSectionProps) {
       setDownloadProgress({ downloaded: 0, total: null });
 
       // Download and install the update with progress reporting
-      await currentUpdateInfo.downloadAndInstall((event: DownloadEvent) => {
+      await currentUpdateInfo.downloadAndInstall((event: UpdateEvent) => {
         switch (event.event) {
           case 'Started':
             setDownloadProgress({
@@ -184,8 +199,11 @@ export default function AboutSection(props: AboutSectionProps) {
           </h2>
           <span class="badge badge-outline badge-info">v{pkgJson.version}</span>
         </div>
-        <p class="text-base-content/60 mt-2">
-          A modern, powerful GUI for Scoop on Windows. You are using a fork version by Kwensiu.
+        <p class="text-sm text-base-content/60 mt-2">
+          A modern, powerful GUI for Scoop on Windows.
+        </p>
+        <p class="text-sm text-base-content/60 mt-2">
+        You are using a fork version. To submit an issue, please head to the forked repository.
         </p>
 
         {/* Original Developer Credit */}
@@ -197,7 +215,7 @@ export default function AboutSection(props: AboutSectionProps) {
 
         {/* Fork Developer Credit */}
         <GitHubRepoCard 
-          repoName="Rscoop (Fork Version)"
+          repoName="Rscoop-Fork"
           repoUrl="https://github.com/Kwensiu/Rscoop"
           message="This is a fork version maintained by Kwensiu."
         />

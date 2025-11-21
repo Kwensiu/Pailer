@@ -3,7 +3,7 @@ import {
   Filter, LayoutGrid, List, ArrowUpCircle, Search, X, CheckCircle, AlertCircle, RefreshCw
 } from 'lucide-solid';
 
-interface InstalledPageHeaderProps {
+interface PackagesPageHeaderProps {
   updatableCount: Accessor<number>;
   onUpdateAll: () => void;
   onCheckStatus?: () => void;
@@ -26,7 +26,7 @@ interface InstalledPageHeaderProps {
   onRefresh: () => void;
 }
 
-function InstalledPageHeader(props: InstalledPageHeaderProps) {
+function PackagesPageHeader(props: PackagesPageHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
   let searchContainerRef: HTMLDivElement | undefined;
   let searchInputRef: HTMLInputElement | undefined;
@@ -87,7 +87,7 @@ function InstalledPageHeader(props: InstalledPageHeaderProps) {
           </div>
         }
       >
-        <h2 class="text-3xl font-bold tracking-tight">Installed Packages</h2>
+        <h2 class="text-3xl font-bold tracking-tight">Packages</h2>
         <div class="flex items-center gap-2">
           {/* Refresh Button */}
           <button 
@@ -177,4 +177,4 @@ function InstalledPageHeader(props: InstalledPageHeaderProps) {
   );
 }
 
-export default InstalledPageHeader;
+export default PackagesPageHeader;

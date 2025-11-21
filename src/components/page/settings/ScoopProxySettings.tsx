@@ -60,7 +60,7 @@ function ScoopProxySettings() {
                 </h2>
 
                 <div class="text-sm text-base-content/60">
-                <p>Set the Scoop proxy's address. Not the Rscoop.</p>
+                <p>Set the Scoop proxy's address. Not the Rscoop GUI.</p>
                 </div>
 
                 <label class="label">

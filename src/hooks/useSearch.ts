@@ -48,20 +48,17 @@ let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 
 export function useSearch(): UseSearchReturn {
-    // 使用持久化信号存储搜索词
     const [searchTerm, setSearchTerm] = createStoredSignal<string>(
         "rscoop-search-term",
         ""
     );
     
-    // 结果不持久化存储，但需要在组件重新挂载时恢复搜索
     const [results, setResults] = createSignal<ScoopPackage[]>([]);
     const [loading, setLoading] = createSignal(false);
     const [activeTab, setActiveTab] = createSignal<"packages" | "includes">(
         "packages"
     );
     
-    // 添加一个标志来跟踪是否正在恢复搜索结果
     let isRestoring = false;
 
     // Use shared hooks
@@ -71,7 +68,6 @@ export function useSearch(): UseSearchReturn {
     let debounceTimer: ReturnType<typeof setTimeout>;
     let currentSearchController: AbortController | null = null;
 
-    // 组件挂载时尝试恢复缓存结果
     onMount(() => {
         restoreSearchResults();
     });
@@ -84,12 +80,10 @@ export function useSearch(): UseSearchReturn {
     });
 
     const handleSearch = async () => {
-        // 取消之前的搜索
         if (currentSearchController) {
             currentSearchController.abort();
         }
         
-        // 如果正在恢复搜索结果，则不执行新的搜索
         if (isRestoring) {
             console.log("Skipping search - currently restoring");
             return;
@@ -103,7 +97,6 @@ export function useSearch(): UseSearchReturn {
             return;
         }
 
-        // 创建新的 AbortController
         currentSearchController = new AbortController();
         const { signal } = currentSearchController;
 
@@ -112,16 +105,13 @@ export function useSearch(): UseSearchReturn {
             const response = await invoke<{ packages: ScoopPackage[], is_cold: boolean }>("search_scoop", {
                 term: searchTerm(),
             });
-            // 检查请求是否被取消
             if (!signal.aborted) {
                 setResults(response.packages);
-                // 缓存搜索结果和对应的搜索词
                 searchResultsCache = response.packages;
                 currentSearchTermCache = searchTerm();
                 console.log("Search completed and results cached");
             }
         } catch (error: any) {
-            // 忽略取消的请求错误
             if (error.name !== 'AbortError') {
                 console.error("Search error:", error);
             }
@@ -145,31 +135,26 @@ export function useSearch(): UseSearchReturn {
     const restoreSearchResults = () => {
         isRestoring = true;
         console.log("Attempting to restore search results");
-        // 如果有缓存的结果且搜索词匹配，则恢复结果
         if (searchResultsCache && currentSearchTermCache === searchTerm() && searchTerm().trim() !== "") {
             setResults(searchResultsCache);
             setLoading(false);
             console.log("Restored search results from cache");
         } 
-        // 如果有搜索词但没有缓存结果，则执行搜索
         else if (searchTerm().trim() !== "") {
             console.log("No cache found, initiating search");
             handleSearch();
         }
-        // 使用setTimeout确保在下一个tick重置isRestoring标志
         setTimeout(() => {
             isRestoring = false;
         }, 0);
     };
 
     createEffect(on([searchTerm], () => {
-        // 如果正在恢复搜索结果，则不触发新的搜索
         if (isRestoring) {
             console.log("Skipping search effect during restore process");
             return;
         }
         
-        // 如果搜索词为空，直接清空结果
         if (searchTerm().trim() === "") {
             setResults([]);
             searchResultsCache = null;
@@ -182,7 +167,7 @@ export function useSearch(): UseSearchReturn {
         debounceTimer = setTimeout(() => {
             console.log("Initiating search after debounce, term:", searchTerm());
             handleSearch()
-        }, 600); // 增加到1000ms，给用户更多输入时间
+        }, 600);
     }));
 
     // Cleanup function to cancel ongoing search and clear timer
@@ -202,7 +187,6 @@ export function useSearch(): UseSearchReturn {
         }
     };
 
-    // 计算属性定义
     const packageResults = () => results().filter((p) => p.match_source === "name");
     const binaryResults = () => results().filter((p) => p.match_source === "binary");
     const resultsToShow = () => {

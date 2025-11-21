@@ -4,7 +4,7 @@ import hljs from 'highlight.js/lib/core';
 import 'highlight.js/styles/github-dark.css';
 import bash from 'highlight.js/lib/languages/bash';
 import json from 'highlight.js/lib/languages/json';
-import { Download, MoreHorizontal, FileText, Trash2, ExternalLink, RefreshCw } from "lucide-solid";
+import { Download, MoreHorizontal, FileText, Trash2, ExternalLink, RefreshCw, X } from "lucide-solid";
 import { invoke } from "@tauri-apps/api/core";
 import ManifestModal from "./ManifestModal";
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -46,6 +46,13 @@ function DetailValue(props: { value: string }) {
     if (parsed() && codeRef) {
       hljs.highlightElement(codeRef);
     }
+    
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (codeRef) {
+        codeRef.innerHTML = '';
+      }
+    };
   });
 
   return (
@@ -65,7 +72,7 @@ function IncludesValue(props: { value: string }) {
   return (
     <div class="max-h-60 overflow-y-auto">
       <ul class="list-disc list-inside text-xs space-y-0.5">
-        <For each={items()}>{(item) => <ul class="break-all">{item}</ul>}</For>
+        <For each={items()}>{(item) => <li class="break-all">{item}</li>}</For>
       </ul>
     </div>
   );
@@ -92,16 +99,16 @@ function LicenseValue(props: { value: string }) {
       <Switch>
         <Match when={license()?.url}>
           <a
-            href={license()!.url}
+            href={license()?.url}
             target="_blank"
             rel="noopener noreferrer"
             class="link link-primary"
           >
-            {license()!.identifier}
+            {license()?.identifier}
           </a>
         </Match>
         <Match when={!license()?.url}>
-          <span class="break-words">{license()!.identifier}</span>
+          <span class="break-words">{license()?.identifier}</span>
         </Match>
       </Switch>
     </Show>
@@ -110,6 +117,9 @@ function LicenseValue(props: { value: string }) {
 
 function PackageInfoModal(props: PackageInfoModalProps) {
   let codeRef: HTMLElement | undefined;
+  const [isVisible, setIsVisible] = createSignal(false);
+  const [isClosing, setIsClosing] = createSignal(false);
+  const [rendered, setRendered] = createSignal(false);
 
   const orderedDetails = createMemo(() => {
     if (!props.info?.details) return [];
@@ -153,6 +163,13 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   createEffect(() => {
     if (props.info?.notes && codeRef) {
       hljs.highlightElement(codeRef);
+      
+      // Clean up highlight on effect dispose
+      return () => {
+        if (codeRef) {
+          codeRef.innerHTML = '';
+        }
+      };
     }
   });
 
@@ -258,76 +275,132 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   };
 
+  // Creat animation
+  createEffect(() => {
+    if (props.pkg) {
+      setRendered(true);
+      setTimeout(() => setIsVisible(true), 10);
+    } else {
+      setIsVisible(false);
+    }
+  });
+
+  createEffect(() => {
+    if (isClosing()) {
+      const timer = setTimeout(() => {
+        setRendered(false);
+        setIsClosing(false);
+
+        props.onClose();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  });
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setIsVisible(false);
+  };
+
+  const handleBackdropClick = (e: MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
   return (
-    <Show when={!!props.pkg}>
-      <div class="modal modal-open backdrop-blur-sm" role="dialog" data-no-close-search>
-        <div class="modal-box w-11/12 max-w-5xl bg-base-200 my-8">
-          <div class="flex justify-between items-start">
+    <Show when={rendered()}>
+      <div class="fixed inset-0 flex items-center justify-center z-50 p-20">
+        <div 
+          class="absolute inset-0 transition-all duration-300 ease-in-out"
+          classList={{
+            "opacity-0": !isVisible(),
+            "opacity-100": isVisible() && !isClosing(),
+          }}
+          style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
+          onClick={handleBackdropClick}
+        ></div>
+        <div 
+          class="relative bg-base-200 rounded-lg shadow-xl border border-base-300 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-in-out"
+          classList={{
+            "scale-95 opacity-0": !isVisible() || isClosing(),
+            "scale-100 opacity-100": isVisible() && !isClosing(),
+          }}
+        >
+          <div class="flex justify-between items-start p-4 border-b border-base-300">
             <h3 class="font-bold text-lg">Information for {props.pkg?.name}</h3>
-            <div class="dropdown dropdown-end">
+            <div class="flex gap-2">
+              <div class="dropdown dropdown-end">
                 <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-                    <MoreHorizontal class="w-5 h-5" />
+                  <MoreHorizontal class="w-5 h-5" />
                 </label>
                 <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-400 rounded-box w-52 z-[100]">
+                  <li>
+                    <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
+                      <FileText class="w-4 h-4 mr-2" />
+                      View Manifest
+                    </a>
+                  </li>
+                  <Show when={props.pkg?.is_installed}>
                     <li>
-                        <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
-                            <FileText class="w-4 h-4 mr-2" />
-                            View Manifest
-                        </a>
+                      <button type="button" onClick={async () => {
+                        if (props.pkg) {
+                          try {
+                            const packagePath = await invoke<string>("get_package_path", {
+                              packageName: props.pkg.name
+                            });
+                            await openPath(packagePath);
+                          } catch (error) {
+                            console.error('Failed to open package path:', error);
+                          }
+                        }
+                      }}>
+                        <ExternalLink class="w-4 h-4 mr-2" />
+                        Open in Explorer
+                      </button>
                     </li>
-                    <Show when={props.pkg?.is_installed}>
-                        <li>
-                            <button type="button" onClick={async () => {
-                                if (props.pkg) {
-                                    try {
-                                        const packagePath = await invoke<string>("get_package_path", {
-                                            packageName: props.pkg.name
-                                        });
-                                        await openPath(packagePath);
-                                    } catch (error) {
-                                        console.error('Failed to open package path:', error);
-                                    }
-                                }
-                            }}>
-                                <ExternalLink class="w-4 h-4 mr-2" />
-                                Open in Explorer
-                            </button>
-                        </li>
-                    </Show>
-                    <Show when={props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)}>
-                        <li>
-                            <a onClick={() => props.pkg && fetchVersionInfo(props.pkg)}>
-                                <RefreshCw class="w-4 h-4 mr-2" />
-                                Switch Version
-                            </a>
-                        </li>
-                    </Show>
-                    <Show when={props.pkg?.is_installed}>
-                        <li>
-                            <a onClick={async () => {
-                                if (props.pkg) {
-                                    try {
-                                        const debug = await invoke<string>("debug_package_structure", {
-                                            packageName: props.pkg.name,
-                                            global: false,
-                                        });
-                                        console.log("Package structure debug:", debug);
-                                        alert(debug);
-                                    } catch (error) {
-                                        console.error('Debug failed:', error);
-                                    }
-                                }
-                            }}>
-                                <FileText class="w-4 h-4 mr-2" />
-                                Debug Structure
-                            </a>
-                        </li>
-                    </Show>
+                  </Show>
+                  <Show when={props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)}>
+                    <li>
+                      <a onClick={() => props.pkg && fetchVersionInfo(props.pkg)}>
+                        <RefreshCw class="w-4 h-4 mr-2" />
+                        Switch Version
+                      </a>
+                    </li>
+                  </Show>
+                  <Show when={props.pkg?.is_installed}>
+                    <li>
+                      <a onClick={async () => {
+                        if (props.pkg) {
+                          try {
+                            const debug = await invoke<string>("debug_package_structure", {
+                              packageName: props.pkg.name,
+                              global: false,
+                            });
+                            console.log("Package structure debug:", debug);
+                            alert(debug);
+                          } catch (error) {
+                            console.error('Debug failed:', error);
+                          }
+                        }
+                      }}>
+                        <FileText class="w-4 h-4 mr-2" />
+                        Debug Structure
+                      </a>
+                    </li>
+                  </Show>
                 </ul>
               </div>
+              <button 
+                class="btn btn-sm btn-circle btn-ghost"
+                onClick={handleClose}
+              >
+                <X class="w-4 h-4" />
+              </button>
+            </div>
           </div>
           
-          <div class="py-4">
+          <div class="overflow-y-auto flex-grow p-4">
             <Show when={props.loading}>
               <div class="flex justify-center items-center h-40">
                 <span class="loading loading-spinner loading-lg"></span>
@@ -369,7 +442,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 <Show when={props.info?.notes}>
                   <div class="flex-1">
                     <h4 class="text-lg font-medium mb-3 border-b pb-2">Notes</h4>
-                    <pre class="text-sm p-3 rounded-xl whitespace-pre-wrap font-sans">
+                    <pre class="text-sm rounded-xl whitespace-pre-wrap font-sans">
                       <code ref={codeRef} class="language-bash">{props.info?.notes}</code>
                     </pre>
                   </div>
@@ -378,62 +451,61 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             </Show>
 
             {/* Version Switcher Section */}
-            <Show when={versionInfo()}>
+            <Show when={versionInfo() || versionLoading()}>
               <div class="divider">Version Manager</div>
-              <div class="bg-base-300 rounded-lg p-4">
-                <h4 class="text-lg font-medium mb-3">Available Versions</h4>
-                <Show when={versionError()}>
-                  <div role="alert" class="alert alert-error mb-3">
-                    <span>{versionError()}</span>
-                  </div>
-                </Show>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                  <For each={versionInfo()?.available_versions || []}>
-                    {(version) => (
-                      <div 
-                        class="card bg-base-100 shadow-sm p-3 transition-all hover:shadow-md"
-                        classList={{
-                          "ring-2 ring-primary": version.is_current,
-                        }}
-                      >
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <div class="font-semibold text-sm">{version.version}</div>
-                            <Show when={version.is_current}>
-                              <div class="text-xs text-primary font-medium">Current</div>
+              <Show when={versionLoading()} fallback={
+                <div class="bg-base-300 rounded-lg p-4">
+                  <h4 class="text-lg font-medium mb-3">Available Versions</h4>
+                  <Show when={versionError()}>
+                    <div role="alert" class="alert alert-error mb-3">
+                      <span>{versionError()}</span>
+                    </div>
+                  </Show>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    <For each={versionInfo()?.available_versions || []}>
+                      {(version) => (
+                        <div 
+                          class="card bg-base-100 shadow-sm p-3 transition-all hover:shadow-md"
+                          classList={{
+                            "ring-2 ring-primary": version.is_current,
+                          }}
+                        >
+                          <div class="flex items-center justify-between">
+                            <div>
+                              <div class="font-semibold text-sm">{version.version}</div>
+                              <Show when={version.is_current}>
+                                <div class="text-xs text-primary font-medium">Current</div>
+                              </Show>
+                            </div>
+                            <Show when={!version.is_current}>
+                              <button
+                                class="btn btn-xs btn-primary"
+                                disabled={switchingVersion() === version.version}
+                                onClick={() => props.pkg && switchVersion(props.pkg, version.version)}
+                              >
+                                <Show when={switchingVersion() === version.version}
+                                  fallback="Switch"
+                                >
+                                  <span class="loading loading-spinner loading-xs"></span>
+                                </Show>
+                              </button>
                             </Show>
                           </div>
-                          <Show when={!version.is_current}>
-                            <button
-                              class="btn btn-xs btn-primary"
-                              disabled={switchingVersion() === version.version}
-                              onClick={() => props.pkg && switchVersion(props.pkg, version.version)}
-                            >
-                              <Show when={switchingVersion() === version.version}
-                                fallback="Switch"
-                              >
-                                <span class="loading loading-spinner loading-xs"></span>
-                              </Show>
-                            </button>
-                          </Show>
                         </div>
-                      </div>
-                    )}
-                  </For>
+                      )}
+                    </For>
+                  </div>
                 </div>
-              </div>
-            </Show>
-
-            <Show when={versionLoading()}>
-              <div class="divider">Version Manager</div>
-              <div class="bg-base-300 rounded-lg p-4">
-                <div class="flex justify-center items-center h-20">
-                  <span class="loading loading-spinner loading-lg"></span>
+              }>
+                <div class="bg-base-300 rounded-lg p-4">
+                  <div class="flex justify-center items-center h-20">
+                    <span class="loading loading-spinner loading-lg"></span>
+                  </div>
                 </div>
-              </div>
+              </Show>
             </Show>
           </div>
-          <div class="modal-action">
+          <div class="modal-action p-4 border-t border-base-300">
             <form method="dialog">
               <Show when={!props.pkg?.is_installed && props.onInstall}>
                 <button 
@@ -467,23 +539,25 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                   Uninstall
                 </button>
               </Show>
-              <button class="btn" onClick={props.onClose}>
+              <button class="btn" onClick={(e) => {
+                e.preventDefault();
+                handleClose();
+              }}>
                 {props.showBackButton ? "Back to Bucket" : "Close"}
               </button>
             </form>
           </div>
         </div>
-        <div class="modal-backdrop" onClick={props.onClose}></div>
+        <ManifestModal
+          packageName={props.pkg?.name ?? ""}
+          manifestContent={manifestContent()}
+          loading={manifestLoading()}
+          error={manifestError()}
+          onClose={closeManifestModal}
+        />
       </div>
-      <ManifestModal
-        packageName={props.pkg?.name ?? ""}
-        manifestContent={manifestContent()}
-        loading={manifestLoading()}
-        error={manifestError()}
-        onClose={closeManifestModal}
-      />
     </Show>
   );
 }
 
-export default PackageInfoModal; 
+export default PackageInfoModal;

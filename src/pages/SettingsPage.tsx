@@ -2,7 +2,6 @@ import { createSignal, onMount } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import OperationModal from "../components/OperationModal";
 import ScoopConfiguration from "../components/page/settings/ScoopConfiguration";
-import ScoopProxySettings from "../components/page/settings/ScoopProxySettings";
 import StartupSettings from "../components/page/settings/StartupSettings";
 import VirusTotalSettings from "../components/page/settings/VirusTotalSettings";
 import HeldPackagesManagement from "../components/page/settings/HeldPackagesManagement";
@@ -12,16 +11,20 @@ import WindowBehaviorSettings from "../components/page/settings/WindowBehaviorSe
 import heldStore from "../stores/held";
 
 interface SettingsPageProps {
+    activeSection: string;
+    onSectionChange: (section: string) => void;
     isScoopInstalled?: boolean;
 }
 
-function SettingsPage(props: SettingsPageProps) {
+function SettingsPage(_props: SettingsPageProps) {
     const { refetch: refetchHeldPackages } = heldStore;
     const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
     let aboutSectionRef: AboutSectionRef | undefined;
 
     onMount(() => {
-        aboutSectionRef?.checkForUpdates(false);
+        if (aboutSectionRef) {
+            aboutSectionRef.checkForUpdates(false);
+        }
     });
 
     const handleUnhold = (packageName: string) => {
@@ -35,6 +38,10 @@ function SettingsPage(props: SettingsPageProps) {
         setOperationTitle(null);
     };
 
+    const setAboutSectionRef = (ref: AboutSectionRef) => {
+        aboutSectionRef = ref;
+    };
+
     return (
         <>
             <div class="p-4 sm:p-6 md:p-8">
@@ -43,7 +50,6 @@ function SettingsPage(props: SettingsPageProps) {
                 <div class="space-y-8">
                     <div class="space-y-8" classList={{ 'pb-8': true }}>
                         <ScoopConfiguration />
-                        <ScoopProxySettings />
                         <StartupSettings />
                     </div>
                     
@@ -71,10 +77,9 @@ function SettingsPage(props: SettingsPageProps) {
                     
                     <div class="divider">About</div>
                     
-                    <AboutSection
-                        ref={(r) => (aboutSectionRef = r)}
-                        isScoopInstalled={props.isScoopInstalled}
-                    />
+                    <div class="pb-8">
+                        <AboutSection ref={setAboutSectionRef} />
+                    </div>
                 </div>
             </div>
             <OperationModal

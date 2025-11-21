@@ -100,33 +100,37 @@ export default function VirusTotalSettings() {
                     You can get a free API key from the <a href="https://www.virustotal.com/gui/my-apikey" target="_blank" class="link link-primary">VirusTotal website</a>.
                 </p>
 
-                <div class="form-control w-full max-w-lg">
-                    <div class="join">
-                        <input 
-                            type="password"
-                            placeholder={isLoading() ? "Loading..." : "Enter your API key"}
-                            class={`input input-bordered join-item w-full bg-base-100 ${!isValidFormat() && apiKey() ? 'input-error' : ''}`} 
-                            value={apiKey()}
-                            onInput={(e) => setApiKey(e.currentTarget.value)}
-                            disabled={isLoading()}
-                        />
-                        <button class="btn btn-primary join-item" onClick={handleSave} disabled={isLoading() || !isValidFormat()}>
-                            <Save class="w-4 h-4 mr-1" />
-                            Save
-                        </button>
-                    </div>
-                    {!isValidFormat() && apiKey() && (
-                        <div class="text-sm text-error flex items-center mt-2">
-                            <AlertCircle class="w-4 h-4 mr-1" />
-                            Invalid format: API key must be 64 lowercase hexadecimal characters
-                        </div>
-                    )}
-                    {isValidFormat() && apiKey() && (
-                        <div class="text-sm text-success mt-2">
-                            API key format is valid
-                        </div>
-                    )}
+                <label class="label">
+                    <span class="label-text font-semibold flex items-center">
+                        VirusTotal API Key
+                    </span>
+                </label>
+                
+                <div class="join">
+                    <input 
+                        type="password"
+                        placeholder={isLoading() ? "Loading..." : "Enter your API key"}
+                        class={`input input-bordered join-item max-w-62 bg-base-100 ${!isValidFormat() && apiKey() ? 'input-error' : ''}`} 
+                        value={apiKey()}
+                        onInput={(e) => setApiKey(e.currentTarget.value)}
+                        disabled={isLoading()}
+                    />
+                    <button class="btn btn-primary join-item" onClick={handleSave} disabled={isLoading() || !isValidFormat()}>
+                        <Save class="w-4 h-4 mr-1" />
+                        Save
+                    </button>
                 </div>
+                {!isValidFormat() && apiKey() && (
+                    <div class="text-sm text-error flex items-center mt-2">
+                        <AlertCircle class="w-4 h-4 mr-1" />
+                        Invalid format: API key must be 64 lowercase hexadecimal characters
+                    </div>
+                )}
+                {isValidFormat() && apiKey() && (
+                    <div class="text-sm text-success mt-2">
+                        API key format is valid
+                    </div>
+                )}
 
                 <Show when={settings.virustotal.enabled}>
                     <div class="divider"></div>

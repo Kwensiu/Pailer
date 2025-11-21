@@ -3,7 +3,7 @@ use serde_json::{Map, Value};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, Manager};
 use tauri_plugin_store::{Store, StoreExt};
 
 const STORE_PATH: &str = "store.json";
@@ -90,9 +90,19 @@ pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
 /// Sets the Scoop path in the store.
 #[tauri::command]
 pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
-    with_store_mut(app, move |store| {
-        store.set("scoop_path", serde_json::json!(path))
-    })
+    let path_clone = path.clone();
+    with_store_mut(app.clone(), move |store| {
+        store.set("scoop_path", serde_json::json!(path_clone))
+    })?;
+    
+    // Also update the in-memory app state if it exists
+    // We're only setting the scoop path synchronously and not clearing the cache
+    // to avoid needing async context or blocking operations
+    if let Some(state) = app.try_state::<crate::state::AppState>() {
+        state.set_scoop_path(std::path::PathBuf::from(path));
+    }
+    
+    Ok(())
 }
 
 /// Detects the Scoop path by checking environment variables and Scoop's own configuration
@@ -163,6 +173,20 @@ pub fn set_config_value<R: Runtime>(
     with_store_mut(app, move |store| store.set(key, value))
 }
 
+/// Gets the Scoop configuration as a JSON object
+#[tauri::command]
+pub fn get_scoop_config() -> Result<Option<serde_json::Value>, String> {
+    let path = get_scoop_config_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read Scoop config at {:?}: {}", path, e))?;
+    let config: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse Scoop config at {:?}: {}", path, e))?;
+    Ok(Some(config))
+}
+
 /// Gets the VirusTotal API key from Scoop's `config.json`.
 #[tauri::command]
 pub fn get_virustotal_api_key() -> Result<Option<String>, String> {
@@ -209,6 +233,34 @@ pub fn set_scoop_proxy(proxy: String) -> Result<(), String> {
     write_scoop_config(&config)
 }
 
+/// Executes an arbitrary Scoop command
+#[tauri::command]
+pub async fn run_scoop_command(window: tauri::Window, command: String) -> Result<(), String> {
+    let full_command = format!("scoop {}", command);
+    crate::commands::powershell::run_and_stream_command(
+        window,
+        full_command,
+        command.clone(),
+        crate::commands::powershell::EVENT_OUTPUT,
+        crate::commands::powershell::EVENT_FINISHED,
+        crate::commands::powershell::EVENT_CANCEL,
+    )
+    .await
+}
+
+/// Executes an arbitrary PowerShell command directly without adding any prefix
+#[tauri::command]
+pub async fn run_powershell_command(window: tauri::Window, command: String) -> Result<(), String> {
+    crate::commands::powershell::run_and_stream_command(
+        window,
+        command.clone(),
+        command.clone(),
+        crate::commands::powershell::EVENT_OUTPUT,
+        crate::commands::powershell::EVENT_FINISHED,
+        crate::commands::powershell::EVENT_CANCEL,
+    )
+    .await
+}
 
 #[cfg(test)]
 mod tests {

@@ -140,6 +140,7 @@ function OperationModal(props: OperationModalProps) {
 
   // Effect to auto-scroll the output view
   createEffect(() => {
+    const outputLength = output().length;
     if (scrollRef) {
       // Only scroll if we're near the bottom
       const isNearBottom = scrollRef.scrollHeight - scrollRef.scrollTop <= scrollRef.clientHeight + 100;
@@ -176,9 +177,9 @@ function OperationModal(props: OperationModalProps) {
   };
 
   // Determine if the operation is still running
-  // const isOperationRunning = () => {
-  //   return !result() && !scanWarning() && props.title;
-  // };
+  const isOperationRunning = () => {
+    return !result() && !scanWarning() && props.title;
+  };
 
   return (
     <Show when={!!props.title}>

@@ -3,18 +3,19 @@ import PackageInfoModal from "../components/PackageInfoModal";
 import OperationModal from "../components/OperationModal";
 import ScoopStatusModal from "../components/ScoopStatusModal";
 import { useInstalledPackages } from "../hooks/useInstalledPackages";
-import InstalledPageHeader from "../components/page/installed/InstalledPageHeader";
-import PackageListView from "../components/page/installed/PackageListView";
-import PackageGridView from "../components/page/installed/PackageGridView";
+import PackagesPageHeader from "../components/page/packages/PackagesPageHeader";
+import PackageListView from "../components/page/packages/PackageListView";
+import PackageGridView from "../components/page/packages/PackageGridView";
 import { View } from "../types/scoop";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { createStoredSignal } from "../hooks/createStoredSignal";
+import FloatingOperationPanel from "../components/FloatingOperationPanel";
 
-interface InstalledPageProps {
+interface PackagesPageProps {
   onNavigate?: (view: View) => void;
 }
 
-function InstalledPage(props: InstalledPageProps) {
+function PackagesPage(props: PackagesPageProps) {
   const {
     loading,
     error,
@@ -77,7 +78,7 @@ function InstalledPage(props: InstalledPageProps) {
 
   return (
     <div class="p-4 sm:p-6 md:p-8">
-      <InstalledPageHeader 
+      <PackagesPageHeader 
         updatableCount={updatableCount}
         onUpdateAll={handleUpdateAll}
         onCheckStatus={handleCheckStatus}
@@ -183,35 +184,70 @@ function InstalledPage(props: InstalledPageProps) {
       </Show>
 
       <Show when={changeBucketModalOpen()}>
-        <ConfirmationModal
-          isOpen={changeBucketModalOpen()}
-          title={`Select new bucket for ${currentPackageForBucketChange()?.name}:`}
-          onConfirm={handleChangeBucketConfirm}
-          onCancel={handleChangeBucketCancel}
-          confirmText="Confirm"
-          cancelText="Cancel"
-        >
-          <select
-            value={newBucketName()}
-            onInput={(e) => setNewBucketName(e.currentTarget.value)}
-            class="select select-bordered w-full max-w-xs"
+        <div class="fixed inset-0 flex items-center justify-center z-50 p-2">
+          <div 
+            class="absolute inset-0 transition-all duration-300 ease-out"
+            classList={{
+              "opacity-0": !changeBucketModalOpen(),
+              "opacity-100": changeBucketModalOpen(),
+            }}
+            style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
+            onClick={handleChangeBucketCancel}
+          ></div>
+          <div 
+            class="relative bg-base-200 rounded-xl shadow-2xl border border-base-300 w-full max-w-lg sm:max-w-lg md:max-w-md overflow-hidden transition-all duration-300 ease-out"
+            classList={{
+              "scale-90 opacity-0 translate-y-4": !changeBucketModalOpen(),
+              "scale-100 opacity-100 translate-y-0": changeBucketModalOpen(),
+            }}
           >
-            <option value="" disabled>Select a bucket</option>
-            <For each={buckets()}>
-              {(bucket) => (
-                <option value={bucket.name}>{bucket.name}</option>
-              )}
-            </For>
-          </select>
-          <div class="text-sm text-base-content/70 mt-2">
-            Current bucket: {currentPackageForBucketChange()?.source}
+            <div class="flex justify-between items-center p-4 border-b border-base-300">
+              <h3 class="font-bold text-lg">Select new bucket for {currentPackageForBucketChange()?.name}:</h3>
+              <button 
+                class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
+                onClick={handleChangeBucketCancel}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div class="p-4">
+              <select
+                value={newBucketName()}
+                onInput={(e) => setNewBucketName(e.currentTarget.value)}
+                class="select select-bordered w-full max-w-xs"
+              >
+                <option value="" disabled>Select a bucket</option>
+                <For each={buckets()}>
+                  {(bucket) => (
+                    <option value={bucket.name}>{bucket.name}</option>
+                  )}
+                </For>
+              </select>
+              <div class="text-sm text-base-content/70 mt-2">
+                Current bucket: {currentPackageForBucketChange()?.source}
+              </div>
+              <div class="mt-4 p-3 bg-info/10 rounded-lg border border-info/20">
+                <p class="text-xs text-info-content/85">
+                  <strong class="text-yellow-800 dark:text-yellow-200">Warning:</strong> Ensure the software package is present in the target repository.
+                </p>
+              </div>
+              <div class="flex justify-end gap-2 mt-4">
+                <button class="btn btn-ghost" onClick={handleChangeBucketCancel}>
+                  Cancel
+                </button>
+                <button 
+                  class="btn btn-primary" 
+                  onClick={async () => {
+                    await handleChangeBucketConfirm();
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="mt-4 p-3 bg-info/10 rounded-lg border border-info/20">
-            <p class="text-xs text-info-content/85">
-              <strong class="text-yellow-800 dark:text-yellow-200">Warning:</strong> Ensure the software package is present in the target repository.
-            </p>
-          </div>
-        </ConfirmationModal>
+        </div>
       </Show>
 
       <PackageInfoModal 
@@ -246,4 +282,4 @@ function InstalledPage(props: InstalledPageProps) {
   );
 }
 
-export default InstalledPage;
+export default PackagesPage;

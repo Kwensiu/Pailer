@@ -1,6 +1,6 @@
-import { For, Show, Accessor, } from "solid-js";
+import { For, Show, Accessor } from "solid-js";
 import { 
-  MoreHorizontal, ArrowUpCircle, Trash2, ArrowUp, ArrowDown, Lock, Unlock, RefreshCw
+  MoreHorizontal, ArrowUpCircle, Trash2, ArrowUp, ArrowDown, Lock, Unlock, RefreshCw, ArrowLeftRight
 } from 'lucide-solid';
 import type { DisplayPackage } from "../../../stores/installedPackagesStore";
 import type { ScoopPackage } from "../../../types/scoop";
@@ -110,28 +110,30 @@ const SwitchVersionButton = (props: {
 function PackageListView(props: PackageListViewProps) {
   return (
     <div class="overflow-x-auto bg-base-200 rounded-xl shadow-xl">
-      <table class="table">
+      <table class="table z-[10]">
         <thead>
           <tr>
             <SortableHeader key="name" title="Name" onSort={props.onSort} sortKey={props.sortKey} sortDirection={props.sortDirection} />
             <SortableHeader key="version" title="Version" onSort={props.onSort} sortKey={props.sortKey} sortDirection={props.sortDirection} />
             <SortableHeader key="source" title="Bucket" onSort={props.onSort} sortKey={props.sortKey} sortDirection={props.sortDirection} />
             <SortableHeader key="updated" title="Updated" onSort={props.onSort} sortKey={props.sortKey} sortDirection={props.sortDirection} />
-            <th class="text-center">Actions</th>
+
           </tr>
         </thead>
         <tbody>
           <For each={props.packages()}>
-            {(pkg, index) => (
+            {(pkg) => (
               <tr data-no-close-search>
-                <td>
+                <td class="max-w-xs">
                   <div class="flex items-center gap-2">
-                    <button class="btn btn-ghost btn-sm" onClick={() => props.onViewInfo(pkg)}>
-                      {pkg.name}
+                    <button class="btn btn-soft bg-base-300 sm:btn-sm overflow-hidden hover:shadow-md transition-all duration-300" onClick={() => props.onViewInfo(pkg)}>
+                      <div class="truncate font-medium">
+                        {pkg.name}
+                      </div>
                     </button>
                     <Show when={pkg.available_version && !heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
                       <div class="tooltip" data-tip={`Update available: ${pkg.available_version}`}>
-                        <ArrowUpCircle class="w-4 h-4 text-primary cursor-pointer transition-transform hover:scale-125" onClick={() => props.onUpdate(pkg)} />
+                        <ArrowUpCircle class="w-4 h-4 text-primary cursor-pointer transition-transform hover:scale-125 mr-1" onClick={() => props.onUpdate(pkg)} />
                       </div>
                     </Show>
                     <Show when={pkg.is_versioned_install}>
@@ -140,34 +142,29 @@ function PackageListView(props: PackageListViewProps) {
                       </div>
                     </Show>
                     <Show when={heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
-                       <div class="tooltip" data-tip="This package is on hold.">
-                         <Lock class="w-4 h-4 text-warning" />
-                       </div>
+                      <div class="tooltip" data-tip="This package is on hold">
+                        <Lock class="w-4 h-4 text-warning" />
+                      </div>
                     </Show>
                   </div>
                 </td>
-                <td>{pkg.version}</td>
-                <td>{pkg.source}</td>
-                <td title={pkg.updated}>{formatIsoDate(pkg.updated)}</td>
-                <td class="text-center">
-                  <div
-                    class="dropdown dropdown-end"
-                    classList={{
-                      'dropdown-top': index() * 2 >= props.packages().length - 1,
-                    }}
-                  >
-                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
+                <td class="align-middle">
+                  <span class="text-sm">{pkg.version}</span>
+                </td>
+                <td class="align-middle">
+                  <span class="text-sm">{pkg.source}</span>
+                </td>
+                <td class="align-middle">
+                  <span class="text-xs text-base-content/50" title={pkg.updated}>
+                    {formatIsoDate(pkg.updated)}
+                  </span>
+                </td>
+                <td class="align-middle">
+                  <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-400">
                       <MoreHorizontal class="w-4 h-4" />
                     </label>
-                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-300 rounded-box w-52 z-[1]">
-                      <Show when={pkg.available_version && !heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
-                        <li>
-                          <a onClick={() => props.onUpdate(pkg)}>
-                            <ArrowUpCircle class="w-4 h-4 mr-2" />
-                            Update to {pkg.available_version}
-                          </a>
-                        </li>
-                      </Show>
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-400 rounded-box w-52 z-[1]">
                       <li>
                         <HoldToggleButton 
                           pkgName={pkg.name}
@@ -185,8 +182,19 @@ function PackageListView(props: PackageListViewProps) {
                         pkg={pkg}
                       />
                       <li>
-                        <a onClick={() => props.onChangeBucket(pkg)}>
-                          <RefreshCw class="w-4 h-4 mr-2" />
+                        <a onClick={() => {
+                          // When dropdown is in a modal, we need to close it manually
+                          // Create and dispatch an escape event to close the dropdown
+                          const escEvent = new KeyboardEvent('keydown', {
+                            key: 'Escape',
+                            bubbles: true,
+                            cancelable: true
+                          });
+                          document.dispatchEvent(escEvent);
+                          
+                          props.onChangeBucket(pkg);
+                        }}>
+                          <ArrowLeftRight class="w-4 h-4 mr-2" />
                           Change Bucket
                         </a>
                       </li>

@@ -16,6 +16,8 @@ type CacheIdentifier = string;
 
 export interface CacheManagerProps {
     onOpenDirectory?: () => void;
+    onCleanupApps?: () => void;
+    onCleanupCache?: () => void;
 }
 
 function getCacheIdentifier(entry: CacheEntry): CacheIdentifier {
@@ -173,15 +175,15 @@ function CacheManager(props: CacheManagerProps) {
                                     onClick={handleClearSelected}
                                     disabled={selectedItems().size === 0 || isLoading()}
                                 >
-                                    <Trash2 class="w-4 h-4 mr-2" />
-                                    Remove Selected ({selectedItems().size})
+                                    <Trash2 class="w-4 h-4" />
+                                    Selected ({selectedItems().size})
                                 </button>
                                 <button 
                                     class="btn btn-error btn-sm"
                                     onClick={handleClearAll}
                                     disabled={isLoading()}
                                 >
-                                    <Archive class="w-4 h-4 mr-2" />
+                                    <Archive class="w-4 h-4" />
                                     Remove All
                                 </button>
                                 <div class="divider divider-horizontal m-1" />
@@ -280,6 +282,22 @@ function CacheManager(props: CacheManagerProps) {
                                     </For>
                                 </tbody>
                             </table>
+                            <Show when={props.onCleanupApps && props.onCleanupCache}>                            
+                                <button 
+                                    class="btn btn-primary btn-sm"
+                                    onClick={props.onCleanupApps}
+                                >
+                                    <Trash2 class="w-4 h-4" />
+                                    Old Versions
+                                </button>
+                                <button 
+                                    class="btn btn-secondary btn-sm"
+                                    onClick={props.onCleanupCache}
+                                >
+                                    <Archive class="w-4 h-4" />
+                                    Outdated Cache
+                                </button>
+                            </Show>
                         </div>
                     </Show>
                     </div>

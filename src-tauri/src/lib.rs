@@ -1,10 +1,37 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod cold_start;
-mod commands;
+
 mod models;
 mod state;
 mod tray;
 pub mod utils;
+
+// 确保 powershell 命令模块已在此处声明
+mod commands {
+    pub mod app_info;
+    pub mod bucket;
+    pub mod bucket_install;
+    pub mod bucket_parser;
+    pub mod bucket_search;
+    pub mod debug;
+    pub mod doctor;
+    pub mod hold;
+    pub mod info;
+    pub mod install;
+    pub mod installed;
+    pub mod linker;
+    pub mod manifest;
+    pub mod powershell;
+    pub mod scoop;
+    pub mod search;
+    pub mod settings;
+    pub mod startup;
+    pub mod status;
+    pub mod uninstall;
+    pub mod update;
+    pub mod updates;
+    pub mod virustotal;
+}
 
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
@@ -169,6 +196,9 @@ pub fn run() {
             commands::settings::get_scoop_proxy,
             commands::settings::set_scoop_proxy,
             commands::settings::detect_scoop_path,
+            commands::settings::run_scoop_command,
+            commands::settings::run_powershell_command,
+            commands::settings::get_scoop_config,
             commands::virustotal::scan_package,
             commands::doctor::checkup::run_scoop_checkup,
             commands::doctor::cleanup::cleanup_all_apps,

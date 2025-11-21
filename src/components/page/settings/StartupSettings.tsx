@@ -97,7 +97,7 @@ export default function StartupSettings() {
                     />
                 </div>
                 <p class="text-base-content/80 mt-2 mb-3">
-                    Startup Rscoop when Windows boots up.
+                    Auotostart Rscoop when Windows boots up via system registry.
                 </p>
                 {error() && (
                     <div class="alert alert-error">

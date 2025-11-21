@@ -169,9 +169,13 @@ export function useInstalledPackages() {
   };
 
   const handleOpenChangeBucket = (pkg: ScoopPackage) => {
-    setCurrentPackageForBucketChange(pkg);
-    setNewBucketName(pkg.source);
-    setChangeBucketModalOpen(true);
+    setOperatingOn(pkg.name);
+    setTimeout(() => {
+      setCurrentPackageForBucketChange(pkg);
+      setNewBucketName(pkg.source);
+      setChangeBucketModalOpen(true);
+      setOperatingOn(null);
+    }, 0);
   };
 
   const handleChangeBucketConfirm = async () => {

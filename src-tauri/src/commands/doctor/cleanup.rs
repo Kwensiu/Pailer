@@ -3,7 +3,6 @@ use crate::commands::installed::get_installed_packages_full;
 use crate::commands::powershell;
 use crate::state::AppState;
 use tauri::{AppHandle, Runtime, State, Window};
-use tauri::Emitter;
 
 /// Runs a specific Scoop cleanup command and streams its output.
 ///

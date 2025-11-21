@@ -28,9 +28,15 @@ function ConfirmationModal(props: ConfirmationModalProps) {
     return (
         <Show when={props.isOpen}>
             <div class="modal modal-open" role="dialog">
-                <div class="modal-box bg-base-200">
+                <div 
+                    class="modal-box bg-base-200 transition-all duration-300 ease-out"
+                    classList={{
+                        "scale-90 opacity-0 translate-y-4": !props.isOpen,
+                        "scale-100 opacity-100 translate-y-0": props.isOpen,
+                    }}
+                >
                     <button 
-                        class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+                        class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 hover:bg-base-300 transition-colors duration-200"
                         onClick={props.onCancel}
                     >
                         ✕
@@ -43,15 +49,23 @@ function ConfirmationModal(props: ConfirmationModalProps) {
                         <button class="btn" onClick={props.onCancel}>
                             {props.cancelText || "Cancel"}
                         </button>
-                        <button class="btn btn-error" onClick={props.onConfirm}>
+                        <button class="btn btn-primary" onClick={props.onConfirm}>
                             {props.confirmText || "Confirm"}
                         </button>
                     </div>
                 </div>
-                 <div class="modal-backdrop" onClick={props.onCancel}></div>
+                <div 
+                    class="modal-backdrop transition-all duration-300 ease-out"
+                    classList={{
+                        "opacity-0": !props.isOpen,
+                        "opacity-100": props.isOpen,
+                    }}
+                    style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
+                    onClick={props.onCancel}
+                ></div>
             </div>
         </Show>
     );
 }
 
-export default ConfirmationModal; 
+export default ConfirmationModal;

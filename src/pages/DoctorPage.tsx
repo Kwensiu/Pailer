@@ -5,6 +5,8 @@ import Checkup, { CheckupItem } from "../components/page/doctor/Checkup";
 import Cleanup from "../components/page/doctor/Cleanup";
 import CacheManager from "../components/page/doctor/CacheManager";
 import ShimManager from "../components/page/doctor/ShimManager";
+import ScoopInfo from "../components/page/doctor/ScoopInfo";
+import ScoopProxySettings from "../components/page/settings/ScoopProxySettings";
 import FloatingOperationPanel from "../components/FloatingOperationPanel";
 import installedPackagesStore from "../stores/installedPackagesStore";
 
@@ -190,9 +192,12 @@ function DoctorPage() {
   return (
     <>
       <div class="p-4 sm:p-6 md:p-8">
-        <h1 class="text-3xl font-bold mb-6">System Doctor</h1>
+        <h1 class="text-3xl font-bold mb-6">Scoop Doctor</h1>
         
         <div class="space-y-8">
+          <ScoopInfo />
+          <ScoopProxySettings />
+          
           <Show when={needsAttention()}>
             {checkupComponent}
           </Show>
@@ -201,7 +206,11 @@ function DoctorPage() {
             onCleanupApps={handleCleanupApps}
             onCleanupCache={handleCleanupCache}
           />
-          <CacheManager onOpenDirectory={handleOpenCacheDirectory} />
+          <CacheManager 
+            onOpenDirectory={handleOpenCacheDirectory}
+            onCleanupApps={handleCleanupApps}
+            onCleanupCache={handleCleanupCache}
+          />
           <ShimManager onOpenDirectory={handleOpenShimDirectory} />
 
           <Show when={!needsAttention() && (isCheckupLoading() || checkupResult().length > 0 || checkupError())}>

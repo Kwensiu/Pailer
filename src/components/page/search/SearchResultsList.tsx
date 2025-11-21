@@ -41,7 +41,7 @@ function SearchResultsList(props: SearchResultsListProps) {
                 </div>
             </Show>
 
-            <div class="space-y-4 min-h-96">
+            <div class="space-y-4 min-h-0">
                 <For each={paginatedResults()}>
                     {(pkg) => (
                         <div

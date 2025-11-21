@@ -93,6 +93,9 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
   const [result, setResult] = createSignal<OperationResult | null>(null);
   const [showNextStep, setShowNextStep] = createSignal(false);
   const [scanWarning, setScanWarning] = createSignal<VirustotalResult | null>(null);
+  const [isVisible, setIsVisible] = createSignal(false);
+  const [isClosing, setIsClosing] = createSignal(false);
+  const [rendered, setRendered] = createSignal(false);
   let scrollRef: HTMLDivElement | undefined;
   
   // This effect now correctly manages the lifecycle of the listeners
@@ -135,6 +138,8 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
       setResult(null);
       setShowNextStep(false);
       setScanWarning(null);
+      setRendered(true);
+      setTimeout(() => setIsVisible(true), 10);
       setupListeners();
     }
 
@@ -146,16 +151,27 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
     });
   });
 
+  createEffect(() => {
+    if (isClosing()) {
+      const timer = setTimeout(() => {
+        setRendered(false);
+        setIsClosing(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  });
 
   const handleCloseOrCancel = () => {
     // If we are in the warning phase, this is a explicit cancel
     if (scanWarning()) {
-      props.onClose(false);
+      setIsClosing(true);
+      setTimeout(() => props.onClose(false), 300);
       return;
     }
     
     if (result()) {
-      props.onClose(result()?.success ?? false);
+      setIsClosing(true);
+      setTimeout(() => props.onClose(result()?.success ?? false), 300);
     } else {
       // If the operation is ongoing, emit an event to cancel it
       emit('cancel-operation');
@@ -173,28 +189,48 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
     }
   };
 
+  // Scroll to bottom when new output is added
+  createEffect(() => {
+    if (scrollRef && output().length > 0) {
+      // Use requestAnimationFrame to ensure DOM is updated before scrolling
+      requestAnimationFrame(() => {
+        scrollRef!.scrollTop = scrollRef!.scrollHeight;
+      });
+    }
+  });
+
   return (
-    <Show when={!!props.title}>
+    <Show when={rendered()}>
       <div class="fixed inset-0 flex items-center justify-center z-50 p-2">
         <div 
-          class="absolute inset-0 transition-all duration-300 ease-in-out"
-          style="background-color: rgba(0, 0, 0, 0.3);"
+          class="absolute inset-0 transition-all duration-300 ease-out"
+          classList={{
+            "opacity-0": !isVisible(),
+            "opacity-100": isVisible() && !isClosing(),
+          }}
+          style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
           onClick={handleCloseOrCancel}
         ></div>
-        <div class="relative bg-base-200 rounded-lg shadow-xl border border-base-300 w-full max-w-lg sm:max-w-lg md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-          <div class="flex justify-between items-center p-3 border-b border-base-300">
+        <div 
+          class="relative bg-base-200 rounded-xl shadow-2xl border border-base-300 w-full max-w-lg sm:max-w-lg md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-out"
+          classList={{
+            "scale-90 opacity-0 translate-y-4": !isVisible() || isClosing(),
+            "scale-100 opacity-100 translate-y-0": isVisible() && !isClosing(),
+          }}
+        >
+          <div class="flex justify-between items-center p-4 border-b border-base-300">
             <h3 class="font-bold text-lg truncate">{props.title}</h3>
             <button 
-              class="btn btn-sm btn-circle btn-ghost"
+              class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
               onClick={handleCloseOrCancel}
             >
-              <X class="w-4 h-4" />
+              <X class="w-5 h-5" />
             </button>
           </div>
           
           <div 
             ref={scrollRef}
-            class="bg-black text-white font-mono text-xs p-3 rounded-lg m-3 overflow-y-auto flex-grow"
+            class="bg-black text-white font-mono text-xs p-4 rounded-lg mx-4 my-3 overflow-y-auto flex-grow"
             style="white-space: pre-wrap; word-break: break-word;"
           >
             <For each={output()}>
@@ -216,19 +252,22 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
           </div>
           
           <Show when={scanWarning()}>
-              <div class="alert alert-warning mx-3">
+              <div class="alert alert-warning mx-4 my-2 rounded-lg">
                   <ShieldAlert class="w-6 h-6" />
-                  <span>{scanWarning()!.message}</span>
+                  <div>
+                    <div class="font-bold">VirusTotal Scan Warning</div>
+                    <div>{scanWarning()!.message}</div>
+                  </div>
               </div>
           </Show>
 
           <Show when={result()}>
-              <div class="alert mx-3" classList={{ 'alert-success': result()?.success, 'alert-error': !result()?.success }}>
+              <div class="alert mx-4 my-2 rounded-lg" classList={{ 'alert-success': result()?.success, 'alert-error': !result()?.success }}>
                   <span>{result()!.message}</span>
               </div>
           </Show>
 
-          <div class="flex justify-end p-3 gap-2">
+          <div class="flex justify-end p-4 gap-2 border-t border-base-300">
               <Show when={scanWarning()}>
                   <button class="btn btn-warning btn-sm" onClick={handleInstallAnyway}>
                       <AlertTriangle class="w-4 h-4 mr-2" />
@@ -236,7 +275,7 @@ function FloatingOperationPanel(props: FloatingOperationPanelProps) {
                   </button>
               </Show>
               <Show when={showNextStep()}>
-                  <button class="btn btn-info btn-sm" onClick={handleNextStepClick}>
+                  <button class="btn btn-primary btn-sm" onClick={handleNextStepClick}>
                       {props.nextStep?.buttonLabel}
                   </button>
               </Show>
