@@ -3,7 +3,7 @@ import "./App.css";
 import Header from "./components/Header.tsx";
 import SearchPage from "./pages/SearchPage.tsx";
 import BucketPage from "./pages/BucketPage.tsx";
-import PackagesPage from "./pages/PackagesPage.tsx";
+import PackagesPage from "./pages/InstalledPage.tsx";
 import { View } from "./types/scoop.ts";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import DoctorPage from "./pages/DoctorPage.tsx";
