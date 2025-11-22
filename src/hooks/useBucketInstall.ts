@@ -131,6 +131,44 @@ export function useBucketInstall() {
     }
   };
 
+  const updateBucket = async (bucketName: string): Promise<BucketInstallResult> => {
+    updateBucketState(bucketName, 'install', true);
+    setState(prev => ({ ...prev, error: null }));
+    
+    try {
+      console.log(`Starting update of bucket: ${bucketName}`);
+      const result = await invoke<BucketInstallResult>("update_bucket", {
+        bucketName,
+      });
+      
+      console.log(`Update result for ${bucketName}:`, result);
+      
+      setState(prev => ({
+        ...prev,
+        lastResult: result,
+        error: result.success ? null : result.message,
+      }));
+      
+      updateBucketState(bucketName, 'install', false);
+      
+      if (result.success) {
+        console.log(`✅ Successfully updated bucket: ${bucketName}`);
+      }
+      
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Update failed";
+      console.error(`❌ Update failed for ${bucketName}:`, errorMsg);
+      setState(prev => ({
+        ...prev,
+        error: errorMsg,
+        lastResult: null,
+      }));
+      updateBucketState(bucketName, 'install', false);
+      throw error;
+    }
+  };
+
   const removeBucket = async (bucketName: string): Promise<BucketInstallResult> => {
     updateBucketState(bucketName, 'remove', true);
     setState(prev => ({ ...prev, error: null }));
@@ -216,6 +254,7 @@ export function useBucketInstall() {
     state,
     validateBucketInstall,
     installBucket,
+    updateBucket,
     removeBucket,
     isBucketInstalling,
     isBucketRemoving,

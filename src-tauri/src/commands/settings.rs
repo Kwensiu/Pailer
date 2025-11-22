@@ -105,6 +105,40 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
     Ok(())
 }
 
+/// Validates if a path is a valid Scoop installation directory
+/// by checking for required subdirectories
+/// Fix: Ensure this command is registered in lib.rs
+#[tauri::command]
+pub fn validate_scoop_directory(path: String) -> Result<bool, String> {
+    use std::path::Path;
+    
+    let path = Path::new(&path);
+    
+    // Check if path exists and is a directory
+    if !path.exists() {
+        return Ok(false);
+    }
+    
+    if !path.is_dir() {
+        return Ok(false);
+    }
+    
+    // Check for required Scoop directories
+    let apps_dir = path.join("apps");
+    let buckets_dir = path.join("buckets");
+    let cache_dir = path.join("cache");
+    
+    if !apps_dir.exists() || !buckets_dir.exists() || !cache_dir.exists() {
+        return Ok(false);
+    }
+    
+    if !apps_dir.is_dir() || !buckets_dir.is_dir() || !cache_dir.is_dir() {
+        return Ok(false);
+    }
+    
+    Ok(true)
+}
+
 /// Detects the Scoop path by checking environment variables and Scoop's own configuration
 #[tauri::command]
 pub fn detect_scoop_path() -> Result<String, String> {

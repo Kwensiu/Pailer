@@ -5,9 +5,17 @@ mod models;
 mod state;
 mod tray;
 pub mod utils;
-
+use std::path::PathBuf;
+use crate::commands::settings::detect_scoop_path;
 use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
+
+// Constants for configuration keys
+const BUCKET_AUTO_UPDATE_INTERVAL: &str = "buckets.autoUpdateInterval";
+const BUCKET_LAST_AUTO_UPDATE_TS: &str = "buckets.lastAutoUpdateTs";
+const BUCKET_AUTO_UPDATE_PACKAGES_ENABLED: &str = "buckets.autoUpdatePackagesEnabled";
+const WINDOW_CLOSE_TO_TRAY: &str = "window.closeToTray";
+const WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN: &str = "window.firstTrayNotificationShown";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,15 +42,28 @@ pub fn run() {
         std::path::PathBuf::from("./logs")
     };
 
-    // Clear existing log files on launch
+    // Clear existing log files on launch (only old ones)
     if log_dir.exists() {
-        if let Err(e) = std::fs::remove_dir_all(&log_dir) {
-            eprintln!("Failed to clear old logs: {}", e);
+        if let Ok(entries) = std::fs::read_dir(&log_dir) {
+            for entry in entries.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        // Try to remove file, but don't panic if it fails
+                        if let Err(e) = std::fs::remove_file(entry.path()) {
+                            eprintln!("Failed to clear log file {:?}: {}", entry.path(), e);
+                        }
+                    }
+                }
+            }
+        } else {
+            eprintln!("Failed to read log directory: {:?}", log_dir);
         }
     }
 
     // Create log directory
-    let _ = std::fs::create_dir_all(&log_dir);
+    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+        eprintln!("Failed to create log directory {:?}: {}", log_dir, e);
+    }
 
     let log_plugin = tauri_plugin_log::Builder::new()
         .targets([
@@ -82,8 +103,20 @@ pub fn run() {
                 Ok(path) => path,
                 Err(e) => {
                     log::warn!("Could not resolve scoop root path: {}", e);
-                    // Use a default path or allow user to configure later
-                    std::path::PathBuf::from("C:\\scoop")
+                    // Try to detect scoop path or use default
+                    match detect_scoop_path() {
+                        Ok(path) => PathBuf::from(path),
+                        Err(_) => {
+                            #[cfg(windows)]
+                            {
+                                std::path::PathBuf::from("C:\\scoop")
+                            }
+                            #[cfg(not(windows))]
+                            {
+                                std::path::PathBuf::from("/usr/local/scoop")
+                            }
+                        }
+                    }
                 }
             };
 
@@ -91,17 +124,24 @@ pub fn run() {
             
             // Ensure main window is shown
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
+                if let Err(e) = window.show() {
+                    log::warn!("Failed to show main window: {}", e);
+                }
+                if let Err(e) = window.set_focus() {
+                    log::warn!("Failed to focus main window: {}", e);
+                }
             }
 
             // Set up system tray
-            let _ = tray::setup_system_tray(&app.handle());
+            if let Err(e) = tray::setup_system_tray(&app.handle()) {
+                log::error!("Failed to setup system tray: {}", e);
+            }
 
             // Spawn background task for auto bucket updates with wall-clock persistence
-            let auto_update_handle = app.handle().clone();
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
                 // Helper to parse interval string into seconds
                 let parse_interval = |val: &str| -> Option<u64> {
                     match val {
@@ -118,8 +158,8 @@ pub fn run() {
                 loop {
                     // Read interval each loop so changes apply promptly
                     let interval_raw = commands::settings::get_config_value(
-                        auto_update_handle.clone(),
-                        "buckets.autoUpdateInterval".to_string(),
+                        app_handle.clone(),
+                        BUCKET_AUTO_UPDATE_INTERVAL.to_string(),
                     )
                     .ok()
                     .flatten()
@@ -137,8 +177,8 @@ pub fn run() {
 
                     // Load last run timestamp
                     let last_ts_val = commands::settings::get_config_value(
-                        auto_update_handle.clone(),
-                        "buckets.lastAutoUpdateTs".to_string(),
+                        app_handle.clone(),
+                        BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
                     )
                     .ok()
                     .flatten();
@@ -158,121 +198,159 @@ pub fn run() {
                         let run_started_at = now;
                         
                         // Emit start event to show modal
-                        if let Some(window) = auto_update_handle.get_webview_window("main") {
-                            let _ = window.emit("auto-operation-start", "Updating buckets...");
-                            let _ = window.emit("operation-output", serde_json::json!({
+                        if let Some(window) = app_handle.get_webview_window("main") {
+                            if let Err(e) = window.emit("auto-operation-start", "Updating buckets...") {
+                                log::warn!("Failed to emit auto-operation-start event: {}", e);
+                            }
+                            
+                            if let Err(e) = window.emit("operation-output", serde_json::json!({
                                 "line": "Starting automatic bucket update...",
                                 "source": "stdout"
-                            }));
+                            })) {
+                                log::warn!("Failed to emit operation-output event: {}", e);
+                            }
                         }
                         
-                        match commands::bucket_install::update_all_buckets().await {
-                            Ok(results) => {
-                                let successes = results.iter().filter(|r| r.success).count();
-                                log::info!(
-                                    "Auto bucket update completed: {} successes / {} total",
-                                    successes,
-                                    results.len()
-                                );
-                                
-                                // Stream results to modal
-                                if let Some(window) = auto_update_handle.get_webview_window("main") {
-                                    for result in &results {
-                                        let line = if result.success {
-                                            format!("✓ Updated bucket: {}", result.bucket_name)
-                                        } else {
-                                            format!("✗ Failed to update {}: {}", result.bucket_name, result.message)
-                                        };
-                                        let _ = window.emit("operation-output", serde_json::json!({
-                                            "line": line,
-                                            "source": if result.success { "stdout" } else { "stderr" }
-                                        }));
-                                    }
-                                    let _ = window.emit("operation-finished", serde_json::json!({
-                                        "success": successes == results.len(),
-                                        "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len())
-                                    }));
-                                }
-                                
-                                // Persist last run timestamp (record even if partial successes to avoid hammering)
-                                let _ = commands::settings::set_config_value(
-                                    auto_update_handle.clone(),
-                                    "buckets.lastAutoUpdateTs".to_string(),
-                                    serde_json::json!(run_started_at),
-                                );
-
-                                // After buckets update, optionally run package updates
-                                let auto_update_packages = commands::settings::get_config_value(
-                                    auto_update_handle.clone(),
-                                    "buckets.autoUpdatePackagesEnabled".to_string(),
-                                )
-                                .ok()
-                                .flatten()
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false);
-
-                                if auto_update_packages {
-                                    log::info!("Auto package update task running after bucket refresh (headless with events)");
-                                    let state = auto_update_handle.state::<state::AppState>();
-                                    if let Some(window) = auto_update_handle.get_webview_window("main") {
-                                        let _ = window.emit("auto-operation-start", "Updating packages...");
-                                        let _ = window.emit("operation-output", serde_json::json!({
-                                            "line": "Starting automatic package update...",
-                                            "source": "stdout"
-                                        }));
-                                    }
-                                    match commands::update::update_all_packages_headless(auto_update_handle.clone(), state).await {
-                                        Ok(_) => {
-                                            if let Some(window) = auto_update_handle.get_webview_window("main") {
-                                                let _ = window.emit("operation-output", serde_json::json!({
-                                                    "line": "Package update completed successfully.",
-                                                    "source": "stdout"
-                                                }));
-                                                let _ = window.emit("operation-finished", serde_json::json!({
-                                                    "success": true,
-                                                    "message": "Automatic package update completed successfully"
-                                                }));
+                        // Clone app_handle for use in the spawned task
+                        let inner_app_handle = app_handle.clone();
+                        // Spawn async task for bucket updates
+                        tauri::async_runtime::spawn(async move {
+                            // Get app state inside the async task where it's needed
+                            let app_state = inner_app_handle.state::<state::AppState>().clone();
+                            match commands::bucket_install::update_all_buckets(app_state).await {
+                                Ok(results) => {
+                                    let successes = results.iter().filter(|r| r.success).count();
+                                    log::info!(
+                                        "Auto bucket update completed: {} successes / {} total",
+                                        successes,
+                                        results.len()
+                                    );
+                                    
+                                    // Stream results to modal
+                                    if let Some(window) = inner_app_handle.get_webview_window("main") {
+                                        for result in &results {
+                                            let line = if result.success {
+                                                format!("✓ Updated bucket: {}", result.bucket_name)
+                                            } else {
+                                                format!("✗ Failed to update {}: {}", result.bucket_name, result.message)
+                                            };
+                                            
+                                            if let Err(e) = window.emit("operation-output", serde_json::json!({
+                                                "line": line,
+                                                "source": if result.success { "stdout" } else { "stderr" }
+                                            })) {
+                                                log::warn!("Failed to emit operation-output event: {}", e);
                                             }
                                         }
-                                        Err(e) => {
-                                            log::warn!("Auto package headless update failed: {}", e);
-                                            if let Some(window) = auto_update_handle.get_webview_window("main") {
-                                                let _ = window.emit("operation-output", serde_json::json!({
-                                                    "line": format!("Error: {}", e),
-                                                    "source": "stderr"
-                                                }));
-                                                let _ = window.emit("operation-finished", serde_json::json!({
-                                                    "success": false,
-                                                    "message": format!("Automatic package update failed: {}", e)
-                                                }));
+                                        
+                                        if let Err(e) = window.emit("operation-finished", serde_json::json!({
+                                            "success": successes == results.len(),
+                                            "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len())
+                                        })) {
+                                            log::warn!("Failed to emit operation-finished event: {}", e);
+                                        }
+                                    }
+                                    
+                                    // Persist last run timestamp (record even if partial successes to avoid hammering)
+                                    let _ = commands::settings::set_config_value(
+                                        inner_app_handle.clone(),
+                                        BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
+                                        serde_json::json!(run_started_at),
+                                    );
+
+                                    // After buckets update, optionally run package updates
+                                    let auto_update_packages = commands::settings::get_config_value(
+                                        inner_app_handle.clone(),
+                                        BUCKET_AUTO_UPDATE_PACKAGES_ENABLED.to_string(),
+                                    )
+                                    .ok()
+                                    .flatten()
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
+
+                                    if auto_update_packages {
+                                        log::info!("Auto package update task running after bucket refresh (headless with events)");
+                                        let state = inner_app_handle.state::<state::AppState>();
+                                        if let Some(window) = inner_app_handle.get_webview_window("main") {
+                                            if let Err(e) = window.emit("auto-operation-start", "Updating packages...") {
+                                                log::warn!("Failed to emit auto-operation-start event: {}", e);
+                                            }
+                                            
+                                            if let Err(e) = window.emit("operation-output", serde_json::json!({
+                                                "line": "Starting automatic package update...",
+                                                "source": "stdout"
+                                            })) {
+                                                log::warn!("Failed to emit operation-output event: {}", e);
+                                            }
+                                        }
+                                        match commands::update::update_all_packages_headless(inner_app_handle.clone(), state).await {
+                                            Ok(_) => {
+                                                if let Some(window) = inner_app_handle.get_webview_window("main") {
+                                                    if let Err(e) = window.emit("operation-output", serde_json::json!({
+                                                        "line": "Package update completed successfully.",
+                                                        "source": "stdout"
+                                                    })) {
+                                                        log::warn!("Failed to emit operation-output event: {}", e);
+                                                    }
+                                                    
+                                                    if let Err(e) = window.emit("operation-finished", serde_json::json!({
+                                                        "success": true,
+                                                        "message": "Automatic package update completed successfully"
+                                                    })) {
+                                                        log::warn!("Failed to emit operation-finished event: {}", e);
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                log::warn!("Auto package headless update failed: {}", e);
+                                                if let Some(window) = inner_app_handle.get_webview_window("main") {
+                                                    if let Err(e) = window.emit("operation-output", serde_json::json!({
+                                                        "line": format!("Error: {}", e),
+                                                        "source": "stderr"
+                                                    })) {
+                                                        log::warn!("Failed to emit operation-output event: {}", e);
+                                                    }
+                                                    
+                                                    if let Err(e) = window.emit("operation-finished", serde_json::json!({
+                                                        "success": false,
+                                                        "message": format!("Automatic package update failed: {}", e)
+                                                    })) {
+                                                        log::warn!("Failed to emit operation-finished event: {}", e);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            Err(e) => {
-                                log::warn!("Auto bucket update failed: {}", e);
-                                
-                                // Emit failure to modal
-                                if let Some(window) = auto_update_handle.get_webview_window("main") {
-                                    let _ = window.emit("operation-output", serde_json::json!({
-                                        "line": format!("Error: {}", e),
-                                        "source": "stderr"
-                                    }));
-                                    let _ = window.emit("operation-finished", serde_json::json!({
-                                        "success": false,
-                                        "message": format!("Bucket update failed: {}", e)
-                                    }));
+                                Err(e) => {
+                                    log::warn!("Auto bucket update failed: {}", e);
+                                    
+                                    // Emit failure to modal
+                                    if let Some(window) = inner_app_handle.get_webview_window("main") {
+                                        if let Err(e) = window.emit("operation-output", serde_json::json!({
+                                            "line": format!("Error: {}", e),
+                                            "source": "stderr"
+                                        })) {
+                                            log::warn!("Failed to emit operation-output event: {}", e);
+                                        }
+                                        
+                                        if let Err(e) = window.emit("operation-finished", serde_json::json!({
+                                            "success": false,
+                                            "message": format!("Bucket update failed: {}", e)
+                                        })) {
+                                            log::warn!("Failed to emit operation-finished event: {}", e);
+                                        }
+                                    }
+                                    
+                                    // Even on failure, set timestamp to avoid rapid retry storms
+                                    let _ = commands::settings::set_config_value(
+                                        inner_app_handle.clone(),
+                                        BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
+                                        serde_json::json!(run_started_at),
+                                    );
                                 }
-                                
-                                // Even on failure, set timestamp to avoid rapid retry storms
-                                let _ = commands::settings::set_config_value(
-                                    auto_update_handle.clone(),
-                                    "buckets.lastAutoUpdateTs".to_string(),
-                                    serde_json::json!(run_started_at),
-                                );
                             }
-                        }
+                        });
                         // Loop again immediately to compute next run
                         continue;
                     }
@@ -282,11 +360,11 @@ pub fn run() {
                     let chunk = if remaining <= 60 { remaining } else { 60 }; // Max 60s granularity
                     let next_run_at = now + remaining;
                     log::trace!(
-                        "[scheduler] next run due in {}s (at {}), interval='{}', remaining chunk={}s",
-                        remaining, next_run_at, interval_raw, chunk
+                        "[scheduler] next run in {}s (at ts={})",
+                        remaining,
+                        next_run_at
                     );
                     tokio::time::sleep(Duration::from_secs(chunk)).await;
-                    // After sleep, loop re-evaluates (interval or last_ts may have changed)
                 }
             });
 
@@ -299,7 +377,7 @@ pub fn run() {
                 // Check if close to tray is enabled in settings
                 let close_to_tray = match commands::settings::get_config_value(
                     app_handle.clone(),
-                    "window.closeToTray".to_string(),
+                    WINDOW_CLOSE_TO_TRAY.to_string(),
                 ) {
                     Ok(Some(value)) => value.as_bool().unwrap_or(true), // Default to true
                     _ => true, // Default to true if setting doesn't exist
@@ -309,14 +387,16 @@ pub fn run() {
                     // Check if first notification has been shown
                     let first_notification_shown = match commands::settings::get_config_value(
                         app_handle.clone(),
-                        "window.firstTrayNotificationShown".to_string(),
+                        WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN.to_string(),
                     ) {
                         Ok(Some(value)) => value.as_bool().unwrap_or(false),
                         _ => false,
                     };
 
                     // Hide the window instead of closing the app
-                    let _ = window.hide();
+                    if let Err(e) = window.hide() {
+                        log::warn!("Failed to hide window: {}", e);
+                    }
                     api.prevent_close();
 
                     // Show notification if it's the first time
@@ -324,7 +404,7 @@ pub fn run() {
                         // Mark that we've shown the first notification
                         let _ = commands::settings::set_config_value(
                             app_handle.clone(),
-                            "window.firstTrayNotificationShown".to_string(),
+                            WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN.to_string(),
                             serde_json::json!(true),
                         );
 
@@ -368,6 +448,7 @@ pub fn run() {
             commands::settings::get_scoop_proxy,
             commands::settings::set_scoop_proxy,
             commands::settings::detect_scoop_path,
+            commands::settings::validate_scoop_directory,
             commands::settings::run_scoop_command,
             commands::settings::run_powershell_command,
             commands::settings::get_scoop_config,
