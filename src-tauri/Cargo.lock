@@ -3861,8 +3861,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "rscoop"
-version = "1.4.4"
+name = "rscoop-fork"
+version = "1.4.62"
 dependencies = [
  "chrono",
  "csv",
