@@ -147,51 +147,28 @@ export default function ScoopConfiguration() {
                         class="btn btn-primary join-item" 
                         onClick={handleSavePath} 
                         disabled={pathIsLoading() || isDetecting() || isSaving() || !isValidPath() || isValidating()}
-                    >
-                        {isSaving() ? (
-                            <>
-                                <span class="loading loading-spinner loading-xs"></span>
-                                Saving...
-                            </>
-                        ) : (
-                            <>
-                                <Save class="w-4 h-4 mr-1" />
-                                Save
-                            </>
-                        )}
+                        >
+                        <Save class="w-4 h-4 mr-1" />
+                        Save
                     </button>
                     <button 
                         class={`btn join-item ${isDetecting() ? 'btn-info' : 'btn-info'}`} 
                         onClick={detectScoopPath} 
                         disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating()}
-                    >
-                        {isDetecting() ? (
-                            <>
-                                <span class="loading loading-spinner loading-xs"></span>
-                                Detecting...
-                            </>
-                        ) : (
-                            "Auto"
-                        )}
+                        >
+                        Auto
                     </button>
                     <button 
-                        class={`btn join-item ${validationResult()?.isValid ? 'btn-success' : 'btn-outline'}`} 
+                        class={`btn join-item ${validationResult()?.isValid ? 'btn-soft' : 'btn-soft btn-primary'}`} 
                         onClick={validateScoopDirectory} 
                         disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating() || !scoopPath()}
                     >
-                        {isValidating() ? (
-                            <>
-                                <span class="loading loading-spinner loading-xs"></span>
-                                Testing...
-                            </>
-                        ) : (
-                            "Test"
-                        )}
+                    Test
                     </button>
                 </div>
                 
                 <div class="text-sm text-base-content/70 mt-2">
-                    Automatically detects Scoop installation directory from the SCOOP environment variable.
+                    Automatically detects Scoop installation using multiple methods: environment variables, scoop config command, and common installation paths.
                 </div>
 
                 {validationResult() && (

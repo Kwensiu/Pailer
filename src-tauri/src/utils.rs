@@ -54,6 +54,7 @@ fn push_candidate(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>, pat
 fn collect_common_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>) {
     log::info!("Collecting common Scoop path candidates");
     
+    // Priority 1: Environment variables
     if let Ok(scoop_path) = env::var("SCOOP") {
         log::info!("Found SCOOP environment variable: {}", scoop_path);
         push_candidate(seen, candidates, PathBuf::from(scoop_path));
@@ -64,75 +65,39 @@ fn collect_common_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<Pa
         push_candidate(seen, candidates, PathBuf::from(global_path));
     }
 
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        log::info!("Found USERPROFILE environment variable: {}", user_profile);
-        push_candidate(seen, candidates, PathBuf::from(user_profile).join("scoop"));
-    }
-
-    if let (Ok(home_drive), Ok(home_path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
-        let combined = format!("{}{}", home_drive.trim_end_matches('\\'), home_path);
-        log::info!("Found HOMEDRIVE and HOMEPATH environment variables: {}", combined);
-        push_candidate(seen, candidates, PathBuf::from(combined).join("scoop"));
-    }
-
-    if let Ok(program_data) = env::var("PROGRAMDATA") {
-        log::info!("Found PROGRAMDATA environment variable: {}", program_data);
-        push_candidate(seen, candidates, PathBuf::from(program_data).join("scoop"));
-    }
-
-    if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
-        log::info!("Found LOCALAPPDATA environment variable: {}", local_app_data);
-        push_candidate(
-            seen,
-            candidates,
-            PathBuf::from(local_app_data).join("scoop"),
-        );
-    }
-
-    log::info!("Adding common hardcoded paths");
-    push_candidate(seen, candidates, PathBuf::from(r"C:\scoop"));
-    push_candidate(seen, candidates, PathBuf::from(r"C:\ProgramData\scoop"));
-}
-
-fn collect_user_profile_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>) {
-    log::info!("Collecting user profile candidates");
-    let mut roots = Vec::new();
-
-    if let Ok(system_drive) = env::var("SystemDrive") {
-        let mut drive_root = PathBuf::from(system_drive.trim_end_matches('\\'));
-        drive_root.push("Users");
-        roots.push(drive_root);
-    }
-
-    roots.push(PathBuf::from(r"C:\Users"));
-
-    for root in roots {
-        log::info!("Checking user root directory: {}", root.display());
-        if !root.is_dir() {
-            log::info!("User root directory does not exist: {}", root.display());
-            continue;
+    // Priority 2: Try to get scoop root from scoop command itself (most reliable)
+    if let Ok(scoop_root) = get_scoop_root_from_command() {
+        log::info!("Found scoop root from command: {}", scoop_root.display());
+        push_candidate(seen, candidates, scoop_root);
+    } else {
+        // Priority 3: Common fallback paths
+        log::info!("Using fallback detection");
+        
+        // User profile scoop installation
+        if let Ok(user_profile) = env::var("USERPROFILE") {
+            push_candidate(seen, candidates, PathBuf::from(user_profile).join("scoop"));
         }
-
-        if let Ok(entries) = fs::read_dir(&root) {
-            for entry in entries.filter_map(Result::ok) {
-                let user_dir = entry.path();
-                let scoop_dir = user_dir.join("scoop");
-                if scoop_dir.is_dir() {
-                    log::info!("Found Scoop directory in user profile: {}", scoop_dir.display());
-                    push_candidate(seen, candidates, scoop_dir);
-                }
-
-                let local_scoop_dir = user_dir.join("AppData").join("Local").join("scoop");
-                if local_scoop_dir.is_dir() {
-                    log::info!("Found local Scoop directory in user profile: {}", local_scoop_dir.display());
-                    push_candidate(seen, candidates, local_scoop_dir);
-                }
-            }
+        
+        // System-wide installation
+        if let Ok(program_data) = env::var("PROGRAMDATA") {
+            push_candidate(seen, candidates, PathBuf::from(program_data).join("scoop"));
         }
+        
+        // System drive dynamic detection
+        if let Ok(system_drive) = env::var("SystemDrive") {
+            let drive_root = system_drive.trim_end_matches('\\');
+            push_candidate(seen, candidates, PathBuf::from(format!("{}\\scoop", drive_root)));
+        }
+        
+        // Common hardcoded paths
+        push_candidate(seen, candidates, PathBuf::from(r"C:\scoop"));
+        push_candidate(seen, candidates, PathBuf::from(r"D:\scoop"));
     }
 }
 
-fn build_candidate_list<I>(extras: I) -> Vec<PathBuf>
+
+
+pub fn build_candidate_list<I>(extras: I) -> Vec<PathBuf>
 where
     I: IntoIterator<Item = PathBuf>,
 {
@@ -146,7 +111,6 @@ where
     }
 
     collect_common_candidates(&mut seen, &mut candidates);
-    collect_user_profile_candidates(&mut seen, &mut candidates);
 
     log::info!("Built candidate list with {} paths", candidates.len());
     for (i, candidate) in candidates.iter().enumerate() {
@@ -230,51 +194,43 @@ fn select_best_scoop_root(
 
     for candidate in candidates {
         let candidate_display = candidate.display().to_string();
-        match evaluate_scoop_candidate(candidate) {
-            Some(mut info) => {
-                if preferred
-                    .map(|preferred_path| preferred_path.eq(&info.path))
-                    .unwrap_or(false)
-                {
-                    info.score += 5;
-                    log::info!("+5 points for being the preferred path");
-                }
-
-                log::debug!(
-                    "Scored potential Scoop root {} => score {} (apps_dir={}, buckets_dir={}, installed={})",
-                    info.path.display(),
-                    info.score,
-                    info.has_apps_dir,
-                    info.has_buckets_dir,
-                    info.installed_count
-                );
-
-                let replace = match &best {
-                    Some(current) => {
-                        let should_replace = info.score > current.score
-                            || (info.score == current.score
-                                && info.installed_count > current.installed_count);
-                        log::debug!("Comparing with current best - current score: {}, candidate score: {}, replace: {}", 
-                                   current.score, info.score, should_replace);
-                        should_replace
-                    }
-                    None => {
-                        log::debug!("First candidate, setting as best");
-                        true
-                    }
-                };
-
-                if replace {
-                    log::info!("Setting new best candidate: {} with score {}", info.path.display(), info.score);
-                    best = Some(info);
-                }
+        let evaluated_candidate = evaluate_scoop_candidate(candidate);
+        
+        if evaluated_candidate.is_some() {
+            let mut info = evaluated_candidate.unwrap();
+            
+            if preferred.is_some() && preferred.unwrap().eq(&info.path) {
+                info.score += 5;
+                log::info!("+5 points for being the preferred path");
             }
-            None => {
-                log::debug!(
-                    "Rejected Scoop root candidate {} (missing expected structure)",
-                    candidate_display
-                );
+
+            log::debug!(
+                "Scored potential Scoop root {} => score {} (apps_dir={}, buckets_dir={}, installed={})",
+                info.path.display(),
+                info.score,
+                info.has_apps_dir,
+                info.has_buckets_dir,
+                info.installed_count
+            );
+
+            let replace = if best.is_some() {
+                let current = best.as_ref().unwrap();
+                let should_replace = info.score > current.score
+                    || (info.score == current.score
+                        && info.installed_count > current.installed_count);
+                log::debug!("Comparing with current best - current score: {}, candidate score: {}, replace: {}", 
+                           current.score, info.score, should_replace);
+                should_replace
+            } else { 
+                true // No current best, always replace
+            };
+
+            if replace {
+                log::info!("Setting new best candidate: {} with score {}", info.path.display(), info.score);
+                best = Some(info);
             }
+        } else {
+            log::debug!("Skipping invalid candidate: {}", candidate_display);
         }
     }
 
@@ -533,11 +489,60 @@ pub fn get_scoop_app_shortcuts_with_path(
     Ok(shortcuts)
 }
 
+/// Try to get scoop root by running scoop config command
+fn get_scoop_root_from_command() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    use std::process::Command;
+    
+    log::info!("Attempting to get scoop root from command");
+    
+    let output = Command::new("scoop")
+        .args(&["config", "root_path"])
+        .output();
+    
+    match output {
+        Ok(result) => {
+            if result.status.success() {
+                let scoop_path = String::from_utf8(result.stdout)?;
+                let trimmed_path = scoop_path.trim();
+                
+                if !trimmed_path.is_empty() && PathBuf::from(trimmed_path).exists() {
+                    log::info!("Found scoop root from command: {}", trimmed_path);
+                    return Ok(PathBuf::from(trimmed_path));
+                }
+            } else {
+                let stderr = String::from_utf8_lossy(&result.stderr);
+                log::debug!("scoop config root_path failed: {}", stderr);
+            }
+        }
+        Err(e) => {
+            log::debug!("Failed to execute scoop command: {}", e);
+        }
+    }
+    
+    Err("Failed to get scoop root from command".into())
+}
+
 /// Legacy wrapper for backwards compatibility - tries to find Scoop root automatically
 pub fn get_scoop_app_shortcuts() -> Result<Vec<ScoopAppShortcut>, String> {
     // Try to find Scoop root automatically for backwards compatibility
     let scoop_root = get_scoop_root_fallback();
     get_scoop_app_shortcuts_with_path(&scoop_root)
+}
+
+/// Check if a path is a valid Scoop candidate (has apps or buckets directory)
+pub fn is_valid_scoop_candidate(path: &PathBuf) -> bool {
+    if !path.exists() || !path.is_dir() {
+        return false;
+    }
+    
+    let apps_dir = path.join("apps");
+    let buckets_dir = path.join("buckets");
+    
+    let has_apps = apps_dir.exists() && apps_dir.is_dir();
+    let has_buckets = buckets_dir.exists() && buckets_dir.is_dir();
+    
+    // A valid scoop installation should have at least one of these directories
+    has_apps || has_buckets
 }
 
 /// Get Scoop root directory as fallback when AppState is not available

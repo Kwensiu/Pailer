@@ -142,51 +142,21 @@ pub fn validate_scoop_directory(path: String) -> Result<bool, String> {
 /// Detects the Scoop path by checking environment variables and Scoop's own configuration
 #[tauri::command]
 pub fn detect_scoop_path() -> Result<String, String> {
-    // Check environment variables first
-    if let Ok(scoop_path) = env::var("SCOOP") {
-        let mut path = PathBuf::from(scoop_path);
-        
-        // Handle case where SCOOP points to shims directory
-        if path.file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| name.eq_ignore_ascii_case("shims"))
-            .unwrap_or(false) 
-        {
-            path.pop(); // Remove "shims" from path to get root
-        }
-        
-        if path.exists() && is_valid_scoop_installation(&path) {
-            return Ok(path.to_string_lossy().to_string());
+    // Use the comprehensive detection logic from utils.rs
+    let candidates = crate::utils::build_candidate_list(Vec::<PathBuf>::new());
+    
+    // Find the first valid candidate
+    for candidate in candidates {
+        if crate::utils::is_valid_scoop_candidate(&candidate) {
+            log::info!("Detected Scoop path: {}", candidate.display());
+            return Ok(candidate.to_string_lossy().to_string());
         }
     }
 
-    // Try to get the Scoop path from Scoop's own configuration
-    match read_scoop_config() {
-        Ok(config) => {
-            if let Some(root_path) = config.get("root_path").and_then(|v| v.as_str()) {
-                let path = PathBuf::from(root_path);
-                if path.exists() && is_valid_scoop_installation(&path) {
-                    return Ok(path.to_string_lossy().to_string());
-                }
-            }
-        }
-        Err(_) => {}
-    }
-
-    Err("Could not detect Scoop installation directory. Please make sure the SCOOP environment variable is set correctly.".to_string())
+    Err("Could not detect Scoop installation directory. Please set the path manually.".to_string())
 }
 
-/// Checks if a path is a valid Scoop installation by looking for key directories
-fn is_valid_scoop_installation(path: &PathBuf) -> bool {
-    let apps_dir = path.join("apps");
-    let buckets_dir = path.join("buckets");
-    
-    let has_apps = apps_dir.exists() && apps_dir.is_dir();
-    let has_buckets = buckets_dir.exists() && buckets_dir.is_dir();
-    
-    // A valid scoop installation should have at least one of these directories
-    has_apps || has_buckets
-}
+
 
 /// Gets a generic configuration value from the store by its key.
 #[tauri::command]

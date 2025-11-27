@@ -1,7 +1,12 @@
 
-# Release Notes 1.4.62
+# Release Notes 1.4.63
 
-## [1.4.62] - 2025-11-25
+## [1.4.63] - 2025-11-27
+
+## **FIX** 
+- 尝试修复了一个有关Buckets获取的严重错误
+
+## [1.4.62] - 2025-11-27
 
 > 花费数天合并了大量内容，操作繁琐，可能出现问题但是我测试不出来
 
@@ -38,6 +43,11 @@
 
 <details>
 <summary>English Version (Click to expand)</summary>
+
+### Release Notes 1.4.63
+
+## **FIX** 
+- Attempted to fix a critical bug related to Bucket retrieval
 
 ### Release Notes 1.4.62
 
