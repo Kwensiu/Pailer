@@ -8,7 +8,6 @@ import { View } from "./types/scoop.ts";
 import SettingsPage from "./pages/SettingsPage.tsx";
 import DoctorPage from "./pages/DoctorPage.tsx";
 import DebugModal from "./components/DebugModal.tsx";
-import FloatingOperationModal from "./components/FloatingOperationModal.tsx";
 import MinimizedIndicator from "./components/MinimizedIndicator.tsx";
 import AnimatedButton from "./components/AnimatedButton";
 import OperationModal from "./components/OperationModal.tsx";
@@ -91,7 +90,7 @@ function App() {
         document.documentElement.setAttribute('data-theme', settings.theme);
     });
 
-    // Listen for minimize events from FloatingOperationModal
+    // Listen for minimize events from OperationModal (formerly FloatingOperationModal)
     createEffect(() => {
         const handleMinimizeEvent = (event: any) => {
             setMinimizedState(event.payload);
@@ -505,7 +504,7 @@ function App() {
                   initialState="circle"
                 />
                 <DebugModal />
-                <FloatingOperationModal
+                <OperationModal
                     title={packageOperations.operationTitle()}
                     onClose={packageOperations.closeOperationModal}
                     nextStep={packageOperations.operationNextStep() ?? undefined}
