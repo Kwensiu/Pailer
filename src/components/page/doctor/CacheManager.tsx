@@ -1,6 +1,6 @@
 import { createSignal, onMount, For, Show, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { Trash2, Archive, RefreshCw, TriangleAlert, Inbox } from "lucide-solid";
+import { Trash2, Archive, RefreshCw, TriangleAlert, Inbox, Folder, Database } from "lucide-solid";
 import { formatBytes } from "../../../utils/format";
 import ConfirmationModal from "../../ConfirmationModal";
 import Card from "../../common/Card";
@@ -166,6 +166,7 @@ function CacheManager(props: CacheManagerProps) {
         <>
             <Card
                 title="Cache Manager"
+                icon={Database}
                 headerAction={
                     <div class="flex items-center gap-2">
                         <Show when={cacheContents().length > 0}>
@@ -187,12 +188,21 @@ function CacheManager(props: CacheManagerProps) {
                             </button>
                             <div class="divider divider-horizontal m-1" />
                         </Show>
+                        <Show when={props.onOpenDirectory}>
+                            <button
+                                class="btn btn-ghost btn-sm"
+                                onClick={props.onOpenDirectory}
+                                title="Open Cache Directory"
+                            >
+                                <Folder class="w-5 h-5" />
+                            </button>
+                        </Show>
                         <button
                             class="btn btn-ghost btn-sm"
                             onClick={fetchCacheContents}
                             disabled={isLoading()}
                         >
-                            <RefreshCw classList={{ "animate-spin": isLoading() }} />
+                            <RefreshCw class="w-5 h-5" classList={{ "animate-spin": isLoading() }} />
                         </button>
                     </div>
                 }
@@ -200,7 +210,7 @@ function CacheManager(props: CacheManagerProps) {
                 <input
                     type="text"
                     placeholder="Filter by name or version..."
-                    class="input input-bordered w-full mb-4"
+                    class="input input-bordered w-full mt-2 mb-4"
                     value={filter()}
                     onInput={(e) => setFilter(e.currentTarget.value)}
                     disabled={isLoading() || !!error() || cacheContents().length === 0}

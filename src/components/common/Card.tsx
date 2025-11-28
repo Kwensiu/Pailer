@@ -5,6 +5,7 @@ interface CardProps {
     title: string | JSX.Element;
     icon?: Component<{ class?: string }>;
     description?: string | JSX.Element;
+    additionalContent?: JSX.Element;
     headerAction?: JSX.Element;
     children?: JSX.Element | JSX.Element[];
     class?: string;
@@ -16,16 +17,21 @@ export default function Card(props: CardProps) {
             ? `card-desc-${props.title.replace(/\s+/g, "-").toLowerCase()}`
             : undefined;
 
+    const additionalContentId =
+        typeof props.title === "string" && props.additionalContent
+            ? `card-additional-${props.title.replace(/\s+/g, "-").toLowerCase()}`
+            : undefined;
     return (
         <section
             class={`card bg-base-300 shadow-xl relative ${props.class ?? ""}`}
             aria-describedby={descriptionId}
+            aria-labelledby={additionalContentId}
         >
             <div class="card-body p-4">
                 <div class="flex items-center justify-between">
                     <h2 class="card-title text-xl flex items-center max-w-[calc(100%-80px)]">
                         {props.icon && (
-                            <Dynamic component={props.icon} class="w-6 h-6 mr-2 text-primary" />
+                            <Dynamic component={props.icon} class="w-6 h-6 ml-1 mr-2 text-primary" />
                         )}
 
                         {props.title}
@@ -36,8 +42,14 @@ export default function Card(props: CardProps) {
                 </div>
 
                 <Show when={props.description}>
-                    <div id={descriptionId} class=" mb-4">
+                    <div id={descriptionId}>
                         {props.description}
+                    </div>
+                </Show>
+
+                <Show when={props.additionalContent}>
+                    <div id={additionalContentId} class="text text-base-content/50">
+                        {props.additionalContent}
                     </div>
                 </Show>
 

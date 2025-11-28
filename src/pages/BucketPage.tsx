@@ -2,10 +2,8 @@ import { createSignal, onMount, Show} from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useBuckets, type BucketInfo } from "../hooks/useBuckets";
 import { usePackageInfo } from "../hooks/usePackageInfo";
-import { usePackageOperations } from "../hooks/usePackageOperations";
 import { ScoopPackage } from "../types/scoop";
 import BucketInfoModal from "../components/BucketInfoModal";
-import PackageInfoModal from "../components/PackageInfoModal";
 import BucketSearch from "../components/page/buckets/BucketSearch";
 import BucketGrid from "../components/page/buckets/BucketGrid";
 import BucketSearchResults from "../components/page/buckets/BucketSearchResults";
@@ -22,7 +20,6 @@ interface BucketUpdateResult {
 function BucketPage() {
   const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests } = useBuckets();
   const packageInfo = usePackageInfo();
-  const packageOperations = usePackageOperations();
   
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
   const [selectedBucketDescription, setSelectedBucketDescription] = createSignal<string | undefined>(undefined);

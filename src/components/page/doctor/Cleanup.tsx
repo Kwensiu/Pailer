@@ -1,4 +1,4 @@
-import { Trash2, Archive } from "lucide-solid";
+import { Trash2, Archive, BrushCleaning } from "lucide-solid";
 import Card from "../../common/Card";
 
 interface CleanupProps {
@@ -10,6 +10,7 @@ function Cleanup(props: CleanupProps) {
     return (
         <Card
             title="System Cleanup"
+            icon={BrushCleaning}
             description="Free up disk space by removing old package versions and outdated download caches (this will ignore auto-cleanup constraints)."
         >
             <div class="flex gap-2 mt-2">

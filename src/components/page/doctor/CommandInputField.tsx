@@ -3,6 +3,7 @@ import { Terminal } from "lucide-solid";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { stripAnsi } from "../../../utils/ansiUtils";
+import Card from "../../common/Card";
 
 interface OperationOutput {
   line: string;
@@ -76,15 +77,12 @@ function CommandInputField() {
     };
 
     return (
-        <div class="card bg-base-200 shadow-xl">
-            <div class="card-body">
-                <h2 class="card-title text-xl">
-                    Scoop Commands
-                </h2>
-                <p class="text-base-content/80 mb-4">
-                    Execute Scoop commands directly from here.
-                </p>
-                
+        <Card
+            title="Scoop Commands"
+            icon={Terminal}
+            description="Execute Scoop commands directly from here."
+            additionalContent="　　↓　Click here to switch input mode."
+        >
                 <div class="form-control">
                     <div class="join w-full">
                         <span 
@@ -174,8 +172,7 @@ function CommandInputField() {
                         <p><strong>Maintenance:</strong> cleanup, cache, reset</p>
                     </div>
                 </div>
-            </div>
-        </div>
+        </Card>
     );
 }
 

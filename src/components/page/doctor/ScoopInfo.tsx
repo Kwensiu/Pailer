@@ -1,11 +1,15 @@
-import { createSignal, onMount, For } from "solid-js";
+import { createSignal, onMount, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 
 interface ScoopConfig {
     [key: string]: any;
 }
 
-function ScoopInfo() {
+export interface ScoopInfoProps {
+    onOpenDirectory?: () => void;
+}
+
+function ScoopInfo(props: ScoopInfoProps) {
     const [scoopPath, setScoopPath] = createSignal<string | null>(null);
     const [scoopConfig, setScoopConfig] = createSignal<ScoopConfig | null>(null);
     const [isLoading, setIsLoading] = createSignal(true);
@@ -16,11 +20,11 @@ function ScoopInfo() {
         setError(null);
         
         try {
-            // 获取Scoop路径
+            // Get Scoop path
             const path = await invoke<string | null>("get_scoop_path");
             setScoopPath(path);
             
-            // 获取Scoop配置
+            // Get Scoop configuration
             const config = await invoke<ScoopConfig | null>("get_scoop_config");
             setScoopConfig(config);
             
@@ -34,11 +38,40 @@ function ScoopInfo() {
     });
 
     return (
-        <div class="card bg-base-200 shadow-xl">
-            <div class="card-body">
-                <h3 class="card-title text-xl">
-                    Configuration
-                </h3>
+        <>
+            <Card
+                title="Scoop Configuration"
+                icon={Settings}
+                headerAction={
+                    <div class="flex items-center gap-2">
+                        <Show when={props.onOpenDirectory && scoopPath()}>
+                            <button
+                                class="btn btn-ghost btn-sm"
+                                onClick={props.onOpenDirectory}
+                                title="Open Scoop Directory"
+                            >
+                                <Folder class="w-5 h-5" />
+                            </button>
+                        </Show>
+                        <Show when={scoopConfig()}>
+                            <button
+                                class="btn btn-ghost btn-sm"
+                                onClick={openEditModal}
+                                title="Edit Configuration"
+                            >
+                                <Edit class="w-5 h-5" />
+                            </button>
+                        </Show>
+                        <button
+                            class="btn btn-ghost btn-sm"
+                            onClick={fetchScoopInfo}
+                            disabled={isLoading()}
+                        >
+                            <RefreshCw class="w-5 h-5" classList={{ "animate-spin": isLoading() }} />
+                        </button>
+                    </div>
+                }
+            >
                 {isLoading() ? (
                     <div class="flex justify-center items-center h-32">
                         <div class="loading loading-spinner loading-md"></div>

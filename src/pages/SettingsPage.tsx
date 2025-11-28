@@ -52,10 +52,6 @@ function SettingsPage(props: SettingsPageProps) {
         setOperationTitle(null);
     };
 
-    const setAboutSectionRef = (ref: AboutSectionRef) => {
-        aboutSectionRef = ref;
-    };
-
     return (
         <>
             <div class="p-6">

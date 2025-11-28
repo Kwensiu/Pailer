@@ -1,9 +1,13 @@
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onMount, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { FolderCog, Save, CheckCircle } from "lucide-solid";
+import { FolderCog, Save, CheckCircle, Folder, RefreshCw } from "lucide-solid";
 import Card from "../../common/Card";
 
-export default function ScoopConfiguration() {
+export interface ScoopConfigurationProps {
+    onOpenDirectory?: () => void;
+}
+
+export default function ScoopConfiguration(props: ScoopConfigurationProps) {
     const [scoopPath, setScoopPath] = createSignal("");
     const [pathIsLoading, setPathIsLoading] = createSignal(true);
     const [isDetecting, setIsDetecting] = createSignal(false);
@@ -126,6 +130,26 @@ export default function ScoopConfiguration() {
             title="Scoop Configuration"
             icon={FolderCog}
             description="Set the installation path for your Scoop directory. Changes will take effect immediately."
+            headerAction={
+                <div class="flex items-center gap-2">
+                    <Show when={props.onOpenDirectory}>
+                        <button
+                            class="btn btn-ghost btn-sm"
+                            onClick={props.onOpenDirectory}
+                            title="Open Scoop Directory"
+                        >
+                            <Folder class="w-5 h-5" />
+                        </button>
+                    </Show>
+                    <button
+                        class="btn btn-ghost btn-sm"
+                        onClick={fetchScoopPath}
+                        disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating()}
+                    >
+                        <RefreshCw class="w-5 h-5" classList={{ "animate-spin": pathIsLoading() }} />
+                    </button>
+                </div>
+            }
         >
             <div class="form-control w-full max-w-lg">
                 <label class="label">

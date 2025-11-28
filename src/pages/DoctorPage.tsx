@@ -174,6 +174,20 @@ function DoctorPage() {
         }
     };
     
+    const handleOpenScoopDirectory = async () => {
+        try {
+            const scoopPath = await invoke<string | null>("get_scoop_path");
+            if (scoopPath) {
+                console.log("Attempting to open Scoop directory:", scoopPath);
+                await openPath(scoopPath);
+            } else {
+                console.warn("No Scoop path configured");
+            }
+        } catch (err) {
+            console.error("Failed to open Scoop directory:", err);
+        }
+    };
+    
     onCleanup(() => {
         setActiveOperations(new Set<string>());
     });
@@ -196,7 +210,7 @@ function DoctorPage() {
         <h1 class="text-3xl font-bold mb-6">Scoop Doctor</h1>
         
         <div class="space-y-8">
-          <ScoopInfo />
+          <ScoopInfo onOpenDirectory={handleOpenScoopDirectory} />
           <CommandInputField />
           <ScoopProxySettings />
           

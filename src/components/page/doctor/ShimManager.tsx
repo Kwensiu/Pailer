@@ -1,6 +1,6 @@
 import { createSignal, onMount, For, Show, createMemo } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { RefreshCw, TriangleAlert, Inbox, Link, EyeOff, Plus, BookText } from "lucide-solid";
+import { RefreshCw, TriangleAlert, Inbox, Link, EyeOff, Plus, BookText, Folder, Layers2 } from "lucide-solid";
 import ShimDetailsModal from "./ShimDetailsModal";
 import AddShimModal from "./AddShimModal";
 import Card from "../../common/Card";
@@ -104,6 +104,7 @@ function ShimManager(props: ShimManagerProps) {
     return (
         <Card
             title="Shim Manager"
+            icon={Layers2}
             headerAction={
                 <div class="flex items-center gap-2">
                     <button
@@ -115,22 +116,20 @@ function ShimManager(props: ShimManagerProps) {
                     </button>
                     <div class="divider divider-horizontal m-1" />
                     <Show when={props.onOpenDirectory}>
-                            <button 
-                                class="btn btn-sm btn-ghost"
-                                onClick={props.onOpenDirectory}
-                                title="Open Shim Directory"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                </svg>
-                            </button>
-                        </Show>
-                        <button 
+                        <button
+                            class="btn btn-ghost btn-sm"
+                            onClick={props.onOpenDirectory}
+                            title="Open Shim Directory"
+                        >
+                            <Folder class="w-5 h-5" />
+                        </button>
+                    </Show>
+                    <button
                         class="btn btn-ghost btn-sm"
                         onClick={fetchShims}
                         disabled={isLoading() || isProcessing()}
                     >
-                        <RefreshCw classList={{ "animate-spin": isLoading() }} />
+                        <RefreshCw size={32} class="w-5 h-5" classList={{ "animate-spin": isLoading() }} />
                     </button>
                 </div>
             }
@@ -139,7 +138,7 @@ function ShimManager(props: ShimManagerProps) {
             <input
                 type="text"
                 placeholder="Filter by name or source..."
-                class="input input-bordered w-full mb-4"
+                class="input input-bordered w-full mt-2 mb-4"
                 value={filter()}
                 onInput={(e) => setFilter(e.currentTarget.value)}
                 disabled={isLoading() || !!error() || allShims().length === 0}

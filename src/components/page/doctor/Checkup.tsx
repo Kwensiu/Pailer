@@ -23,6 +23,7 @@ function Checkup(props: CheckupProps) {
     return (
         <Card
             title="Scoop Health Check"
+            icon={CircleCheckBig}
             headerAction={
                 <button class="btn btn-ghost btn-sm" onClick={props.onRerun} disabled={props.isLoading}>
                     <RefreshCw classList={{ "animate-spin": props.isLoading }} />
