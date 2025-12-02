@@ -1,69 +1,61 @@
+# Release Notes 1.4.7
 
-# Release Notes 1.4.64
-
-## [1.4.64] - 2025-11-29
-
-## **修复 / Fixes**
-- **[Fix]** 优化了bucket搜索和缓存逻辑，移除了冗余状态管理
-  - 修复了`useBucketSearch`中的定时器类型定义，使用更通用的`ReturnType<typeof setTimeout>`
-  - 移除了`useBuckets`中未使用的`isForceRefreshing`状态及相关逻辑
-  - 移除了`BucketSearchResults`中未使用的`CircleCheckBig`图标导入
-  - 为`usePackageInfo`和`useSearch`添加了`updateSelectedPackage`方法，支持外部选择更新（未有实现）
+## [1.4.7] - 2025-12-03
 
 ## **功能 / Features**
-- **[Add]** 搜索栏增强：回调了清除按钮
-- **[Add]** Scoop配置编辑：新增Scoop配置文件编辑功能，可直接在Doctor页面编辑JSON配置
-- **[Add]** 目录快捷访问：为多个组件添加了"打开目录"按钮，方便快速访问相关文件夹
+- **[Add]** 全面的i18n(@solid-primitives/i18n)支持实现
+  - 实现了完整的多语言支持框架，目前包括 `en` `zh` 语言
+  - 为所有UI组件添加了i18n文本标签
+
+- **[Add]** 为 Scoop 配置 添加编辑按钮，直接在Rscoop内更改Scoop config
 
 ## **改进 / Improvements**
-- **[Improvement]** Doctor页面全面重构：
-  - 所有组件统一使用Card框架，提升视觉一致性
-  - 为Card组件添加了`additionalContent`属性，支持额外内容展示
-  - 优化了图标布局和按钮组织，提供更直观的操作体验
-  - 移除了未使用的导入和逻辑，简化代码结构
+- **[Improvement]** 组件架构优化
+  - 重构了多个页面组件，使用更一致的国际化调用方式
+  - 重新使用ChangeBucketModal(原FloatingConfirmationPanel)，移除Change Bucket模态框在InstalledPage的单独实现
 
-- **[Improvement]** 关于页面优化：
-  - 明确标识了这是一个Fork版本，维护者为Kwensiu
-  - 更新了版权信息，包含原始作者和Fork维护者
-  - 重新组织了链接布局，增加了Fork仓库的直达链接
+- **[Improvement]** 用户体验提升
+  - 改进了按钮和图标的一致性，使用更直观的图标表示
+  - 优化了列表视图的视觉层次结构，提高可读性
+  - 统一了下拉菜单和弹出对话框的样式风格
+  - 调整了部分输入框的位置与长度
 
-- **[Improvement]** 设置页面增强：
-  - Scoop配置页面添加了刷新和目录打开按钮
-  - 代理设置页面使用Card组件重构，改进了UI布局
-  - 所有设置组件现在都支持快捷操作和实时状态反馈
+## **修复 / Fixes**
+- **[Fix]** 修复了确认面板组件关闭动画问题
+  - 优化了关闭动画逻辑，确保在确认前正确显示淡出效果
+- **[Fix]** 部分组件使用 Portal 解决覆盖层问题
+- **[Rename]** 重命名了`FloatingConfirmationPanel`为`ChangeBucketModal`，使其功能更加明确
 
 ---
 
 <details>
 <summary>English Version (Click to expand)</summary>
 
-# Release Notes 1.4.63
+# Release Notes 1.4.7
 
-## **Fixes**
-- **[Fix]** Optimized bucket search and caching logic with redundant state removal
-  - Fixed timer type definition in `useBucketSearch` using more generic `ReturnType<typeof setTimeout>`
-  - Removed unused `isForceRefreshing` state and related logic from `useBuckets`
-  - Removed unused `CircleCheckBig` icon import from `BucketSearchResults`
-  - Added `updateSelectedPackage` method to `usePackageInfo` and `useSearch` for external selection updates (Hasn't be implemented)
+## Features
+- **[Add]** Comprehensive i18n support implementation (@solid-primitives/i18n)
+  - Complete multilingual framework with `en` and `zh` language support
+  - Added i18n text labels for all UI components
 
-## **Features**
-- **[Add]** Search Bar Enhancement: Re-added clear button
-- **[Add]** Scoop Configuration Editing: Added functionality to edit Scoop configuration file directly from Doctor page
-- **[Add]** Directory Quick Access: Added "Open Directory" buttons to multiple components for easy folder access
+- **[Add]** Edit button for Scoop configuration
+  - Direct Scoop config editing capability within Rscoop
 
-## **Improvements**
-- **[Improvement]** Doctor Page Comprehensive Refactor:
-  - All components now use unified Card framework for improved visual consistency
-  - Added `additionalContent` property to Card component for extra content display
-  - Optimized icon layout and button organization for more intuitive operation experience
-  - Removed unused imports and logic to simplify code structure
+## Improvements
+- **[Improvement]** Component architecture optimization
+  - Refactored page components with consistent i18n integration patterns
+  - Reused ChangeBucketModal (formerly FloatingConfirmationPanel), removing duplicate implementation in InstalledPage
 
-- **[Improvement]** About Page Optimization:
-  - Clearly identified this as a Fork version maintained by Kwensiu
-  - Updated copyright information to include both original author and Fork maintainer
-  - Reorganized link layout with direct access to Fork repository
+- **[Improvement]** User experience enhancements
+  - Improved button and icon consistency with more intuitive visual representations
+  - Optimized list view visual hierarchy for better readability
+  - Unified styling for dropdown menus and dialog popups
+  - Adjusted input field positioning and sizing
 
-- **[Improvement]** Settings Page Enhancement:
-  - Scoop configuration page added refresh and directory open buttons
-  - Proxy settings page refactored using Card component with improved UI layout
-  - All settings components now support quick actions and real-time status feedback
+## Fixes
+- **[Fix]** Fixed confirmation panel close animation issues
+  - Optimized close animation logic to ensure proper fade-out before confirmation
+- **[Fix]** Resolved overlay issues using Portal in specific components
+- **[Rename]** Renamed `FloatingConfirmationPanel` to `ChangeBucketModal` for clearer functionality
+
+</details>
