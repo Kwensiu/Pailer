@@ -401,20 +401,20 @@ function App() {
 
             <Show when={update() && !error() && !isScoopInstalled() && (!hasCwdMismatch() || bypassCwdMismatch())}>
                 <div class="bg-sky-600 text-white p-2 text-center text-sm flex justify-center items-center gap-4">
-                    <span>An update to version {update()!.version} is available.</span>
+                    <span>{t('app_update.available', { version: update()!.version })}</span>
                     <button
                         class="bg-sky-800 hover:bg-sky-900 text-white font-bold py-1 px-3 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={isInstalling()}
                         onClick={handleInstallUpdate}
                     >
-                        {isInstalling() ? "Installing..." : "Install Now"}
+                        {isInstalling() ? t('app_update.installing') : t('app_update.install_now')}
                     </button>
                     <button
                         class="hover:bg-sky-700 text-white font-bold py-1 px-3 rounded text-xs disabled:opacity-50"
                         disabled={isInstalling()}
                         onClick={() => setUpdate(null)}
                     >
-                        Later
+                        {t('app_update.later')}
                     </button>
                 </div>
             </Show>

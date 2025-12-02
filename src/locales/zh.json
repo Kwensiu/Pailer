@@ -1,12 +1,18 @@
 {
   "app": {
-    "buckets": "仓库",
-    "doctor": "诊断",
-    "packages": "软件",
+    "buckets": "存储桶",
+    "doctor": "健康检查",
+    "packages": "软件包",
     "search": "搜索",
     "settings": "设置",
     "subtitle": "现代化的 Scoop 图形界面客户端",
     "title": "Rscoop"
+  },
+  "app_update": {
+    "available": "有可用的版本更新 v{{version}} ",
+    "install_now": "立即安装",
+    "installing": "安装中...",
+    "later": "稍后"
   },
   "bucket": {
     "card": {

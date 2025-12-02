@@ -8,6 +8,12 @@
     "subtitle": "A modern Scoop GUI client",
     "title": "Rscoop"
   },
+  "app_update": {
+    "available": "An update to version v{{version}} is available.",
+    "install_now": "Install Now",
+    "installing": "Installing...",
+    "later": "Later"
+  },
   "bucket": {
     "card": {
       "branch": "Branch",
