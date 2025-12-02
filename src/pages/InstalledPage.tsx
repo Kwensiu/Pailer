@@ -7,7 +7,7 @@ import PackageListView from "../components/page/installed/PackageListView";
 import PackageGridView from "../components/page/installed/PackageGridView";
 import { View } from "../types/scoop";
 import { createStoredSignal } from "../hooks/createStoredSignal";
-import FloatingConfirmationPanel from "../components/FloatingConfirmationPanel";
+import FloatingConfirmationPanel from "../components/ChangeBucketModal";
 import { t } from "../i18n";
 
 interface InstalledPageProps {

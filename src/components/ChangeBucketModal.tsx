@@ -98,15 +98,18 @@ function FloatingConfirmationPanel(props: FloatingConfirmationPanelProps) {
                             {props.children}
                         </div>
                         <div class="flex justify-end p-4 gap-2 border-t border-base-300">
-                            <button class="btn" onClick={() => {
-                                handleClose();
-                                props.onCancel();
-                            }}>
+                            <button class="btn" onClick={handleClose}>
                                 {props.cancelText || t('buttons.cancel')}
                             </button>
                             <button class="btn btn-primary" onClick={() => {
-                                handleClose();
-                                props.onConfirm();
+                                setIsClosing(true);
+                                setIsVisible(false);
+                                const timer = setTimeout(() => {
+                                    setRendered(false);
+                                    setIsClosing(false);
+                                    props.onConfirm();
+                                }, 300);
+                                return () => clearTimeout(timer);
                             }}>
                                 {props.confirmText || t('buttons.confirm')}
                             </button>
