@@ -1,5 +1,5 @@
 import { For, Show, Accessor } from "solid-js";
-import { MoreHorizontal, ArrowUpCircle, Trash2, Lock, Unlock, RefreshCw, ArrowLeftRight } from 'lucide-solid';
+import { Ellipsis, ArrowUpCircle, Trash2, Lock, RefreshCw, ArrowLeftRight, LockOpen } from 'lucide-solid';
 import type { DisplayPackage } from "../../../stores/installedPackagesStore";
 import type { ScoopPackage } from "../../../types/scoop";
 import heldStore from "../../../stores/held";
@@ -66,7 +66,7 @@ const PackageCard = (props: {
           </div>
           <div class="dropdown dropdown-end flex-shrink-0">
             <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-400">
-              <MoreHorizontal class="w-4 h-4" />
+              <Ellipsis class="w-4 h-4" />
             </label>
             <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-400 rounded-box w-44 z-[1]">
               <li>
@@ -135,7 +135,7 @@ const HoldToggleButton = (props: {
               }
             >
               <a onClick={() => props.onUnhold(props.pkgName)}>
-                <Unlock class="w-4 h-4 mr-2" />
+                <LockOpen class="w-4 h-4 mr-2" />
                 <span>{t("installed.list.unhold_package")}</span>
               </a>
             </Show>

@@ -1,6 +1,6 @@
 import { For, Show, Accessor } from "solid-js";
 import {
-  Ellipsis, CircleArrowUp, Trash2, ArrowUp, ArrowDown, Lock, LockOpen, RefreshCw,
+  Ellipsis, CircleArrowUp, Trash2, ArrowUp, ArrowDown, Lock, Unlock, RefreshCw, ArrowLeftRight,
 } from 'lucide-solid';
 import type { DisplayPackage } from "../../../stores/installedPackagesStore";
 import type { ScoopPackage } from "../../../types/scoop";
@@ -69,7 +69,7 @@ const HoldToggleButton = (props: {
               }
             >
               <a onClick={() => props.onUnhold(props.pkgName)}>
-                <LockOpen class="w-4 h-4 mr-2" />
+                <Unlock class="w-4 h-4 mr-2" />
                 <span>{t("installed.list.unhold_package")}</span>
               </a>
             </Show>
@@ -90,7 +90,7 @@ const HoldToggleButton = (props: {
 };
 
 // Extract version switch button component
-const SwitchBucketButton = (props: {
+const SwitchVersionButton = (props: {
   pkgName: string;
   isPackageVersioned: (packageName: string) => boolean;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
@@ -110,7 +110,7 @@ const SwitchBucketButton = (props: {
 
 function PackageListView(props: PackageListViewProps) {
   return (
-    <div class="overflow-x-auto bg-base-200 rounded-xl shadow-xl">
+    <div class="overflow-x-auto bg-base-300 rounded-xl shadow-xl">
       <table class="table z-[10]">
         <thead>
           <tr>
@@ -129,7 +129,7 @@ function PackageListView(props: PackageListViewProps) {
               <tr data-no-close-search>
                 <td class="max-w-xs">
                   <div class="flex items-center gap-2">
-                    <button class="btn btn-soft bg-base-300 sm:btn-sm overflow-hidden hover:shadow-md transition-all duration-200" onClick={() => props.onViewInfo(pkg)}>
+                    <button class="btn btn-soft bg-base-400 sm:btn-sm overflow-hidden hover:shadow-md transition-all duration-200" onClick={() => props.onViewInfo(pkg)}>
                       <div class="truncate font-medium">
                         {pkg.name}
                       </div>
@@ -154,17 +154,17 @@ function PackageListView(props: PackageListViewProps) {
                 <td>{pkg.version}</td>
                 <td>{pkg.source}</td>
                 <td title={pkg.updated}>{formatIsoDate(pkg.updated)}</td>
-                <td class="text-center p-4" style="position: sticky; right: 0; background: linear-gradient(to right, rgba(0, 0, 0, 0), hsl(var(--b2)) 40%); z-index: 10">
+                <td class="text-center">
                   <div
-                    class="dropdown dropdown-end dropdown-bottom bg-base-200 rounded-box"
+                    class="dropdown dropdown-end"
                     classList={{
                       'dropdown-top': index() * 2 >= props.packages().length - 1,
                     }}
                   >
-                    <label tabindex="0" class="btn btn-soft btn-xs btn-circle border border-base-300">
+                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-400">
                       <Ellipsis class="w-4 h-4" />
                     </label>
-                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-300 rounded-box w-52 z-[11]">
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-400 rounded-box w-44 z-[100]">
                       <li>
                         <HoldToggleButton
                           pkgName={pkg.name}
@@ -175,19 +175,26 @@ function PackageListView(props: PackageListViewProps) {
                           onUnhold={props.onUnhold}
                         />
                       </li>
-                      <SwitchBucketButton
+                      <SwitchVersionButton
                         pkgName={pkg.name}
                         isPackageVersioned={props.isPackageVersioned}
                         onViewInfoForVersions={props.onViewInfoForVersions}
                         pkg={pkg}
                       />
                       <li>
-                        <a onClick={() => props.onUninstall(pkg)}>
+                        <a onClick={() => props.onChangeBucket(pkg)}>
+                          <ArrowLeftRight class="w-4 h-4 mr-2" />
+                          {t("installed.list.change_bucket")}
+                        </a>
+                      </li>
+                      <li>
+                        <a class="text-error" onClick={() => props.onUninstall(pkg)}>
                           <Trash2 class="w-4 h-4 mr-2" />
                           {t("installed.list.uninstall")}
                         </a>
                       </li>
                     </ul>
+
                   </div>
                 </td>
               </tr>
