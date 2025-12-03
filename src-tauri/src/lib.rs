@@ -148,7 +148,7 @@ pub fn run() {
             commands::bucket_install::update_bucket,
             commands::bucket_install::remove_bucket,
             commands::bucket_search::search_buckets,
-            commands::bucket_search::get_expanded_search_info,
+            // commands::bucket_search::get_expanded_search_info,
             commands::bucket_search::get_default_buckets,
             commands::bucket_search::clear_bucket_cache,
             commands::bucket_search::check_bucket_cache_exists,

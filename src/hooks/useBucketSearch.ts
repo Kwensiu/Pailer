@@ -1,6 +1,7 @@
 import { createSignal, createResource, createEffect, on } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { Resource } from "solid-js";
+import { t } from "../i18n"
 
 export interface SearchableBucket {
   name: string;
@@ -146,7 +147,12 @@ export function useBucketSearch(): UseBucketSearchReturn {
   // Get expanded search info
   const getExpandedSearchInfo = async (): Promise<ExpandedSearchInfo | null> => {
     try {
-      return await invoke<ExpandedSearchInfo>("get_expanded_search_info");
+      // Return hardcoded values instead of calling backend
+      return {
+        estimated_size_mb: 14.0,
+        total_buckets: 54000,
+        description: t("bucket.search.description")
+      };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(errorMsg);

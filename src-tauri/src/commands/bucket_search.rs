@@ -34,12 +34,12 @@ pub struct BucketSearchResponse {
     pub expanded_list_size_mb: Option<f64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ExpandedSearchInfo {
-    pub estimated_size_mb: f64,
-    pub total_buckets: usize,
-    pub description: String,
-}
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct ExpandedSearchInfo {
+//     pub estimated_size_mb: f64,
+//     pub total_buckets: usize,
+//     pub description: String,
+// }
 
 // Default verified buckets - these show automatically
 static VERIFIED_BUCKETS_DATA: &[(&str, &str, &str, &str, u32, u32, u32, &str)] = &[
@@ -316,14 +316,14 @@ pub async fn search_buckets(
     })
 }
 
-#[tauri::command]
-pub async fn get_expanded_search_info() -> Result<ExpandedSearchInfo, String> {
-    Ok(ExpandedSearchInfo {
-        estimated_size_mb: 14.0,
-        total_buckets: 54000, // Rough estimate
-        description: "This will download and search through the complete Scoop bucket directory maintained by the community. This includes thousands of buckets with various quality levels.".to_string(),
-    })
-}
+// #[tauri::command]
+// pub async fn get_expanded_search_info() -> Result<ExpandedSearchInfo, String> {
+//     Ok(ExpandedSearchInfo {
+//         estimated_size_mb: 14.0,
+//         total_buckets: 54000, // Rough estimate
+//         description: "This will download and search through the complete Scoop bucket directory maintained by the community. This includes thousands of buckets // with various quality levels.".to_string(),
+//     })
+// }
 
 #[tauri::command]
 pub async fn get_default_buckets() -> Result<Vec<SearchableBucket>, String> {

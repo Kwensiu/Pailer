@@ -264,7 +264,7 @@ function BucketSearch(props: BucketSearchProps) {
                   </div>
                 </div>
 
-                <p class="text-sm text-base-content/70 break-words">
+                <p class="text-sm text-base-content/70 break-words ml-2 mr-2">
                   {expandedInfo()?.description}
                 </p>
 

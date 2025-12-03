@@ -50,6 +50,7 @@
       "disable_community_title": "Clear expanded search cache and return to verified buckets only",
       "discover_description": "Explore community package repositories",
       "discover_new": "Discover New Buckets",
+      "description": "This will download and search through the complete Scoop bucket directory maintained by the community. This includes thousands of buckets with various quality levels.",
       "enable_expanded_search": "Enable Expanded Search",
       "estimated_download_size": "Estimated download size:",
       "expand_note": "This will download ~14MB initially, but only ~0.3-4MB (depending on filters) will be stored as optimized cache. The search will include community buckets of varying quality and maintenance levels. After the initial download, all searches will be instant and offline-capable.",
