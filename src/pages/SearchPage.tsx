@@ -7,6 +7,7 @@ import SearchResultsTabs from "../components/page/search/SearchResultsTabs";
 import SearchResultsList from "../components/page/search/SearchResultsList";
 
 import { createSignal, createEffect, onCleanup, onMount } from "solid-js";
+import { t } from "../i18n";
 
 function SearchPage() {
   const {
@@ -31,9 +32,12 @@ function SearchPage() {
     // closeOperationModal,
     cleanup,
     restoreSearchResults,
+    bucketFilter,
+    setBucketFilter
   } = useSearch();
 
   const [currentPage, setCurrentPage] = createSignal(1);
+  const [uniqueBuckets, setUniqueBuckets] = createSignal<string[]>([]);
 
   onMount(() => {
     restoreSearchResults();
@@ -43,6 +47,10 @@ function SearchPage() {
     resultsToShow();
     activeTab();
     setCurrentPage(1);
+    
+    // Get the bucket's name
+    const buckets = [...new Set([...packageResults(), ...binaryResults()].map(p => p.source))];
+    setUniqueBuckets(buckets);
   });
 
   onCleanup(() => {
@@ -54,12 +62,29 @@ function SearchPage() {
       <div class="max-w-3xl mx-auto">
         <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} loading={loading} />
 
-        <SearchResultsTabs
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          packageCount={packageResults().length}
-          includesCount={binaryResults().length}
-        />
+        {/* Tabs and bucket filter on the same line */}
+        <div class="flex justify-between items-center mb-6">
+          <div class="flex-1">
+            <SearchResultsTabs
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              packageCount={packageResults().length}
+              includesCount={binaryResults().length}
+            />
+          </div>
+          <div class="ml-4 w-48">
+            <select 
+              class="select select-bordered w-full max-w-xs"
+              value={bucketFilter()}
+              onChange={(e) => setBucketFilter(e.currentTarget.value)}
+            >
+              <option value="">{t("search.filter.all_buckets")}</option>
+              {uniqueBuckets().map(bucket => (
+                <option value={bucket}>{bucket}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <SearchResultsList
           loading={loading()}

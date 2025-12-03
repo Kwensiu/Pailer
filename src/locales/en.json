@@ -345,6 +345,9 @@
     "virus_total_warning": "VirusTotal Scan Warning"
   },
   "search": {
+    "filter":{
+      "all_buckets":"All Buckets"
+    },
     "bar": {
       "clear_search": "Clear search",
       "exact_match_tooltip": "Wrap with \"quotes\" for exact match",

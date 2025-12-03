@@ -345,13 +345,16 @@
     "virus_total_warning": "VirusTotal 扫描警告"
   },
   "search": {
+    "filter": {
+      "all_buckets": "所有仓库"
+    },
     "bar": {
       "clear_search": "清除搜索",
       "exact_match_tooltip": "使用\"引号\"进行精确匹配",
       "placeholder": "搜索本地仓库中的应用程序"
     },
     "results": {
-      "from_bucket": "来自仓库：{{bucket}}",
+      "from_bucket": "仓库：{{bucket}}",
       "includes": "包含",
       "no_packages_found": "没有找到 {{type}} \"{{query}}\"",
       "packages": "软件包",

@@ -42,6 +42,10 @@ interface UseSearchReturn {
   restoreSearchResults: () => void;
   // Check if has cached results
   hasCachedResults: () => boolean | null;
+  
+  // Bucket filter
+  bucketFilter: () => string;
+  setBucketFilter: Setter<string>;
 }
 
 // 缓存搜索结果，避免页面切换时丢失
@@ -59,6 +63,7 @@ export function useSearch(): UseSearchReturn {
     const [activeTab, setActiveTab] = createSignal<"packages" | "includes">(
         "packages"
     );
+    const [bucketFilter, setBucketFilter] = createSignal<string>("");
     
     let isRestoring = false;
 
@@ -200,7 +205,11 @@ export function useSearch(): UseSearchReturn {
     const packageResults = () => results().filter((p) => p.match_source === "name");
     const binaryResults = () => results().filter((p) => p.match_source === "binary");
     const resultsToShow = () => {
-        return activeTab() === "packages" ? packageResults() : binaryResults();
+        const filteredResults = activeTab() === "packages" ? packageResults() : binaryResults();
+        if (bucketFilter()) {
+            return filteredResults.filter((p) => p.source === bucketFilter());
+        }
+        return filteredResults;
     };
 
     return {
@@ -238,6 +247,9 @@ export function useSearch(): UseSearchReturn {
         // Restore function
         restoreSearchResults,
         // Check cached results
-        hasCachedResults
+        hasCachedResults,
+        // Bucket filter
+        bucketFilter,
+        setBucketFilter
     };
 }
