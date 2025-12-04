@@ -26,7 +26,6 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
       "endpoints": [
         "https://raw.githubusercontent.com/Kwensiu/Rscoop/main/docs/test-update.json"
       ],
