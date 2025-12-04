@@ -135,9 +135,6 @@ export default function BucketAutoUpdateSettings() {
                         />
                     </label>
                 </div>
-                <div class="mt-2 text-[11px] text-base-content/50">
-                    {t("settings.bucket_auto_update.auto_update_packages_note")}
-                </div>
             </Show>
 
             {error() && <div class="alert alert-error mt-4 text-xs">{error()}</div>}

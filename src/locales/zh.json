@@ -368,7 +368,7 @@
   "settings": {
     "about": {
       "check_now": "立即检查",
-      "check_now_note": "更换通道后可能需要重启以应用更改。",
+      "check_now_note": "更换通道后需要重启以应用更改。",
       "checking_for_updates": "正在检查更新...",
       "customized_version": "您正在使用由 Kwensiu 维护的 Rscoop 定制版本。",
       "description": "适用于 Windows 上的 Scoop 软件包管理器的现代、强大、快速的图形界面。",
@@ -382,6 +382,7 @@
       "no_updates_available": "无可用更新",
       "please_report_issues": "请将任何问题报告到 Kwensiu 的 Fork 仓库。",
       "release_notes": "发行说明：",
+      "restart_app": "重启应用",
       "restart_now": "立即重启",
       "retry": "重试",
       "scoop_update_instruction": "在您的终端中使用 {code} 进行更新。",
@@ -408,7 +409,6 @@
       "active": "当前：{interval}",
       "auto_update_packages": "同时更新软件包",
       "auto_update_packages_description": "仓库更新后将尝试更新已安装的软件包",
-      "auto_update_packages_note": "",
       "custom_interval": "自定义间隔",
       "custom_interval_description": "自定义计划（分钟、小时、天、周）。",
       "days": "天",

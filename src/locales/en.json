@@ -368,7 +368,8 @@
   "settings": {
     "about": {
       "check_now": "Check Now",
-      "check_now_note": "You may need to restart after switching channels to apply the changes.",
+      "check_now_note": "You need to restart Rscoop after switching channels to apply the changes.",
+      "restart_app": "Restart App",
       "customized_version": "You are Using a customized version of Rscoop, maintained by Kwensiu.",
       "description": "A modern, powerful, and fast GUI for Scoop package manager on Windows.",
       "docs": "Docs",
@@ -407,7 +408,6 @@
       "active": "Active: {interval}",
       "auto_update_packages": "Auto Update Packages",
       "auto_update_packages_description": "Run full package update after bucket refresh",
-      "auto_update_packages_note": "When enabled, after each scheduled bucket update Rscoop will update all installed packages.",
       "custom_interval": "Custom Interval",
       "custom_interval_description": "Define a custom schedule (minutes, hours, days, weeks).",
       "days": "Days",

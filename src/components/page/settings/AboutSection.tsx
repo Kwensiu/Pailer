@@ -1,5 +1,5 @@
 import { Download, RefreshCw, Github, BookOpen, AlertCircle, CheckCircle } from "lucide-solid";
-import { createSignal, Show, For } from "solid-js";
+import { createSignal, Show, For, createMemo } from "solid-js";
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { ask, message } from '@tauri-apps/plugin-dialog';
@@ -55,7 +55,34 @@ export default function AboutSection(props: AboutSectionProps) {
     );
   };
 
-  const channels = [
+  // Helper function to sanitize error messages
+  const sanitizeErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) {
+      // Specific error handling with translated messages
+      if (error.message.includes('network')) {
+        return t("settings.about.network_error");
+      } else if (error.message.includes('timeout')) {
+        return t("settings.about.timeout_error");
+      } else if (error.message.includes('certificate') || error.message.includes('TLS') || error.message.includes('SSL')) {
+        return t("settings.about.certificate_error");
+      } else if (error.message.includes('network') || error.message.includes('download')) {
+        return t("settings.about.download_failed");
+      } else if (error.message.includes('permission') || error.message.includes('access')) {
+        return t("settings.about.permission_error");
+      } else if (error.message.includes('disk') || error.message.includes('space')) {
+        return t("settings.about.insufficient_space");
+      } else if (error.message.includes('integrity') || error.message.includes('verification')) {
+        return t("settings.about.integrity_check_failed");
+      }
+      
+      // Return the actual error message, but limit its length for security
+      return error.message.substring(0, 200);
+    }
+    
+    return String(error).substring(0, 200);
+  };
+
+  const channels = createMemo(() => [
     {
       value: 'stable' as const,
       label: t("update_channel.stable"),
@@ -70,7 +97,7 @@ export default function AboutSection(props: AboutSectionProps) {
       icon: <AlertCircle class="h-4 w-4" />,
       isSelected: () => settings.update.channel === 'test',
     }
-  ];
+  ]);
 
   const checkForUpdates = async (manual: boolean) => {
     try {
@@ -135,24 +162,7 @@ export default function AboutSection(props: AboutSectionProps) {
       console.error('Failed to check for updates:', error);
       setUpdateStatus('error');
       
-      let errorMessage = t("settings.about.unknown_error");
-      
-      // Handle specific error types with more detailed messages
-      if (error instanceof Error) {
-        if (error.message.includes('network')) {
-          errorMessage = t("settings.about.network_error");
-        } else if (error.message.includes('timeout')) {
-          errorMessage = t("settings.about.timeout_error");
-        } else if (error.message.includes('certificate') || error.message.includes('TLS') || error.message.includes('SSL')) {
-          errorMessage = t("settings.about.certificate_error");
-        } else {
-          // Sanitize error message to prevent exposing sensitive information
-          errorMessage = error.message;
-        }
-      } else {
-        errorMessage = String(error);
-      }
-      
+      const errorMessage = sanitizeErrorMessage(error);
       setUpdateError(errorMessage);
       console.error('Update check error details:', errorMessage);
     }
@@ -182,10 +192,13 @@ export default function AboutSection(props: AboutSectionProps) {
         } else if (progress.event === 'Progress') {
           const newDownloaded = progress.data.chunkLength || 0;
           
-          setDownloadProgress(prev => ({
-            downloaded: prev.downloaded + newDownloaded,
-            total: prev.total
-          }));
+          setDownloadProgress(prev => {
+            const updatedDownloaded = prev.downloaded + newDownloaded;
+            return {
+              downloaded: updatedDownloaded,
+              total: prev.total
+            };
+          });
           
           // Calculate percentage using the total from Started event
           const currentProgress = downloadProgress();
@@ -226,26 +239,7 @@ export default function AboutSection(props: AboutSectionProps) {
       console.error('Failed to install update:', error);
       setUpdateStatus('error');
       
-      let errorMessage = t("settings.about.installation_failed");
-      
-      // Handle specific error types with more detailed messages
-      if (error instanceof Error) {
-        if (error.message.includes('network') || error.message.includes('download')) {
-          errorMessage = t("settings.about.download_failed");
-        } else if (error.message.includes('permission') || error.message.includes('access')) {
-          errorMessage = t("settings.about.permission_error");
-        } else if (error.message.includes('disk') || error.message.includes('space')) {
-          errorMessage = t("settings.about.insufficient_space");
-        } else if (error.message.includes('integrity') || error.message.includes('verification')) {
-          errorMessage = t("settings.about.integrity_check_failed");
-        } else {
-          // Sanitize error message to prevent exposing sensitive information
-          errorMessage = error.message;
-        }
-      } else {
-        errorMessage = String(error);
-      }
-      
+      const errorMessage = sanitizeErrorMessage(error);
       setUpdateError(errorMessage);
       console.error('Update installation error details:', errorMessage);
     }
@@ -334,12 +328,12 @@ export default function AboutSection(props: AboutSectionProps) {
                     <span>{t("settings.about.downloading_update")}</span>
                     <span>{downloadProgress().total
                       ? `${Math.round((downloadProgress().downloaded / (downloadProgress().total || 1)) * 100)}%`
-                      : '...'}</span>
+                      : t("settings.about.downloading_no_size")}</span>
                   </div>
                   <progress
                     class="progress progress-primary w-full"
                     value={downloadProgress().downloaded}
-                    max={downloadProgress().total || 100}
+                    max={downloadProgress().total || undefined}
                   />
                 </div>
               )}
@@ -368,7 +362,7 @@ export default function AboutSection(props: AboutSectionProps) {
               {t("update_channel.title")}
             </div>
             <div class="space-y-3">
-              <For each={channels}>
+              <For each={channels()}>
                 {(channel) => (
                   <div
                     class={`p-3 rounded-lg border cursor-pointer transition-colors ${channel.isSelected()
@@ -399,7 +393,17 @@ export default function AboutSection(props: AboutSectionProps) {
                   </div>
                 )}
               </For>
-              <span class="text-sm text-base-content/70">{t("settings.about.check_now_note")}</span>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-base-content/70">{t("settings.about.check_now_note")}</span>
+                <button 
+                  class="btn btn-xs btn-outline"
+                  onClick={async () => {
+                    await relaunch();
+                  }}
+                >
+                  {t("settings.about.restart_app")}
+                </button>
+              </div>
             </div>
           </div>
         </div>
