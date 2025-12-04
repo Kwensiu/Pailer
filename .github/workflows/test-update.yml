@@ -49,6 +49,9 @@ jobs:
 
       # Build the application
       - name: Build & bundle application (Tauri)
+        env:
+            TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+            TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri -- build --config src-tauri/tauri.conf.test.json --verbose
 
       - name: Extract metadata (product name & version)
@@ -66,11 +69,11 @@ jobs:
         id: updater
         shell: pwsh
         run: |
-          $msiPath = "./src-tauri/target/release/bundle/msi/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64_en-US.msi"
           $exePath = "./src-tauri/target/release/${{ steps.meta.outputs.product }}.exe"
+          $sigPath = "$exePath.sig"
           
           # Create signature files (unsigned for test builds)
-          $signature = "test-signature-${{ steps.meta.outputs.version }}"
+          $signature = Get-Content $sigPath -Raw
           $date = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
           
           # Generate update.json for test channel
@@ -89,7 +92,6 @@ jobs:
           Set-Content -Path "./update-test.json" -Value $json
           
           # Output paths for later steps
-          "msiPath=$msiPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "exePath=$exePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Create Test Release with artifacts
