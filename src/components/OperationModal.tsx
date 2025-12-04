@@ -322,12 +322,15 @@ function OperationModal(props: OperationModalProps) {
     }
   };
 
-  // Scroll to bottom when new output is added
+  // Scroll to bottom when new output is added, but only if user is near bottom
   createEffect(() => {
     if (scrollRef && output().length > 0 && !isMinimized()) {
       // Use requestAnimationFrame to ensure DOM is updated before scrolling
       requestAnimationFrame(() => {
-        scrollRef!.scrollTop = scrollRef!.scrollHeight;
+        const isNearBottom = scrollRef!.scrollHeight - scrollRef!.scrollTop <= scrollRef!.clientHeight + 100;
+        if (isNearBottom) {
+          scrollRef!.scrollTop = scrollRef!.scrollHeight;
+        }
       });
     }
   });
