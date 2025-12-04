@@ -1,0 +1,12 @@
+{
+  "notes": "Test update from test branch. Build #8",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/Kwensiu/Rscoop/releases/download/test-1.4.8-beta.1/rscoop_1.4.8-beta.1_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYk9QKy9ud28wM3M0VElXMGJCMWt4ZmhWWXBYVHUvdDU3YkU0YVVMcE5LNXFDdCs4dzFpbTBZU1F2UmUvV0xudVIxRDdWYlVUSjhCNkZRM3hsTzNXT0MvSE1NU0lKQ3drPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY0ODcyMDA3CWZpbGU6cnNjb29wXzEuNC44LWJldGEuMV94NjQtc2V0dXAuZXhlCjVmV0FySmpOM21YeUZjYWp2QlZRdVlmci96N3NhRGtqUEIrMmpYWGIyc01YVXY5dUtURzdnV3BsMHYxaEY4bXZvWEVhQ2FBb2RrdWpNSjUyWTdHUENBPT0K"
+    }
+  },
+  "version": "1.4.8-beta.1",
+  "pub_date": "2025-12-04T18:13:39Z"
+}
+
