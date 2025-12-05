@@ -2,6 +2,7 @@ import { Show, For } from "solid-js";
 import { CircleCheckBig, TriangleAlert, WifiOff, FolderOpen } from "lucide-solid";
 import { View } from "../types/scoop";
 import Modal from "./common/Modal";
+import { t } from "../i18n"
 
 interface AppWithIssue {
   name: string;
@@ -39,15 +40,15 @@ const getBadgeClass = (info: string): string => {
 function AppsWithIssuesTable(props: { apps: AppWithIssue[] }) {
   return (
     <div class="space-y-2">
-      <h4 class="font-semibold">Apps with Issues:</h4>
+      <h4 class="font-semibold">{t('scoop_status.apps_with_issues')}</h4>
       <div class="overflow-x-auto">
         <table class="table table-zebra w-full">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Installed</th>
-              <th>Latest</th>
-              <th>Status</th>
+              <th>{t('scoop_status.table.name')}</th>
+              <th>{t('scoop_status.table.installed')}</th>
+              <th>{t('scoop_status.table.latest')}</th>
+              <th>{t('scoop_status.table.status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -60,7 +61,7 @@ function AppsWithIssuesTable(props: { apps: AppWithIssue[] }) {
                   <td>
                     <div class="flex flex-wrap gap-1">
                       {app.is_held && (
-                        <div class="badge badge-sm badge-warning">Held package</div>
+                        <div class="badge badge-sm badge-warning">{t('scoop_status.badges.held_package')}</div>
                       )}
                       <For
                         each={app.info.filter(
@@ -77,7 +78,7 @@ function AppsWithIssuesTable(props: { apps: AppWithIssue[] }) {
                       </For>
                       {app.is_outdated && (
                         <div class="badge badge-sm badge-success">
-                          Update Available
+                          {t('scoop_status.badges.update_available')}
                         </div>
                       )}
                     </div>
@@ -102,7 +103,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
     <Modal
       isOpen={props.isOpen}
       onClose={props.onClose}
-      title="Scoop Status"
+      title={t('scoop_status.title')}
       size="large"
       footer={
         <Show when={props.status?.bucket_needs_update && props.onNavigate}>
@@ -111,8 +112,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             onClick={handleGoToBuckets}
           >
             <FolderOpen class="w-4 h-4 mr-2" />
-            Go to Buckets
-          </button>
+            {t('bottons.go_to_buckets')} </button>
         </Show>
       }
     >
@@ -125,7 +125,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
       <Show when={props.error}>
         <div class="alert alert-error alert-outline">
           <TriangleAlert class="w-4 h-4" />
-          <span>Error checking status: {props.error}</span>
+          <span>{t('scoop_status.error_checking_status')}: {props.error}</span>
         </div>
       </Show>
 
@@ -147,8 +147,8 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             </Show>
             <span>
               {props.status!.is_everything_ok
-                ? "Everything is ok!"
-                : "Some issues found"}
+                ? t('scoop_status.everything_ok')
+                : t('scoop_status.some_issues_found')}
             </span>
           </div>
 
@@ -157,8 +157,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             <div class="alert alert-warning alert-outline">
               <TriangleAlert class="w-4 h-4" />
               <span>
-                Scoop is out of date. Run 'scoop update' to get the latest
-                changes.
+                {t('scoop_status.scoop_out_of_date')}
               </span>
             </div>
           </Show>
@@ -168,8 +167,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             <div class="alert alert-warning alert-outline">
               <TriangleAlert class="w-4 h-4" />
               <span>
-                Scoop bucket(s) are out of date. Click 'Go to Buckets' to get
-                the latest changes.
+                {t('scoop_status.buckets_out_of_date')}
               </span>
             </div>
           </Show>
@@ -179,7 +177,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             <div class="alert alert-error alert-outline">
               <WifiOff class="w-4 h-4" />
               <span>
-                Network failure occurred while checking for updates.
+                {t('scoop_status.network_failure')}
               </span>
             </div>
           </Show>
@@ -194,7 +192,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
             <div class="alert alert-success alert-outline">
               <CircleCheckBig class="w-4 h-4" />
               <span>
-                Scoop is up to date and all packages are in good condition!
+                {t('scoop_status.all_good_message')}
               </span>
             </div>
           </Show>

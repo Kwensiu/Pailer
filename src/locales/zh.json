@@ -14,6 +14,32 @@
     "installing": "安装中...",
     "later": "稍后"
   },
+  "bottons.go_to_buckets": "前往仓库",
+
+  "scoop_status": {
+    "title": "Scoop 状态",
+    "everything_ok": "一切正常！",
+    "some_issues_found": "发现一些问题",
+    "error_checking_status": "检查状态时出错",
+    "scoop_out_of_date": "Scoop 已过期。运行 'scoop update' 获取最新更改。",
+    "buckets_out_of_date": "Scoop 仓库已过期。点击'前往仓库'获取最新更改。",
+    "network_failure": "检查更新时发生网络故障。",
+    "all_good_message": "Scoop 已更新，所有软件包状态良好！",
+    "apps_with_issues": "有问题的应用：",
+    
+    "table": {
+      "name": "名称",
+      "installed": "已安装",
+      "latest": "最新",
+      "status": "状态"
+    },
+    
+    "badges": {
+      "held_package": "保留包",
+      "update_available": "可更新"
+    }
+  },
+
   "bucket": {
     "card": {
       "branch": "分支",
