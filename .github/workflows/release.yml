@@ -64,16 +64,25 @@ jobs:
         id: updater
         shell: pwsh
         run: |
-          $msiPath = "./src-tauri/target/release/bundle/msi/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64_en-US.msi"
-          $signature = Get-Content -Raw "$msiPath.sig"
+          $productName = "${{ steps.meta.outputs.product }}"
+          $version = "${{ steps.meta.outputs.version }}"
+          $tag = "${{ github.ref_name }}"
+          
+          $installerName = "${productName}_${version}_x64-setup.exe"
+          $installerPath = "./src-tauri/target/release/bundle/nsis/$installerName"
+          
+          $sigPath = "$installerPath.sig"
+          
+          $signature = Get-Content $sigPath -Raw
           $date = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+          
           $json = @{
-            version = "${{ steps.meta.outputs.version }}"
+            version = "$version"
             pub_date = $date
             platforms = @{
               "windows-x86_64" = @{
                 signature = $signature
-                url = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64_en-US.msi"
+                url = "https://github.com/${{ github.repository }}/releases/download/$tag/$installerName"
               }
             }
           } | ConvertTo-Json -Depth 4
@@ -91,7 +100,7 @@ jobs:
           prerelease: false
           artifacts: >-
             ./src-tauri/target/release/${{ steps.meta.outputs.product }}.exe,
-            ./src-tauri/target/release/bundle/msi/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64_en-US.msi,
-            ./src-tauri/target/release/bundle/msi/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64_en-US.msi.sig,
+            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe,
+            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe.sig,
             ./update.json
           artifactErrorsFailBuild: true
