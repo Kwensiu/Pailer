@@ -26,7 +26,14 @@ pub struct CommandResult {
 /// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
 pub fn create_powershell_command(command_str: &str) -> Command {
     let mut cmd = Command::new("powershell");
-    cmd.args(["-NoProfile", "-Command", command_str])
+    
+    // 设置 PowerShell 使用 UTF-8 编码来避免中文乱码
+    let wrapped_command = format!(
+        "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; {}",
+        command_str
+    );
+    
+    cmd.args(["-NoProfile", "-Command", &wrapped_command])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

@@ -27,6 +27,25 @@ function CommandInputField() {
         }
     });
 
+    // 尝试修复可能的UTF-8编码问题
+    const fixEncoding = (str: string): string => {
+        // 检测并修复常见的编码问题
+        try {
+            // 如果字符串包含乱码特征，尝试重新解码
+            if (/[\x80-\xFF]/.test(str)) {
+                // 尝试将字符串作为latin1编码解释，然后转换为UTF-8
+                const latin1Str = str.replace(/[\x80-\xFF]/g, (match) => 
+                    String.fromCharCode(match.charCodeAt(0) & 0xFF)
+                );
+                return decodeURIComponent(escape(latin1Str));
+            }
+        } catch (e) {
+            // 如果修复失败，返回原始字符串
+            console.debug("Failed to fix encoding:", e);
+        }
+        return str;
+    };
+
     const handleRunCommand = async () => {
         if (!command().trim() || isRunning()) return;
 
@@ -38,7 +57,7 @@ function CommandInputField() {
 
             const unlisten: UnlistenFn = await listen('operation-output', (event: any) => {
                 const cleanLine = {
-                    line: stripAnsi(event.payload.line),
+                    line: fixEncoding(stripAnsi(event.payload.line)),
                     source: event.payload.source
                 };
                 setOutput(prev => [...prev, cleanLine]);
@@ -48,7 +67,7 @@ function CommandInputField() {
                 unlisten();
                 unlistenFinished();
                 setIsRunning(false);
-                setOutput(prev => [...prev, { line: stripAnsi(event.payload.message), source: event.payload.success ? 'success' : 'error' }]);
+                setOutput(prev => [...prev, { line: fixEncoding(stripAnsi(event.payload.message)), source: event.payload.success ? 'success' : 'error' }]);
             });
 
             if (useScoopPrefix()) {
@@ -135,7 +154,7 @@ function CommandInputField() {
                                         line.source === 'success' ? 'text-green-500' :
                                             'text-white'
                             }>
-                                {stripAnsi(line.line)}
+                                {line.line}
                             </div>
                         )}
                     </For>
