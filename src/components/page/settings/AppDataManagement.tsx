@@ -126,24 +126,24 @@ export default function AppDataManagement() {
             <Show when={!isLoading()}>
 
                 <Show when={loadError()}>
-                    <div class="alert alert-error">
+                    <div class="alert alert-error mb-2">
                         <span>{loadError()}</span>
                     </div>
                 </Show>
                 <div class="card-body p-2">
-                    <div class="bg-base-100 rounded-xl p-5 border border-base-content/5 shadow-sm">
-                        <div class="space-y-4">
+                    <div class="bg-base-100 rounded-lg p-4 border border-base-content/5 shadow-sm">
+                        <div class="space-y-3">
                             {/* Data Directory */}
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-base-200 rounded-lg">
-                                <div class="flex items-start gap-3">
-                                    <Folder class="text-primary" size={20} />
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-base-200 rounded-md">
+                                <div class="flex items-start gap-2">
+                                    <Folder class="text-primary mt-0.5" size={18} />
                                     <div>
-                                        <h3 class="font-medium">{t("settings.app_data.data_directory")}</h3>
-                                        <p class="text-sm text-base-content/70 break-all">{appDataDirPath()}</p>
+                                        <h3 class="font-medium text-sm">{t("settings.app_data.data_directory")}</h3>
+                                        <p class="text-xs text-base-content/70 break-all mt-0.5">{appDataDirPath()}</p>
                                     </div>
                                 </div>
                                 <button
-                                    class="btn btn-sm btn-primary whitespace-nowrap"
+                                    class="btn btn-xs btn-primary"
                                     onClick={openAppDataDir}
                                 >
                                     {t("settings.app_data.open_directory")}
@@ -151,19 +151,19 @@ export default function AppDataManagement() {
                             </div>
 
                             {/* Log Directory */}
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-base-200 rounded-lg">
-                                <div class="flex items-start gap-3">
-                                    <FileText class="text-primary" size={20} />
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-base-200 rounded-md">
+                                <div class="flex items-start gap-2">
+                                    <FileText class="text-primary mt-0.5" size={18} />
                                     <div>
-                                        <h3 class="font-medium">{t("settings.app_data.log_directory")}</h3>
-                                        <p class="text-sm text-base-content/70 break-all">{logDir()}</p>
+                                        <h3 class="font-medium text-sm">{t("settings.app_data.log_directory")}</h3>
+                                        <p class="text-xs text-base-content/70 break-all mt-0.5">{logDir()}</p>
                                     </div>
                                 </div>
 
                                 <div class="flex gap-2">
                                     <div class="flex gap-2">
                                         <select
-                                            class="select select-bordered select-sm"
+                                            class="select select-bordered select-xs"
                                             value={logRetentionDays()}
                                             onChange={(e) => handleLogRetentionChange(Number(e.target.value))}
                                         >
@@ -175,7 +175,7 @@ export default function AppDataManagement() {
                                         </select>
                                     </div>
                                     <button
-                                        class="btn btn-sm btn-primary whitespace-nowrap w-full max-w-[calc(100%-60px)]"
+                                        class="btn btn-xs btn-primary w-full max-w-[calc(100%-60px)]"
                                         onClick={openLogDir}
                                     >
                                         {t("settings.app_data.open_directory")}
@@ -184,18 +184,18 @@ export default function AppDataManagement() {
 
                             </div>
                             {/* Clean App data */}
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-warning/10 rounded-lg border border-warning/20">
-                                <div class="flex items-start gap-3">
-                                    <Trash2 class="text-warning" size={20} />
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-warning/10 rounded-md border border-warning/20">
+                                <div class="flex items-start gap-2">
+                                    <Trash2 class="text-warning mt-0.5" size={18} />
                                     <div>
-                                        <h3 class="font-medium text-warning">{t("settings.app_data.clear_data")}</h3>
-                                        <p class="text-sm text-base-content/70">
+                                        <h3 class="font-medium text-warning text-sm">{t("settings.app_data.clear_data")}</h3>
+                                        <p class="text-xs text-base-content/70 mt-0.5">
                                             {t("settings.app_data.clear_data_description")}
                                         </p>
                                     </div>
                                 </div>
                                 <button
-                                    class="btn btn-sm btn-warning whitespace-nowrap"
+                                    class="btn btn-xs btn-warning"
                                     classList={{ "btn-error": clearConfirm() }}
                                     onClick={clearApplicationData}
                                     disabled={isClearing()}
@@ -221,7 +221,7 @@ export default function AppDataManagement() {
                     </div>
                 </div>
                 <Show when={clearError()}>
-                    <div class="alert alert-error">
+                    <div class="alert alert-error mt-2">
                         <span>{clearError()}</span>
                     </div>
                 </Show>
@@ -229,8 +229,8 @@ export default function AppDataManagement() {
             </Show>
 
             <Show when={isLoading()}>
-                <div class="flex justify-center p-4">
-                    <span class="loading loading-dots loading-md"></span>
+                <div class="flex justify-center p-3">
+                    <span class="loading loading-dots loading-sm"></span>
                 </div>
             </Show>
         </Card>
