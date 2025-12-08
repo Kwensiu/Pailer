@@ -3857,7 +3857,7 @@ dependencies = [
 
 [[package]]
 name = "rscoop"
-version = "1.4.8-beat.6"
+version = "1.4.8-beta.6"
 dependencies = [
  "chrono",
  "csv",
