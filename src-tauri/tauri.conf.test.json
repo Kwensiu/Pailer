@@ -34,9 +34,7 @@
         "installMode": "basicUi"
       }
     },
-    "store": {
-      "default": true
-    },
+    "store": null,
     "dialog": null
   },
   "bundle": {
