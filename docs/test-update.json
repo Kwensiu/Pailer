@@ -1,12 +1,12 @@
 {
-  "pub_date": "2025-12-09T16:44:38Z",
-  "version": "1.4.8-beta.9",
+  "pub_date": "2025-12-09T17:56:03Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYk9QKy9ud28wM21JN2hVMVlsSVNZZ0c1NExsbTNRSEdYNU9HaUsyYUpzbGFUZ0ozSlhKQ1d4eXRSMURheU04TU81MitkTDFPcUxjOFBnVW1LRm9obHlUWWZVQXRQeGdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1Mjk4NjY3CWZpbGU6cnNjb29wXzEuNC44LWJldGEuOV94NjQtc2V0dXAuZXhlCkF1dVRCOHQ4RythTUVNVXZieEtDVU5FSmJiank4R0VITUZieEhhNEo4ZGxSZGtWWUxHckZxNmM4U3RXNzVubGJZRnpZYko4OEwxb29zRnVValYyaUJBPT0K",
-      "url": "https://github.com/Kwensiu/Rscoop/releases/download/v1.4.8-beta.9/rscoop_1.4.8-beta.9_x64-setup.exe"
+      "url": "https://github.com/Kwensiu/Rscoop/releases/download/v1.4.8-beta.10/rscoop_1.4.8-beta.10_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTYk9QKy9ud28wM3Jlbkhzc2Ryamt4Z1dzMjFPR2xNdVV6eG02TUJ4RjRnSmY3R2RyYXBHVFo2VE5MK1VVQWJVYk5XUTVDcFFiUHFQN3YzUzdHNTZIVkNBTVlHeTFhaFFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY1MzAyOTUxCWZpbGU6cnNjb29wXzEuNC44LWJldGEuMTBfeDY0LXNldHVwLmV4ZQpHU3VRdlp5SDZBME83VVRvVERTenlhbjFUbFB1TFlzTFRxZjRjY2trdjRmRytJRWJuL2NRZ0JMd2o4ajZHOXV5cC80V2J1Qy90SHZxR25CWE5XaUtEdz09Cg=="
     }
   },
-  "notes": "Test update from test branch. Build #19"
+  "notes": "Test update from test branch. Build #20",
+  "version": "1.4.8-beta.10"
 }
 
