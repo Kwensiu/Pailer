@@ -4,7 +4,7 @@ import { listen, emit } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { VirustotalResult } from "../types/scoop";
 import { X, ShieldAlert, TriangleAlert, ExternalLink, Minimize2 } from "lucide-solid";
-import { isErrorLine } from "../utils/errorDetection";
+import { isErrorLineWithContext } from "../utils/errorDetection";
 import { stripAnsi } from "../utils/ansiUtils";
 import MinimizedIndicator from "./MinimizedIndicator";
 import { t } from "../i18n";
@@ -30,13 +30,13 @@ interface MinimizedState {
 }
 
 // Helper component to find and render links in a line of text
-const LineWithLinks: Component<{ line: string; isStderr?: boolean }> = (props) => {
+const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (props) => {
   const cleanLine = stripAnsi(props.line);
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-  // Check if line should be displayed as error
-  const isError = isErrorLine(cleanLine, props.isStderr);
+  // Check if line should be displayed as error with context awareness
+  const isError = isErrorLineWithContext(cleanLine, props.previousLines || [], props.isStderr);
 
   // If it's an error line, wrap it in error styling
   if (isError) {
@@ -296,14 +296,14 @@ function OperationModal(props: OperationModalProps) {
   // Listen for restore event from the global indicator
   createEffect(() => {
     let unlisten: (() => void) | undefined;
-    
+
     const setupListener = async () => {
       const unlistenFn = await listen('restore-panel', () => {
         handleMinimize();
       });
       unlisten = unlistenFn;
     };
-    
+
     setupListener();
 
     onCleanup(() => {
@@ -339,104 +339,105 @@ function OperationModal(props: OperationModalProps) {
     <Portal>
       <Show when={rendered() && !isMinimized()}>
         <div class="fixed inset-0 flex items-center justify-center z-50 p-2">
-            <div
-              class="absolute inset-0 transition-all duration-300 ease-out"
-              classList={{
-                "opacity-0": isClosing() || isMinimizing(),
-                "opacity-80": !isClosing() && !isMinimizing(),
-              }}
-              style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
-              onClick={handleMinimize}
-            ></div>
-            <div
-              class="relative bg-base-200 rounded-xl shadow-2xl border border-base-300 w-full max-w-lg sm:max-w-lg md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-out"
-              classList={{
-                "scale-90 opacity-0 translate-y-0": isClosing() || isMinimizing(),
-                "scale-100 opacity-100 translate-y-0": !isClosing() && !isMinimizing(),
-              }}
-            >
-              <div class="flex justify-between items-center p-4 border-b border-base-300">
-                <h3 class="font-bold text-lg truncate">{props.title}</h3>
-                <div class="flex space-x-2">
-                  <button
-                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
-                    onClick={handleMinimize}
-                  >
-                    <Minimize2 class="w-5 h-5" />
-                  </button>
-                  <button
-                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
-                    onClick={handleForceClose}
-                  >
-                    <X class="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div
-                ref={scrollRef}
-                class="bg-black text-white font-mono text-xs p-4 rounded-lg mx-4 my-3 overflow-y-auto flex-grow"
-                style="white-space: pre-wrap; word-break: break-word;"
-              >
-                <For each={output()}>
-                  {(line) => (
-                    <div class="mb-1">
-                      <LineWithLinks
-                        line={line.line}
-                        isStderr={line.source === 'stderr'}
-                      />
-                    </div>
-                  )}
-                </For>
-                <Show when={!result() && !scanWarning()}>
-                  <div class="flex items-center animate-pulse mt-2">
-                    <span class="loading loading-spinner loading-xs mr-2"></span>
-                    {t('status.in_progress')}
-                  </div>
-                </Show>
-              </div>
-
-              <Show when={scanWarning()}>
-                <div class="alert alert-warning mx-4 my-2 rounded-lg">
-                  <ShieldAlert class="w-6 h-6" />
-                  <div>
-                    <div class="font-bold">{t('scan.virus_total_warning')}</div>
-                    <div>{scanWarning()!.message}</div>
-                  </div>
-                </div>
-              </Show>
-
-              <Show when={result()}>
-                <div class="alert mx-4 my-2 rounded-lg" classList={{ 'alert-success': result()?.success, 'alert-error': !result()?.success }}>
-                  <span>{result()!.message}</span>
-                </div>
-              </Show>
-
-              <div class="flex justify-end p-4 gap-2 border-t border-base-300">
-                <Show when={scanWarning()}>
-                  <button class="btn btn-warning btn-sm" onClick={handleInstallAnyway}>
-                    <TriangleAlert class="w-4 h-4 mr-2" />
-                    {t('scan.install_anyway')}
-                  </button>
-                </Show>
-                <Show when={showNextStep()}>
-                  <button class="btn btn-primary btn-sm" onClick={handleNextStepClick}>
-                    {props.nextStep?.buttonLabel}
-                  </button>
-                </Show>
+          <div
+            class="absolute inset-0 transition-all duration-300 ease-out"
+            classList={{
+              "opacity-0": isClosing() || isMinimizing(),
+              "opacity-80": !isClosing() && !isMinimizing(),
+            }}
+            style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
+            onClick={handleMinimize}
+          ></div>
+          <div
+            class="relative bg-base-200 rounded-xl shadow-2xl border border-base-300 w-full max-w-lg sm:max-w-lg md:max-w-6xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-out"
+            classList={{
+              "scale-90 opacity-0 translate-y-0": isClosing() || isMinimizing(),
+              "scale-100 opacity-100 translate-y-0": !isClosing() && !isMinimizing(),
+            }}
+          >
+            <div class="flex justify-between items-center p-4 border-b border-base-300">
+              <h3 class="font-bold text-lg truncate">{props.title}</h3>
+              <div class="flex space-x-2">
                 <button
-                  classList={{
-                    "btn btn-sm": true,
-                    "btn-error": (!result() && !scanWarning()) || (!!result() && !result()!.success && !scanWarning()),
-                    "btn-primary": !!result() && result()!.success && !scanWarning(),
-                    "btn-warning": !!scanWarning()
-                  }}
-                  onClick={handleMainButtonClick}
+                  class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
+                  onClick={handleMinimize}
                 >
-                  {getCloseButtonText()}
+                  <Minimize2 class="w-5 h-5" />
+                </button>
+                <button
+                  class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
+                  onClick={handleForceClose}
+                >
+                  <X class="w-5 h-5" />
                 </button>
               </div>
             </div>
+
+            <div
+              ref={scrollRef}
+              class="bg-black text-white font-mono text-xs p-4 rounded-lg mx-4 my-3 overflow-y-auto flex-grow"
+              style="white-space: pre-wrap; word-break: break-word;"
+            >
+              <For each={output()}>
+                {(line, index) => (
+                  <div class="mb-1">
+                    <LineWithLinks
+                      line={line.line}
+                      isStderr={line.source === 'stderr'}
+                      previousLines={output().slice(0, index()).map(item => item.line)}
+                    />
+                  </div>
+                )}
+              </For>
+              <Show when={!result() && !scanWarning()}>
+                <div class="flex items-center animate-pulse mt-2">
+                  <span class="loading loading-spinner loading-xs mr-2"></span>
+                  {t('status.in_progress')}
+                </div>
+              </Show>
+            </div>
+
+            <Show when={scanWarning()}>
+              <div class="alert alert-warning mx-4 my-2 rounded-lg">
+                <ShieldAlert class="w-6 h-6" />
+                <div>
+                  <div class="font-bold">{t('scan.virus_total_warning')}</div>
+                  <div>{scanWarning()!.message}</div>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={result()}>
+              <div class="alert mx-4 my-2 rounded-lg" classList={{ 'alert-success': result()?.success, 'alert-error': !result()?.success }}>
+                <span>{result()!.message}</span>
+              </div>
+            </Show>
+
+            <div class="flex justify-end p-4 gap-2 border-t border-base-300">
+              <Show when={scanWarning()}>
+                <button class="btn btn-warning btn-sm" onClick={handleInstallAnyway}>
+                  <TriangleAlert class="w-4 h-4 mr-2" />
+                  {t('scan.install_anyway')}
+                </button>
+              </Show>
+              <Show when={showNextStep()}>
+                <button class="btn btn-primary btn-sm" onClick={handleNextStepClick}>
+                  {props.nextStep?.buttonLabel}
+                </button>
+              </Show>
+              <button
+                classList={{
+                  "btn btn-sm": true,
+                  "btn-error": (!result() && !scanWarning()) || (!!result() && !result()!.success && !scanWarning()),
+                  "btn-primary": !!result() && result()!.success && !scanWarning(),
+                  "btn-warning": !!scanWarning()
+                }}
+                onClick={handleMainButtonClick}
+              >
+                {getCloseButtonText()}
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
 
