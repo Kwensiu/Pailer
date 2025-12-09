@@ -25,3 +25,4 @@ pub mod update_log;
 pub mod updates;
 pub mod version;
 pub mod virustotal;
+pub mod test_update;

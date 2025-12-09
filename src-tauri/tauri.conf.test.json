@@ -31,7 +31,11 @@
         "https://raw.githubusercontent.com/Kwensiu/Rscoop/refs/heads/test/docs/test-update.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "passive",
+        "customInstallArgs": [
+          "/CURRENTUSER",
+          "/MERGETASKS=!desktopicon,!quicklaunchicon"
+        ]
       }
     },
     "store": null,

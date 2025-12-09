@@ -32,6 +32,7 @@ export default function AboutSection(props: AboutSectionProps) {
     // Call backend to reload update configuration
     try {
       await invoke("reload_update_config");
+      console.log(`Update channel changed to ${channel} and configuration reloaded`);
     } catch (error) {
       console.error("Failed to reload update configuration:", error);
       // Notify user about configuration reload failure
@@ -39,6 +40,7 @@ export default function AboutSection(props: AboutSectionProps) {
         title: t("settings.about.config_error"),
         kind: "error"
       });
+      return;
     }
 
     // Show a message that restart is required for changes to take effect
@@ -118,16 +120,36 @@ export default function AboutSection(props: AboutSectionProps) {
       setUpdateStatus('checking');
       setUpdateError(null);
 
-      console.log('Starting update check process...');
+      // Get the current update channel information
+      let channelInfo;
+      try {
+        channelInfo = await invoke("get_update_info_for_channel");
+        console.log(`Update channel info: ${JSON.stringify(channelInfo)}`);
+      } catch (configError) {
+        console.warn("Could not get update channel info:", configError);
+      }
+
+      console.log(`Starting update check process for ${settings.update.channel} channel...`);
+      
+      // Check for updates using the standard Tauri updater
+      // Note: Tauri updater doesn't support dynamic endpoint configuration
+      // The endpoint is determined by the configuration in tauri.conf.json or tauri.conf.test.json
+      // We're still using the standard check() function, but we have the channel info for reference
       const update = await check();
-      console.log('Update check completed', { updateAvailable: !!update?.available });
+      console.log('Update check completed', { 
+        updateAvailable: !!update?.available,
+        version: update?.version,
+        channel: settings.update.channel,
+        channelInfo: channelInfo
+      });
 
       if (update?.available) {
         setUpdateStatus('available');
         setUpdateInfo(update);
         console.log('Update found', {
           version: update.version,
-          body: update.body
+          body: update.body,
+          channel: settings.update.channel
         });
 
         // Only show dialog if user manually clicked "Check for updates"
@@ -157,7 +179,10 @@ export default function AboutSection(props: AboutSectionProps) {
       } else {
         setUpdateStatus('idle');
         if (manual) {
-          const messageText = t("settings.about.latest_version");
+          // 显示服务器上的最新版本号，即使没有可用更新
+          const messageText = update?.version
+            ? t("settings.about.latest_version", { version: update.version })
+            : t("settings.about.latest_version_unknown");
           await message(messageText, {
             title: t("settings.about.no_updates_available"),
             kind: "info"

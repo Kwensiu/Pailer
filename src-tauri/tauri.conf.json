@@ -31,7 +31,11 @@
         "https://github.com/Kwensiu/Rscoop/releases/latest/download/update.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "passive",
+        "customInstallArgs": [
+          "/CURRENTUSER",
+          "/MERGETASKS=!desktopicon,!quicklaunchicon"
+        ]
       }
     },
     "store": null,

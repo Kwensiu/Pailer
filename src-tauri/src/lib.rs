@@ -6,8 +6,8 @@ mod state;
 mod tray;
 pub mod utils;
 
-use std::path::PathBuf;
 use crate::commands::settings::detect_scoop_path;
+use std::path::PathBuf;
 use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -60,7 +60,6 @@ pub fn run() {
 
     cleanup_old_logs(&log_dir);
 
-
     // Create log directory if it does not exist
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
         eprintln!("Failed to create log directory {:?}: {}", log_dir, e);
@@ -84,6 +83,21 @@ pub fn run() {
     builder
         .plugin(log_plugin)
         .plugin(tauri_plugin_store::Builder::new().build())
+        // Initialize the updater plugin only on Windows and only if not installed via Scoop
+        .plugin({
+            #[cfg(windows)]
+            {
+                if !utils::is_scoop_installation() {
+                    tauri_plugin_updater::Builder::new().build()
+                } else {
+                    tauri::plugin::Builder::new("empty").build()
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                tauri::plugin::Builder::new("empty").build()
+            }
+        })
         .setup(|app| {
             // Windows-specific setup
             #[cfg(windows)]
@@ -109,12 +123,13 @@ pub fn run() {
         .on_window_event(handle_window_event)
         .on_page_load(|window, _| {
             cold_start::run_cold_start(window.app_handle().clone());
-            
+
             // Initialize update log store
-            if let Err(e) = commands::update_log::initialize_update_log_store(&window.app_handle()) {
+            if let Err(e) = commands::update_log::initialize_update_log_store(&window.app_handle())
+            {
                 log::error!("Failed to initialize update log store: {}", e);
             }
-            
+
             // Perform scheduled WebView cleanup on startup
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(3)); // Wait for app to fully load
@@ -209,7 +224,11 @@ pub fn run() {
             commands::update_log::get_update_logs,
             commands::update_log::get_all_update_logs,
             commands::update_log::add_update_log_entry,
-            commands::update_log::get_logs_by_type
+            commands::update_log::get_logs_by_type,
+            commands::update_config::get_update_channel,
+            commands::update_config::get_update_info_for_channel,
+            commands::test_update::test_update_config,
+            commands::test_update::get_current_update_channel
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -235,12 +254,19 @@ fn cleanup_old_logs(log_dir: &PathBuf) {
 // Windows-specific setup
 #[cfg(windows)]
 fn setup_windows_specific(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri_plugin_updater::Builder;
-
+    // Only configure updater if not installed via Scoop
     if !utils::is_scoop_installation() {
-        app.handle()
-            .plugin(Builder::new().build())
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+        // Configure updater based on the current channel setting
+        let app_handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) =
+                commands::update_config::configure_updater_for_channel(&app_handle).await
+            {
+                log::error!("Failed to configure updater on startup: {}", e);
+            }
+        });
+
+        log::info!("Updater plugin initialized successfully");
     }
     Ok(())
 }
@@ -251,14 +277,16 @@ fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn s
         Ok(path) => Ok(path),
         Err(e) => {
             log::warn!("Could not resolve scoop root path: {}", e);
-            detect_scoop_path()
-                .map(PathBuf::from)
-                .or_else(|_| {
-                    #[cfg(windows)]
-                    { Ok(PathBuf::from("C:\\scoop")) }
-                    #[cfg(not(windows))]
-                    { Ok(PathBuf::from("/usr/local/scoop")) }
-                })
+            detect_scoop_path().map(PathBuf::from).or_else(|_| {
+                #[cfg(windows)]
+                {
+                    Ok(PathBuf::from("C:\\scoop"))
+                }
+                #[cfg(not(windows))]
+                {
+                    Ok(PathBuf::from("/usr/local/scoop"))
+                }
+            })
         }
     }
 }
@@ -276,7 +304,7 @@ fn show_main_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> 
 fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     if let WindowEvent::CloseRequested { api, .. } = event {
         let app_handle = window.app_handle().clone();
-        
+
         // Check if "close to tray" is enabled in settings
         let close_to_tray = commands::settings::get_config_value(
             app_handle.clone(),
@@ -355,7 +383,10 @@ fn start_background_tasks(app_handle: tauri::AppHandle) {
             let interval_secs = interval_secs.unwrap();
 
             // Check if an update is needed
-            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             let last_ts = commands::settings::get_config_value(
                 app_handle.clone(),
                 config_keys::BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
@@ -365,7 +396,11 @@ fn start_background_tasks(app_handle: tauri::AppHandle) {
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
 
-            let elapsed = if last_ts == 0 { interval_secs } else { now.saturating_sub(last_ts) };
+            let elapsed = if last_ts == 0 {
+                interval_secs
+            } else {
+                now.saturating_sub(last_ts)
+            };
 
             if elapsed >= interval_secs {
                 run_auto_update(&app_handle, now).await;
@@ -383,7 +418,7 @@ fn start_background_tasks(app_handle: tauri::AppHandle) {
 // Run auto update
 async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     log::info!("Starting auto bucket update task");
-    
+
     // Check if silent update is enabled
     let silent_update_enabled = commands::settings::get_config_value(
         app_handle.clone(),
@@ -398,10 +433,13 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     if !silent_update_enabled {
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("auto-operation-start", "Updating buckets...");
-            let _ = window.emit("operation-output", serde_json::json!({
-                "line": "Starting automatic bucket update...",
-                "source": "stdout"
-            }));
+            let _ = window.emit(
+                "operation-output",
+                serde_json::json!({
+                    "line": "Starting automatic bucket update...",
+                    "source": "stdout"
+                }),
+            );
         }
     }
 
@@ -409,7 +447,11 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     match commands::bucket_install::update_all_buckets().await {
         Ok(results) => {
             let successes = results.iter().filter(|r| r.success).count();
-            log::info!("Auto bucket update completed: {}/{} succeeded", successes, results.len());
+            log::info!(
+                "Auto bucket update completed: {}/{} succeeded",
+                successes,
+                results.len()
+            );
 
             // Sent result to UI, also fix emit.
             if let Some(window) = app_handle.get_webview_window("main") {
@@ -417,13 +459,19 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                     let line = if result.success {
                         format!("✓ Updated bucket: {}", result.bucket_name)
                     } else {
-                        format!("✗ Failed to update {}: {}", result.bucket_name, result.message)
+                        format!(
+                            "✗ Failed to update {}: {}",
+                            result.bucket_name, result.message
+                        )
                     };
-                    
-                    let _ = window.emit("operation-output", serde_json::json!({
-                        "line": line.clone(),
-                        "source": if result.success { "stdout" } else { "stderr" }
-                    }));
+
+                    let _ = window.emit(
+                        "operation-output",
+                        serde_json::json!({
+                            "line": line.clone(),
+                            "source": if result.success { "stdout" } else { "stderr" }
+                        }),
+                    );
                 }
 
                 let _ = window.emit("operation-finished", serde_json::json!({
@@ -449,23 +497,29 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
-                if auto_update_packages {
+            if auto_update_packages {
                 update_packages_after_buckets(app_handle, silent_update_enabled).await;
             }
         }
         Err(e) => {
             log::warn!("Auto bucket update failed: {}", e);
-            
+
             if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.emit("operation-output", serde_json::json!({
-                    "line": format!("Error: {}", e),
-                    "source": "stderr"
-                }));
-                
-                let _ = window.emit("operation-finished", serde_json::json!({
-                    "success": false,
-                    "message": format!("Bucket update failed: {}", e)
-                }));
+                let _ = window.emit(
+                    "operation-output",
+                    serde_json::json!({
+                        "line": format!("Error: {}", e),
+                        "source": "stderr"
+                    }),
+                );
+
+                let _ = window.emit(
+                    "operation-finished",
+                    serde_json::json!({
+                        "success": false,
+                        "message": format!("Bucket update failed: {}", e)
+                    }),
+                );
             }
 
             // keep the timestamp to avoid frequent retries even if it fails
@@ -481,17 +535,20 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
 // Update packages after updating buckets
 async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_update_enabled: bool) {
     log::info!("Starting auto package update after bucket refresh");
-    
+
     let mut package_update_logs = Vec::new();
-    
+
     // Notify UI that package update is starting only if not silent update
     if !silent_update_enabled {
         if let Some(window) = app_handle.get_webview_window("main") {
             let _ = window.emit("auto-operation-start", "Updating packages...");
-            let _ = window.emit("operation-output", serde_json::json!({
-                "line": "Starting automatic package update...",
-                "source": "stdout"
-            }));
+            let _ = window.emit(
+                "operation-output",
+                serde_json::json!({
+                    "line": "Starting automatic package update...",
+                    "source": "stdout"
+                }),
+            );
         }
     }
 
@@ -500,22 +557,28 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
         Ok(_) => {
             let log_line = "Package update completed successfully.";
             package_update_logs.push(log_line.to_string());
-            
+
             // Notify UI of success only if not silent update
             if !silent_update_enabled {
                 if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit("operation-output", serde_json::json!({
-                        "line": log_line,
-                        "source": "stdout"
-                    }));
-                    
-                    let _ = window.emit("operation-finished", serde_json::json!({
-                        "success": true,
-                        "message": "Automatic package update completed successfully"
-                    }));
+                    let _ = window.emit(
+                        "operation-output",
+                        serde_json::json!({
+                            "line": log_line,
+                            "source": "stdout"
+                        }),
+                    );
+
+                    let _ = window.emit(
+                        "operation-finished",
+                        serde_json::json!({
+                            "success": true,
+                            "message": "Automatic package update completed successfully"
+                        }),
+                    );
                 }
             }
-            
+
             // Create package update log entry
             let package_log_entry = commands::update_log::UpdateLogEntry {
                 timestamp: chrono::Utc::now(),
@@ -525,7 +588,7 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                 total_count: 1,
                 details: package_update_logs,
             };
-            
+
             // Add to log store
             if let Err(e) = commands::update_log::get_log_store().add_log_entry(package_log_entry) {
                 log::error!("Failed to save package update log: {}", e);
@@ -535,22 +598,28 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
             log::warn!("Auto package headless update failed: {}", e);
             let error_line = format!("Error: {}", e);
             package_update_logs.push(error_line.clone());
-            
+
             // Notify UI of error only if not silent update
             if !silent_update_enabled {
                 if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit("operation-output", serde_json::json!({
-                        "line": error_line,
-                        "source": "stderr"
-                    }));
-                    
-                    let _ = window.emit("operation-finished", serde_json::json!({
-                        "success": false,
-                        "message": format!("Automatic package update failed: {}", e)
-                    }));
+                    let _ = window.emit(
+                        "operation-output",
+                        serde_json::json!({
+                            "line": error_line,
+                            "source": "stderr"
+                        }),
+                    );
+
+                    let _ = window.emit(
+                        "operation-finished",
+                        serde_json::json!({
+                            "success": false,
+                            "message": format!("Automatic package update failed: {}", e)
+                        }),
+                    );
                 }
             }
-            
+
             // Create error log entry
             let error_log_entry = commands::update_log::UpdateLogEntry {
                 timestamp: chrono::Utc::now(),
@@ -560,7 +629,7 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                 total_count: 1,
                 details: package_update_logs,
             };
-            
+
             // Add to log store
             if let Err(e) = commands::update_log::get_log_store().add_log_entry(error_log_entry) {
                 log::error!("Failed to save package update error log: {}", e);
