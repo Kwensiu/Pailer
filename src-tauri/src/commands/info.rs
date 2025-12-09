@@ -111,8 +111,22 @@ pub fn get_package_info(
     log::info!("Fetching info for package: {}", package_name);
 
     let scoop_dir = state.scoop_path();
-    let (manifest_path, bucket_name) =
-        utils::locate_package_manifest(&scoop_dir, &package_name, None)?;
+    
+    // Try to get bucket info from install.json first (for installed packages)
+    let installed_bucket = get_installed_package_bucket(&scoop_dir, &package_name);
+    
+    // Use the installed bucket if available, otherwise search all buckets
+    let (manifest_path, bucket_name) = if let Some(ref bucket) = installed_bucket {
+        // Try to find the package manifest in the installed bucket first
+        match utils::locate_package_manifest(&scoop_dir, &package_name, Some(bucket.clone())) {
+            Ok(result) => result,
+            // If not found in the installed bucket, fall back to searching all buckets
+            Err(_) => utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+        }
+    } else {
+        // For non-installed packages or when bucket info is not available, search all buckets
+        utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+    };
 
     let manifest_content = fs::read_to_string(&manifest_path)
         .map_err(|e| format!("Failed to read manifest for {}: {}", package_name, e))?;
@@ -121,8 +135,13 @@ pub fn get_package_info(
         .map_err(|e| format!("Failed to parse JSON for {}: {}", package_name, e))?;
 
     let (mut details, notes) = parse_manifest_details(&json_value);
+    
+    // Remove the "Version" entry from details since we'll add more specific version info
+    details.retain(|(key, _)| key != "Version");
 
-    details.push(("Bucket".to_string(), bucket_name));
+    // Add bucket information - prefer installed bucket if available
+    let display_bucket = installed_bucket.unwrap_or(bucket_name);
+    details.push(("Bucket".to_string(), display_bucket));
 
     let installed_dir = scoop_dir.join("apps").join(&package_name).join("current");
     if installed_dir.exists() {
@@ -133,24 +152,18 @@ pub fn get_package_info(
 
         // Read the installed manifest to get the actual installed version
         if let Some(installed_version) = get_installed_version(&scoop_dir, &package_name) {
-            // Replace the version in details with the installed version, or add it if not present
-            if let Some(pos) = details.iter().position(|(key, _)| key == "Version") {
-                details[pos] = (
-                    "Installed Version".to_string(),
-                    installed_version.to_string(),
-                );
-                // Also add the latest version from the bucket manifest
-                if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
-                    if installed_version != latest_version {
-                        details.push(("Latest Version".to_string(), latest_version.to_string()));
-                    }
-                }
+            // Get the latest version from the bucket manifest
+            if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
+                details.push(("Installed Version".to_string(), installed_version.to_string()));
+                details.push(("Latest Version".to_string(), latest_version.to_string()));
             } else {
-                details.push((
-                    "Installed Version".to_string(),
-                    installed_version.to_string(),
-                ));
+                details.push(("Version".to_string(), installed_version.to_string()));
             }
+        }
+    } else {
+        // For non-installed packages, show the version as "Latest Version"
+        if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
+            details.push(("Latest Version".to_string(), latest_version.to_string()));
         }
     }
 
@@ -183,4 +196,25 @@ fn get_installed_version(scoop_dir: &std::path::Path, package_name: &str) -> Opt
                 .and_then(|v| v.as_str())
                 .map(String::from)
         })
+}
+
+/// Gets the bucket name for an installed package from install.json
+fn get_installed_package_bucket(scoop_dir: &std::path::Path, package_name: &str) -> Option<String> {
+    let install_json_path = scoop_dir
+        .join("apps")
+        .join(package_name)
+        .join("current")
+        .join("install.json");
+
+    if install_json_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(install_json_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(bucket) = json.get("bucket").and_then(|b| b.as_str()) {
+                    return Some(bucket.to_string());
+                }
+            }
+        }
+    }
+    
+    None
 }
