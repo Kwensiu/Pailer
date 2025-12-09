@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, onMount, Show, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { useBuckets, type BucketInfo } from "../hooks/useBuckets";
 import { usePackageInfo } from "../hooks/usePackageInfo";
@@ -18,6 +18,13 @@ interface BucketUpdateResult {
   bucket_path?: string;
   manifest_count?: number;
 }
+
+type UpdateState = {
+  status: 'idle' | 'updating' | 'completed' | 'cancelled' | 'error';
+  current: number;
+  total: number;
+  message: string;
+};
 
 function BucketPage() {
   const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests } = useBuckets();
@@ -39,17 +46,25 @@ function BucketPage() {
   // Update state
   const [updatingBuckets, setUpdatingBuckets] = createSignal<Set<string>>(new Set());
   const [updateResults, setUpdateResults] = createSignal<{ [key: string]: string }>({});
-  const [isUpdatingAll, setIsUpdatingAll] = createSignal(false);
-  const [isCancelling, setIsCancelling] = createSignal(false);
-  const [updateProgress, setUpdateProgress] = createSignal({ current: 0, total: 0, message: "" });
-  const [showProgressBar, setShowProgressBar] = createSignal(false);
-  const [updateComplete, setUpdateComplete] = createSignal(false);
+  const [updateState, setUpdateState] = createSignal<UpdateState>({
+    status: 'idle',
+    current: 0,
+    total: 0,
+    message: ""
+  });
+
+  let resultTimerIds: Map<string, number> = new Map();
+  let stateTimerId: number | null = null;
 
   // Reference to current update operation for cancellation
   let currentUpdateOperation: { cancel: () => void } | null = null;
 
   onMount(() => {
     fetchBuckets();
+  });
+
+  onCleanup(() => {
+    cleanupTimers();
   });
 
   const toggleSearch = () => {
@@ -170,13 +185,6 @@ function BucketPage() {
         [bucketName]: result.message
       }));
 
-      // Additionally remove from updating set
-      setUpdatingBuckets(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(bucketName);
-        return newSet;
-      });
-
       if (result.success) {
         // If this bucket is currently selected, refresh its manifests
         const currentBucket = selectedBucket();
@@ -194,13 +202,16 @@ function BucketPage() {
       }
 
       // Clear result message after 2 seconds to avoid long display
-      setTimeout(() => {
+      const timerId = window.setTimeout(() => {
         setUpdateResults(prev => {
           const newResults = { ...prev };
           delete newResults[bucketName];
           return newResults;
         });
+        resultTimerIds.delete(bucketName);
       }, 2000);
+
+      resultTimerIds.set(bucketName, timerId);
 
       return result; // Return the result
     } catch (error) {
@@ -209,6 +220,18 @@ function BucketPage() {
         ...prev,
         [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`
       }));
+
+      const timerId = window.setTimeout(() => {
+        setUpdateResults(prev => {
+          const newResults = { ...prev };
+          delete newResults[bucketName];
+          return newResults;
+        });
+        resultTimerIds.delete(bucketName);
+      }, 2000);
+
+      resultTimerIds.set(bucketName, timerId);
+
       throw error; // Re-throw the error
     } finally {
       // Remove from updating set in all cases
@@ -222,44 +245,74 @@ function BucketPage() {
 
   // Handle updating all buckets with limited concurrency
   const handleUpdateAllBuckets = async () => {
-    // If we're cancelling, don't start a new update
-    if (isCancelling()) return;
+    // If we're cancelling or already updating, don't start a new update
+    if (updateState().status === 'updating') return;
 
     const gitBuckets = buckets().filter(bucket => bucket.is_git_repo);
 
     // Set updating all flag to prevent full page reload
-    setIsUpdatingAll(true);
-    setIsCancelling(false); // Reset cancel state
-    setShowProgressBar(true);
-    setUpdateComplete(false);
-    setUpdateProgress({ current: 0, total: gitBuckets.length, message: "Starting updates..." });
+    setUpdateState({
+      status: 'updating',
+      current: 0,
+      total: gitBuckets.length,
+      message: "Starting updates..."
+    });
 
     // Flag to track cancellation
     let cancelled = false;
+
+    // Create and store a cancellable object immediately
+    const cancellable = {
+      cancel: () => {
+        cancelled = true;
+        setUpdateState(prev => ({
+          ...prev,
+          status: 'cancelled',
+          message: "Cancelling..."
+        }));
+
+        // Refresh bucket list when cancelled
+        markForRefresh();
+        fetchBuckets(true, true);
+      }
+    };
+
+    currentUpdateOperation = cancellable;
 
     try {
       // Create update promises using map directly
       const updatePromises = gitBuckets.map(async (bucket, index) => {
         // Check if cancelled before starting
-        if (cancelled) return;
+        if (cancelled) return Promise.resolve();
 
-        setUpdateProgress(prev => ({
+        setUpdateState(prev => ({
           ...prev,
           message: `Updating ${bucket.name} (${index + 1}/${gitBuckets.length})`
         }));
 
         // Update bucket but don't refresh the bucket list yet
-        const result = await handleUpdateBucket(bucket.name, false);
+        try {
+          const result = await handleUpdateBucket(bucket.name, false);
 
-        // Check if cancelled after update
-        if (cancelled) return;
+          // Check if cancelled after update
+          if (cancelled) return Promise.resolve();
 
-        setUpdateProgress(prev => ({
-          ...prev,
-          current: prev.current + 1
-        }));
+          setUpdateState(prev => ({
+            ...prev,
+            current: prev.current + 1
+          }));
 
-        return result;
+          return result;
+        } catch (error) {
+          console.error(`Failed to update bucket ${bucket.name}:`, error);
+
+          setUpdateState(prev => ({
+            ...prev,
+            current: prev.current + 1
+          }));
+
+          return Promise.resolve();
+        }
       });
 
       // Execute all promises
@@ -273,60 +326,55 @@ function BucketPage() {
       await fetchBuckets(true, true);
 
       // Show completion state
-      setUpdateComplete(true);
-      setUpdateProgress(prev => ({
+      setUpdateState(prev => ({
         ...prev,
+        status: 'completed',
         message: "Complete"
       }));
     } catch (error) {
       // Check if this is a cancellation
       if (cancelled) {
-        setUpdateProgress(prev => ({
+        setUpdateState(prev => ({
           ...prev,
+          status: 'cancelled',
           message: "Cancelled"
         }));
         return;
       }
 
       console.error("Error updating all buckets:", error);
-      setUpdateProgress(prev => ({
+      setUpdateState(prev => ({
         ...prev,
+        status: 'error',
         message: "Error occurred during update"
       }));
     } finally {
       // Clear updating all flag and hide progress bar after delay
-      setTimeout(() => {
-        setIsUpdatingAll(false);
-        setIsCancelling(false);
-        setUpdateComplete(true);
+      if (stateTimerId) {
+        window.clearTimeout(stateTimerId);
+      }
+
+      stateTimerId = window.setTimeout(() => {
+        setUpdateState(prev => ({
+          ...prev,
+          status: 'idle'
+        }));
       }, 300);
 
       // Hide progress bar after 3 seconds
-      setTimeout(() => {
-        setShowProgressBar(false);
+      const progressBarTimerId = window.setTimeout(() => {
+        setUpdateState(prev => ({
+          ...prev,
+          status: prev.status === 'completed' ? 'idle' : prev.status
+        }));
+
+        window.clearTimeout(progressBarTimerId);
       }, 3000);
 
       // Clear current update operation reference
       currentUpdateOperation = null;
     }
 
-    // Create and store a cancellable object
-    const cancellable = {
-      cancel: () => {
-        cancelled = true;
-        setIsCancelling(true);
-        setUpdateProgress(prev => ({
-          ...prev,
-          message: "Cancelling..."
-        }));
-
-        // Refresh bucket list when cancelled
-        markForRefresh();
-        fetchBuckets(true, true);
-      }
-    };
-
-    currentUpdateOperation = cancellable;
     return cancellable;
   };
 
@@ -340,6 +388,18 @@ function BucketPage() {
     if (currentUpdateOperation) {
       currentUpdateOperation.cancel();
       currentUpdateOperation = null;
+    }
+  };
+
+  const cleanupTimers = () => {
+    resultTimerIds.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    resultTimerIds.clear();
+
+    if (stateTimerId) {
+      window.clearTimeout(stateTimerId);
+      stateTimerId = null;
     }
   };
 
@@ -393,6 +453,36 @@ function BucketPage() {
           </div>
         </Show>
 
+        {/* Progress bar for updating all buckets */}
+        <Show when={updateState().status !== 'idle'}>
+          <div class="mt-0 p-4 bg-base-100 rounded-lg shadow transition-opacity duration-300">
+            <div class="flex justify-between mb-1">
+              <span class="text-base font-medium">
+                Updating Buckets
+              </span>
+              <span class="text-sm font-medium">
+                {updateState().current}/{updateState().total}
+              </span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                class={`h-2.5 rounded-full transition-all duration-300 ${updateState().status === 'completed' ? 'bg-green-500' :
+                  updateState().status === 'error' ? 'bg-red-500' : 'bg-orange-500'
+                  }`}
+                style={{
+                  width: `${(updateState().current / Math.max(updateState().total, 1)) * 100}%`
+                }}
+              ></div>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">
+              {updateState().message}
+              <Show when={updateState().status === 'completed'}>
+                <span> - This may take a few seconds to complete</span>
+              </Show>
+            </div>
+          </div>
+        </Show>
+
         {/* Regular Buckets View */}
         <Show when={!isSearchActive()}>
           <div class={`transition-all duration-300 ${!isSearchActive() ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
@@ -408,39 +498,12 @@ function BucketPage() {
                   onCancelUpdateAll={handleCancelUpdateAll}
                   updatingBuckets={updatingBuckets()}
                   updateResults={updateResults()}
-                  loading={loading() && !isUpdatingAll()} // Only show loading when not updating specific buckets
-                  isUpdatingAll={isUpdatingAll()}
-                  isCancelling={isCancelling()}
+                  loading={loading() && updateState().status !== 'updating'} // Only show loading when not updating specific buckets
+                  isUpdatingAll={updateState().status === 'updating'}
+                  isCancelling={updateState().status === 'cancelled'}
                 />
 
-                {/* Progress bar for updating all buckets */}
-                <Show when={showProgressBar()}>
-                  <div class="mt-4 p-4 bg-base-100 rounded-lg shadow transition-opacity duration-300">
-                    <div class="flex justify-between mb-1">
-                      <span class="text-base font-medium">
-                        Updating Buckets
-                      </span>
-                      <span class="text-sm font-medium">
-                        {updateProgress().current}/{updateProgress().total}
-                      </span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5">
-                      <div
-                        class={`h-2.5 rounded-full transition-all duration-300 ${updateComplete() && !isCancelling() ? 'bg-green-500' : 'bg-orange-500'
-                          }`}
-                        style={{
-                          width: `${(updateProgress().current / Math.max(updateProgress().total, 1)) * 100}%`
-                        }}
-                      ></div>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-500">
-                      {updateProgress().message}
-                      <Show when={updateComplete() && !isCancelling()}>
-                        <span> - This may take a few seconds to complete</span>
-                      </Show>
-                    </div>
-                  </div>
-                </Show>
+
               </div>
             </div>
           </div>
