@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
 use tokio::sync::Mutex;
@@ -82,10 +83,16 @@ fn parse_package_from_manifest(path: &Path) -> Option<ScoopPackage> {
     let version = json.get("version").and_then(|v| v.as_str())?.to_string();
     let bucket = path.parent()?.parent()?.file_name()?.to_str()?.to_string();
 
+    let updated = fs::metadata(path)
+        .and_then(|m| m.modified())
+        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
+        .unwrap_or_default();
+
     Some(ScoopPackage {
         name: file_name,
         version,
         source: bucket,
+        updated,
         match_source: MatchSource::Name,
         ..Default::default()
     })
