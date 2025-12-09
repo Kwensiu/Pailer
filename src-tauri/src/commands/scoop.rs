@@ -35,7 +35,7 @@ fn build_scoop_cmd(
             let pkg = package.ok_or("A package name is required to update.")?;
             format!("scoop update {}", pkg)
         }
-        ScoopOp::UpdateForce => { // 添加强制更新命令处理
+        ScoopOp::UpdateForce => {
             let pkg = package.ok_or("A package name is required to force update.")?;
             format!("scoop update {} --force", pkg)
         }
@@ -65,7 +65,7 @@ pub async fn execute_scoop(
         (ScoopOp::Install, Some(pkg)) => format!("Installing {}", pkg),
         (ScoopOp::Uninstall, Some(pkg)) => format!("Uninstalling {}", pkg),
         (ScoopOp::Update, Some(pkg)) => format!("Updating {}", pkg),
-        (ScoopOp::UpdateForce, Some(pkg)) => format!("Force updating {}", pkg), // 添加对UpdateForce操作的处理
+        (ScoopOp::UpdateForce, Some(pkg)) => format!("Force updating {}", pkg),
         (ScoopOp::ClearCache, Some(pkg)) => format!("Clearing cache for {}", pkg),
         (ScoopOp::UpdateAll, _) => "Updating all packages".to_string(),
         // This case should not be reached if `build_scoop_cmd` is correct.

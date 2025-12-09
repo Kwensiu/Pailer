@@ -434,7 +434,7 @@
       "clear_button": "Clear",
       "clear_confirm": "Clear Confirm",
       "clear_data": "Clear Data",
-      "clear_data_description": "This will clear all configuration data of Rscoop and restart App",
+      "clear_data_description": "This will clear all cache data of Rscoop and restart App",
       "clear_error": "Clear Error",
       "clear_success": "Clear Success",
       "clearing": "Clearing",

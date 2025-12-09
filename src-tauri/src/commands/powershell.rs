@@ -26,13 +26,12 @@ pub struct CommandResult {
 /// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
 pub fn create_powershell_command(command_str: &str) -> Command {
     let mut cmd = Command::new("powershell");
-    
-    // 设置 PowerShell 使用 UTF-8 编码来避免中文乱码
+
     let wrapped_command = format!(
         "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; {}",
         command_str
     );
-    
+
     cmd.args(["-NoProfile", "-Command", &wrapped_command])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -61,19 +60,19 @@ fn spawn_output_stream_handler(
     tokio::spawn(async move {
         while let Ok(Some(line)) = reader.next_line().await {
             // Enhanced error detection for scoop commands
-            let is_error_line = source == "stderr" || 
-                               line.to_lowercase().contains("error") ||
-                               line.to_lowercase().contains("failed") ||
-                               line.to_lowercase().contains("exception") ||
-                               line.to_lowercase().contains("cannot") ||
-                               line.to_lowercase().contains("could not") ||
-                               line.to_lowercase().contains("not found") ||
-                               line.to_lowercase().contains("access to the path") ||
-                               line.to_lowercase().contains("denied") ||
-                               line.contains("Remove-Item") ||
-                               line.contains("Access to the path") ||
-                               line.contains("is denied");
-            
+            let is_error_line = source == "stderr"
+                || line.to_lowercase().contains("error")
+                || line.to_lowercase().contains("failed")
+                || line.to_lowercase().contains("exception")
+                || line.to_lowercase().contains("cannot")
+                || line.to_lowercase().contains("could not")
+                || line.to_lowercase().contains("not found")
+                || line.to_lowercase().contains("access to the path")
+                || line.to_lowercase().contains("denied")
+                || line.contains("Remove-Item")
+                || line.contains("Access to the path")
+                || line.contains("is denied");
+
             // Send error lines to the error channel for final result display
             if is_error_line {
                 if let Err(e) = error_tx.send(line.clone()).await {
@@ -191,7 +190,7 @@ async fn handle_command_completion(
     while let Ok(error_line) = error_rx.try_recv() {
         error_messages.push(error_line);
     }
-    
+
     let has_errors = !error_messages.is_empty();
     let was_successful = status.success() && !has_errors;
 
@@ -203,11 +202,13 @@ async fn handle_command_completion(
             let error_preview = if error_messages.len() <= 3 {
                 error_messages.join("\n")
             } else {
-                format!("{}\n... and {} more errors", 
-                    error_messages[..3].join("\n"), 
-                    error_messages.len() - 3)
+                format!(
+                    "{}\n... and {} more errors",
+                    error_messages[..3].join("\n"),
+                    error_messages.len() - 3
+                )
             };
-            
+
             format!(
                 "{} failed with {} error(s):\n{}\nPlease check the output log for details.",
                 operation_name,
@@ -250,12 +251,12 @@ async fn handle_cancellation(
     finished_event: &str,
 ) -> Result<(), String> {
     log::warn!("Cancelling operation: {}", operation_name);
-    
+
     // Try to kill the process
     if let Err(e) = child.kill().await {
         log::error!("Failed to kill child process: {}", e);
     }
-    
+
     let message = format!("{} was cancelled by user", operation_name);
     if let Err(e) = window.emit(
         finished_event,
@@ -266,6 +267,6 @@ async fn handle_cancellation(
     ) {
         log::error!("Failed to emit cancellation event: {}", e);
     }
-    
+
     Err(message)
 }

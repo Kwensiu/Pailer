@@ -16,13 +16,11 @@ interface SearchResultsListProps {
 }
 
 function SearchResultsList(props: SearchResultsListProps) {
-    // 每页显示的项目数
-    const ITEMS_PER_PAGE = 10;
 
-    // 计算总页数
+    const ITEMS_PER_PAGE = 8;
+
     const totalPages = () => Math.ceil(props.results.length / ITEMS_PER_PAGE);
 
-    // 计算当前页的项目
     const paginatedResults = () => {
         const startIndex = (props.currentPage - 1) * ITEMS_PER_PAGE;
         const endIndex = startIndex + ITEMS_PER_PAGE;

@@ -649,7 +649,8 @@ pub fn read_app_log_file() -> Result<String, String> {
         // Try new Tauri app data directory first (Roaming)
         dirs::data_dir().and_then(|d| Some(d.join(TAURI_APP_ID).join("logs").join("rscoop.log"))),
         // Fallback to old rscoop directory (Local)
-        dirs::data_local_dir().and_then(|d| Some(d.join(OLD_APP_DIR).join("logs").join("rscoop.log"))),
+        dirs::data_local_dir()
+            .and_then(|d| Some(d.join(OLD_APP_DIR).join("logs").join("rscoop.log"))),
     ];
 
     // Try each potential log file location
@@ -663,10 +664,6 @@ pub fn read_app_log_file() -> Result<String, String> {
     }
 
     // If all locations failed, try to provide helpful message
-    let first_location = dirs::data_dir()
-        .map(|d| d.join(TAURI_APP_ID).join("logs").join("rscoop.log"))
-        .unwrap_or_else(|| PathBuf::from("./logs/rscoop.log"));
-
     Ok(format!(
         "Log file not found at any expected location.\nChecked:\n- {}\n- {}\n\nLogs will be created after the first run.",
         dirs::data_dir()

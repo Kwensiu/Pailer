@@ -82,7 +82,6 @@ export default function AppDataManagement() {
                     await relaunch();
                 }, 1000);
             } catch (error) {
-                // 错误处理
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 setClearError(t("settings.app_data.clear_error") + ": " + errorMessage);
                 setIsClearing(false);

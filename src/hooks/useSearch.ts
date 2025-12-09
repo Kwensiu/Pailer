@@ -48,7 +48,6 @@ interface UseSearchReturn {
   setBucketFilter: Setter<string>;
 }
 
-// 缓存搜索结果，避免页面切换时丢失
 let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 

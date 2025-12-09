@@ -434,7 +434,7 @@
       "clear_button": "清理",
       "clear_confirm": "确认清理",
       "clear_data": "清理数据",
-      "clear_data_description": "这会清理Rscoop的所有配置数据并重启软件",
+      "clear_data_description": "这会清理Rscoop的所有缓存数据并重启软件",
       "clear_error": "清理错误",
       "clear_success": "清理成功",
       "clearing": "正在清理",
