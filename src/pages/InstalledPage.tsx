@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo } from "solid-js";
+import { For, Show, createSignal, createMemo, onMount } from "solid-js";
 import PackageInfoModal from "../components/PackageInfoModal";
 import ScoopStatusModal from "../components/ScoopStatusModal";
 import { useInstalledPackages } from "../hooks/useInstalledPackages";
@@ -61,6 +61,11 @@ function InstalledPage(props: InstalledPageProps) {
 
   const [searchQuery, setSearchQuery] = createStoredSignal<string>('installedSearchQuery', "");
   const [showStatusModal, setShowStatusModal] = createSignal(false);
+
+  // Execute a silent refresh when the component mounts
+  onMount(() => {
+    fetchInstalledPackages();
+  });
 
   const handleCheckStatus = async () => {
     await checkScoopStatus();
