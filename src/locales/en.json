@@ -377,6 +377,7 @@
     "filter": {
       "all_buckets": "All Buckets"
     },
+    "refresh_results": "Refreash",
     "results": {
       "from_bucket": "from bucket: {{bucket}}",
       "includes": "Includes",
@@ -427,12 +428,6 @@
       "update_via_scoop": "This app was installed via Scoop. Please use Scoop to update this application instead.",
       "updates_via_scoop": "Updates via Scoop",
       "upstream": "AmarBego"
-    },
-    "tray": {
-      "notification_title": "Rscoop - Minimized to Tray",
-      "notification_message": "Rscoop has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
-      "close_and_disable": "Close and Disable Tray",
-      "keep_in_tray": "Keep in Tray"
     },
     "app_data": {
       "14_days": "14 Days",
@@ -571,6 +566,12 @@
       "title": "Appearance"
     },
     "title": "Settings",
+    "tray": {
+      "close_and_disable": "Close and Disable Tray",
+      "keep_in_tray": "Keep in Tray",
+      "notification_message": "Rscoop has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
+      "notification_title": "Rscoop - Minimized to Tray"
+    },
     "ui": {
       "UDA_botton_description": "Change the visibility of the global 'Update All' button.",
       "UDA_botton_title": "Update All botton",

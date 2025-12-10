@@ -37,7 +37,7 @@ interface UseSearchReturn {
   // Cleanup function
   cleanup: () => void;
   // Refresh function
-  refreshSearchResults: () => Promise<void>;
+  refreshSearchResults: (force?: boolean) => Promise<void>;
   // Restore search results
   restoreSearchResults: () => void;
   // Check if has cached results
@@ -85,12 +85,12 @@ export function useSearch(): UseSearchReturn {
                searchTerm().trim() !== "";
     });
 
-    const handleSearch = async () => {
-        if (currentSearchController) {
+    const handleSearch = async (force: boolean = false) => {
+        if (currentSearchController && !force) {
             currentSearchController.abort();
         }
         
-        if (isRestoring) {
+        if (isRestoring && !force) {
             console.log("Skipping search - currently restoring");
             return;
         }
@@ -111,7 +111,7 @@ export function useSearch(): UseSearchReturn {
             const response = await invoke<{ packages: ScoopPackage[], is_cold: boolean }>("search_scoop", {
                 term: searchTerm(),
             });
-            if (!signal.aborted) {
+            if (!signal.aborted || force) {
                 setResults(response.packages);
                 searchResultsCache = response.packages;
                 currentSearchTermCache = searchTerm();
@@ -122,7 +122,7 @@ export function useSearch(): UseSearchReturn {
                 console.error("Search error:", error);
             }
         } finally {
-            if (!signal.aborted) {
+            if (!signal.aborted || force) {
                 setLoading(false);
             }
             currentSearchController = null;
@@ -130,10 +130,10 @@ export function useSearch(): UseSearchReturn {
     };
 
     // Function to refresh search results after package operations
-    const refreshSearchResults = async () => {
-        if (searchTerm().trim() !== "") {
-            console.log('Refreshing search results after package operation...');
-            await handleSearch();
+    const refreshSearchResults = async (force: boolean = false) => {
+        if (searchTerm().trim() !== "" || force) {
+            console.log(`Refreshing search results ${force ? '(forced)' : ''}...`);
+            await handleSearch(force);
         }
     };
 

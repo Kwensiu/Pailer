@@ -1,20 +1,17 @@
 import { Accessor, Setter, Show } from "solid-js";
-import { CircleQuestionMark, Search, X, LoaderCircle } from "lucide-solid";
+import { CircleQuestionMark, Search, X } from "lucide-solid";
 import { t } from "../../../i18n";
 
 interface SearchBarProps {
     searchTerm: Accessor<string>;
     setSearchTerm: Setter<string>;
-    loading?: Accessor<boolean>;
 }
 
 function SearchBar(props: SearchBarProps) {
     return (
         <div class="relative w-full">
             <span class="absolute inset-y-0 left-0 flex items-center pl-3 z-10">
-                <Show when={props.loading?.()} fallback={<Search class="h-5 w-5 text-gray-400" />}>
-                    <LoaderCircle class="h-5 w-5 text-gray-400 animate-spin" />
-                </Show>
+                <Search class="h-5 w-5 text-gray-400" />
             </span>
 
             <input
@@ -30,7 +27,6 @@ function SearchBar(props: SearchBarProps) {
                         onClick={() => props.setSearchTerm("")}
                         class="p-1 mr-1 rounded-full text-gray-500 hover:text-base-700 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none"
                         aria-label={t("search.bar.clear_search")}
-                        disabled={props.loading?.()}
                     >
                         <X class="h-5 w-5" />
                     </button>

@@ -9,6 +9,7 @@ import SearchResultsList from "../components/page/search/SearchResultsList";
 import { createSignal, createEffect, onCleanup, onMount } from "solid-js";
 import { t } from "../i18n";
 import { createStoredSignal } from "../hooks/createStoredSignal";
+import { RefreshCw } from "lucide-solid";
 
 function SearchPage() {
   const {
@@ -33,16 +34,27 @@ function SearchPage() {
     // closeOperationModal,
     cleanup,
     restoreSearchResults,
+    refreshSearchResults,
     bucketFilter,
     setBucketFilter
   } = useSearch();
 
   const [currentPage, setCurrentPage] = createStoredSignal('searchCurrentPage', 1);
   const [uniqueBuckets, setUniqueBuckets] = createSignal<string[]>([]);
+  const [refreshing, setRefreshing] = createSignal(false);
 
   onMount(() => {
     restoreSearchResults();
   });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshSearchResults();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   createEffect(() => {
     resultsToShow();
@@ -61,7 +73,19 @@ function SearchPage() {
   return (
     <div class="p-4">
       <div class="max-w-3xl mx-auto">
-        <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} loading={loading} />
+        <div class="flex items-center gap-2 mb-4">
+          <div class="flex-1">
+            <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          </div>
+          <button
+            class="btn btn-square tooltip tooltip-top hover:btn-outline"
+            data-tip={t("search.refresh_results")}
+            onClick={handleRefresh}
+            disabled={refreshing() || !searchTerm()}
+          >
+            <RefreshCw class={`w-5 h-5 ${refreshing() || loading() ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
 
         {/* Tabs and bucket filter on the same line */}
         <div class="flex justify-between items-center mb-6">

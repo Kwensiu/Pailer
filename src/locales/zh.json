@@ -377,6 +377,7 @@
     "filter": {
       "all_buckets": "所有仓库"
     },
+    "refresh_results": "刷新",
     "results": {
       "from_bucket": "仓库：{{bucket}}",
       "includes": "包含",
@@ -427,12 +428,6 @@
       "update_via_scoop": "此应用程序是通过 Scoop 安装的。请使用 Scoop 更新此应用程序。",
       "updates_via_scoop": "通过 Scoop 更新",
       "upstream": "原版/AmarBego"
-    },
-    "tray": {
-      "notification_title": "Rscoop - 最小化到托盘",
-      "notification_message": "Rscoop 已最小化到系统托盘，并将在后台继续运行。\n\n您可以：\n• 点击托盘图标恢复窗口\n• 右键单击托盘图标访问上下文菜单\n• 在设置 > 窗口行为中更改此行为\n\n您想要怎么做？",
-      "close_and_disable": "关闭并禁用托盘",
-      "keep_in_tray": "保持在托盘"
     },
     "app_data": {
       "14_days": "14 天",
@@ -571,6 +566,12 @@
       "title": "外观"
     },
     "title": "设置",
+    "tray": {
+      "close_and_disable": "关闭并禁用托盘",
+      "keep_in_tray": "保持在托盘",
+      "notification_message": "Rscoop 已最小化到系统托盘，并将在后台继续运行。\n\n您可以：\n• 点击托盘图标恢复窗口\n• 右键单击托盘图标访问上下文菜单\n• 在设置 > 窗口行为中更改此行为\n\n您想要怎么做？",
+      "notification_title": "Rscoop - 最小化到托盘"
+    },
     "ui": {
       "UDA_botton_description": "更改全局\"全部更新\"按钮的可见性",
       "UDA_botton_title": "全局更新按钮",
