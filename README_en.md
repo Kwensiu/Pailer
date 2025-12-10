@@ -17,7 +17,7 @@ Since I was the only one testing it, there may be many potential problems that w
 
 ~~It is recommended to use exe instead of MSI for installation.~~
 We have replaced MSI packaging with NSIS, and recommend installing with setup.exe. A portable version is also provided.
-If you have installed an older version (1.4.7 and earlier), please uninstall it and then install the new version.
+If you have installed an older version (~~1.4.7~~ 1.5.0 and earlier), please uninstall it and then install the new version.
 
 Most features have been implemented, and there are plans to add quick installation of Scoop itself. However, Scoop installation methods are simple and diverse, so adding it to the GUI seems redundant.
 

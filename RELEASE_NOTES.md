@@ -1,6 +1,9 @@
-# Release Notes 1.5.0
+# Release Notes 1.5.1
 
-## [1.5.0] - 2025-12-11
+## [1.5.1] - 2025-12-11
+
+1.5.1 紧急添加了多重更新机制，尝试解决Tauri Updater的更新局限问题，需要更多版本验证。
+Version 1.5.1 urgently added a multiple update mechanism to resolve the update limitations of Tauri Updater. More version verifications are needed.
 
 <details>
 <summary>简体中文 (点击展开)</summary>
