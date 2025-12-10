@@ -1,4 +1,4 @@
-import { Show, Component, createEffect, createSignal } from "solid-js";
+import { Show, Component, createSignal, onMount, onCleanup } from "solid-js";
 import { CircleCheckBig, XCircle } from "lucide-solid";
 import { listen } from "@tauri-apps/api/event";
 
@@ -21,7 +21,7 @@ const MinimizedIndicator: Component<MinimizedIndicatorProps> = (props) => {
   const [result, setResult] = createSignal<'success' | 'error' | 'in-progress'>('in-progress');
 
   // Listen for minimize events with result status
-  createEffect(() => {
+  onMount(() => {
     let unlisten: (() => void) | undefined;
     listen<MinimizedState>('panel-minimize-state', (event) => {
       if (event.payload.result) {
@@ -30,7 +30,9 @@ const MinimizedIndicator: Component<MinimizedIndicatorProps> = (props) => {
     }).then((unlistenFn) => {
       unlisten = unlistenFn;
     });
-    return () => { if (unlisten) unlisten(); };
+    onCleanup(() => {
+      if (unlisten) unlisten();
+    });
   });
 
   return (
