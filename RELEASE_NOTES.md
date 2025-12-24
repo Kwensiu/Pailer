@@ -101,8 +101,6 @@ Version 1.5.1 urgently added a multiple update mechanism to resolve the update l
 <details>
 <summary>English Version (Click to expand)</summary>
 
-# Release Notes 1.4.7
-
 #### Many new features. They have been summarized in the README.Here is a brief overview.
 
 ## Internationalization Support
