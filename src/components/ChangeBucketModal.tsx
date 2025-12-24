@@ -68,7 +68,7 @@ function FloatingConfirmationPanel(props: FloatingConfirmationPanelProps) {
     return (
         <Portal>
             <Show when={rendered()}>
-                <div class="fixed inset-0 flex items-center justify-center z-50 p-2">
+                <div class="fixed inset-0 flex items-center justify-center z-52 p-2">
                     <div
                         class="absolute inset-0 transition-all duration-300 ease-in-out"
                         classList={{
@@ -94,7 +94,7 @@ function FloatingConfirmationPanel(props: FloatingConfirmationPanelProps) {
                                 <X class="w-4 h-4" />
                             </button>
                         </div>
-                        <div class="py-4 px-4 space-y-2 overflow-y-auto flex-grow">
+                        <div class="py-4 px-4 space-y-2 overflow-y-auto grow">
                             {props.children}
                         </div>
                         <div class="flex justify-end p-4 gap-2 border-t border-base-300">

@@ -642,18 +642,6 @@ export default function AboutSection(props: AboutSectionProps) {
             </div>
           ) : (
             <div class="space-y-4">
-              {updateStatus() === 'idle' && (
-                <div class="flex items-center justify-between">
-                  <span class="text-sm text-base-content/70">Check for the latest version</span>
-                  <button
-                    class="btn btn-sm btn-primary"
-                    onClick={() => checkForUpdates(true)}
-                  >
-                    Check Now
-                  </button>
-                </div>
-              )}
-
               {updateStatus() === 'checking' && (
                 <div class="flex items-center justify-center py-2 text-base-content/70">
                   <span class="loading loading-spinner loading-sm mr-3"></span>

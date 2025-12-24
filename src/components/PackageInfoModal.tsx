@@ -63,7 +63,7 @@ function DetailValue(props: { value: string }) {
   });
 
   return (
-    <Show when={parsed()} fallback={<span class="break-words">{props.value}</span>}>
+    <Show when={parsed()} fallback={<span class="wrap-break-word">{props.value}</span>}>
       <pre class="text-xs p-2 bg-base-100 rounded-lg whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
         <code ref={codeRef} class="language-json">
           {JSON.stringify(parsed(), null, 2)}
@@ -77,7 +77,7 @@ function DetailValue(props: { value: string }) {
 function IncludesValue(props: { value: string }) {
   const items = createMemo(() => props.value.split(/,\s*/).filter((s) => s.length > 0));
   return (
-    <div class="max-h-[4.5rem] overflow-y-auto">
+    <div class="max-h-18 overflow-y-auto">
       <ul class="list-disc list-inside text-xs space-y-0.5">
         <For each={items()}>{(item) => <li class="break-all">{item}</li>}</For>
       </ul>
@@ -115,7 +115,7 @@ function LicenseValue(props: { value: string }) {
           </a>
         </Match>
         <Match when={!license()?.url}>
-          <span class="break-words">{license()?.identifier}</span>
+          <span class="wrap-break-word">{license()?.identifier}</span>
         </Match>
       </Switch>
     </Show>
@@ -378,7 +378,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   return (
     <Portal>
       <Show when={rendered()}>
-        <div class="fixed inset-0 flex items-center justify-center z-20 p-20">
+        <div class="fixed inset-0 flex items-center justify-center z-51 p-20">
           <div
             class="absolute inset-0 transition-all duration-300 ease-in-out"
             classList={{
@@ -389,7 +389,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             onClick={handleBackdropClick}
           ></div>
           <div
-            class="relative bg-base-200 rounded-lg shadow-xl border border-base-300 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-in-out z-10"
+            class="relative bg-base-200 rounded-lg shadow-xl border border-base-300 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-in-out"
             classList={{
               "scale-95 opacity-0": !isVisible() || isClosing(),
               "scale-100 opacity-100": isVisible() && !isClosing(),
@@ -468,7 +468,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               </div>
             </div>
 
-            <div class="overflow-y-auto flex-grow p-4">
+            <div class="overflow-y-auto grow p-4">
               <Show when={props.loading}>
                 <div class="flex justify-center items-center h-40">
                   <span class="loading loading-spinner loading-lg"></span>
@@ -515,7 +515,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                         style={{ "background-color": codeBgColor() }}
                       >
                         <pre class="p-4 m-0">
-                          <code ref={codeRef} class="nohighlight font-mono text-sm leading-relaxed !bg-transparent whitespace-pre-wrap">{props.info?.notes}</code>
+                          <code ref={codeRef} class="nohighlight font-mono text-sm leading-relaxed bg-transparent! whitespace-pre-wrap">{props.info?.notes}</code>
                         </pre>
                       </div>
                     </div>

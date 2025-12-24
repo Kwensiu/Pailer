@@ -156,6 +156,7 @@ function BucketPage() {
     await packageInfo.fetchPackageInfo(pkg);
   };
 
+
   // Handle bucket installation/removal - refresh bucket list
   const handleBucketInstalled = async () => {
     markForRefresh();
@@ -531,6 +532,50 @@ function BucketPage() {
           onFetchManifests={(bucketName: string) => handleFetchManifests(bucketName)}
         />
       </Show>
+
+      <PackageInfoModal
+        pkg={packageInfo.selectedPackage()}
+        info={packageInfo.info()}
+        loading={packageInfo.loading()}
+        error={packageInfo.error()}
+        onClose={packageInfo.closeModal}
+        onInstall={packageOperations.handleInstall}
+        onUninstall={packageOperations.handleUninstall}
+        showBackButton={true}
+        onPackageStateChanged={() => {
+          // Refresh bucket manifests to reflect installation changes
+          const currentBucket = selectedBucket();
+          if (currentBucket) {
+            handleFetchManifests(currentBucket.name);
+          }
+        }}
+      />
+
+      <OperationModal
+        title={packageOperations.operationTitle()}
+        onClose={async (wasSuccess: boolean) => {
+          packageOperations.closeOperationModal(wasSuccess);
+          if (wasSuccess) {
+            const currentSelected = packageInfo.selectedPackage();
+            if (currentSelected) {
+              try {
+                const response = await invoke<{ packages: ScoopPackage[], is_cold: boolean }>("search_scoop", {
+                  term: currentSelected.name,
+                });
+                const match = response.packages.find(p => p.name === currentSelected.name);
+                if (match) {
+                  packageInfo.updateSelectedPackage(match);
+                }
+              } catch (e) {
+                console.error("Failed to check package status", e);
+              }
+            }
+          }
+        }}
+        isScan={packageOperations.isScanning()}
+        onInstallConfirm={packageOperations.handleInstallConfirm}
+        nextStep={packageOperations.operationNextStep() ?? undefined}
+      />
     </div>
   );
 }
