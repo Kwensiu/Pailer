@@ -9,14 +9,11 @@ pub mod utils;
 
 use crate::commands::settings::detect_scoop_path;
 use std::path::PathBuf;
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
 
 // Use a constant group to organize related configuration key
 mod config_keys {
-    pub const BUCKET_AUTO_UPDATE_INTERVAL: &str = "buckets.autoUpdateInterval";
-    pub const BUCKET_LAST_AUTO_UPDATE_TS: &str = "buckets.lastAutoUpdateTs";
-    pub const BUCKET_AUTO_UPDATE_PACKAGES_ENABLED: &str = "buckets.autoUpdatePackagesEnabled";
     pub const WINDOW_CLOSE_TO_TRAY: &str = "window.closeToTray";
     pub const WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN: &str = "window.firstTrayNotificationShown";
 }
@@ -24,13 +21,14 @@ mod config_keys {
 // Application constants
 mod app_constants {
     pub const DEFAULT_SCOOP_PATH_WINDOWS: &str = "C:\\scoop";
-    pub const LOG_RETENTION_CHECK_INTERVAL_SECS: u64 = 300; // 5 minutes when auto-update is disabled
-    pub const MAX_SLEEP_CHUNK_SECS: u64 = 60; // Check every minute at most
 }
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    utils::ensure_correct_cwd_and_launch();
+
     // Set up panic handler for better crash reporting
     std::panic::set_hook(Box::new(|panic_info| {
         let location = panic_info
@@ -158,7 +156,7 @@ pub fn run() {
             }
 
             // Start background tasks
-            start_background_tasks(app.handle().clone());
+            scheduler::start_background_tasks(app.handle().clone());
 
             Ok(())
         })
@@ -412,323 +410,3 @@ fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
     }
 }
 
-// Start background tasks such as auto-update checks
-fn start_background_tasks(app_handle: tauri::AppHandle) {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use tokio::time::sleep;
-
-    tauri::async_runtime::spawn(async move {
-        log::info!("Background tasks started");
-
-        loop {
-            // Parse auto-update interval from settings with better error handling
-            let interval_raw = commands::settings::get_config_value(
-                app_handle.clone(),
-                config_keys::BUCKET_AUTO_UPDATE_INTERVAL.to_string(),
-            )
-            .ok()
-            .flatten()
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_else(|| "off".to_string());
-
-            let interval_secs = parse_update_interval(&interval_raw);
-
-            if interval_secs.is_none() {
-                // Auto-update is disabled, check again later
-                sleep(Duration::from_secs(
-                    app_constants::LOG_RETENTION_CHECK_INTERVAL_SECS,
-                ))
-                .await;
-                continue;
-            }
-            let interval_secs = interval_secs.unwrap();
-
-            // Check if an update is needed
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            let last_ts = commands::settings::get_config_value(
-                app_handle.clone(),
-                config_keys::BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
-            )
-            .ok()
-            .flatten()
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
-
-            let elapsed = if last_ts == 0 {
-                interval_secs
-            } else {
-                now.saturating_sub(last_ts)
-            };
-
-            if elapsed >= interval_secs {
-                log::debug!(
-                    "Auto-update interval elapsed ({}s), starting update check",
-                    elapsed
-                );
-                run_auto_update(&app_handle, now).await;
-                continue;
-            }
-
-            // Calculate sleep duration (check at most every MAX_SLEEP_CHUNK_SECS)
-            let remaining = interval_secs - elapsed;
-            let sleep_duration =
-                Duration::from_secs(remaining.min(app_constants::MAX_SLEEP_CHUNK_SECS));
-
-            log::debug!(
-                "Next auto-update check in {} seconds",
-                sleep_duration.as_secs()
-            );
-            sleep(sleep_duration).await;
-        }
-    });
-}
-
-// Run auto update
-async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
-    log::info!("Starting auto bucket update task");
-
-    // Check if silent update is enabled
-    let silent_update_enabled = commands::settings::get_config_value(
-        app_handle.clone(),
-        "buckets.silentUpdateEnabled".to_string(),
-    )
-    .ok()
-    .flatten()
-    .and_then(|v| v.as_bool())
-    .unwrap_or(false);
-
-    // Notify UI that the update process is starting only if not silent update
-    if !silent_update_enabled {
-        if let Some(window) = app_handle.get_webview_window("main") {
-            let _ = window.emit("auto-operation-start", "Updating buckets...");
-            let _ = window.emit(
-                "operation-output",
-                serde_json::json!({
-                    "line": "Starting automatic bucket update...",
-                    "source": "stdout"
-                }),
-            );
-        }
-    }
-
-    // Update Buckets
-    match commands::bucket_install::update_all_buckets().await {
-        Ok(results) => {
-            let successes = results.iter().filter(|r| r.success).count();
-            log::info!(
-                "Auto bucket update completed: {}/{} succeeded",
-                successes,
-                results.len()
-            );
-
-            // Sent result to UI, also fix emit.
-            if let Some(window) = app_handle.get_webview_window("main") {
-                for result in &results {
-                    let line = if result.success {
-                        format!("✓ Updated bucket: {}", result.bucket_name)
-                    } else {
-                        format!(
-                            "✗ Failed to update {}: {}",
-                            result.bucket_name, result.message
-                        )
-                    };
-
-                    let _ = window.emit(
-                        "operation-output",
-                        serde_json::json!({
-                            "line": line.clone(),
-                            "source": if result.success { "stdout" } else { "stderr" }
-                        }),
-                    );
-                }
-
-                let _ = window.emit("operation-finished", serde_json::json!({
-                    "success": successes == results.len(),
-                    "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len())
-                }));
-            }
-
-            // Save the last update time
-            let _ = commands::settings::set_config_value(
-                app_handle.clone(),
-                config_keys::BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
-                serde_json::json!(run_started_at),
-            );
-
-            // Check if packages need update
-            let auto_update_packages = commands::settings::get_config_value(
-                app_handle.clone(),
-                config_keys::BUCKET_AUTO_UPDATE_PACKAGES_ENABLED.to_string(),
-            )
-            .ok()
-            .flatten()
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-            if auto_update_packages {
-                update_packages_after_buckets(app_handle, silent_update_enabled).await;
-            }
-        }
-        Err(e) => {
-            log::warn!("Auto bucket update failed: {}", e);
-
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.emit(
-                    "operation-output",
-                    serde_json::json!({
-                        "line": format!("Error: {}", e),
-                        "source": "stderr"
-                    }),
-                );
-
-                let _ = window.emit(
-                    "operation-finished",
-                    serde_json::json!({
-                        "success": false,
-                        "message": format!("Bucket update failed: {}", e)
-                    }),
-                );
-            }
-
-            // keep the timestamp to avoid frequent retries even if it fails
-            let _ = commands::settings::set_config_value(
-                app_handle.clone(),
-                config_keys::BUCKET_LAST_AUTO_UPDATE_TS.to_string(),
-                serde_json::json!(run_started_at),
-            );
-        }
-    }
-}
-
-// Update packages after updating buckets
-async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_update_enabled: bool) {
-    log::info!("Starting auto package update after bucket refresh");
-
-    let mut package_update_logs = Vec::new();
-
-    // Notify UI that package update is starting only if not silent update
-    if !silent_update_enabled {
-        if let Some(window) = app_handle.get_webview_window("main") {
-            let _ = window.emit("auto-operation-start", "Updating packages...");
-            let _ = window.emit(
-                "operation-output",
-                serde_json::json!({
-                    "line": "Starting automatic package update...",
-                    "source": "stdout"
-                }),
-            );
-        }
-    }
-
-    let state = app_handle.state::<state::AppState>();
-    match commands::update::update_all_packages_headless(app_handle.clone(), state).await {
-        Ok(update_details) => {
-            package_update_logs = update_details;
-
-            // Notify UI of success only if not silent update
-            if !silent_update_enabled {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    for line in &package_update_logs {
-                        let _ = window.emit(
-                            "operation-output",
-                            serde_json::json!({
-                                "line": line,
-                                "source": "stdout"
-                            }),
-                        );
-                    }
-
-                    let _ = window.emit(
-                        "operation-finished",
-                        serde_json::json!({
-                            "success": true,
-                            "message": "Automatic package update completed successfully"
-                        }),
-                    );
-                }
-            }
-
-            // Count successful updates
-            let success_count = package_update_logs
-                .iter()
-                .filter(|line| line.contains("Updated") && !line.contains("up to date"))
-                .count() as u32;
-
-            // Create package update log entry
-            let package_log_entry = commands::update_log::UpdateLogEntry {
-                timestamp: chrono::Utc::now(),
-                operation_type: "package".to_string(),
-                operation_result: "success".to_string(),
-                success_count: if success_count == 0 { 1 } else { success_count },
-                total_count: if package_update_logs.len() == 0 {
-                    1
-                } else {
-                    package_update_logs.len() as u32
-                },
-                details: package_update_logs,
-            };
-
-            // Add to log store
-            if let Err(e) = commands::update_log::get_log_store().add_log_entry(package_log_entry) {
-                log::error!("Failed to save package update log: {}", e);
-            }
-        }
-        Err(e) => {
-            log::warn!("Auto package headless update failed: {}", e);
-            let error_line = format!("Error: {}", e);
-            package_update_logs.push(error_line.clone());
-
-            // Notify UI of error only if not silent update
-            if !silent_update_enabled {
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    let _ = window.emit(
-                        "operation-output",
-                        serde_json::json!({
-                            "line": error_line,
-                            "source": "stderr"
-                        }),
-                    );
-
-                    let _ = window.emit(
-                        "operation-finished",
-                        serde_json::json!({
-                            "success": false,
-                            "message": format!("Automatic package update failed: {}", e)
-                        }),
-                    );
-                }
-            }
-
-            // Create error log entry
-            let error_log_entry = commands::update_log::UpdateLogEntry {
-                timestamp: chrono::Utc::now(),
-                operation_type: "package".to_string(),
-                operation_result: "failed".to_string(),
-                success_count: 0,
-                total_count: 1,
-                details: package_update_logs,
-            };
-
-            // Add to log store
-            if let Err(e) = commands::update_log::get_log_store().add_log_entry(error_log_entry) {
-                log::error!("Failed to save package update error log: {}", e);
-            }
-        }
-    }
-}
-
-// Helper function to parse update interval from string
-fn parse_update_interval(interval_raw: &str) -> Option<u64> {
-    match interval_raw {
-        "24h" | "1d" => Some(86400), // 24 hours
-        "7d" | "1w" => Some(604800), // 7 days
-        "1h" => Some(3600),          // 1 hour
-        "6h" => Some(21600),         // 6 hours
-        "off" => None,               // Disabled
-        custom if custom.starts_with("custom:") => custom[7..].parse::<u64>().ok(),
-        numeric => numeric.parse::<u64>().ok(),
-    }
-}
