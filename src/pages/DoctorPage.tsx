@@ -177,15 +177,11 @@ function DoctorPage() {
 
     const handleOpenScoopDirectory = async () => {
         try {
-            const scoopPath = await invoke<string | null>("get_scoop_path");
-            if (scoopPath) {
-                console.log("Attempting to open Scoop directory:", scoopPath);
-                await openPath(scoopPath);
-            } else {
-                console.warn("No Scoop path configured");
-            }
+            const configDirectory = await invoke<string>("get_scoop_config_directory");
+            console.log("Attempting to open Scoop config directory:", configDirectory);
+            await openPath(configDirectory);
         } catch (err) {
-            console.error("Failed to open Scoop directory:", err);
+            console.error("Failed to open Scoop config directory:", err);
         }
     };
 

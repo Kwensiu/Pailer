@@ -261,6 +261,16 @@ pub async fn run_scoop_command(window: tauri::Window, command: String) -> Result
     .await
 }
 
+/// Gets the path to the Scoop configuration directory.
+/// Returns the directory containing config.json, which is typically ~/.config/scoop/
+#[tauri::command]
+pub fn get_scoop_config_directory() -> Result<String, String> {
+    let path = get_scoop_config_path()?;
+    let dir_path = path.parent()
+        .ok_or("Could not get parent directory of config file".to_string())?;
+    Ok(dir_path.to_string_lossy().to_string())
+}
+
 /// Executes an arbitrary PowerShell command directly without adding any prefix
 #[tauri::command]
 pub async fn run_powershell_command(window: tauri::Window, command: String) -> Result<(), String> {
