@@ -66,7 +66,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
       <Show
         when={!isSearchOpen()}
         fallback={
-          <div ref={searchContainerRef} class="flex-grow flex items-center gap-2">
+          <div ref={searchContainerRef} class="flex-grow flex items-center gap-2 mb-6">
             <div class="join w-full">
               <span class="join-item btn btn-disabled bg-base-200 border-none"> <Search class="w-4 h-4" /></span>
               <input
