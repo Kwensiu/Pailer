@@ -542,7 +542,11 @@
     },
     "startup": {
       "description": "Configure whether Rscoop should automatically start when Windows boots.",
-      "title": "Startup Settings"
+      "title": "Startup Settings",
+      "silent_startup": {
+        "title": "Silent Startup",
+        "description": "When enabled, Rscoop will start minimized to the system tray without showing the main window."
+      }
     },
     "theme": {
       "description": "Switch between dark and light themes.",

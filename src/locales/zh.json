@@ -542,7 +542,11 @@
     },
     "startup": {
       "description": "配置 Rscoop 是否应该在 Windows 启动时自动运行。",
-      "title": "自启设置"
+      "title": "自启设置",
+      "silent_startup": {
+        "title": "静默启动",
+        "description": "启用后，Rscoop 自启动时会最小化到系统托盘，不显示主窗口。"
+      }
     },
     "theme": {
       "description": "在深色和浅色主题之间切换。",

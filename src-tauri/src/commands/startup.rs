@@ -8,6 +8,7 @@ use winreg::{enums::*, RegKey};
 
 const REG_KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const REG_KEY_NAME: &str = "Rscoop";
+const SILENT_STARTUP_KEY: &str = "RscoopSilentStartup";
 
 /// Checks if the application is configured to start automatically on Windows boot.
 #[tauri::command]
@@ -66,5 +67,56 @@ pub fn set_auto_start_enabled(enabled: bool) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     {
         Err("Auto-start is only supported on Windows".to_string())
+    }
+}
+
+/// Checks if silent startup is enabled.
+#[tauri::command]
+pub fn is_silent_startup_enabled() -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let startup_key = hkcu.open_subkey(REG_KEY_PATH).map_err(|e| e.to_string())?;
+
+        match startup_key.get_value::<u32, _>(SILENT_STARTUP_KEY) {
+            Ok(value) => Ok(value == 1),
+            Err(_) => Ok(false),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(false)
+    }
+}
+
+/// Sets whether the application should start silently (minimized to tray).
+#[tauri::command]
+pub fn set_silent_startup_enabled(enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let startup_key = hkcu
+            .open_subkey_with_flags(REG_KEY_PATH, KEY_SET_VALUE)
+            .map_err(|e| e.to_string())?;
+
+        if enabled {
+            startup_key
+                .set_value(SILENT_STARTUP_KEY, &1u32)
+                .map_err(|e| e.to_string())?;
+        } else {
+            match startup_key.delete_value(SILENT_STARTUP_KEY) {
+                Ok(_) => (),
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        return Err(e.to_string());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Silent startup is only supported on Windows".to_string())
     }
 }

@@ -243,6 +243,8 @@ pub fn run() {
             commands::version::check_and_update_version,
             commands::startup::is_auto_start_enabled,
             commands::startup::set_auto_start_enabled,
+            commands::startup::is_silent_startup_enabled,
+            commands::startup::set_silent_startup_enabled,
             cold_start::is_cold_start_ready,
             tray::refresh_tray_apps_menu,
             tray::get_tray_notification_strings,
@@ -345,9 +347,17 @@ fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn s
 
 // Show the main application windows
 fn show_main_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // Check if silent startup is enabled
+    let should_start_silently = commands::startup::is_silent_startup_enabled().unwrap_or(false);
+    
     if let Some(window) = app.get_webview_window("main") {
-        window.show()?;
-        window.set_focus()?;
+        if should_start_silently {
+            // Start minimized - don't show the window initially
+            window.hide()?;
+        } else {
+            window.show()?;
+            window.set_focus()?;
+        }
     }
     Ok(())
 }
