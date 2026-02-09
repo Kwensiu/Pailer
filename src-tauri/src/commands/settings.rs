@@ -152,12 +152,44 @@ pub fn detect_scoop_path() -> Result<String, String> {
 
 
 /// Gets a generic configuration value from the store by its key.
+/// Supports dotted notation for accessing nested values (e.g., "cleanup.autoCleanupEnabled")
+/// If the key contains dots, it will first try to access from the 'settings' object.
 #[tauri::command]
 pub fn get_config_value<R: Runtime>(
     app: AppHandle<R>,
     key: String,
 ) -> Result<Option<Value>, String> {
-    with_store_get(app, |store| store.get(&key).map(|v| v.clone()))
+    with_store_get(app, |store| {
+        // First try direct access
+        if let Some(value) = store.get(&key) {
+            return Some(value.clone());
+        }
+
+        // If key contains dots, try to access from nested 'settings' object
+        if key.contains('.') {
+            if let Some(settings_value) = store.get("settings") {
+                if let Some(nested_value) = get_nested_value(&settings_value, &key) {
+                    return Some(nested_value.clone());
+                }
+            }
+        }
+
+        None
+    })
+}
+
+/// Helper function to get nested values using dot notation
+fn get_nested_value<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
+    let mut current = value;
+    for key in path.split('.') {
+        match current {
+            Value::Object(obj) => {
+                current = obj.get(key)?;
+            }
+            _ => return None,
+        }
+    }
+    Some(current)
 }
 
 /// Sets a generic configuration value in the store.

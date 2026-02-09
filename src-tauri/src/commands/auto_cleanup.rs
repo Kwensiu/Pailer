@@ -235,22 +235,40 @@ pub async fn trigger_auto_cleanup<R: Runtime>(app: AppHandle<R>, state: State<'_
 /// Reads cleanup settings from the persistent store.
 fn read_cleanup_settings<R: Runtime>(app: &AppHandle<R>) -> Result<CleanupSettings, String> {
     let get_val = |key: &str| {
-        settings::get_config_value(app.clone(), key.to_string())
+        // First get the settings object from the store
+        let settings_value = settings::get_config_value(app.clone(), "settings".to_string())
             .ok()
             .flatten()
+            .ok_or_else(|| format!("Settings object not found in store"))?;
+
+        // Parse as object and access nested cleanup settings
+        if let serde_json::Value::Object(settings_obj) = settings_value {
+            if let Some(cleanup_val) = settings_obj.get("cleanup") {
+                if let serde_json::Value::Object(cleanup_obj) = cleanup_val {
+                    if let Some(val) = cleanup_obj.get(key) {
+                        return Ok(val.clone());
+                    }
+                }
+            }
+        }
+        Err(format!("Cleanup setting '{}' not found", key))
     };
 
     Ok(CleanupSettings {
-        auto_cleanup_enabled: get_val("cleanup.autoCleanupEnabled")
+        auto_cleanup_enabled: get_val("autoCleanupEnabled")
+            .ok()
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
-        cleanup_old_versions: get_val("cleanup.cleanupOldVersions")
+        cleanup_old_versions: get_val("cleanupOldVersions")
+            .ok()
             .and_then(|v| v.as_bool())
             .unwrap_or(true),
-        cleanup_cache: get_val("cleanup.cleanupCache")
+        cleanup_cache: get_val("cleanupCache")
+            .ok()
             .and_then(|v| v.as_bool())
             .unwrap_or(true),
-        preserve_version_count: get_val("cleanup.preserveVersionCount")
+        preserve_version_count: get_val("preserveVersionCount")
+            .ok()
             .and_then(|v| v.as_u64())
             .unwrap_or(3) as usize,
     })
