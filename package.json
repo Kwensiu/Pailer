@@ -1,6 +1,6 @@
 {
   "name": "rscoop",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "description": "",
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "sync-locales": "cp -r src/locales/* src-tauri/resources/locales/ 2>/dev/null || copy src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed'"
   },
   "license": "MIT",
   "dependencies": {
