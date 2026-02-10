@@ -8,11 +8,9 @@ pub fn load_tray_locale_strings(app: &tauri::AppHandle<tauri::Wry>, language: &s
         _ => "en.json",
     };
 
-    // Try to find the locale file in multiple possible locations
-    let possible_paths = get_locale_file_paths(app, locale_file);
+    let paths = get_locale_file_paths(app, locale_file);
 
-    for path in possible_paths {
-        log::info!("Trying locale path: {}", path.display());
+    for path in paths {
         if let Ok(content) = std::fs::read_to_string(&path) {
             return parse_locale_content(&content, &path);
         }
@@ -52,6 +50,11 @@ fn get_locale_file_paths(app: &tauri::AppHandle<tauri::Wry>, locale_file: &str) 
     if let Ok(resource_dir) = app.path().resource_dir() {
         let resource_path = resource_dir.join("locales").join(locale_file);
         paths.push(resource_path);
+
+        // Special handling for NSIS installer: also try resources/ subdirectory
+        // Some Tauri installations may put resources in a subdirectory
+        let alt_resource_path = resource_dir.join("resources").join("locales").join(locale_file);
+        paths.push(alt_resource_path);
     }
 
     paths
@@ -104,7 +107,6 @@ pub fn load_full_locale_strings(app: &tauri::AppHandle<tauri::Wry>, lang: &str) 
     let paths = get_locale_file_paths(app, locale_file);
 
     for path in paths {
-        log::info!("Trying full locale path: {}", path.display());
         match std::fs::read_to_string(&path) {
             Ok(content) => {
                 log::info!("Successfully read full locale file, size: {} bytes", content.len());
