@@ -10,13 +10,15 @@ import ScoopProxySettings from "../components/page/doctor/ScoopProxySettings";
 import CommandInputField from "../components/page/doctor/CommandInputField";
 import OperationModal from "../components/OperationModal";
 import installedPackagesStore from "../stores/installedPackagesStore";
+import { useOperations } from "../stores/operations";
 import { t } from "../i18n";
 
 const CACHE_DIR = "cache";
 const SHIMS_DIR = "shims";
 
 function DoctorPage() {
-    const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
+    const { addOperation, operations } = useOperations();
+    
     const [installingHelper, setInstallingHelper] = createSignal<string | null>(null);
 
     // State lifted from Checkup.tsx
@@ -24,12 +26,38 @@ function DoctorPage() {
     const [isCheckupLoading, setIsCheckupLoading] = createSignal(true);
     const [checkupError, setCheckupError] = createSignal<string | null>(null);
     const [isRetrying, setIsRetrying] = createSignal(false);
-    const [activeOperations, setActiveOperations] = createSignal<Set<string>>(new Set());
+
+    // Derived state from global operations store
+    const currentOperationId = createMemo(() => {
+        const ops = operations();
+        // Find the first in-progress operation (prioritize cleanup operations)
+        const cleanupOps = Object.keys(ops).filter(id => 
+            ops[id].status === 'in-progress' && 
+            (ops[id].title.includes('cleanup') || ops[id].title.includes('Cleaning'))
+        );
+        return cleanupOps.length > 0 ? cleanupOps[0] : null;
+    });
+
+    const currentOperation = createMemo(() => {
+        const id = currentOperationId();
+        return id ? operations()[id] : null;
+    });
+
+    const operationTitle = createMemo(() => {
+        return currentOperation()?.title || null;
+    });
+
+    // Check if operation is already active using global store
+    const isOperationActive = (operationId: string) => {
+        return operations()[operationId]?.status === 'in-progress';
+    };
 
     // Logic for running checkup, now in the parent component
     const runCheckup = async (isRetry = false) => {
         const operationId = 'checkup';
-        setActiveOperations(prev => new Set(prev).add(operationId));
+        if (isOperationActive(operationId)) {
+            return;
+        }
 
         if (isRetry) {
             setIsRetrying(true);
@@ -46,11 +74,6 @@ function DoctorPage() {
             setCheckupError("Could not run sfsu checkup. Please ensure 'sfsu' is installed and accessible in your PATH.");
             setCheckupResult([]);
         } finally {
-            setActiveOperations(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(operationId);
-                return newSet;
-            });
             if (isRetry) {
                 setIsRetrying(false);
             } else {
@@ -75,7 +98,9 @@ function DoctorPage() {
     const handleInstallHelper = async (helperId: string) => {
         setInstallingHelper(helperId);
         const operationId = `install-${helperId}`;
-        setActiveOperations(prev => new Set(prev).add(operationId));
+        if (isOperationActive(operationId)) {
+            return;
+        }
         try {
             await invoke("install_package", { packageName: helperId, bucket: '' });
             await runCheckup();
@@ -84,22 +109,24 @@ function DoctorPage() {
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error(`Failed to install ${helperId}:`, errorMsg);
         } finally {
-            setActiveOperations(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(operationId);
-                return newSet;
-            });
             setInstallingHelper(null);
         }
     };
 
     const runOperation = (title: string, command: Promise<any>, operationId: string) => {
-        if (activeOperations().has(operationId)) {
+        if (isOperationActive(operationId)) {
             return;
         }
-
-        setActiveOperations(prev => new Set(prev).add(operationId));
-        setOperationTitle(title);
+        
+        // Add operation to the store
+        addOperation({ 
+            id: operationId, 
+            title, 
+            status: 'in-progress' as const,
+            output: [],
+            isMinimized: false
+        });
+        
         command.then(() => {
             // Operation succeeded
             console.log(`Operation "${title}" completed successfully`);
@@ -107,14 +134,8 @@ function DoctorPage() {
             // Operation failed
             const errorMsg = err instanceof Error ? err.message : String(err);
             console.error(`Operation "${title}" failed:`, errorMsg);
-        }).finally(() => {
-            setActiveOperations(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(operationId);
-                return newSet;
-            });
-            // Modal closure is handled by its own event
         });
+        // Modal closure is handled by its own event
     };
 
     const handleCleanupApps = () => {
@@ -133,8 +154,7 @@ function DoctorPage() {
         );
     };
 
-    const handleCloseOperationModal = (wasSuccess: boolean) => {
-        setOperationTitle(null);
+    const handleCloseOperationModal = (_operationId: string, wasSuccess: boolean) => {
         if (wasSuccess) {
             runCheckup();
         }
@@ -186,7 +206,7 @@ function DoctorPage() {
     };
 
     onCleanup(() => {
-        setActiveOperations(new Set<string>());
+        // Cleanup is handled by the global store
     });
 
     const checkupComponent = (
@@ -233,6 +253,7 @@ function DoctorPage() {
             </div>
             <OperationModal
                 title={operationTitle()}
+                operationId={currentOperationId() || undefined}
                 onClose={handleCloseOperationModal}
             />
         </>

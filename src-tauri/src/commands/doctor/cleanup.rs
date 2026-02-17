@@ -10,10 +10,12 @@ use tauri::{AppHandle, Runtime, State, Window};
 /// * `window` - The Tauri window to emit events to.
 /// * `command` - The full `scoop cleanup` command to execute.
 /// * `operation_name` - A descriptive name for the operation being performed.
+/// * `operation_id` - The unique identifier for this operation.
 async fn run_cleanup_command(
     window: Window,
     command: &str,
     operation_name: &str,
+    operation_id: &str,
 ) -> Result<(), String> {
     log::info!("Executing cleanup command: {}", command);
     
@@ -24,7 +26,7 @@ async fn run_cleanup_command(
         powershell::EVENT_OUTPUT,
         powershell::EVENT_FINISHED,
         powershell::EVENT_CANCEL,
-        None,
+        Some(operation_id.to_string()),
     )
     .await;
     
@@ -91,10 +93,10 @@ pub async fn cleanup_all_apps<R: Runtime>(
             "Running selective cleanup for {} regular packages",
             regular_packages.len()
         );
-        run_cleanup_command(window, &command, "Cleanup Old App Versions").await
+        run_cleanup_command(window, &command, "Cleanup Old App Versions", "cleanup-apps").await
     } else {
         log::info!("No versioned installs found - running standard cleanup");
-        run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions").await
+        run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions", "cleanup-apps").await
     }
 }
 
@@ -107,6 +109,7 @@ pub async fn cleanup_all_apps_force(window: Window) -> Result<(), String> {
         window,
         "scoop cleanup --all",
         "Force Cleanup All App Versions",
+        "cleanup-force",
     )
     .await
 }
@@ -151,5 +154,5 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
     let command = format!("scoop cleanup {} --cache", packages_str);
 
     log::info!("Running cache cleanup for packages: {}", packages_str);
-    run_cleanup_command(window, &command, "Cleanup Outdated App Caches").await
+    run_cleanup_command(window, &command, "Cleanup Outdated App Caches", "cleanup-cache").await
 }
