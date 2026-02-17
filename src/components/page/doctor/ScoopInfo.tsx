@@ -4,6 +4,7 @@ import { RefreshCw, Settings, Folder, Edit } from "lucide-solid";
 import Card from "../../common/Card";
 import Modal from "../../common/Modal";
 import { t } from "../../../i18n";
+import { createLocalStorageSignal } from "../../../hooks/createLocalStorageSignal";
 
 interface ScoopConfig {
     [key: string]: any;
@@ -18,8 +19,9 @@ export interface ScoopInfoProps {
 
 function ScoopInfo(props: ScoopInfoProps) {
     const [scoopPath, setScoopPath] = createSignal<string | null>(null);
-    const [scoopConfig, setScoopConfig] = createSignal<ScoopConfig | null>(null);
-    const [isLoading, setIsLoading] = createSignal(true);
+    // Use localStorage to persist config data
+    const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>('scoopConfig', null);
+    const [isLoading, setIsLoading] = createSignal(false);
     const [error, setError] = createSignal<string | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
     const [editConfig, setEditConfig] = createSignal<string>("");
@@ -44,6 +46,8 @@ function ScoopInfo(props: ScoopInfoProps) {
 
             // Get Scoop configuration
             const config = await invoke<ScoopConfigMap | null>("get_scoop_config");
+
+            // Update config
             setScoopConfig(config);
 
         } catch (err) {
@@ -58,7 +62,8 @@ function ScoopInfo(props: ScoopInfoProps) {
     };
 
     onMount(() => {
-        fetchScoopInfo(true); // Use silent refresh to avoid showing loading spinner when switching to doctor page
+        // Enable automatic silent refresh to avoid flickering
+        fetchScoopInfo(true);
     });
 
     const openEditModal = () => {
