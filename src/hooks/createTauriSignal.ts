@@ -12,7 +12,7 @@ async function getStore(): Promise<Store> {
   return globalStore;
 }
 
-export function createStoredSignal<T>(
+export function createTauriSignal<T>(
   key: string,
   initialValue: T,
 ): Signal<T> {
@@ -36,25 +36,25 @@ export function createStoredSignal<T>(
     let isLoaded = false;
     let isLoading = true;
     
-    console.log(`createStoredSignal: Creating signal for key "${key}" with initial value:`, syncInitialValue);
+    console.log(`createTauriSignal: Creating signal for key "${key}" with initial value:`, syncInitialValue);
     
     // Immediately attempt to load value from store, don't wait for onMount
     (async () => {
       try {
         const store = await getStore();
         const hasKey = await store.has(key);
-        console.log(`createStoredSignal: Has key "${key}" in store:`, hasKey);
+        console.log(`createTauriSignal: Has key "${key}" in store:`, hasKey);
         
         if (hasKey) {
           const storedValue = await store.get(key);
-          console.log(`createStoredSignal: Loaded value for "${key}":`, storedValue);
+          console.log(`createTauriSignal: Loaded value for "${key}":`, storedValue);
           if (storedValue !== undefined && storedValue !== null) {
             isLoaded = true;
             setValue(() => storedValue as T);
-            console.log(`createStoredSignal: Set loaded value for "${key}"`);
+            console.log(`createTauriSignal: Set loaded value for "${key}"`);
           }
         } else {
-          console.log(`createStoredSignal: No stored value for "${key}", using initial value`);
+          console.log(`createTauriSignal: No stored value for "${key}", using initial value`);
         }
       } catch (error) {
         console.error(`Error loading ${key} from store:`, error);
@@ -63,13 +63,13 @@ export function createStoredSignal<T>(
         try {
           const localStorageValue = localStorage.getItem(key);
           if (localStorageValue !== null) {
-            console.log(`createStoredSignal: Found value in localStorage for "${key}":`, localStorageValue);
+            console.log(`createTauriSignal: Found value in localStorage for "${key}":`, localStorageValue);
             // Try to parse as JSON, if it fails use as string
             try {
               const parsed = JSON.parse(localStorageValue);
               isLoaded = true;
               setValue(() => parsed as T);
-              console.log(`createStoredSignal: Migrated localStorage value for "${key}"`);
+              console.log(`createTauriSignal: Migrated localStorage value for "${key}"`);
               // Migrate to Tauri store
               const store = await getStore();
               await store.set(key, parsed);
@@ -77,7 +77,7 @@ export function createStoredSignal<T>(
               // Use as string if not valid JSON
               isLoaded = true;
               setValue(() => localStorageValue as T);
-              console.log(`createStoredSignal: Migrated localStorage string value for "${key}"`);
+              console.log(`createTauriSignal: Migrated localStorage string value for "${key}"`);
               const store = await getStore();
               await store.set(key, localStorageValue);
             }
@@ -88,7 +88,7 @@ export function createStoredSignal<T>(
         }
       } finally {
         isLoading = false;
-        console.log(`createStoredSignal: Loading completed for "${key}", isLoaded:`, isLoaded);
+        console.log(`createTauriSignal: Loading completed for "${key}", isLoaded:`, isLoaded);
       }
     })();
 
@@ -98,12 +98,12 @@ export function createStoredSignal<T>(
       const currentValue = value();
       // Only save after loading is complete, avoid saving initial default value
       if (!isLoading && (isLoaded || currentValue !== initialValue)) {
-        console.log(`createStoredSignal: Saving value for "${key}":`, currentValue);
+        console.log(`createTauriSignal: Saving value for "${key}":`, currentValue);
         (async () => {
           try {
             const store = await getStore();
             await store.set(key, currentValue);
-            console.log(`createStoredSignal: Successfully saved "${key}"`);
+            console.log(`createTauriSignal: Successfully saved "${key}"`);
             // Also save to localStorage for immediate sync access
             try {
               if (typeof currentValue === 'string') {
@@ -123,14 +123,14 @@ export function createStoredSignal<T>(
               } else {
                 localStorage.setItem(key, JSON.stringify(currentValue));
               }
-              console.log(`createStoredSignal: Saved "${key}" to localStorage fallback`);
+              console.log(`createTauriSignal: Saved "${key}" to localStorage fallback`);
             } catch (localStorageError) {
               console.error(`Error saving ${key} to localStorage:`, localStorageError);
             }
           }
         })();
       } else {
-        console.log(`createStoredSignal: Not saving "${key}" - isLoading:`, isLoading, "isLoaded:", isLoaded, "currentValue:", currentValue, "initialValue:", initialValue);
+        console.log(`createTauriSignal: Not saving "${key}" - isLoading:`, isLoading, "isLoaded:", isLoaded, "currentValue:", currentValue, "initialValue:", initialValue);
       }
     });
 

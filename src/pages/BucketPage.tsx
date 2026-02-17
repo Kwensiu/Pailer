@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useBuckets, type BucketInfo } from "../hooks/useBuckets";
 import { usePackageInfo } from "../hooks/usePackageInfo";
 import { usePackageOperations } from "../hooks/usePackageOperations";
-import { createStoredSignal } from "../hooks/createStoredSignal";
+import { createTauriSignal } from "../hooks/createTauriSignal";
 import { ScoopPackage } from "../types/scoop";
 import BucketInfoModal from "../components/BucketInfoModal";
 import PackageInfoModal from "../components/PackageInfoModal";
@@ -46,7 +46,7 @@ function BucketPage() {
   const [searchTotalCount, setSearchTotalCount] = createSignal(0);
   const [searchLoading, setSearchLoading] = createSignal(false);
   const [searchError, setSearchError] = createSignal<string | null>(null);
-  const [isExpandedSearch, setIsExpandedSearch] = createStoredSignal('bucketExpandedSearch', false);
+  const [isExpandedSearch, setIsExpandedSearch] = createTauriSignal('bucketExpandedSearch', false);
 
   // Update state
   const [updatingBuckets, setUpdatingBuckets] = createSignal<Set<string>>(new Set());

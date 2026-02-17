@@ -4,7 +4,7 @@ import { ScoopPackage, ScoopInfo } from "../types/scoop";
 import { usePackageOperations } from "./usePackageOperations";
 import { usePackageInfo } from "./usePackageInfo";
 import { OperationNextStep } from "../types/operations";
-import { createStoredSignal } from "./createStoredSignal";
+import { createTauriSignal } from "./createTauriSignal";
 
 interface UseSearchReturn {
   searchTerm: () => string;
@@ -52,14 +52,14 @@ let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 
 export function useSearch(): UseSearchReturn {
-    const [searchTerm, setSearchTerm] = createStoredSignal<string>(
+    const [searchTerm, setSearchTerm] = createTauriSignal<string>(
         "rscoop-search-term",
         ""
     );
     
     const [results, setResults] = createSignal<ScoopPackage[]>([]);
     const [loading, setLoading] = createSignal(false);
-    const [activeTab, setActiveTab] = createStoredSignal<"packages" | "includes">(
+    const [activeTab, setActiveTab] = createTauriSignal<"packages" | "includes">(
         "search-active-tab",
         "packages"
     );

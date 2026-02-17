@@ -8,7 +8,7 @@ import SearchResultsList from "../components/page/search/SearchResultsList";
 
 import { createSignal, createEffect, onCleanup, onMount } from "solid-js";
 import { t } from "../i18n";
-import { createStoredSignal } from "../hooks/createStoredSignal";
+import { createTauriSignal } from "../hooks/createTauriSignal";
 import { RefreshCw } from "lucide-solid";
 
 function SearchPage() {
@@ -39,7 +39,7 @@ function SearchPage() {
     setBucketFilter
   } = useSearch();
 
-  const [currentPage, setCurrentPage] = createStoredSignal('searchCurrentPage', 1);
+  const [currentPage, setCurrentPage] = createTauriSignal('searchCurrentPage', 1);
   const [uniqueBuckets, setUniqueBuckets] = createSignal<string[]>([]);
   const [refreshing, setRefreshing] = createSignal(false);
 

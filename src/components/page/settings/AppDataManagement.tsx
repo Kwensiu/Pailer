@@ -5,12 +5,12 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { HardDrive, Folder, FileText, Trash2 } from "lucide-solid";
 import Card from "../../common/Card";
 import { t } from "../../../i18n";
-import { createStoredSignal } from "../../../hooks/createStoredSignal";
+import { createTauriSignal } from "../../../hooks/createTauriSignal";
 
 export default function AppDataManagement() {
     const [appDataDirPath, setAppDataDirPath] = createSignal<string>("");
     const [logDir, setLogDir] = createSignal<string>("");
-    const [logRetentionDays, setLogRetentionDays] = createStoredSignal<number>("logRetentionDays", 7);
+    const [logRetentionDays, setLogRetentionDays] = createTauriSignal<number>("logRetentionDays", 7);
     const [isLoading, setIsLoading] = createSignal<boolean>(true);
     const [isClearing, setIsClearing] = createSignal<boolean>(false);
     // const [clearSuccess, setClearSuccess] = createSignal<boolean>(false);

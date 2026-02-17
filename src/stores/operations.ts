@@ -1,6 +1,6 @@
 import { createStore } from "solid-js/store";
 import { createEffect, createMemo, onCleanup, createRoot } from "solid-js";
-import { createStoredSignal } from "../hooks/createStoredSignal";
+import { createTauriSignal } from "../hooks/createTauriSignal";
 import type { 
   OperationState, 
   OperationOutput, 
@@ -38,7 +38,7 @@ const operationsStore = createRoot(() => {
   });
 
   // Multi-instance warning configuration - using persistent storage
-  const [multiInstanceWarning, setMultiInstanceWarning] = createStoredSignal<MultiInstanceWarning>('multiInstanceWarning', {
+  const [multiInstanceWarning, setMultiInstanceWarning] = createTauriSignal<MultiInstanceWarning>('multiInstanceWarning', {
     enabled: true,
     threshold: 2,
     dismissed: false

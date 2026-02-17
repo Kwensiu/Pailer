@@ -7,7 +7,7 @@ import InstalledPageHeader from "../components/page/installed/InstalledPageHeade
 import PackageListView from "../components/page/installed/PackageListView";
 import PackageGridView from "../components/page/installed/PackageGridView";
 import { View } from "../types/scoop";
-import { createStoredSignal } from "../hooks/createStoredSignal";
+import { createTauriSignal } from "../hooks/createTauriSignal";
 import FloatingConfirmationPanel from "../components/ChangeBucketModal";
 import { t } from "../i18n";
 
@@ -63,7 +63,7 @@ function InstalledPage(props: InstalledPageProps) {
     buckets
   } = useInstalledPackages();
 
-  const [searchQuery, setSearchQuery] = createStoredSignal<string>('installedSearchQuery', "");
+  const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', "");
   const [showStatusModal, setShowStatusModal] = createSignal(false);
 
   // Execute a silent refresh when the component mounts

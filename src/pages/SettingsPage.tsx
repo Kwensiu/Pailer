@@ -16,7 +16,7 @@ import DefaultLaunchPageSettings from "../components/page/settings/DefaultLaunch
 import AppDataManagement from "../components/page/settings/AppDataManagement";
 import heldStore from "../stores/held";
 import { t } from "../i18n";
-import { createStoredSignal } from "../hooks/createStoredSignal";
+import { createTauriSignal } from "../hooks/createTauriSignal";
 
 interface SettingsPageProps {
     activeSection: string;
@@ -37,7 +37,7 @@ function SettingsPage(props: SettingsPageProps) {
         { key: 'window', labelkey: "settings.category.window_ui" },
         { key: 'about', labelkey: "settings.category.about" },
     ];
-    const [activeTab, setActiveTab] = createStoredSignal<string>('settingsActiveTab', 'automation');
+    const [activeTab, setActiveTab] = createTauriSignal<string>('settingsActiveTab', 'automation');
 
     onMount(() => {
         // Preload update info silently
