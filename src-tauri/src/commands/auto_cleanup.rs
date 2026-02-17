@@ -139,8 +139,8 @@ fn get_versions_to_remove(
 
     // If we have more versions than we want to keep, identify the old ones
     if versions.len() > keep_count {
-        // Sort versions (lexicographically - good enough for most version formats)
-        versions.sort();
+        // Sort versions using semantic version comparison
+        versions.sort_by(|a, b| compare_versions(a, b));
 
         // Calculate how many to remove
         let remove_count = versions.len() - keep_count;
@@ -272,4 +272,31 @@ fn read_cleanup_settings<R: Runtime>(app: &AppHandle<R>) -> Result<CleanupSettin
             .and_then(|v| v.as_u64())
             .unwrap_or(3) as usize,
     })
+}
+
+/// Compares two version strings using semantic version logic.
+/// Returns std::cmp::Ordering::Less if a < b, Greater if a > b, Equal if same.
+fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    // Split version strings by dots and compare each part as numbers
+    let a_parts: Vec<u32> = a
+        .split('.')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    let b_parts: Vec<u32> = b
+        .split('.')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    // Compare each part
+    for i in 0..std::cmp::max(a_parts.len(), b_parts.len()) {
+        let a_val = a_parts.get(i).unwrap_or(&0);
+        let b_val = b_parts.get(i).unwrap_or(&0);
+        
+        match a_val.cmp(b_val) {
+            std::cmp::Ordering::Equal => continue,
+            ordering => return ordering,
+        }
+    }
+    
+    std::cmp::Ordering::Equal
 }
