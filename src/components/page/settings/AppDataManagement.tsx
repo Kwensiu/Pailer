@@ -5,12 +5,54 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { HardDrive, Folder, FileText, Trash2 } from "lucide-solid";
 import Card from "../../common/Card";
 import { t } from "../../../i18n";
-import { createTauriSignal } from "../../../hooks/createTauriSignal";
+
+// Reusable action button component
+function ActionButton(props: {
+    title: string;
+    description: string;
+    buttonText: string;
+    confirmText: string;
+    loadingText: string;
+    icon: typeof Trash2;
+    color: 'info' | 'warning' | 'error';
+    isLoading: () => boolean;
+    isConfirming: () => boolean;
+    onClick: () => void;
+}) {
+    return (
+        <div class={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 ${props.color === 'error' || props.color === 'warning' ? 'bg-base-200' : `bg-${props.color}/10`} ${props.color === 'error' ? 'border-red-300' : props.color === 'warning' ? 'border-orange-300' : `border-${props.color}/20`} rounded-md`}>
+            <div class="flex items-start gap-2">
+                <props.icon class={`text-${props.color} mt-0.5`} size={18} />
+                <div>
+                    <h3 class={`font-medium text-${props.color} text-sm`}>{props.title}</h3>
+                    <p class="text-xs text-base-content/70 mt-0.5">{props.description}</p>
+                </div>
+            </div>
+            <button
+                class={`btn btn-xs ${props.color === 'error' ? 'bg-red-600 hover:bg-red-700 text-white border-red-700' : `btn-${props.color}`}`}
+                classList={{ 
+                    "btn-error": props.isConfirming(),
+                    "bg-red-600 hover:bg-red-700 text-white border-red-600": props.color === 'error' && !props.isConfirming()
+                }}
+                onClick={props.onClick}
+                disabled={props.isLoading()}
+            >
+                <Show when={props.isLoading()} fallback={
+                    <Show when={props.isConfirming()} fallback={props.buttonText}>
+                        {props.confirmText}
+                    </Show>
+                }>
+                    <span class="loading loading-spinner loading-xs"></span>
+                    {props.loadingText}
+                </Show>
+            </button>
+        </div>
+    );
+}
 
 export default function AppDataManagement() {
     const [appDataDirPath, setAppDataDirPath] = createSignal<string>("");
     const [logDir, setLogDir] = createSignal<string>("");
-    const [logRetentionDays, setLogRetentionDays] = createTauriSignal<number>("logRetentionDays", 7);
     const [isLoading, setIsLoading] = createSignal<boolean>(true);
     const [isClearing, setIsClearing] = createSignal<boolean>(false);
     // const [clearSuccess, setClearSuccess] = createSignal<boolean>(false);
@@ -19,6 +61,12 @@ export default function AppDataManagement() {
     const [clearConfirm, setClearConfirm] = createSignal<boolean>(false);
     const [clearTimer, setClearTimer] = createSignal<number | null>(null);
 
+    // Cache clearing states
+    const [isClearingCache, setIsClearingCache] = createSignal<boolean>(false);
+    const [clearCacheError, setClearCacheError] = createSignal<string | null>(null);
+    const [clearCacheConfirm, setClearCacheConfirm] = createSignal<boolean>(false);
+    const [clearCacheTimer, setClearCacheTimer] = createSignal<number | null>(null);
+
     onMount(async () => {
         try {
             const dataDir = await invoke<string>("get_app_data_dir");
@@ -26,8 +74,6 @@ export default function AppDataManagement() {
             setAppDataDirPath(dataDir);
             setLogDir(logDir);
 
-            const retentionDays = await invoke<number>("get_log_retention_days");
-            setLogRetentionDays(retentionDays);
             setLoadError(null);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -96,14 +142,39 @@ export default function AppDataManagement() {
         }
     };
 
-    const handleLogRetentionChange = async (days: number) => {
-        try {
-            await invoke("set_log_retention_days", { days });
-            setLogRetentionDays(days);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            setClearError(t("settings.app_data.log_retention_error") + ": " + errorMessage);
-            console.error("Failed to set log retention days:", error);
+    const clearCacheData = async () => {
+        if (isClearingCache()) {
+            return;
+        }
+
+        if (clearCacheConfirm()) {
+            if (clearCacheTimer()) {
+                window.clearTimeout(clearCacheTimer()!);
+                setClearCacheTimer(null);
+            }
+            setClearCacheConfirm(false);
+            setClearCacheError(null);
+            setIsClearingCache(true);
+
+            try {
+                // Clear WebView cache
+                await invoke("clear_webview_cache");
+
+                console.log("Cache cleared successfully");
+                setIsClearingCache(false); // 退出loading状态
+                // Could show success message here if needed
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                setClearCacheError(t("settings.app_data.clear_cache_error") + ": " + errorMessage);
+                setIsClearingCache(false);
+            }
+        } else {
+            setClearCacheConfirm(true);
+            const timer = window.setTimeout(() => {
+                setClearCacheConfirm(false);
+                setClearCacheTimer(null);
+            }, 3000);
+            setClearCacheTimer(timer);
         }
     };
 
@@ -149,65 +220,42 @@ export default function AppDataManagement() {
                                         <p class="text-xs text-base-content/70 break-all mt-0.5">{logDir()}</p>
                                     </div>
                                 </div>
-
-                                <div class="flex gap-2">
-                                    <div class="flex gap-2">
-                                        <select
-                                            class="select select-bordered select-xs"
-                                            value={logRetentionDays()}
-                                            onChange={(e) => handleLogRetentionChange(Number(e.target.value))}
-                                        >
-                                            <option value="1">{t("settings.app_data.1_day")}</option>
-                                            <option value="3">{t("settings.app_data.3_days")}</option>
-                                            <option value="7">{t("settings.app_data.7_days")}</option>
-                                            <option value="14">{t("settings.app_data.14_days")}</option>
-                                            <option value="30">{t("settings.app_data.30_days")}</option>
-                                        </select>
-                                    </div>
-                                    <button
-                                        class="btn btn-xs btn-primary w-full max-w-[calc(100%-60px)]"
-                                        onClick={openLogDir}
-                                    >
-                                        {t("settings.app_data.open_directory")}
-                                    </button>
-                                </div>
-
-                            </div>
-                            {/* Clean App data */}
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-warning/10 rounded-md border border-warning/20">
-                                <div class="flex items-start gap-2">
-                                    <Trash2 class="text-warning mt-0.5" size={18} />
-                                    <div>
-                                        <h3 class="font-medium text-warning text-sm">{t("settings.app_data.clear_data")}</h3>
-                                        <p class="text-xs text-base-content/70 mt-0.5">
-                                            {t("settings.app_data.clear_data_description")}
-                                        </p>
-                                    </div>
-                                </div>
                                 <button
-                                    class="btn btn-xs btn-warning"
-                                    classList={{ "btn-error": clearConfirm() }}
-                                    onClick={clearApplicationData}
-                                    disabled={isClearing()}
+                                    class="btn btn-xs btn-primary"
+                                    onClick={openLogDir}
                                 >
-                                    <Show when={isClearing()} fallback={
-                                        <Show when={clearConfirm()} fallback={t("settings.app_data.clear_button")}>
-                                            {t("settings.app_data.sure")}
-                                        </Show>
-                                    }>
-                                        <span class="loading loading-spinner loading-xs"></span>
-                                        {t("settings.app_data.clearing")}
-                                    </Show>
+                                    {t("settings.app_data.open_directory")}
                                 </button>
                             </div>
+
+                            {/* Clear Cache */}
+                            <ActionButton
+                                title={t("settings.app_data.clear_cache")}
+                                description={t("settings.app_data.clear_cache_description")}
+                                buttonText={t("settings.app_data.clear_cache_button")}
+                                confirmText={t("settings.app_data.sure")}
+                                loadingText={t("settings.app_data.clearing_cache")}
+                                icon={Trash2}
+                                color="warning"
+                                isLoading={isClearingCache}
+                                isConfirming={clearCacheConfirm}
+                                onClick={clearCacheData}
+                            />
+
+                            {/* Factory Reset */}
+                            <ActionButton
+                                title={t("settings.app_data.factory_reset")}
+                                description={t("settings.app_data.factory_reset_description")}
+                                buttonText={t("settings.app_data.factory_reset_button")}
+                                confirmText={t("settings.app_data.sure")}
+                                loadingText={t("settings.app_data.resetting")}
+                                icon={Trash2}
+                                color="error"
+                                isLoading={isClearing}
+                                isConfirming={clearConfirm}
+                                onClick={clearApplicationData}
+                            />
                         </div>
-                        {/* Maybe no necessary
-                    <Show when={clearSuccess()}>
-                        <div class="alert alert-success">
-                            <span>{t("settings.app_data.clear_success")}</span>
-                        </div>
-                    </Show>
-                    */}
                     </div>
                 </div>
                 <Show when={clearError()}>
@@ -216,12 +264,11 @@ export default function AppDataManagement() {
                     </div>
                 </Show>
 
-            </Show>
-
-            <Show when={isLoading()}>
-                <div class="flex justify-center p-3">
-                    <span class="loading loading-dots loading-sm"></span>
-                </div>
+                <Show when={clearCacheError()}>
+                    <div class="alert alert-error mt-2">
+                        <span>{clearCacheError()}</span>
+                    </div>
+                </Show>
             </Show>
         </Card>
     );
