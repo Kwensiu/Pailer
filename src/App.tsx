@@ -17,7 +17,7 @@ import AnimatedButton from "./components/AnimatedButton";
 import OperationModal from "./components/OperationModal.tsx";
 import { listen } from "@tauri-apps/api/event";
 import { info, error as logError } from "@tauri-apps/plugin-log";
-import { createTauriSignal } from "./hooks/createTauriSignal";
+import { createLocalStorageSignal } from "./hooks/createLocalStorageSignal";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -32,7 +32,7 @@ import { t } from "./i18n";
 
 function App() {
     // Persist selected view across sessions.
-    const [view, setView] = createTauriSignal<View>(
+    const [view, setView] = createLocalStorageSignal<View>(
         "rscoop-view",
         settingsStore.settings.defaultLaunchPage
     );
