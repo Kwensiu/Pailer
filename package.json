@@ -9,7 +9,7 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
-    "sync-locales": "cp -r src/locales/* src-tauri/resources/locales/ 2>/dev/null || copy src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed'"
+    "sync-locales": "copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed'"
   },
   "license": "MIT",
   "dependencies": {

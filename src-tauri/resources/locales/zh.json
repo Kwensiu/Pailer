@@ -585,12 +585,6 @@
       },
       "title": "自启设置"
     },
-    "theme": {
-      "description": "在深色和浅色主题之间切换。",
-      "switch_to_dark": "切换到深色模式",
-      "switch_to_light": "切换到浅色模式",
-      "title": "外观"
-    },
     "title": "设置",
     "tray": {
       "close_and_disable": "关闭并禁用托盘",
@@ -602,6 +596,12 @@
       "refresh_apps": "刷新应用程序",
       "scoop_apps": "Scoop 应用程序",
       "show": "显示 Rscoop"
+    },
+    "theme": {
+      "description": "选择您偏好的应用程序主题。",
+      "title": "外观",
+      "light_mode": "亮色模式",
+      "dark_mode": "暗色模式"
     },
     "tray_apps": {
       "available_apps": "可用的应用程序",

@@ -578,10 +578,10 @@
       "title": "Startup Settings"
     },
     "theme": {
-      "description": "Switch between dark and light themes.",
-      "switch_to_dark": "Switch to Dark Mode",
-      "switch_to_light": "Switch to Light Mode",
-      "title": "Appearance"
+      "description": "Select your preferred application theme.",
+      "title": "Appearance",
+      "light_mode": "Light",
+      "dark_mode": "Dark"
     },
     "title": "Settings",
     "tray": {
