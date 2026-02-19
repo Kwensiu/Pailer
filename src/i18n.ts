@@ -1,5 +1,6 @@
 import { createSignal, createResource, createEffect, createRoot } from 'solid-js';
 import * as i18n from '@solid-primitives/i18n';
+import settingsStore from './stores/settings';
 
 export type Locale = 'en' | 'zh';
 
@@ -246,7 +247,17 @@ export interface Dict {
 
 // Create a resource to load the dictionary for the current locale
 const getInitialLocale = (): Locale => {
-  // Check if a locale is saved in localStorage
+  // Try to get language from settings store first, fallback to localStorage
+  try {
+    const settings = settingsStore.settings;
+    if (settings.language && (settings.language === 'en' || settings.language === 'zh')) {
+      return settings.language;
+    }
+  } catch (error) {
+    console.warn('Failed to get language from settings store:', error);
+  }
+  
+  // Check if a locale is saved in localStorage (legacy fallback)
   const savedLocale = localStorage.getItem('rscoop-language');
   if (savedLocale && (savedLocale === 'en' || savedLocale === 'zh')) {
     return savedLocale as Locale;
@@ -260,23 +271,21 @@ const getInitialLocale = (): Locale => {
 const { locale, setLocale, dict, t } = createRoot(() => {
   const [locale, setLocale] = createSignal<Locale>(getInitialLocale());
 
-  // Save current locale to localStorage when it changes
+  // Save current locale to settings store when it changes
   createEffect(async () => {
     const currentLocale = locale();
-    const previousLocale = localStorage.getItem('rscoop-language') as Locale || 'en';
+    const previousLocale = settingsStore.settings.language || 'en';
     
-    // Only sync to backend if locale actually changed
+    // Only sync if locale actually changed
     if (currentLocale !== previousLocale) {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('set_language_setting', { language: currentLocale });
-        // Only save to localStorage if backend sync succeeds
+        // Also save to localStorage as backup
         localStorage.setItem('rscoop-language', currentLocale);
       } catch (error) {
-        console.warn('Failed to sync language to backend:', error);
+        console.warn('Failed to save language to localStorage:', error);
         // Revert to previous locale to maintain consistency
         if (previousLocale !== currentLocale) {
-          setLocale(previousLocale);
+          setLocale(() => previousLocale as Locale);
         }
       }
     }
@@ -317,7 +326,11 @@ const { locale, setLocale, dict, t } = createRoot(() => {
 
 export { locale, setLocale, dict, t };
 
-export const toggleLanguage = () => {
+export const toggleLanguage = async () => {
   const newLocale = locale() === 'zh' ? 'en' : 'zh';
   setLocale(newLocale);
+
+  await settingsStore.setCoreSettings({ language: newLocale });
+
+  localStorage.setItem('rscoop-language', newLocale);
 };

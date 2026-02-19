@@ -11,12 +11,17 @@ use tauri::State;
 const TAURI_APP_ID: &str = "com.rscoop.app";
 const OLD_APP_DIR: &str = "rscoop";
 
-// Store data file names
-const SETTINGS_FILE: &str = "settings.dat";
-const SIGNALS_FILE: &str = "signals.dat";
+// Store data file names (new unified format)
+const FRONTEND_STORE_FILE: &str = "settings.json";
+const BACKEND_STORE_FILE: &str = "core.json";
 const VERSION_FILE: &str = "version.txt";
 const FACTORY_RESET_MARKER: &str = ".factory_reset";
 const WEBVIEW_CLEANUP_MARKER: &str = ".cleanup_webview_on_startup";
+
+// Legacy store file names (for cleanup)
+const LEGACY_SETTINGS_FILE: &str = "settings.dat";
+const LEGACY_SIGNALS_FILE: &str = "signals.dat";
+const LEGACY_STORE_FILE: &str = "store.json";
 
 // Backup file extension
 const BACKUP_EXT: &str = ".bak";
@@ -417,20 +422,24 @@ pub fn clear_store_data() -> Result<(), String> {
     
     // Create list of files to clear using defined constants
     let store_files = vec![
-        // New Tauri app data directory - main files
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(SETTINGS_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(SIGNALS_FILE)),
+        // New unified store files
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(FRONTEND_STORE_FILE)),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(BACKEND_STORE_FILE)),
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(VERSION_FILE)),
         // Backup files in new directory
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", SETTINGS_FILE, BACKUP_EXT))),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", SIGNALS_FILE, BACKUP_EXT))),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", FRONTEND_STORE_FILE, BACKUP_EXT))),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", BACKEND_STORE_FILE, BACKUP_EXT))),
+        // Legacy files for migration cleanup
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SETTINGS_FILE)),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SIGNALS_FILE)),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_STORE_FILE)),
         // Old rscoop directory - main files
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(SETTINGS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(SIGNALS_FILE)),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SETTINGS_FILE)),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SIGNALS_FILE)),
         dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(VERSION_FILE)),
         // Backup files in old directory
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", SETTINGS_FILE, BACKUP_EXT))),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", SIGNALS_FILE, BACKUP_EXT))),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", LEGACY_SETTINGS_FILE, BACKUP_EXT))),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", LEGACY_SIGNALS_FILE, BACKUP_EXT))),
     ];
     
     let mut cleared_count = 0;
@@ -635,10 +644,10 @@ pub fn final_cleanup_on_exit() -> Result<(), String> {
     
     // Try to remove any remaining configuration files
     let final_cleanup_files = vec![
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(SETTINGS_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(SIGNALS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(SETTINGS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(SIGNALS_FILE)),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(FRONTEND_STORE_FILE)),
+        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(BACKEND_STORE_FILE)),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SETTINGS_FILE)),
+        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SIGNALS_FILE)),
     ];
     
     for file_option in final_cleanup_files {

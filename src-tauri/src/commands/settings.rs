@@ -8,7 +8,10 @@ use aes_gcm::{Aes256Gcm, Key, Nonce};
 use aes_gcm::aead::{Aead, KeyInit};
 use base64::{Engine as _, engine::general_purpose};
 
-const STORE_PATH: &str = "store.json";
+/// Current store file name for unified settings (frontend + backend)
+const STORE_PATH: &str = "settings.json";
+/// Legacy store file name (for migration)
+const LEGACY_STORE_PATH: &str = "core.json";
 
 // Fixed application-level encryption key (32 bytes for AES-256)
 // This is a simple approach following KISS principle - in production, consider using system keychain
@@ -38,6 +41,38 @@ fn decrypt_api_key(encrypted_key: &str) -> Result<String, String> {
         .map_err(|e| format!("UTF-8 decode failed: {}", e))
 }
 
+/// Migrates data from legacy store.json to core.json if needed.
+/// Returns true if migration was performed.
+fn migrate_from_legacy_store<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let app_data_dir = match app.path().app_data_dir() {
+        Ok(dir) => dir,
+        Err(_) => return false,
+    };
+
+    let legacy_path = app_data_dir.join(LEGACY_STORE_PATH);
+    let new_path = app_data_dir.join(STORE_PATH);
+
+    // Skip if new store already exists or legacy doesn't exist
+    if new_path.exists() || !legacy_path.exists() {
+        return false;
+    }
+
+    log::info!("Migrating store from {} to {}", LEGACY_STORE_PATH, STORE_PATH);
+
+    // Read legacy store content
+    if let Ok(content) = fs::read_to_string(&legacy_path) {
+        // Write to new location
+        if fs::write(&new_path, &content).is_ok() {
+            // Optionally remove legacy file after successful migration
+            // Keep it for now as a backup
+            log::info!("Successfully migrated {} to {}", LEGACY_STORE_PATH, STORE_PATH);
+            return true;
+        }
+    }
+
+    false
+}
+
 /// A helper function to reduce boilerplate when performing a write operation on the store.
 ///
 /// It loads the store, applies the given operation, and saves the changes to disk.
@@ -45,6 +80,9 @@ fn with_store_mut<R: Runtime, F, T>(app: AppHandle<R>, operation: F) -> Result<T
 where
     F: FnOnce(&Store<R>) -> T,
 {
+    // Attempt migration from legacy store if needed
+    migrate_from_legacy_store(&app);
+    
     let store = app
         .store(PathBuf::from(STORE_PATH))
         .map_err(|e| e.to_string())?;
@@ -58,6 +96,9 @@ fn with_store_get<R: Runtime, F, T>(app: AppHandle<R>, operation: F) -> Result<T
 where
     F: FnOnce(&Store<R>) -> T,
 {
+    // Attempt migration from legacy store if needed
+    migrate_from_legacy_store(&app);
+    
     let store = app
         .store(PathBuf::from(STORE_PATH))
         .map_err(|e| e.to_string())?;
@@ -105,6 +146,14 @@ fn write_scoop_config(config: &Map<String, Value>) -> Result<(), String> {
 #[tauri::command]
 pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, String> {
     with_store_get(app, |store| {
+        // Try to get from settings.scoopPath first (new unified format)
+        if let Some(settings) = store.get("settings") {
+            if let Some(scoop_path) = settings.get("scoopPath") {
+                return scoop_path.as_str().map(String::from);
+            }
+        }
+        
+        // Fallback to legacy format (direct scoop_path)
         store
             .get("scoop_path")
             .and_then(|v| v.as_str().map(String::from))
@@ -116,7 +165,16 @@ pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
 pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
     let path_clone = path.clone();
     with_store_mut(app.clone(), move |store| {
-        store.set("scoop_path", serde_json::json!(path_clone))
+        // Try to update in settings.scoopPath (new unified format)
+        if let Some(settings) = store.get("settings") {
+            let mut settings_obj = settings.as_object().unwrap_or(&mut serde_json::Map::new()).clone();
+            settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
+            store.set("settings", serde_json::Value::Object(settings_obj));
+            return;
+        }
+        
+        // Fallback to legacy format (direct scoop_path)
+        store.set("scoop_path", serde_json::json!(path_clone));
     })?;
     
     // Also update the in-memory app state if it exists

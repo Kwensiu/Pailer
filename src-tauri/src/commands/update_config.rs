@@ -5,8 +5,8 @@ use tauri_plugin_store::StoreExt;
 /// Get the current update channel from settings
 #[command]
 pub async fn get_update_channel(app_handle: AppHandle) -> Result<String, String> {
-    // Use the same store that the frontend uses
-    let store = app_handle.store(PathBuf::from("settings.dat"))
+    // Use the same store that the frontend uses (settings.json)
+    let store = app_handle.store(PathBuf::from("settings.json"))
         .map_err(|e| format!("Failed to load store: {}", e))?;
     
     // Try to get the channel from frontend settings

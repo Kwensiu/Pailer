@@ -4,7 +4,23 @@ import { Store } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import { View } from "../types/scoop";
 
-const STORE_NAME = 'settings.dat';
+/// Current store file name for frontend settings
+const STORE_NAME = 'settings.json';
+/// Legacy store file names (for migration)
+const LEGACY_STORE_NAMES = ['settings.dat', 'signals.dat'];
+
+/// Global store instance for frontend settings (shared with signals)
+let globalStore: Store | null = null;
+let storeInitialized = false;
+
+/// Get or initialize the shared store instance
+export async function getSettingsStore(): Promise<Store> {
+  if (!globalStore) {
+    globalStore = await Store.load(STORE_NAME);
+    console.log('Tauri store for frontend settings loaded successfully');
+  }
+  return globalStore;
+}
 
 interface Settings {
   virustotal: {
@@ -41,6 +57,9 @@ interface Settings {
   ui: {
     showGlobalUpdateButton: boolean;
   };
+  scoopPath?: string;
+  language: string;
+  trayAppsList: string[];
 }
 
 const defaultSettings: Settings = {
@@ -77,20 +96,23 @@ const defaultSettings: Settings = {
   ui: {
     showGlobalUpdateButton: true,
   },
+  language: "en",
+  trayAppsList: [],
 };
 
 function createSettingsStore() {
-  let store: Store | null = null;
-  let storeInitialized = false;
-
   // Initialize the Tauri store
   const initStore = async () => {
-    if (storeInitialized) return store;
+    if (storeInitialized) return globalStore;
     
-    store = await Store.load(STORE_NAME);
-    // Store is loaded in the app's data directory
-    console.log('Tauri store for settings loaded successfully');
+    globalStore = await getSettingsStore();
     storeInitialized = true;
+    
+    // Migration: migrate from legacy store files if they exist
+    await migrateFromLegacyStores();
+    
+    // Migration: migrate from core.json if it exists
+    await migrateFromCoreStore();
     
     // First-time setup: migrate from localStorage if exists
     try {
@@ -98,14 +120,90 @@ function createSettingsStore() {
       if (localStorageData) {
         // Migrate data from localStorage to Tauri store
         const settingsData = JSON.parse(localStorageData);
-        await store!.set('settings', settingsData);
+        await globalStore!.set('settings', settingsData);
         localStorage.removeItem('rscoop-settings'); // Clean up localStorage after migration
       }
     } catch (error) {
       console.error('Error migrating settings from localStorage:', error);
     }
     
-    return store;
+    return globalStore;
+  };
+
+  /// Migrate data from legacy store files (settings.dat, signals.dat) to settings.json
+  const migrateFromLegacyStores = async () => {
+    if (!globalStore) return;
+
+    for (const legacyStoreName of LEGACY_STORE_NAMES) {
+      try {
+        const legacyStore = await Store.load(legacyStoreName);
+        const hasData = await legacyStore.length() > 0;
+        
+        if (hasData) {
+          console.log(`Migrating data from ${legacyStoreName} to ${STORE_NAME}`);
+          
+          // Get all entries from legacy store
+          const entries = await legacyStore.entries();
+          for (const [key, value] of entries) {
+            // Only migrate if key doesn't already exist in new store
+            if (!(await globalStore!.has(key))) {
+              await globalStore!.set(key, value);
+            }
+          }
+          
+          console.log(`Successfully migrated ${legacyStoreName} to ${STORE_NAME}`);
+        }
+      } catch (error) {
+        // Legacy store might not exist, which is fine
+        console.log(`No legacy store ${legacyStoreName} to migrate`);
+      }
+    }
+  };
+
+  /// Migrate data from core.json to settings.json
+  const migrateFromCoreStore = async () => {
+    if (!globalStore) return;
+
+    try {
+      const coreStore = await Store.load('core.json');
+      const hasData = await coreStore.length() > 0;
+      
+      if (hasData) {
+        console.log('Migrating data from core.json to settings.json');
+        
+        // Get current settings to merge with core data
+        const currentSettings = await globalStore.get<Settings>('settings') || defaultSettings;
+        
+        // Read core data
+        const scoopPath = await coreStore.get<string>('scoop_path');
+        const language = await coreStore.get<string>('settings.language') || 'en';
+        const firstTrayNotificationShown = await coreStore.get<boolean>('window.firstTrayNotificationShown') ?? true;
+        const trayAppsList = await coreStore.get<string[]>('tray.appsList') || [];
+        
+        // Create merged settings with core data (no core wrapper)
+        const mergedSettings = {
+          ...currentSettings,
+          scoopPath,
+          language,
+          trayAppsList,
+          window: {
+            ...currentSettings.window,
+            firstTrayNotificationShown,
+          },
+        };
+        
+        // Save merged settings
+        await globalStore.set('settings', mergedSettings);
+        
+        console.log('Successfully migrated core.json to settings.json');
+        
+        // Optionally clear core.json after successful migration
+        // We'll keep it for now as a backup
+      }
+    } catch (error) {
+      // Core store might not exist, which is fine
+      console.log('No core.json store to migrate');
+    }
   };
 
   const getInitialSettings = async (): Promise<Settings> => {
@@ -167,6 +265,9 @@ function createSettingsStore() {
               ...defaultSettings.ui,
               ...stored.ui,
             },
+            scoopPath: stored.scoopPath,
+            language: stored.language || defaultSettings.language,
+            trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
           };
         }
       } catch (error) {
@@ -202,7 +303,7 @@ function createSettingsStore() {
       // Save to Tauri store
       (async () => {
         try {
-          const storeInstance = await initStore();
+          const storeInstance = await getSettingsStore();
           if (storeInstance) {
             await storeInstance.set('settings', updated);
           }
@@ -286,7 +387,11 @@ function createSettingsStore() {
     });
   };
 
-  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setUISettings };
+  const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
+    await saveSettings(newCoreSettings);
+  };
+
+  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setUISettings, setCoreSettings };
 }
 
 export default createRoot(createSettingsStore);
