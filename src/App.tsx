@@ -17,7 +17,6 @@ import AnimatedButton from "./components/AnimatedButton";
 import OperationModal from "./components/OperationModal.tsx";
 import { listen } from "@tauri-apps/api/event";
 import { info, error as logError } from "@tauri-apps/plugin-log";
-import { createLocalStorageSignal } from "./hooks/createLocalStorageSignal";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -31,11 +30,10 @@ import { useOperations } from "./stores/operations";
 import { t } from "./i18n";
 
 function App() {
+    const { settings } = settingsStore;
+
     // Persist selected view across sessions.
-    const [view, setView] = createLocalStorageSignal<View>(
-        "rscoop-view",
-        settingsStore.settings.defaultLaunchPage
-    );
+    const [view, setView] = createSignal<View>(settings.defaultLaunchPage);
 
     const packageOperations = usePackageOperations();
     const { operations, removeOperation } = useOperations();
@@ -63,9 +61,6 @@ function App() {
 
     // Auto-update modal state
     const [autoUpdateTitle, setAutoUpdateTitle] = createSignal<string | null>(null);
-
-
-    const { settings } = settingsStore;
 
     createEffect(() => {
         document.documentElement.setAttribute('data-theme', settings.theme);
@@ -261,6 +256,9 @@ function App() {
                     info("Cold start ready event - triggering installed packages refetch");
                     console.log("Setting ready flag to true");
                     setReadyFlag("true");
+
+                    // Set initial view to default launch page
+                    setView(settings.defaultLaunchPage);
 
                     // Trigger refetch of installed packages to ensure we get the freshly prefetched data
                     // Use a small delay to ensure backend event is fully processed
