@@ -121,7 +121,6 @@
     "collapse": "收起",
     "confirm": "确认",
     "goToBuckets": "前往仓库",
-    "hide": "隐藏",
     "install": "安装",
     "removeAll": "移除全部",
     "removeSelected": "选择",
@@ -475,7 +474,7 @@
       "saving": "保存中...",
       "secondsFormat": "{{count}} 秒",
       "silentUpdate": "静默更新",
-      "silentUpdateDescription": "启用后，自动更新将在后台运行，不会显示弹窗，更新记录将保存在设置页面",
+      "silentUpdateDescription": "启用后，自动更新将在后台运行，不会显示弹窗",
       "sixHoursDisplay": "6 小时",
       "title": "自动更新",
       "unit": "单位",
@@ -545,15 +544,15 @@
     },
     "title": "设置",
     "tray": {
-      "show": "显示 Rscoop",
+      "closeAndDisable": "关闭并禁用托盘",
       "hide": "隐藏 Rscoop",
+      "keepInTray": "保持在托盘中",
+      "notificationMessage": "Rscoop 已最小化到系统托盘，并在后台继续运行。\n\n您可以：\n• 点击托盘图标恢复窗口\n• 右键托盘图标访问上下文菜单\n• 在设置 > 窗口行为中更改此行为\n\n您想要做什么？",
+      "notificationTitle": "Rscoop - 已最小化到托盘",
+      "quit": "退出",
       "refreshApps": "刷新应用",
       "scoopApps": "Scoop 应用",
-      "quit": "退出",
-      "notificationTitle": "Rscoop - 已最小化到托盘",
-      "notificationMessage": "Rscoop 已最小化到系统托盘，将在后台继续运行。\n\n您可以：\n• 点击托盘图标恢复窗口\n• 右键托盘图标访问上下文菜单\n• 在设置 > 窗口行为中更改此行为\n\n您想要做什么？",
-      "closeAndDisable": "关闭并禁用托盘",
-      "keepInTray": "保持在托盘中"
+      "show": "显示 Rscoop"
     },
     "trayApps": {
       "availableApps": "可用的应用程序",

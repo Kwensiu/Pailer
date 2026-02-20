@@ -121,7 +121,6 @@ export interface Dict {
     collapse: string;
     confirm: string;
     goToBuckets: string;
-    hide: string;
     install: string;
     removeAll: string;
     removeSelected: string;

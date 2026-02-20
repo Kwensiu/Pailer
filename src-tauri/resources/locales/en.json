@@ -121,7 +121,6 @@
     "collapse": "Collapse",
     "confirm": "Confirm",
     "goToBuckets": "Go to bucket",
-    "hide": "Hide",
     "install": "Install",
     "removeAll": "Remove All",
     "removeSelected": "Remove Selected",
@@ -475,7 +474,7 @@
       "saving": "Saving...",
       "secondsFormat": "{{count}} seconds",
       "silentUpdate": "Silent Update",
-      "silentUpdateDescription": "When enabled, auto-updates will run in the background without showing popups. Update logs will be saved and can be viewed in settings.",
+      "silentUpdateDescription": "When enabled, auto-updates will run in the background without showing popups",
       "sixHoursDisplay": "6 Hours",
       "title": "Bucket Auto Update",
       "unit": "Unit",
@@ -544,7 +543,17 @@
       "title": "Appearance"
     },
     "title": "Settings",
-    "tray": {},
+    "tray": {
+      "closeAndDisable": "Close and Disable Tray",
+      "hide": "Hide Rscoop",
+      "keepInTray": "Keep in Tray",
+      "notificationMessage": "Rscoop has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
+      "notificationTitle": "Rscoop - Minimized to Tray",
+      "quit": "Quit",
+      "refreshApps": "Refresh Apps",
+      "scoopApps": "Scoop Apps",
+      "show": "Show Rscoop"
+    },
     "trayApps": {
       "availableApps": "Available Applications",
       "configure": "Configure",
