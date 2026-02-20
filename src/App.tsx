@@ -23,7 +23,6 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { invoke } from "@tauri-apps/api/core";
 import installedPackagesStore from "./stores/installedPackagesStore";
 import settingsStore from "./stores/settings";
-import { checkCwdMismatch } from "./utils/installCheck";
 import { BucketInfo, updateBucketsCache } from "./hooks/useBuckets";
 import { usePackageOperations } from "./hooks/usePackageOperations";
 import { useOperations } from "./stores/operations";
@@ -50,12 +49,6 @@ function App() {
     const [update, setUpdate] = createSignal<Update | null>(null);
     const [isInstalling, setIsInstalling] = createSignal(false);
 
-    // Track if there's a CWD mismatch (MSI installation issue)
-    const [hasCwdMismatch, setHasCwdMismatch] = createSignal(false);
-
-    // Dev mode: allow bypassing the MSI modal for this session
-    const [bypassCwdMismatch, setBypassCwdMismatch] = createSignal(false);
-
     // Track initialization timeout
     const [initTimedOut, setInitTimedOut] = createSignal(false);
 
@@ -72,8 +65,6 @@ function App() {
             console.log("App State Debug:", {
                 "readyFlag": readyFlag(),
                 "isReady": isReady(),
-                "hasCwdMismatch": hasCwdMismatch(),
-                "bypassCwdMismatch": bypassCwdMismatch(),
                 "error": error(),
                 "isScoopInstalled": isScoopInstalled(),
                 "initTimedOut": initTimedOut()
@@ -91,14 +82,6 @@ function App() {
             console.error("Failed to install update", e);
             setError("Failed to install the update. Please try restarting the application.");
             setIsInstalling(false);
-        }
-    };
-
-    const handleCloseApp = async () => {
-        try {
-            await invoke("close_app");
-        } catch (e) {
-            console.error("Failed to close app:", e);
         }
     };
 
@@ -196,22 +179,7 @@ function App() {
         cleanupFunction = await setupColdStartListeners();
 
         // After listeners are in place, perform fast local checks (no network) sequentially
-        let autoStartEnabled = false;
-        try { autoStartEnabled = await invoke<boolean>("is_auto_start_enabled"); } catch (e) { console.warn("Failed to query auto-start status", e); }
-        let isNewVersion = false;
-        try { isNewVersion = await invoke<boolean>("check_and_update_version"); } catch (e) { console.warn("Failed to check/update version file", e); }
         try {
-            const cwdMismatch = await checkCwdMismatch();
-            if (cwdMismatch) {
-                if (autoStartEnabled && !isNewVersion) {
-                    info("CWD mismatch suppressed (auto-start, not new version)");
-                    setHasCwdMismatch(false);
-                } else {
-                    setHasCwdMismatch(true);
-                }
-            } else {
-                setHasCwdMismatch(false);
-            }
             const scoopInstalled = await invoke<boolean>("is_scoop_installation");
             setIsScoopInstalled(scoopInstalled);
             if (scoopInstalled) {
@@ -266,7 +234,7 @@ function App() {
                         info("Executing deferred refetch of installed packages");
                         installedPackagesStore.refetch()
                             .then(() => info("Refetch completed successfully"))
-                            .catch(err => {
+                            .catch((err: unknown) => {
                                 logError(`Failed to refetch installed packages on cold start: ${err}`);
                             });
 
@@ -279,7 +247,7 @@ function App() {
                                     updateBucketsCache(buckets);
                                 }
                             })
-                            .catch((err) => {
+                            .catch((err: unknown) => {
                                 logError(`Failed to fetch buckets: ${err}`);
                                 setError("Failed to load bucket list.");
                             });
@@ -326,61 +294,7 @@ function App() {
 
     return (
         <>
-            <Show when={hasCwdMismatch() && !bypassCwdMismatch()}>
-                <div class="flex flex-col items-center justify-center h-screen bg-base-100 p-8 text-white">
-                    <div class="alert outline-warning text-white shadow-lg max-w-lg">
-                        <div class="flex flex-col gap-4 w-full">
-                            <div class="flex items-start gap-3">
-                                <svg class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 9v2m0 4v2m0 4v2M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2h-4m-6 0V3m0 0a2 2 0 012-2h0a2 2 0 012 2v0m0 0h4v4m0-4h0a2 2 0 00-2-2h0a2 2 0 00-2 2v4" />
-                                </svg>
-                                <div>
-                                    <h3 class="font-bold text-lg">{t('msiNotice.title')}</h3>
-                                    <p class="text-sm opacity-90">
-                                        {t('msiNotice.description')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="text-sm opacity-90">
-                                <p innerHTML={t('msiNotice.instruction')}></p>
-                            </div>
-
-                            <div class="flex justify-end gap-2">
-                                <button class="btn btn-sm btn-outline btn-neutral" onClick={() => {
-                                    console.log("Proceed Anyway clicked");
-                                    setBypassCwdMismatch(true);
-                                }}>
-                                    {t('msiNotice.proceedAnyway')}
-                                </button>
-                                <button class="btn btn-sm btn-outline btn-info" onClick={handleCloseApp}>
-                                    {t('msiNotice.closeApp')}
-                                </button>
-                            </div>
-
-                            <details class="mt-2 text-sm opacity-80">
-                                <summary class="cursor-pointer hover:underline">
-                                    {t('msiNotice.moreDetails')}
-                                </summary>
-                                <p class="mt-2">{t('msiNotice.detailsDescription')}</p>
-                                <ul class="list-disc list-inside mt-1">
-                                    <li>{t('msiNotice.detailsPoint1')}</li>
-                                    <li>{t('msiNotice.detailsPoint2')}</li>
-                                    <li>{t('msiNotice.detailsPoint3')}</li>
-                                    <li>{t('msiNotice.detailsPoint4')}</li>
-                                </ul>
-                                <p class="mt-2">{t('msiNotice.detailsSolution')}</p>
-                                <p class="mt-3 opacity-70">
-                                    {t('msiNotice.workaround')} <a href="https://github.com/amarbego/rscoop" target="_blank" class="link underline">Open a PR</a>.
-                                </p>
-                            </details>
-                        </div>
-                    </div>
-                </div>
-            </Show>
-
-            <Show when={update() && !error() && !isScoopInstalled() && (!hasCwdMismatch() || bypassCwdMismatch())}>
+            <Show when={update() && !error() && !isScoopInstalled()}>
                 <div class="bg-sky-600 text-white p-2 text-center text-sm flex justify-center items-center gap-4">
                     <span>{t('appUpdate.available', { version: update()!.version })}</span>
                     <button
@@ -426,7 +340,7 @@ function App() {
                 </div>
             </Show>
 
-            <Show when={isReady() && (!hasCwdMismatch() || bypassCwdMismatch())}>
+            <Show when={isReady()}>
                 <div class="drawer" overflow-y-hidden>
                     <input id="my-drawer" type="checkbox" class="drawer-toggle" />
                     <div class="drawer-content flex flex-col h-screen">

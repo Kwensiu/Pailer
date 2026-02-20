@@ -288,21 +288,6 @@
     "initTimeoutShow": "初始化超时。无论如何显示界面...",
     "loading": "正在准备启动..."
   },
-  "msiNotice": {
-    "closeApp": "立即关闭应用",
-    "description": "一切正常 - 这不是错误。Windows 在安装后立即以受限模式启动了应用程序。",
-    "detailsDescription": "当直接从 MSI 安装程序启动时，Windows 在受限的执行上下文中运行进程。这会导致：",
-    "detailsPoint1": "当前工作目录 (CWD) 不匹配",
-    "detailsPoint2": "文件夹和 ACL 权限受限",
-    "detailsPoint3": "符号链接可能解析不正确",
-    "detailsPoint4": "进程继承 MSI 安全令牌限制",
-    "detailsSolution": "这会阻止正常初始化。在 MSI 上下文外重新启动可解决此问题。",
-    "instruction": "要启用所有功能，请从开始菜单或桌面快捷方式<strong>关闭并重新打开应用程序</strong>。",
-    "moreDetails": "更多详情（高级用户）",
-    "proceedAnyway": "继续",
-    "title": "MSI 启动通知",
-    "workaround": "有解决方法吗？"
-  },
   "noPackagesFound": {
     "browsePackages": "浏览软件包",
     "clearFilters": "清除筛选",

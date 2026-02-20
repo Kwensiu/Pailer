@@ -288,21 +288,6 @@
     "initTimeoutShow": "Initialization timed out. Showing interface anyway...",
     "loading": "Getting things ready..."
   },
-  "msiNotice": {
-    "closeApp": "Close App Now",
-    "description": "Everything is okay — this isn't an error. Windows launched app in a limited mode right after installation.",
-    "detailsDescription": "When launched directly from an MSI installer, Windows runs the process in a restricted execution context. This causes:",
-    "detailsPoint1": "Current working directory (CWD) mismatch",
-    "detailsPoint2": "Limited folder and ACL permissions",
-    "detailsPoint3": "Symlinks may resolve incorrectly",
-    "detailsPoint4": "Process inherits MSI security token limitations",
-    "detailsSolution": "This prevents normal initialization. Relaunching outside MSI context fixes this.",
-    "instruction": "To enable all features, please <strong>close and reopen the app</strong> from the Start Menu or Desktop shortcut.",
-    "moreDetails": "More details (for advanced users)",
-    "proceedAnyway": "Proceed Anyway",
-    "title": "MSI Launch Notice",
-    "workaround": "Have a workaround?"
-  },
   "noPackagesFound": {
     "browsePackages": "Browse Packages",
     "clearFilters": "Clear Filters",

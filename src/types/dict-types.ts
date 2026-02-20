@@ -275,21 +275,6 @@ export interface Dict {
     initTimeoutShow: string;
     loading: string;
   };
-  msiNotice: {
-    closeApp: string;
-    description: string;
-    detailsDescription: string;
-    detailsPoint1: string;
-    detailsPoint2: string;
-    detailsPoint3: string;
-    detailsPoint4: string;
-    detailsSolution: string;
-    instruction: string;
-    moreDetails: string;
-    proceedAnyway: string;
-    title: string;
-    workaround: string;
-  };
   noPackagesFound: {
     browsePackages: string;
     clearFilters: string;
