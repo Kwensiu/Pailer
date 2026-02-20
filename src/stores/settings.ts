@@ -108,12 +108,12 @@ function createSettingsStore() {
     
     // First-time setup: migrate from localStorage if exists
     try {
-      const localStorageData = localStorage.getItem('rscoop-settings');
+      const localStorageData = localStorage.getItem('scoopmeta-settings');
       if (localStorageData) {
         // Migrate data from localStorage to Tauri store
         const settingsData = JSON.parse(localStorageData);
         await globalStore!.set('settings', settingsData);
-        localStorage.removeItem('rscoop-settings'); // Clean up localStorage after migration
+        localStorage.removeItem('scoopmeta-settings'); // Clean up localStorage after migration
       }
     } catch (error) {
       console.error('Error migrating settings from localStorage:', error);
