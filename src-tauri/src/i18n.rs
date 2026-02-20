@@ -85,13 +85,13 @@ fn parse_locale_content(content: &str, path: &std::path::Path) -> tauri::Result<
 /// Get default tray strings as fallback
 fn get_default_tray_strings() -> serde_json::Value {
     serde_json::json!({
-        "show": "Show Rscoop",
-        "hide": "Hide Rscoop",
+        "show": "Show ScoopMeta",
+        "hide": "Hide ScoopMeta",
         "refreshApps": "Refresh Apps",
         "scoopApps": "Scoop Apps",
         "quit": "Quit",
-        "notificationTitle": "Rscoop - Minimized to Tray",
-        "notificationMessage": "Rscoop has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
+        "notificationTitle": "ScoopMeta - Minimized to Tray",
+        "notificationMessage": "ScoopMeta has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
         "closeAndDisable": "Close and Disable Tray",
         "keepInTray": "Keep in Tray"
     })

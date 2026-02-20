@@ -8,8 +8,8 @@ use tauri::State;
 // Note: Retry logic constants are defined locally in functions as needed
 
 // Application identifiers
-const TAURI_APP_ID: &str = "com.rscoop.app";
-const OLD_APP_DIR: &str = "rscoop";
+const TAURI_APP_ID: &str = "com.scoopmeta.app";
+const OLD_APP_DIR: &str = "scoopmeta";
 
 // Store data file names (new unified format)
 const FRONTEND_STORE_FILE: &str = "settings.json";
@@ -52,7 +52,7 @@ pub fn get_app_data_dir() -> Result<String, String> {
         }
     }
 
-    // Fallback to the old rscoop directory for backward compatibility
+    // Fallback to the old scoopmeta directory for backward compatibility
     let data_dir = dirs::data_local_dir()
         .and_then(|d| Some(d.join(OLD_APP_DIR)))
         .ok_or("Could not determine data directory")?;
@@ -173,29 +173,29 @@ fn is_webview_locked_dir(dir_path: &std::path::Path) -> bool {
 pub fn clear_application_data() -> Result<(), String> {
     // First try to get the Tauri app data directory
     let data_dir = if let Some(app_data_dir) = dirs::data_dir() {
-        let app_data_dir = app_data_dir.join("com.rscoop.app");
+        let app_data_dir = app_data_dir.join("com.scoopmeta.app");
         if app_data_dir.exists() {
             app_data_dir
         } else {
             dirs::data_local_dir()
-                .and_then(|d| Some(d.join("rscoop")))
+                .and_then(|d| Some(d.join("scoopmeta")))
                 .ok_or("Could not determine data directory")?
         }
     } else {
         dirs::data_local_dir()
-            .and_then(|d| Some(d.join("rscoop")))
+            .and_then(|d| Some(d.join("scoopmeta")))
             .ok_or("Could not determine data directory")?
     };
     
     if data_dir.exists() && data_dir.is_dir() {
-        for entry in fs::read_dir(&data_dir).map_err(|e| e.to_string())? {
-            let entry = entry.map_err(|e| e.to_string())?;
+        for entry in fs::read_dir(&data_dir).map_err(|e| format!("Failed to read data directory {}: {}", data_dir.display(), e))? {
+            let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
             let path = entry.path();
             
             if path.is_file() {
-                fs::remove_file(&path).map_err(|e| e.to_string())?;
+                fs::remove_file(&path).map_err(|e| format!("Failed to remove file {}: {}", path.display(), e))?;
             } else if path.is_dir() {
-                fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+                fs::remove_dir_all(&path).map_err(|e| format!("Failed to remove directory {}: {}", path.display(), e))?;
             }
         }
     }
@@ -344,7 +344,7 @@ pub fn get_app_logs() -> Result<String, String> {
             log_info.push_str("  Directory does not exist yet.\n");
         }
         
-        let log_path = log_dir.join("rscoop.log");
+        let log_path = log_dir.join("scoopmeta.log");
         if log_path.exists() {
             log_info.push_str(&format!("  Expected location: {}\n", log_path.display()));
         }
@@ -360,7 +360,7 @@ pub fn get_app_logs() -> Result<String, String> {
 
     log_info.push_str("2. Production Build:\n");
     log_info.push_str("   - Logs are automatically written to disk\n");
-    log_info.push_str("   - Check the log files in %APPDATA%\\com.rscoop.app\\logs\\\n");
+    log_info.push_str("   - Check the log files in %APPDATA%\\com.scoopmeta.app\\logs\\\n");
     log_info.push_str("   - Open in any text editor\n\n");
 
     log_info.push_str("3. Frontend Logs (Browser Console):\n");
@@ -378,27 +378,64 @@ pub fn get_app_logs() -> Result<String, String> {
 /// Reads the current application log file
 #[tauri::command]
 pub fn read_app_log_file() -> Result<String, String> {
-    // Determine log file path - use APPDATA\com.rscoop.app\logs\rscoop.log on Windows
+    // Determine log file path - use APPDATA\com.scoopmeta.app\logs\scoopmeta.log on Windows
     let log_file = if let Some(data_dir) = dirs::data_dir() {
-        data_dir.join("com.rscoop.app").join("logs").join("rscoop.log")
+        data_dir.join("com.scoopmeta.app").join("logs").join("scoopmeta.log")
     } else {
-        PathBuf::from("./logs/rscoop.log")
+        PathBuf::from("./logs/scoopmeta.log")
     };
+
+    // Validate file exists and check size
+    if !log_file.exists() {
+        return Ok(format!(
+            "Log file not found at: {}\n\nLogs will be created after the first run.",
+            log_file.display()
+        ));
+    }
+
+    match log_file.metadata() {
+        Ok(metadata) => {
+            const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024; // 10 MB limit
+            if metadata.len() > MAX_LOG_SIZE {
+                return Ok(format!(
+                    "Log file too large ({} MB). Showing last 1MB only.\n\n--- Last 1MB of log ---\n{}",
+                    metadata.len() / (1024 * 1024),
+                    read_last_n_bytes(&log_file, 1024 * 1024)?
+                ));
+            }
+        }
+        Err(e) => {
+            return Err(format!("Failed to get log file metadata: {}", e));
+        }
+    }
 
     // Read the log file
     match fs::read_to_string(&log_file) {
         Ok(content) => Ok(content),
-        Err(e) => {
-            if !log_file.exists() {
-                Ok(format!(
-                    "Log file not found at: {}\n\nLogs will be created after the first run.",
-                    log_file.display()
-                ))
-            } else {
-                Err(format!("Failed to read log file: {}", e))
-            }
-        }
+        Err(e) => Err(format!("Failed to read log file: {}", e)),
     }
+}
+
+fn read_last_n_bytes(file_path: &PathBuf, n: usize) -> Result<String, String> {
+    use std::io::{Seek, SeekFrom, Read};
+    
+    let mut file = fs::File::open(file_path)
+        .map_err(|e| format!("Failed to open log file: {}", e))?;
+    
+    let file_size = file.metadata()
+        .map_err(|e| format!("Failed to get file metadata: {}", e))?
+        .len() as usize;
+    
+    let start_pos = if file_size > n { file_size - n } else { 0 };
+    
+    file.seek(SeekFrom::Start(start_pos as u64))
+        .map_err(|e| format!("Failed to seek in file: {}", e))?;
+    
+    let mut buffer = vec![0; if file_size > n { n } else { file_size }];
+    file.read_exact(&mut buffer)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    Ok(String::from_utf8_lossy(&buffer).into())
 }
 
 /// Checks if factory reset marker exists
@@ -433,7 +470,7 @@ pub fn clear_store_data() -> Result<(), String> {
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SETTINGS_FILE)),
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SIGNALS_FILE)),
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_STORE_FILE)),
-        // Old rscoop directory - main files
+        // Old directory - main files
         dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SETTINGS_FILE)),
         dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SIGNALS_FILE)),
         dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(VERSION_FILE)),
@@ -509,10 +546,10 @@ pub fn clear_registry_data() -> Result<(), String> {
     
     // Clear registry entries using reg command
     let registry_keys = vec![
-        r"HKEY_CURRENT_USER\Software\com.rscoop.app",
-        r"HKEY_CURRENT_USER\Software\Rscoop",
-        r"HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\Rscoop",
-        r"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Rscoop",
+        r"HKEY_CURRENT_USER\Software\com.scoopmeta.app",
+        r"HKEY_CURRENT_USER\Software\ScoopMeta",
+        r"HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\ScoopMeta",
+        r"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ScoopMeta",
     ];
     
     for key in registry_keys {
@@ -675,6 +712,6 @@ fn get_log_dir() -> Option<PathBuf> {
         }
     }
     
-    // Fallback to the old rscoop directory
+    // Fallback to the old scoopmeta directory
     dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join("logs"))
 }

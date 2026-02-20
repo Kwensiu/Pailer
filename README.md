@@ -12,7 +12,7 @@ Download the latest release from the [Releases](https://github.com/Kwensiu/Scoop
 
 ## Features
 
-- Retains all original features of Rscoop
+- Retains all original features with additional enhancements
 - Adds new features like internationalization support, portable terminal, configuration editor
 - Optimizes UI and user experience
 

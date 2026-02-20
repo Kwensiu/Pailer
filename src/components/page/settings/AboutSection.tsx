@@ -191,7 +191,7 @@ export default function AboutSection(props: AboutSectionProps) {
       {/* Hero Section */}
       <div class="bg-base-300 p-8 flex flex-col items-center text-center space-y-4">
         <div>
-          <h2 class="text-3xl font-bold tracking-tight">Rscoop-Fork</h2>
+          <h2 class="text-3xl font-bold tracking-tight">ScoopMeta</h2>
           <p class="text-base-content/60 font-medium">v{pkgJson.version}</p>
         </div>
         <p class="max-w-md  leading-relaxed">
@@ -237,7 +237,7 @@ export default function AboutSection(props: AboutSectionProps) {
 
           {props.isScoopInstalled ? (
             <div class="alert alert-info text-sm shadow-sm">
-              <span>{t("settings.about.scoopUpdateInstruction", { code: "scoop update rscoop" })}</span>
+              <span>{t("settings.about.scoopUpdateInstruction", { code: "scoop update scoopmeta" })}</span>
             </div>
           ) : (
             <div class="space-y-4">
@@ -308,7 +308,7 @@ export default function AboutSection(props: AboutSectionProps) {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-1">
           <button
             class="btn btn-outline hover:bg-base-content hover:text-base-100 transition-all"
-            onClick={() => openUrl('https://github.com/Kwensiu/Rscoop/').catch(console.error)}
+            onClick={() => openUrl('https://github.com/Kwensiu/ScoopMeta/').catch(console.error)}
           >
             <Github class="w-5 h-5" />
             {t("settings.about.myFork")}
@@ -333,7 +333,7 @@ export default function AboutSection(props: AboutSectionProps) {
 
         {/* Footer */}
         <div class="text-center text-xs text-base-content/30">
-          <p>Copyright © {new Date().getFullYear()} AmarBego / Kwensiu. MIT License.</p>
+          <p>Copyright © {new Date().getFullYear()} Kwensiu. MIT License.</p>
         </div>
       </div>
     </div>

@@ -45,21 +45,21 @@ static BUCKET_CACHE: Lazy<tokio::sync::RwLock<HashMap<String, SearchableBucket>>
 fn get_cache_file_path() -> Result<PathBuf, String> {
     // Try to use the correct app data directory
     let app_data_dir = if let Some(data_dir) = dirs::data_dir() {
-        // Try Tauri app directory first (com.rscoop.app)
-        let tauri_dir = data_dir.join("com.rscoop.app");
+        // Try Tauri app directory first (com.scoopmeta.app)
+        let tauri_dir = data_dir.join("com.scoopmeta.app");
         if tauri_dir.exists() {
             tauri_dir.join("cache")
         } else {
-            // Fall back to the old rscoop directory in AppData\Local
+            // Fall back to the old scoopmeta directory in AppData\Local
             dirs::data_local_dir()
                 .ok_or("Failed to get app local data directory")?
-                .join("rscoop")
+                .join("scoopmeta")
                 .join("cache")
         }
     } else {
         dirs::data_local_dir()
             .ok_or("Failed to get app local data directory")?
-            .join("rscoop")
+            .join("scoopmeta")
             .join("cache")
     };
 

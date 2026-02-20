@@ -15,7 +15,7 @@ const LEGACY_STORE_PATH: &str = "core.json";
 
 // Fixed application-level encryption key (32 bytes for AES-256)
 // This is a simple approach following KISS principle - in production, consider using system keychain
-const ENCRYPTION_KEY: &[u8; 32] = b"RscoopSecureKeyForAPIStorage2024";
+const ENCRYPTION_KEY: &[u8; 32] = b"ScoopMetaSecureKeyForAPIStor2024";
 
 fn encrypt_api_key(key: &str) -> Result<String, String> {
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(ENCRYPTION_KEY));

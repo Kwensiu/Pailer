@@ -7,8 +7,8 @@ use tauri;
 use winreg::{enums::*, RegKey};
 
 const REG_KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-const REG_KEY_NAME: &str = "Rscoop";
-const SILENT_STARTUP_KEY: &str = "RscoopSilentStartup";
+const REG_KEY_NAME: &str = "ScoopMeta";
+const SILENT_STARTUP_KEY: &str = "ScoopMetaSilentStartup";
 
 /// Checks if the application is configured to start automatically on Windows boot.
 #[tauri::command]
@@ -22,12 +22,23 @@ pub fn is_auto_start_enabled() -> Result<bool, String> {
         match startup_key.get_value::<String, _>(REG_KEY_NAME) {
             Ok(current_value) => {
                 // Check if current executable path matches registered one
-                let current_exe = env::current_exe().map_err(|e| e.to_string())?;
-                let current_exe_str = current_exe.to_string_lossy();
+                let current_exe = env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
+                let current_exe_canonical = current_exe.canonicalize().map_err(|e| format!("Failed to canonicalize current exe: {}", e))?;
                 
-                // Normalize paths for comparison (handle both / and \)
-                let normalize_path = |path: String| path.replace('/', "\\").to_lowercase();
-                Ok(normalize_path(current_value) == normalize_path(current_exe_str.to_string()))
+                // Parse registry value as path, remove quotes if present
+                let registry_path_str = current_value.trim_matches('"');
+                let registry_path = std::path::Path::new(registry_path_str);
+                
+                // Try to canonicalize registry path, if fails, compare directly as fallback
+                match registry_path.canonicalize() {
+                    Ok(registry_canonical) => Ok(current_exe_canonical == registry_canonical),
+                    Err(_) => {
+                        // Fallback to string comparison if canonicalize fails
+                        let current_exe_str = current_exe.to_string_lossy();
+                        let normalize_path = |path: &str| path.replace('/', "\\").to_lowercase();
+                        Ok(normalize_path(&current_value) == normalize_path(&current_exe_str))
+                    }
+                }
             }
             Err(_) => Ok(false),
         }
