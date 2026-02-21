@@ -11,7 +11,6 @@ import AutoCleanupSettings from "../components/page/settings/AutoCleanupSettings
 import BucketAutoUpdateSettings from "../components/page/settings/BucketAutoUpdateSettings";
 import WindowBehaviorSettings from "../components/page/settings/WindowBehaviorSettings";
 import ThemeSettings from "../components/page/settings/ThemeSettings";
-import UISettings from "../components/page/settings/UI Settings";
 import DefaultLaunchPageSettings from "../components/page/settings/DefaultLaunchPageSettings";
 import AppDataManagement from "../components/page/settings/AppDataManagement";
 import LanguageSettings from "../components/page/settings/LanguageSettings";
@@ -114,7 +113,6 @@ function SettingsPage(props: SettingsPageProps) {
                             <WindowBehaviorSettings />
                             <StartupSettings />
                             <DefaultLaunchPageSettings />
-                            <UISettings />
                             <DebugSettings />
                         </div>
                     </Show>

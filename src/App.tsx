@@ -13,7 +13,6 @@ import DoctorPage from "./pages/DoctorPage.tsx";
 import DebugModal from "./components/DebugModal.tsx";
 import MinimizedIndicatorManager from "./components/MinimizedIndicatorManager.tsx";
 import MultiInstanceWarning from "./components/MultiInstanceWarning.tsx";
-import AnimatedButton from "./components/AnimatedButton";
 import OperationModal from "./components/OperationModal.tsx";
 import { listen } from "@tauri-apps/api/event";
 import { info, error as logError } from "@tauri-apps/plugin-log";
@@ -24,7 +23,6 @@ import { invoke } from "@tauri-apps/api/core";
 import installedPackagesStore from "./stores/installedPackagesStore";
 import settingsStore from "./stores/settings";
 import { BucketInfo, updateBucketsCache } from "./hooks/useBuckets";
-import { usePackageOperations } from "./hooks/usePackageOperations";
 import { useOperations } from "./stores/operations";
 import { t } from "./i18n";
 
@@ -34,7 +32,6 @@ function App() {
     // Persist selected view across sessions.
     const [view, setView] = createSignal<View>(settings.defaultLaunchPage);
 
-    const packageOperations = usePackageOperations();
     const { operations, removeOperation } = useOperations();
 
     // Always start with false on app launch to ensure loading screen shows
@@ -83,10 +80,6 @@ function App() {
             setError("Failed to install the update. Please try restarting the application.");
             setIsInstalling(false);
         }
-    };
-
-    const handleUpdateAll = () => {
-        return packageOperations.handleUpdateAll();
     };
 
     const handleCloseAutoUpdateModal = (wasSuccess: boolean) => {
@@ -392,13 +385,6 @@ function App() {
                         </ul>
                     </div>
                 </div>
-                {/* Update ALL floating button in the bottom-right corner */}
-                <Show when={settings.ui.showGlobalUpdateButton}>
-                    <AnimatedButton
-                        onClick={handleUpdateAll}
-                        initialState="circle"
-                    />
-                </Show>
                 <DebugModal />
                 <MinimizedIndicatorManager />
                 <MultiInstanceWarning />

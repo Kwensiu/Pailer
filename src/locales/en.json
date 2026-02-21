@@ -363,7 +363,7 @@
     "filter": {
       "allBuckets": "All Buckets"
     },
-    "refreshResults": "Refreash",
+    "refreshResults": "Refresh",
     "results": {
       "fromBucket": "from bucket: {{bucket}}",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
@@ -567,10 +567,6 @@
       "selectedApps": "Selected Applications",
       "selectedCount": "{{count}} applications selected",
       "title": "Tray Applications"
-    },
-    "ui": {
-      "UDABottonDescription": "Change the visibility of the global 'Update All' button.",
-      "UDABottonTitle": "Update All botton"
     },
     "virustotal": {
       "apiKey": "VirusTotal API Key",

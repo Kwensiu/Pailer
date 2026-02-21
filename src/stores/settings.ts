@@ -52,9 +52,6 @@ interface Settings {
     channel: 'stable' | 'test';
   };
   defaultLaunchPage: View;
-  ui: {
-    showGlobalUpdateButton: boolean;
-  };
   scoopPath?: string;
   language: string;
   trayAppsList: string[];
@@ -91,9 +88,6 @@ const defaultSettings: Settings = {
     channel: "stable",
   },
   defaultLaunchPage: "installed",
-  ui: {
-    showGlobalUpdateButton: true,
-  },
   language: "en",
   trayAppsList: [],
 };
@@ -192,10 +186,6 @@ function createSettingsStore() {
               ...stored.update,
             },
             defaultLaunchPage: stored.defaultLaunchPage || defaultSettings.defaultLaunchPage,
-            ui: {
-              ...defaultSettings.ui,
-              ...stored.ui,
-            },
             scoopPath: stored.scoopPath,
             language: stored.language || (() => { console.log('No stored language, detecting system language'); return detectSystemLanguage(); })(),
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
@@ -311,20 +301,11 @@ function createSettingsStore() {
     await saveSettings({ defaultLaunchPage: page });
   };
 
-  const setUISettings = async (newUISettings: Partial<Settings['ui']>) => {
-    await saveSettings({
-      ui: {
-        ...settings.ui,
-        ...newUISettings,
-      },
-    });
-  };
-
   const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
     await saveSettings(newCoreSettings);
   };
 
-  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setUISettings, setCoreSettings };
+  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setCoreSettings };
 }
 
 export default createRoot(createSettingsStore);

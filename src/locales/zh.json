@@ -568,10 +568,6 @@
       "selectedCount": "{{count}} 个应用程序已选择",
       "title": "托盘应用程序"
     },
-    "ui": {
-      "UDABottonDescription": "更改全局\"全部更新\"按钮的可见性",
-      "UDABottonTitle": "全局更新按钮"
-    },
     "virustotal": {
       "apiKey": "VirusTotal API 密钥",
       "apiKeyPlaceholder": "输入您的 API 密钥",

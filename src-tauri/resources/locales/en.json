@@ -1,4 +1,4 @@
-﻿{
+{
   "app": {
     "buckets": "Buckets",
     "doctor": "Doctor",
@@ -120,6 +120,7 @@
     "closeDialog": "Close",
     "collapse": "Collapse",
     "confirm": "Confirm",
+    "copyToClipboard": "Copy to clipboard",
     "goToBuckets": "Go to bucket",
     "install": "Install",
     "removeAll": "Remove All",
@@ -159,6 +160,14 @@
       "description": "This tool checks for common problems with your Scoop setup.",
       "install": "Install",
       "installing": "Installing...",
+      "items": {
+        "gitInstalled": "Git is installed",
+        "helperInstalled": "Helper '{{name}}' is installed",
+        "longPathsEnabled": "Long paths are enabled",
+        "mainBucketInstalled": "Main bucket is installed",
+        "scoopOnNtfs": "Scoop is on an NTFS filesystem (found: {{filesystem}})",
+        "windowsDeveloperModeEnabled": "Windows Developer Mode is enabled"
+      },
       "suggestion": "Suggestion:",
       "title": "Scoop Health Check"
     },
@@ -269,6 +278,10 @@
     "description": "Select your preferred language for the application interface.",
     "title": "Language"
   },
+  "manifestModal": {
+    "loading": "Loading manifest...",
+    "title": "Manifest:"
+  },
   "messages": {
     "initTimeout": "Initialization is taking longer than expected.",
     "initTimeoutReason": "This might be due to a slow system or Scoop configuration issue.",
@@ -350,7 +363,7 @@
     "filter": {
       "allBuckets": "All Buckets"
     },
-    "refreshResults": "Refreash",
+    "refreshResults": "Refresh",
     "results": {
       "fromBucket": "from bucket: {{bucket}}",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
@@ -365,7 +378,7 @@
     "about": {
       "checkNow": "Check Now",
       "checkingForUpdates": "Checking for updates...",
-      "customizedVersion": "A customized fork of Pailer by Kwensiu",
+      "customizedVersion": "A customized fork of Rscoop by Kwensiu",
       "description": "A modern GUI client for Scoop, designed to simplify package management on Windows.",
       "docs": "Documentation",
       "downloadingNoSize": "Downloading...",
@@ -408,7 +421,7 @@
       "openDirectory": "Open Directory",
       "resetting": "Resetting...",
       "sure": "Sure?",
-      "title": "Pailer Data (Beta)"
+      "title": "Pailer Data"
     },
     "autoCleanup": {
       "cleanOldVersions": "Clean Old Versions",
@@ -554,10 +567,6 @@
       "selectedApps": "Selected Applications",
       "selectedCount": "{{count}} applications selected",
       "title": "Tray Applications"
-    },
-    "ui": {
-      "UDABottonDescription": "Change the visibility of the global 'Update All' button.",
-      "UDABottonTitle": "Update All botton"
     },
     "virustotal": {
       "apiKey": "VirusTotal API Key",

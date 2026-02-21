@@ -120,6 +120,7 @@ export interface Dict {
     closeDialog: string;
     collapse: string;
     confirm: string;
+    copyToClipboard: string;
     goToBuckets: string;
     install: string;
     removeAll: string;
@@ -159,6 +160,14 @@ export interface Dict {
       description: string;
       install: string;
       installing: string;
+      items: {
+        gitInstalled: string;
+        helperInstalled: string;
+        longPathsEnabled: string;
+        mainBucketInstalled: string;
+        scoopOnNtfs: string;
+        windowsDeveloperModeEnabled: string;
+      };
       suggestion: string;
       title: string;
     };
@@ -267,6 +276,10 @@ export interface Dict {
   };
   language: {
     description: string;
+    title: string;
+  };
+  manifestModal: {
+    loading: string;
     title: string;
   };
   messages: {
@@ -555,10 +568,6 @@ export interface Dict {
       selectedApps: string;
       selectedCount: string;
       title: string;
-    };
-    ui: {
-      UDABottonDescription: string;
-      UDABottonTitle: string;
     };
     virustotal: {
       apiKey: string;
