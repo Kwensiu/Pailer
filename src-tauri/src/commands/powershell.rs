@@ -5,6 +5,13 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot};
 
+use lazy_static::lazy_static;
+use std::sync::RwLock;
+
+lazy_static! {
+    pub static ref POWERSHELL_EXE: RwLock<String> = RwLock::new("auto".to_string());
+}
+
 pub const EVENT_OUTPUT: &str = "operation-output";
 pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
@@ -26,8 +33,17 @@ pub struct CommandResult {
 }
 
 /// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
+/// Prefers PowerShell Core (pwsh) if available, falls back to Windows PowerShell.
 pub fn create_powershell_command(command_str: &str) -> Command {
-    let mut cmd = Command::new("powershell");
+    // Determine which PowerShell executable to use
+    let exe = POWERSHELL_EXE.try_read().map(|guard| guard.clone()).unwrap_or_else(|_| "auto".to_string());
+    let ps_exe: &str = if exe == "auto" {
+        if is_pwsh_available() { "pwsh" } else { "powershell" }
+    } else {
+        exe.as_str()
+    };
+
+    let mut cmd = Command::new(ps_exe);
 
     let wrapped_command = format!(
         "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; {}",
@@ -43,6 +59,29 @@ pub fn create_powershell_command(command_str: &str) -> Command {
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 
     cmd
+}
+
+/// Checks if PowerShell Core (pwsh) is available on the system.
+pub fn is_pwsh_available() -> bool {
+    std::process::Command::new("pwsh")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+/// Checks if Windows PowerShell is available on the system.
+pub fn is_powershell_available() -> bool {
+    std::process::Command::new("powershell")
+        .arg("-Command")
+        .arg("$PSVersionTable.PSVersion")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 /// Spawns a task to read lines from a stream (stdout or stderr) and sends them to the frontend.

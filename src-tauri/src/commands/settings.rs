@@ -439,6 +439,44 @@ pub async fn run_powershell_command(window: tauri::Window, command: String) -> R
     .await
 }
 
+/// Sets the preferred PowerShell executable
+#[tauri::command]
+pub fn set_powershell_exe<R: Runtime>(_app: AppHandle<R>, exe: String) -> Result<(), String> {
+    // Validate executable
+    if !["auto", "pwsh", "powershell"].contains(&exe.as_str()) {
+        return Err("Invalid PowerShell executable. Must be 'auto', 'pwsh', or 'powershell'.".to_string());
+    }
+
+    // Check availability for pwsh
+    if exe == "pwsh" && !crate::commands::powershell::is_pwsh_available() {
+        return Err("PowerShell Core (pwsh) is not available on this system.".to_string());
+    }
+
+    // Update the static variable
+    match crate::commands::powershell::POWERSHELL_EXE.try_write() {
+        Ok(mut guard) => *guard = exe.clone(),
+        Err(_) => return Err("Failed to update PowerShell exe due to lock contention".to_string()),
+    }
+
+    Ok(())
+}
+
+/// Gets the available PowerShell executables
+#[tauri::command]
+pub fn get_available_powershell_executables() -> Result<Vec<String>, String> {
+    let mut executables = vec!["auto".to_string()];
+
+    if crate::commands::powershell::is_pwsh_available() {
+        executables.push("pwsh".to_string());
+    }
+
+    if crate::commands::powershell::is_powershell_available() {
+        executables.push("powershell".to_string());
+    }
+
+    Ok(executables)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

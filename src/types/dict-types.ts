@@ -508,6 +508,13 @@ export interface Dict {
       title: string;
       unhold: string;
     };
+    powershell: {
+      autoDetect: string;
+      description: string;
+      pwsh: string;
+      title: string;
+      windows: string;
+    };
     scoopConfiguration: {
       auto: string;
       autoDetectDescription: string;

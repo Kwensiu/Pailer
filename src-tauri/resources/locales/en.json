@@ -507,6 +507,13 @@
       "title": "Held Packages Management",
       "unhold": "Unhold"
     },
+    "powershell": {
+      "autoDetect": "Auto Detect",
+      "description": "Select the PowerShell executable that Pailer uses to run Scoop commands.",
+      "pwsh": "PowerShell Core (pwsh)",
+      "title": "PowerShell Executable",
+      "windows": "Windows PowerShell"
+    },
     "scoopConfiguration": {
       "auto": "Auto",
       "autoDetectDescription": "Automatically detects Scoop installation using multiple methods: environment variables, scoop config command, and common installation paths.",

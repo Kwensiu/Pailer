@@ -507,6 +507,13 @@
       "title": "保留软件包管理",
       "unhold": "取消保留"
     },
+    "powershell": {
+      "autoDetect": "自动检测",
+      "description": "选择 Pailer 用于运行 Scoop 命令的 PowerShell 可执行文件。",
+      "pwsh": "PowerShell Core (pwsh)",
+      "title": "PowerShell 可执行文件",
+      "windows": "Windows PowerShell"
+    },
     "scoopConfiguration": {
       "auto": "自动",
       "autoDetectDescription": "自动检测会通过环境变量、scoop config 命令和常见安装路径识别。",

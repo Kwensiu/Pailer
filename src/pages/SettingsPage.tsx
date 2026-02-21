@@ -14,6 +14,7 @@ import ThemeSettings from "../components/page/settings/ThemeSettings";
 import DefaultLaunchPageSettings from "../components/page/settings/DefaultLaunchPageSettings";
 import AppDataManagement from "../components/page/settings/AppDataManagement";
 import LanguageSettings from "../components/page/settings/LanguageSettings";
+import PowerShellSettings from "../components/page/settings/PowerShellSettings";
 import heldStore from "../stores/held";
 import { t } from "../i18n";
 import { createLocalStorageSignal } from "../hooks/createLocalStorageSignal";
@@ -95,6 +96,8 @@ function SettingsPage(props: SettingsPageProps) {
                                 onUnhold={handleUnhold}
                                 operationInProgress={!!operationTitle() || isUnholding()}
                             />
+
+                            <PowerShellSettings />
                         </div>
                     </Show>
 

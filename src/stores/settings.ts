@@ -55,6 +55,9 @@ interface Settings {
   scoopPath?: string;
   language: string;
   trayAppsList: string[];
+  powershell: {
+    executable: 'auto' | 'pwsh' | 'powershell';
+  };
 }
 
 const defaultSettings: Settings = {
@@ -90,6 +93,9 @@ const defaultSettings: Settings = {
   defaultLaunchPage: "installed",
   language: "en",
   trayAppsList: [],
+  powershell: {
+    executable: 'auto',
+  },
 };
 
 function createSettingsStore() {
@@ -189,6 +195,9 @@ function createSettingsStore() {
             scoopPath: stored.scoopPath,
             language: stored.language || (() => { console.log('No stored language, detecting system language'); return detectSystemLanguage(); })(),
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
+            powershell: {
+              executable: stored.powershell?.executable || defaultSettings.powershell.executable,
+            },
           };
         }
       } catch (error) {
@@ -217,6 +226,12 @@ function createSettingsStore() {
   (async () => {
     const initialSettings = await getInitialSettings();
     setSettings(initialSettings);
+    // Initialize backend PowerShell exe from settings
+    try {
+      await invoke("set_powershell_exe", { exe: initialSettings.powershell.executable });
+    } catch (error) {
+      console.error("Failed to initialize PowerShell exe in backend:", error);
+    }
   })();
 
   const saveSettings = async (newSettings: Partial<Settings>) => {
@@ -301,11 +316,27 @@ function createSettingsStore() {
     await saveSettings({ defaultLaunchPage: page });
   };
 
+  const setPowershellSettings = async (newPowershellSettings: Partial<Settings['powershell']>) => {
+    try {
+      await invoke("set_powershell_exe", { exe: newPowershellSettings.executable! });
+      // Only update frontend if backend succeeds
+      await saveSettings({
+        powershell: {
+          ...settings.powershell,
+          ...newPowershellSettings,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to update PowerShell exe in backend:", error);
+      // Do not update frontend
+    }
+  };
+
   const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
     await saveSettings(newCoreSettings);
   };
 
-  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setCoreSettings };
+  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setPowershellSettings, setCoreSettings };
 }
 
 export default createRoot(createSettingsStore);
