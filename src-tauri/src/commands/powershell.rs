@@ -3,6 +3,8 @@ use std::process::Stdio;
 use tauri::{Emitter, Listener, Window};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use tokio::sync::{mpsc, oneshot};
 
 use lazy_static::lazy_static;
@@ -63,23 +65,29 @@ pub fn create_powershell_command(command_str: &str) -> Command {
 
 /// Checks if PowerShell Core (pwsh) is available on the system.
 pub fn is_pwsh_available() -> bool {
-    std::process::Command::new("pwsh")
-        .arg("--version")
+    let mut cmd = std::process::Command::new("pwsh");
+    cmd.arg("--version")
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stderr(std::process::Stdio::null());
+    // Prevents a console window from appearing on Windows.
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    cmd.status()
         .map(|status| status.success())
         .unwrap_or(false)
 }
 
 /// Checks if Windows PowerShell is available on the system.
 pub fn is_powershell_available() -> bool {
-    std::process::Command::new("powershell")
-        .arg("-Command")
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.arg("-Command")
         .arg("$PSVersionTable.PSVersion")
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stderr(std::process::Stdio::null());
+    // Prevents a console window from appearing on Windows.
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    cmd.status()
         .map(|status| status.success())
         .unwrap_or(false)
 }
