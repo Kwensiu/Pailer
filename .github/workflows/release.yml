@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,9 +19,17 @@ jobs:
     runs-on: windows-latest
     env:
       NODE_VERSION: '20'
+      # 1. 将签名环境变量移至作业级别
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -23,18 +37,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      # Cache Rust dependencies and build artifacts (cargo registry, git, and target dir)
-      # Swatinem/rust-cache handles lockfile hashing and cache priming automatically.
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
@@ -45,14 +52,21 @@ jobs:
         run: choco install upx -y
 
       - name: Install project dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
-      # One command builds frontend, compiles Rust, and bundles installers
+      - name: Update Tauri config version
+        shell: pwsh
+        run: |
+          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $version = if ($env:GITHUB_EVENT_NAME -eq 'push') { "${{ github.ref_name }}" -replace '^v', '' } else { "${{ inputs.version }}" }
+          $cfg.version = $version
+          $cfg.bundle.createUpdaterArtifacts = $true
+          $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
+
       - name: Build & bundle application (Tauri)
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm run tauri -- build
+          TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.json
+        run: pnpm run tauri build
 
       - name: Extract metadata (product name & version)
         id: meta
@@ -61,42 +75,17 @@ jobs:
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
           "version=$($cfg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          # 定义主可执行文件路径，供后续步骤使用
+          "exePath=src-tauri/target/release/$($cfg.productName).exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "installerPath=src-tauri/target/release/bundle/nsis/$($cfg.productName)_$($cfg.version)_x64-setup.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Compress executable with UPX
-        run: upx --best --lzma src-tauri/target/release/${{ steps.meta.outputs.product }}.exe
+        run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
 
-      - name: Generate updater artifacts
-        id: updater
-        shell: pwsh
-        run: |
-          $productName = "${{ steps.meta.outputs.product }}"
-          $version = "${{ steps.meta.outputs.version }}"
-          $tag = "${{ github.ref_name }}"
-          
-          $installerName = "${productName}_${version}_x64-setup.exe"
-          $installerPath = "./src-tauri/target/release/bundle/nsis/$installerName"
-          
-          $sigPath = "$installerPath.sig"
-          
-          $signature = Get-Content $sigPath -Raw
-          $date = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
-          
-          $json = @{
-            version = "$version"
-            pub_date = $date
-            platforms = @{
-              "windows-x86_64" = @{
-                signature = $signature
-                url = "https://github.com/${{ github.repository }}/releases/download/$tag/$installerName"
-              }
-            }
-          } | ConvertTo-Json -Depth 4
-          
-          Set-Content -Path "./update.json" -Value $json
-
-          "installerPath=$installerPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "sigPath=$sigPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "exePath=./src-tauri/target/release/$productName.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      # 4. 移除手动生成 update.json 的步骤，依赖 Tauri 自动生成
+      # - name: Generate updater artifacts
+      #   id: updater
+      #   ...
 
       - name: Generate release notes from commits
         id: release-notes
@@ -104,15 +93,11 @@ jobs:
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
           VERSION="${{ steps.meta.outputs.version }}"
-          
           if [ -z "$LAST_TAG" ]; then
             BODY=$(cat <<EOF
           # Release Notes
-
           ## [$VERSION]
-
           - Initial release
-
           This release includes various improvements and bug fixes.
           EOF
           )
@@ -120,17 +105,13 @@ jobs:
             COMMITS=$(git log --oneline $LAST_TAG..HEAD --no-merges | sed 's/^/- /')
             BODY=$(cat <<EOF
           # Release Notes
-
           ## [$VERSION]
-
           ### Changes
           $COMMITS
-
           This release includes various improvements and bug fixes.
           EOF
           )
           fi
-          
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo "$BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -139,14 +120,14 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag: v${{ steps.meta.outputs.version }}
+          name: v${{ steps.meta.outputs.version }}
           body: ${{ steps.release-notes.outputs.body }}
           draft: false
           prerelease: false
-          artifacts: >-
-            ./src-tauri/target/release/${{ steps.meta.outputs.product }}.exe,
-            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe,
-            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe.sig,
-            ./update.json
+          artifacts: |
+            ${{ steps.meta.outputs.exePath }},
+            ${{ steps.meta.outputs.installerPath }},
+            ${{ steps.meta.outputs.installerPath }}.sig,
+            ./src-tauri/target/release/bundle/nsis/latest.json
           artifactErrorsFailBuild: true
