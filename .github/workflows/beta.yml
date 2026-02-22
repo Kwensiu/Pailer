@@ -1,0 +1,98 @@
+name: Beta Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Base version (e.g. 1.2.3)'
+        required: true
+        type: string
+      beta_number:
+        description: 'Beta number (e.g. 4)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      NODE_VERSION: '20'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update version for manual build
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}-beta.${{ inputs.beta_number }}"
+          
+          # Update package.json
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $pkg.version = $version
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+          
+          # Update tauri.conf.no-updater.json
+          $tauri = Get-Content src-tauri/tauri.conf.no-updater.json | ConvertFrom-Json
+          $tauri.version = $version
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.no-updater.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      # Cache Rust dependencies and build artifacts (cargo registry, git, and target dir)
+      # Swatinem/rust-cache handles lockfile hashing and cache priming automatically.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install system dependencies (UPX)
+        run: choco install upx -y
+
+      - name: Install project dependencies
+        run: pnpm install --frozen-lockfile
+
+      # One command builds frontend, compiles Rust, and bundles installers
+      - name: Build & bundle application (Tauri)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm run tauri -- build --config src-tauri/tauri.conf.no-updater.json
+
+      - name: Extract metadata (product name & version)
+        id: meta
+        shell: pwsh
+        run: |
+          $cfg = Get-Content src-tauri/tauri.conf.no-updater.json | ConvertFrom-Json
+          "version=$($cfg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Compress executable with UPX
+        run: upx --best --lzma src-tauri/target/release/${{ steps.meta.outputs.product }}.exe
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-build-${{ steps.meta.outputs.version }}
+          path: |
+            ./src-tauri/target/release/${{ steps.meta.outputs.product }}.exe
+            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe
+          retention-days: 30

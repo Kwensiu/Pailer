@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Pailer",
-  "version": "1.5.5",
+  "version": "0.0.1",
   "identifier": "com.pailer.ks",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "pnpm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -14,7 +14,9 @@
       {
         "title": "Pailer",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "minWidth": 730,
+        "minHeight": 450
       }
     ],
     "security": {
@@ -25,20 +27,10 @@
     }
   },
   "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgREUzNDBBOUZCRkZGMzg5Qg0KUldTYk9QKy9ud28wM21SRUdEd25sNXdtNXZyZVFZcWNFUDN3MDVUdEhGSHRKVXowVmVQbHVCUVcNCg==",
-      "endpoints": [
-        "https://raw.githubusercontent.com/Kwensiu/Pailer/refs/heads/test/docs/test-update.json"
-      ],
-      "windows": {
-        "installMode": "basicUi"
-      }
-    },
     "store": null,
     "dialog": null
   },
   "bundle": {
-    "createUpdaterArtifacts": true,
     "active": true,
     "targets": "nsis",
     "icon": [
@@ -49,6 +41,13 @@
       "icons/icon.ico"
     ],
     "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "template": "custom-nsis/installer.nsi",
+        "languages": ["English", "SimpChinese"],
+        "displayLanguageSelector": false
+      },
       "wix": {
         "fragmentPaths": [
           "./windows/fragments/env-refresh.wxs"

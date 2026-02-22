@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,6 +22,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Update version for manual build
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          
+          # Update package.json
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $pkg.version = $version
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+          
+          # Update tauri.conf.json
+          $tauri = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $tauri.version = $version
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -71,7 +93,12 @@ jobs:
         run: |
           $productName = "${{ steps.meta.outputs.product }}"
           $version = "${{ steps.meta.outputs.version }}"
-          $tag = "${{ github.ref_name }}"
+          
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tag = "manual-v$version"
+          } else {
+            $tag = "${{ github.ref_name }}"
+          }
           
           $installerName = "${productName}_${version}_x64-setup.exe"
           $installerPath = "./src-tauri/target/release/bundle/nsis/$installerName"
@@ -97,6 +124,7 @@ jobs:
           "installerPath=$installerPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "sigPath=$sigPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "exePath=./src-tauri/target/release/$productName.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Generate release notes from commits
         id: release-notes
@@ -136,11 +164,12 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release with artifacts
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag: ${{ steps.updater.outputs.tag }}
+          name: ${{ steps.updater.outputs.tag }}
           body: ${{ steps.release-notes.outputs.body }}
           draft: false
           prerelease: false
