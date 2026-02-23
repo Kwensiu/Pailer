@@ -5,6 +5,7 @@ import Card from "../../common/Card";
 import Modal from "../../common/Modal";
 import { t } from "../../../i18n";
 import { createLocalStorageSignal } from "../../../hooks/createLocalStorageSignal";
+import settingsStore from "../../../stores/settings";
 
 interface ScoopConfig {
     [key: string]: any;
@@ -27,6 +28,10 @@ function ScoopInfo(props: ScoopInfoProps) {
     const [editConfig, setEditConfig] = createSignal<string>("");
     const [isSaving, setIsSaving] = createSignal(false);
     const [saveError, setSaveError] = createSignal<string | null>(null);
+
+    const { settings } = settingsStore;
+    const isDark = () => settings.theme === 'dark';
+    const codeBgColor = () => isDark() ? '#282c34' : '#f0f4f9';
 
     const fetchScoopInfo = async (silent: boolean = false) => {
         if (!silent) {
@@ -193,11 +198,13 @@ function ScoopInfo(props: ScoopInfoProps) {
                 }
                 class="max-w-2xl"
             >
-                <textarea
-                    class="w-full h-64 font-mono text-sm leading-relaxed resize-none bg-base-200 p-4 border border-base-300 rounded"
-                    value={editConfig()}
-                    onInput={(e) => setEditConfig(e.target.value)}
-                />
+                <div class="relative rounded-xl overflow-hidden border border-base-content/10 shadow-inner group" style={{ "background-color": codeBgColor() }}>
+                    <textarea
+                        class="w-full h-64 font-mono text-sm leading-relaxed resize-none p-4 bg-transparent! border-none outline-none"
+                        value={editConfig()}
+                        onInput={(e) => setEditConfig(e.target.value)}
+                    />
+                </div>
                 <Show when={saveError()}>
                     <div class="alert alert-error mt-4">
                         <span>{saveError()}</span>

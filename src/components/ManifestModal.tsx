@@ -56,8 +56,9 @@ function ManifestModal(props: ManifestModalProps) {
         </>
       }
       size="large"
+      animation="scale"
       class="bg-base-100"
-      zIndex="z-52"
+      zIndex="z-61" //Above PackageInfoModal(z-60)
       footer={
         <button class="btn-close-outline" data-modal-close>{t('buttons.close')}</button>
       }

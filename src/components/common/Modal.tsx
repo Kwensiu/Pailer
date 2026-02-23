@@ -40,9 +40,15 @@ export default function Modal(props: ModalProps) {
     createEffect(() => {
         if (props.isOpen) {
             setRendered(true);
-            setTimeout(() => setIsVisible(true), 10);
-        } else {
             setIsVisible(false);
+            setIsClosing(false);
+            // Use requestAnimationFrame to ensure DOM is updated before starting animation
+            requestAnimationFrame(() => {
+                setIsVisible(true);
+            });
+        } else if (rendered()) {
+            // Trigger close animation when isOpen becomes false externally
+            setIsClosing(true);
         }
     });
 
