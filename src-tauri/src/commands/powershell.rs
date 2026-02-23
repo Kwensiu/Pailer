@@ -18,6 +18,13 @@ pub const EVENT_OUTPUT: &str = "operation-output";
 pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
 
+const STDOUT_ERROR_PATTERNS: &[&str] = &[
+    "error", "failed", "fatal", "exception",
+    "access to the path", "denied", "permission denied",
+    "requires admin", "admin rights",
+    "remove-item", "remove item",
+];
+
 /// Represents a line of output from a command, specifying its source (stdout or stderr).
 #[derive(Serialize, Clone)]
 pub struct StreamOutput {
@@ -106,46 +113,37 @@ fn spawn_output_stream_handler(
     operation_id: Option<String>,
 ) {
     let mut reader = BufReader::new(stream).lines();
+    let op_id = operation_id.clone();  // Clone once outside the loop
 
     tokio::spawn(async move {
         while let Ok(Some(line)) = reader.next_line().await {
-            // Log each line for debugging
             log::debug!("Output line [{}]: {}", source, line);
-            
-            // Enhanced error detection for scoop commands
-            let is_error_line = source == "stderr"
-                || line.to_lowercase().contains("error")
-                || line.to_lowercase().contains("failed")
-                || line.to_lowercase().contains("exception")
-                || line.to_lowercase().contains("cannot")
-                || line.to_lowercase().contains("could not")
-                || line.to_lowercase().contains("not found")
-                || line.to_lowercase().contains("access to the path")
-                || line.to_lowercase().contains("denied")
-                || line.contains("Remove-Item")
-                || line.contains("Access to the path")
-                || line.contains("is denied");
 
-            // Send error lines to the error channel for final result display
+            let is_error_line = if source == "stderr" {
+                true
+            } else {
+                let lower = line.to_lowercase();
+                STDOUT_ERROR_PATTERNS.iter().any(|&pat| lower.contains(pat))
+            };
+
             if is_error_line {
-                if let Err(e) = error_tx.send(line.clone()).await {
-                    log::error!("Failed to send error line to error channel: {}", e);
-                }
+                let _ = error_tx.send(line.clone()).await.map_err(|e| {
+                    log::error!("error_tx send failed: {}", e);
+                });
             }
 
-            // Always send all lines to the frontend for display
-            if let Err(e) = window.emit(
+            let _ = window.emit(
                 &output_event,
                 StreamOutput {
                     line: line.clone(),
                     source: source.to_string(),
-                    operation_id: operation_id.clone(),
+                    operation_id: op_id.clone(),
                 },
-            ) {
-                log::error!("Failed to emit output event for line '{}': {}", line, e);
-            }
+            ).map_err(|e| {
+                log::error!("emit failed for line '{}': {}", line, e);
+            });
         }
-        
+
         log::debug!("Output stream handler for {} ended", source);
     });
 }
