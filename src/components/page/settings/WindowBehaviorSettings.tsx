@@ -205,28 +205,12 @@ function WindowBehaviorSettings() {
                 />
             }
         >
-            <div class="space-y-6 mt-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1">
-                        <h4 class="font-medium text-base-content ">{t("settings.trayApps.manageContextMenu")}</h4>
-                        <p class="text-sm text-base-content/70">{t("settings.trayApps.manageTrayAppsDescription")}</p>
-                    </div>
-                    <button
-                        class="btn btn-outline btn-sm"
-                        onClick={() => setIsTrayAppsModalOpen(true)}
-                    >
-                        <Settings size={16} />
-                        {t("settings.trayApps.configure")}
-                    </button>
-                </div>
-            </div>
-
-            {/* Tray Apps Modal */}
             <Modal
                 isOpen={isTrayAppsModalOpen()}
                 onClose={() => setIsTrayAppsModalOpen(false)}
                 title={t("settings.trayApps.title")}
                 size="large"
+                animation="scale"
             >
                 <div class="space-y-6">
                     {/* Enable Tray Apps Toggle */}
@@ -308,6 +292,21 @@ function WindowBehaviorSettings() {
                     </Show>
                 </div>
             </Modal>
+            <div class="space-y-6 mt-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-base-content ">{t("settings.trayApps.manageContextMenu")}</h4>
+                        <p class="text-sm text-base-content/70">{t("settings.trayApps.manageTrayAppsDescription")}</p>
+                    </div>
+                    <button
+                        class="btn btn-outline btn-sm"
+                        onClick={() => setIsTrayAppsModalOpen(true)}
+                    >
+                        <Settings size={16} />
+                        {t("settings.trayApps.configure")}
+                    </button>
+                </div>
+            </div>
         </Card>
     );
 }

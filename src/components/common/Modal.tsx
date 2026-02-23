@@ -1,4 +1,4 @@
-import { Show, JSX, onMount, onCleanup, createEffect } from "solid-js";
+import { Show, JSX, onMount, onCleanup, createEffect, createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 
 interface ModalProps {
@@ -16,6 +16,8 @@ interface ModalProps {
 
     editButton?: boolean; // Add: Edit botton
     initialContent?: string; // Test
+    animation?: 'none' | 'scale';
+    animationDuration?: number;
 }
 
 export default function Modal(props: ModalProps) {
@@ -29,10 +31,45 @@ export default function Modal(props: ModalProps) {
         }
     };
 
+    // Animation state management
+    const [isVisible, setIsVisible] = createSignal(false);
+    const [isClosing, setIsClosing] = createSignal(false);
+    const [rendered, setRendered] = createSignal(false);
+
+    // Animation effects
+    createEffect(() => {
+        if (props.isOpen) {
+            setRendered(true);
+            setTimeout(() => setIsVisible(true), 10);
+        } else {
+            setIsVisible(false);
+        }
+    });
+
+    createEffect(() => {
+        if (isClosing()) {
+            const timer = setTimeout(() => {
+                setRendered(false);
+                setIsClosing(false);
+            }, props.animationDuration || 300);
+            return () => clearTimeout(timer);
+        }
+    });
+
+    const handleClose = () => {
+        if (isClosing()) return;
+        setIsClosing(true);
+        setIsVisible(false);
+        // Delay actual close to allow animation
+        setTimeout(() => {
+            props.onClose();
+        }, props.animationDuration || 300);
+    };
+
     // Handle ESC key to close modal
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape" && props.isOpen) {
-            props.onClose();
+            handleClose();
         }
     };
 
@@ -46,24 +83,60 @@ export default function Modal(props: ModalProps) {
 
     // Prevent body scroll when modal is open
     createEffect(() => {
-        if (props.isOpen) {
+        if (rendered()) {
             document.body.style.overflow = "hidden";
         } else {
             document.body.style.overflow = "";
         }
     });
 
+    // Handle data-modal-close clicks
+    const [modalBoxRef, setModalBoxRef] = createSignal<HTMLDivElement>();
+    createEffect(() => {
+        const box = modalBoxRef();
+        if (box) {
+            const handleClick = (e: Event) => {
+                const target = e.target as HTMLElement;
+                if (target.closest('[data-modal-close]')) {
+                    e.preventDefault();
+                    handleClose();
+                }
+            };
+            box.addEventListener('click', handleClick);
+            onCleanup(() => box.removeEventListener('click', handleClick));
+        }
+    });
+
     const handleBackdropClick = () => {
         if (!props.preventBackdropClose) {
-            props.onClose();
+            handleClose();
         }
+    };
+
+    // Get animation classes
+    const getAnimationClasses = () => {
+        if (props.animation === 'scale') {
+            return {
+                modalBox: `transition-all duration-300 ease-in-out ${
+                    !isVisible() || isClosing()
+                        ? "scale-95 opacity-0"
+                        : "scale-100 opacity-100"
+                }`,
+                backdrop: `transition-all duration-300 ease-in-out !bg-black/30 ${
+                    !isVisible() || isClosing()
+                        ? "!opacity-0"
+                        : "!opacity-100"
+                }`
+            };
+        }
+        return { modalBox: "", backdrop: "" };
     };
 
     return (
         <Portal>
-            <Show when={props.isOpen}>
-                <div class={`modal modal-open backdrop-blur-sm ${props.zIndex || 'z-50'}`} role="dialog">
-                    <div class={`modal-box bg-base-300 shadow-2xl border border-base-300 p-0 overflow-hidden flex flex-col max-h-[90vh] ${getSizeClass()} ${props.class ?? ""}`}>
+            <Show when={rendered()}>
+                <div class={`modal modal-open ${props.zIndex || 'z-50'}`} role="dialog">
+                    <div class={`modal-box bg-base-300 shadow-2xl border border-base-300 p-0 overflow-hidden flex flex-col max-h-[90vh] ${getSizeClass()} ${props.class ?? ""} ${getAnimationClasses().modalBox}`} ref={setModalBoxRef}>
                         {/* Header */}
                         <div class="flex justify-between items-center p-4 border-b border-base-200 bg-base-400">
                             <h3 class="font-bold text-lg">{props.title}</h3>
@@ -74,7 +147,7 @@ export default function Modal(props: ModalProps) {
                                 <Show when={props.showCloseButton !== false}>
                                     <button
                                         class="btn btn-sm btn-circle btn-ghost"
-                                        onClick={props.onClose}
+                                        onClick={handleClose}
                                         aria-label="Close"
                                     >
                                         ✕
@@ -95,7 +168,7 @@ export default function Modal(props: ModalProps) {
                             </div>
                         </Show>
                     </div>
-                    <div class="modal-backdrop" onClick={handleBackdropClick}></div>
+                    <div class={`modal-backdrop backdrop-blur-[3px] ${getAnimationClasses().backdrop}`} onClick={handleBackdropClick}></div>
                 </div>
             </Show>
         </Portal>

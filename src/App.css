@@ -460,9 +460,9 @@ html {
   text-decoration: underline;
 }
 
-/* Operation Modal 响应式间距 */
+/* Operation Modal responsive spacing */
 :root {
-  --modal-padding: 3rem; /* 默认 24px - 增加最小边距 */
+  --modal-padding: 3rem; /* default 24px - increased minimum margin */
 }
 
 @media (min-width: 640px) {
@@ -477,9 +477,14 @@ html {
   }
 }
 
-/* 超窄屏幕的最小边距保护 */
+/* Minimum margin protection for ultra-narrow screens */
 @media (max-width: 400px) {
   :root {
-    --modal-padding: 1rem; /* 16px - 超窄屏幕的最小边距 */
+    --modal-padding: 1rem; /* 16px - minimum margin for ultra-narrow screens */
   }
+}
+
+/* Force override of DaisyUI modal-backdrop default background to implement custom dimming animation */
+.modal {
+  background-color: transparent !important;
 }

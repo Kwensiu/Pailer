@@ -173,6 +173,7 @@ function ScoopInfo(props: ScoopInfoProps) {
                 isOpen={isEditModalOpen()}
                 onClose={closeEditModal}
                 title={t('doctor.scoopInfo.editScoopConfiguration')}
+                animation="scale"
                 footer={
                     <div class="flex justify-end gap-2">
                         <button

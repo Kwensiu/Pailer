@@ -199,23 +199,21 @@ function ShimManager(props: ShimManagerProps) {
                     </div>
                 </Show>
 
-                <Show when={selectedShim()}>
-                    <ShimDetailsModal
-                        shim={selectedShim()!}
-                        onClose={() => setSelectedShim(null)}
-                        onRemove={handleRemoveShim}
-                        onAlter={handleAlterShim}
-                        isOperationRunning={isProcessing()}
-                    />
-                </Show>
+                <ShimDetailsModal
+                    isOpen={!!selectedShim()}
+                    shim={selectedShim()!}
+                    onClose={() => setSelectedShim(null)}
+                    onRemove={handleRemoveShim}
+                    onAlter={handleAlterShim}
+                    isOperationRunning={isProcessing()}
+                />
 
-                <Show when={isAddModalOpen()}>
-                    <AddShimModal
-                        onClose={() => setIsAddModalOpen(false)}
-                        onAdd={handleAddShim}
-                        isOperationRunning={isProcessing()}
-                    />
-                </Show>
+                <AddShimModal
+                    isOpen={isAddModalOpen()}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onAdd={handleAddShim}
+                    isOperationRunning={isProcessing()}
+                />
             </div>
         </Card>
     );

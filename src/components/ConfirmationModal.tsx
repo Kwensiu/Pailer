@@ -18,6 +18,7 @@ function ConfirmationModal(props: ConfirmationModalProps) {
             onClose={props.onCancel}
             title={props.title}
             size="medium"
+            animation="scale"
             footer={
                 <>
                     <button class="btn-close-outline" onClick={props.onCancel}>

@@ -105,6 +105,7 @@ function ScoopStatusModal(props: ScoopStatusModalProps) {
       onClose={props.onClose}
       title={t('scoopStatus.title')}
       size="large"
+      animation="scale"
       footer={
         <Show when={props.status?.bucket_needs_update && props.onNavigate}>
           <button

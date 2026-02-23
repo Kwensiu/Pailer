@@ -59,7 +59,7 @@ function ManifestModal(props: ManifestModalProps) {
       class="bg-base-100"
       zIndex="z-52"
       footer={
-        <button class="btn-close-outline" onClick={props.onClose}>{t('buttons.close')}</button>
+        <button class="btn-close-outline" data-modal-close>{t('buttons.close')}</button>
       }
     >
       <Show when={props.loading}>

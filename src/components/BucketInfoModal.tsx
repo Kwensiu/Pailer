@@ -315,7 +315,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
           </Show>
         </button>
       </Show>
-      <button class="btn-close-outline" onClick={props.onClose}>{t("bucketInfo.close")}</button>
+      <button class="btn-close-outline" data-modal-close>{t("bucketInfo.close")}</button>
     </>
   );
 
@@ -330,6 +330,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
           </span>
         }
         size="large"
+        animation="scale"
         headerAction={headerAction}
         footer={footer}
         preventBackdropClose={false}
@@ -404,9 +405,9 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                             <Match when={key === 'Last Updated'}>
                               {formatBucketDate(value as string)}
                             </Match>
-                            <Match when={key === 'Path'}>
+                            <Match when={key === t("bucketInfo.path")}>
                               <div
-                                class="text-xs font-mono break-all cursor-pointer hover:underline text-blue-500"
+                                class="link-primary break-all inline-block bg-primary/5 rounded px-1.5 py-0.5 cursor-pointer border-x-2 border-bg-primary"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (props.bucket?.path) {

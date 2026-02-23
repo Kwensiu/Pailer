@@ -107,6 +107,7 @@ const DebugModal = () => {
                 onClose={() => setIsOpen(false)}
                 title="Debug Information"
                 size="full"
+                animation="scale"
                 footer={
                     <div class="flex gap-2 w-full justify-end">
                         <button
@@ -213,7 +214,7 @@ const DebugModal = () => {
 
                     {/* Logs Tab */}
                     <Show when={activeTab() === "logs"}>
-                        <pre class="text-xs overflow-auto max-h-full whitespace-pre-wrap break-words">
+                        <pre class="text-xs overflow-auto max-h-full whitespace-pre-wrap wrap-break-word">
                             {logFileContent() || (appLogs() ? "Loading log file..." : "No logs available")}
                         </pre>
                     </Show>
