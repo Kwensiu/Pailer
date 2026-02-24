@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # Frontend dependencies (Node.js)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Kwensiu"
+    assignees:
+      - "Kwensiu"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Rust dependencies
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Kwensiu"
+    assignees:
+      - "Kwensiu"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
