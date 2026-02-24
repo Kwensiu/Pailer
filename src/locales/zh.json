@@ -263,6 +263,9 @@
       "title": "软件",
       "updateAll": "全部更新"
     },
+    "installed": {
+      "refresh": "刷新"
+    },
     "list": {
       "bucket": "仓库",
       "cannotUnhold": "无法取消保留（版本化安装）",

@@ -278,7 +278,8 @@
       "updated": "Updated",
       "version": "Version",
       "versionedTooltip": "Versioned install - cannot be updated"
-    }
+    },
+    "refresh": "Refresh"
   },
   "language": {
     "description": "Select your preferred language for the application interface.",

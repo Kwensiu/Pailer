@@ -279,6 +279,7 @@ export interface Dict {
       version: string;
       versionedTooltip: string;
     };
+    refresh: string;
   };
   language: {
     description: string;

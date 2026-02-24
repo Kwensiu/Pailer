@@ -194,8 +194,13 @@ fn load_manifests_with_fallback(
         serde_json::from_str(&manifest_content)
             .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?
     } else {
-        // Return error if manifest doesn't exist - this matches old version behavior
-        return Err(format!("Failed to read manifest.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+        // Create minimal manifest if file doesn't exist
+        log::warn!("manifest.json not found for {}, creating minimal manifest", package_name);
+        PackageManifest {
+            version: "unknown".to_string(),
+            description: Some(format!("Package: {}", package_name)),
+            ..Default::default()
+        }
     };
 
     // Try to read install.json
@@ -211,8 +216,12 @@ fn load_manifests_with_fallback(
         serde_json::from_str(&install_manifest_content)
             .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?
     } else {
-        // Return error if install.json doesn't exist - this matches old version behavior
-        return Err(format!("Failed to read install.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+        // Create minimal install manifest if file doesn't exist
+        log::warn!("install.json not found for {}, creating minimal manifest", package_name);
+        InstallManifest {
+            bucket: None, // This indicates a custom/unknown installation
+            ..Default::default()
+        }
     };
 
     Ok((manifest, install_manifest))
@@ -281,77 +290,25 @@ fn extract_package_name(package_path: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("Invalid package directory name: {:?}", package_path))
 }
 
-/// Checks if a directory shows evidence of being a real package installation (not just a system directory like scoop itself).
-fn has_installation_evidence(install_root: &Path) -> bool {
-    // Check if there are version directories (indicating versioned install)
-    let has_version_dirs = fs::read_dir(install_root)
-        .ok()
-        .map(|entries| entries
-            .flatten()
-            .filter(|entry| entry.path().is_dir())
-            .any(|entry| {
-                entry.file_name()
-                    .to_str()
-                    .map(|name| name != "current" && is_valid_version_string(name))
-                    .unwrap_or(false)
-            })
-        )
-        .unwrap_or(false);
-
-    // Check if there are executable files
-    let has_executables = fs::read_dir(install_root)
-        .ok()
-        .map(|entries| entries
-            .flatten()
-            .any(|entry| {
-                let path = entry.path();
-                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                    // Common executable file extensions
-                    matches!(ext.to_lowercase().as_str(), "exe" | "cmd" | "bat" | "ps1" | "lnk")
-                } else {
-                    false
-                }
-            })
-        )
-        .unwrap_or(false);
-
-    // Check if there are common application directories
-    let has_app_dirs = ["bin", "lib", "share", "data"].iter()
-        .any(|dir_name| install_root.join(dir_name).is_dir());
-
-    // If any of these conditions are met, it likely contains a real installation
-    has_version_dirs || has_executables || has_app_dirs
-}
 
 /// Loads package manifest and install manifest with fallback strategies.
 fn load_package_info(install_root: &Path, package_name: &str) -> Result<(PackageManifest, InstallManifest), String> {
-    // Exclude Scoop itself
-    if package_name.eq_ignore_ascii_case("scoop") {
-        return Err(format!("Skipping Scoop system package: {}", package_name));
-    }
-
     match load_manifests_with_fallback(install_root, package_name) {
         Ok(result) => Ok(result),
         Err(e) => {
-            // Only create fallback manifests if there's evidence of a real installation
-            if has_installation_evidence(install_root) {
-                log::warn!("Failed to load manifests for {}: {}, creating fallback manifests", package_name, e);
-                let version = extract_version_from_directory(install_root).unwrap_or_else(|| "unknown".to_string());
-                let description = Some(format!("Package: {} (Custom installation)", package_name));
-                let manifest = PackageManifest {
-                    version,
-                    description,
-                    ..Default::default()
-                };
-                let install_manifest = InstallManifest {
-                    bucket: None,
-                    ..Default::default()
-                };
-                Ok((manifest, install_manifest))
-            } else {
-                // No installation evidence, skip this directory
-                Err(e)
-            }
+            log::warn!("Failed to load manifests for {}: {}, creating fallback manifests", package_name, e);
+            let version = extract_version_from_directory(install_root).unwrap_or_else(|| "unknown".to_string());
+            let description = Some(format!("Package: {} (Custom installation)", package_name));
+            let manifest = PackageManifest {
+                version,
+                description,
+                ..Default::default()
+            };
+            let install_manifest = InstallManifest {
+                bucket: None,
+                ..Default::default()
+            };
+            Ok((manifest, install_manifest))
         }
     }
 }
