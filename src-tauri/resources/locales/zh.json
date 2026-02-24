@@ -257,6 +257,9 @@
       "title": "软件",
       "updateAll": "全部更新"
     },
+    "installed": {
+      "refresh": "刷新"
+    },
     "list": {
       "bucket": "仓库",
       "cannotUnhold": "无法取消保留（版本化安装）",
@@ -520,6 +523,7 @@
       "description": "设置您的 Scoop 目录安装路径，更改后建议重启以避免潜在问题。",
       "detectError": "无法检测 Scoop 路径。请确保正确设置了 SCOOP 环境变量。",
       "detectSuccess": "Scoop 路径检测成功！",
+      "directoryNotFound": "目录不存在",
       "invalidDirectory": "目录存在但 Scoop 结构无效。缺少 'apps' 或 'buckets' 目录。",
       "loadError": "无法加载 Scoop 路径设置。",
       "pathLabel": "Scoop 安装路径",

@@ -273,6 +273,7 @@ export interface Dict {
       version: string;
       versionedTooltip: string;
     };
+    refresh: string;
   };
   language: {
     description: string;
@@ -520,6 +521,7 @@ export interface Dict {
       description: string;
       detectError: string;
       detectSuccess: string;
+      directoryNotFound: string;
       invalidDirectory: string;
       loadError: string;
       pathLabel: string;
