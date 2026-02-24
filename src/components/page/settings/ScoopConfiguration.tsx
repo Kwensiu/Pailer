@@ -178,7 +178,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
             disabled={isDetecting() || isSaving()}
           />
           <button
-            class="btn btn-info join-item"
+            class="btn btn-primary join-item"
             onClick={handleSavePath}
             disabled={isDetecting() || isSaving() || !isValidPath()}
           >
@@ -186,7 +186,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
             {t('settings.scoopConfiguration.save')}
           </button>
           <button
-            class={`btn join-item ${isDetecting() ? 'btn-primary' : 'btn-primary'}`}
+            class={`btn join-item ${isDetecting() ? 'btn-info' : 'btn-info'}`}
             onClick={detectScoopPath}
             disabled={isDetecting() || isSaving()}
           >
