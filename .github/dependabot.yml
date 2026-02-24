@@ -13,6 +13,11 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # Rust dependencies
   - package-ecosystem: "cargo"
@@ -27,3 +32,8 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
+    groups:
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - "*"
