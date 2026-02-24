@@ -3,9 +3,13 @@ use std::process::Command;
 use tauri::AppHandle;
 use crate::commands::update_config::get_update_channel;
 
+// Repository constants
+const REPO_OWNER: &str = "Kwensiu";
+const REPO_NAME: &str = "Pailer";
+
 /// Represents update information from GitHub API
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CustomUpdateInfo {
+pub struct FallbackUpdateInfo {
     pub version: String,
     pub pub_date: String,
     pub download_url: String,
@@ -34,27 +38,20 @@ struct GitHubAsset {
 /// Check for updates using GitHub API directly
 /// This is used as a fallback when Tauri updater fails or doesn't find updates
 #[tauri::command]
-pub async fn check_for_custom_update(app_handle: AppHandle) -> Result<CustomUpdateInfo, String> {
-    log::info!("Starting custom update check using GitHub API");
+pub async fn check_for_fallback_update(app_handle: AppHandle) -> Result<FallbackUpdateInfo, String> {
+    log::info!("Starting fallback update check using GitHub API");
     
     // Get the current channel
     let channel = get_update_channel(app_handle.clone()).await?;
     log::info!("Checking for updates on channel: {}", channel);
     
-    // Determine the repository based on channel
-    let (repo_owner, repo_name) = if channel == "test" {
-        ("Kwensiu", "Pailer")
-    } else {
-        ("Kwensiu", "Pailer")
-    };
-    
     // Get the latest release from GitHub API
     let api_url = if channel == "test" {
         // For test channel, we'll look for a pre-release or specific tag
-        format!("https://api.github.com/repos/{}/{}/releases", repo_owner, repo_name)
+        format!("https://api.github.com/repos/{}/{}/releases", REPO_OWNER, REPO_NAME)
     } else {
         // For stable channel, get the latest stable release
-        format!("https://api.github.com/repos/{}/{}/releases/latest", repo_owner, repo_name)
+        format!("https://api.github.com/repos/{}/{}/releases/latest", REPO_OWNER, REPO_NAME)
     };
     
     log::debug!("Fetching release info from: {}", api_url);
@@ -103,17 +100,27 @@ pub async fn check_for_custom_update(app_handle: AppHandle) -> Result<CustomUpda
     
     // Find the Windows installer asset
     let windows_asset = release.assets.into_iter()
-        .find(|asset| asset.name.contains("x64-setup.exe") || asset.name.contains("windows"))
+        .find(|asset| asset.name.ends_with(".exe"))
         .ok_or("Windows installer not found in release assets")?;
     
     log::info!("Found update: {} from {}", version, release.published_at);
+    
+    // Compare versions to ensure we only return newer versions
+    let current_version = env!("CARGO_PKG_VERSION");
+    
+    if version == current_version {
+        log::info!("Remote version {} is the same as current version {}", version, current_version);
+        return Err("No newer version available".to_string());
+    }
+    
+    log::info!("Newer version found: {} (current: {})", version, current_version);
     
     // For the signature, we'll need to get it from the update.json file
     // This is a limitation of using GitHub API directly
     let signature = get_signature_for_version(&version, &channel).await?;
     
     // Create update info
-    let update_info = CustomUpdateInfo {
+    let update_info = FallbackUpdateInfo {
         version: version.clone(),
         pub_date: release.published_at,
         download_url: windows_asset.browser_download_url,
@@ -145,9 +152,7 @@ async fn get_signature_for_version(_version: &str, channel: &str) -> Result<Stri
         .map_err(|e| format!("Failed to fetch update.json: {}", e))?;
     
     if !response.status().is_success() {
-        // If we can't get the signature, return a placeholder
-        log::warn!("Could not fetch signature, using placeholder");
-        return Ok("signature-unavailable".to_string());
+        return Err(format!("Failed to fetch signature: HTTP {}", response.status()));
     }
     
     let update_data: serde_json::Value = response.json()
@@ -169,17 +174,17 @@ async fn get_signature_for_version(_version: &str, channel: &str) -> Result<Stri
     Ok("signature-not-found".to_string())
 }
 
-/// Download and install the custom update
+/// Download and install the fallback update
 #[tauri::command]
-pub async fn download_and_install_custom_update(
+pub async fn download_and_install_fallback_update(
     app_handle: AppHandle,
-    update_info: CustomUpdateInfo,
+    update_info: FallbackUpdateInfo,
 ) -> Result<(), String> {
-    log::info!("Starting custom update download and installation");
+    log::info!("Starting fallback update download and installation");
     
     // Create a temporary directory for the download
     let temp_dir = std::env::temp_dir();
-    let installer_path = temp_dir.join(format!("scoopmeta_update_{}.exe", update_info.version));
+    let installer_path = temp_dir.join(format!("pailer_update_{}.exe", update_info.version));
     
     // Download the installer
     log::info!("Downloading installer from: {}", update_info.download_url);
@@ -206,28 +211,32 @@ pub async fn download_and_install_custom_update(
     log::info!("Installer downloaded to: {}", installer_path.display());
     
     // Execute the installer with the same arguments as in tauri.conf.json
-    let args = if cfg!(windows) {
-        vec!["/CURRENTUSER", "/MERGETASKS=!desktopicon,!quicklaunchicon"]
-    } else {
-        vec![]
-    };
+    let args = vec!["/CURRENTUSER", "/MERGETASKS=!desktopicon,!quicklaunchicon"];
     
     log::info!("Starting installer with args: {:?}", args);
     
-    let mut cmd = Command::new(installer_path);
+    let mut cmd = Command::new(&installer_path);
     cmd.args(args);
     
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // Create the installer process detached from parent
-        cmd.creation_flags(0x08000000); // DETACHED_PROCESS
-    }
+    use std::os::windows::process::CommandExt;
+    // Create the installer process detached from parent
+    cmd.creation_flags(0x08000000); // DETACHED_PROCESS
     
     let child = cmd.spawn()
         .map_err(|e| format!("Failed to start installer: {}", e))?;
     
     log::info!("Installer started with PID: {}", child.id());
+    
+    // Clean up temporary installer file in a background thread
+    let installer_path_clone = installer_path.clone();
+    std::thread::spawn(move || {
+        // Wait a bit for the installer to start properly
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        if installer_path_clone.exists() {
+            let _ = std::fs::remove_file(&installer_path_clone);
+            log::info!("Cleaned up temporary installer file");
+        }
+    });
     
     // Exit the current application
     std::thread::sleep(std::time::Duration::from_secs(1));

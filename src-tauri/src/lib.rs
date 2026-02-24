@@ -259,9 +259,9 @@ pub fn run() {
             commands::update_config::get_update_info_for_channel,
             commands::test_update::test_update_config,
             commands::test_update::get_current_update_channel,
-            commands::custom_update::check_for_custom_update,
-            commands::custom_update::download_and_install_custom_update,
-            commands::custom_update::get_current_version
+            commands::fallback_update::check_for_fallback_update,
+            commands::fallback_update::download_and_install_fallback_update,
+            commands::fallback_update::get_current_version
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
