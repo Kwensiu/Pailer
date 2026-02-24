@@ -255,16 +255,40 @@ pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, Stri
         .flatten()
         .map(PathBuf::from);
 
+    // Check if path was manually configured
+    let manually_configured = settings::get_scoop_path_manually_configured(app.clone())
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+
     if let Some(path) = stored_path.as_ref() {
         log::info!("Found stored Scoop path: {}", path.display());
         if evaluate_scoop_candidate(path.clone()).is_none() {
-            log::warn!(
-                "Stored scoop path is invalid or inaccessible: {}",
-                path.display()
-            );
+            if manually_configured {
+                log::warn!(
+                    "Stored manually configured scoop path is invalid or inaccessible: {}, but will use it as requested",
+                    path.display()
+                );
+            } else {
+                log::warn!(
+                    "Stored scoop path is invalid or inaccessible: {}",
+                    path.display()
+                );
+            }
         }
     } else {
         log::info!("No stored Scoop path found");
+    }
+
+    // If manually configured, don't auto-detect, use stored path even if invalid
+    if manually_configured {
+        if let Some(path) = stored_path {
+            log::info!("Using manually configured Scoop path: {}", path.display());
+            return Ok(path);
+        } else {
+            // Should not happen, but fallback
+            log::warn!("Manually configured flag set but no path stored, falling back to auto-detection");
+        }
     }
 
     let candidates = build_candidate_list(stored_path.clone().into_iter());
@@ -288,15 +312,8 @@ pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, Stri
                 best.installed_count
             );
 
-            if let Err(e) =
-                settings::set_scoop_path(app.clone(), best_path.to_string_lossy().to_string())
-            {
-                log::warn!(
-                    "Failed to persist detected Scoop path '{}': {}",
-                    best_path.display(),
-                    e
-                );
-            }
+            // Don't save auto-detected paths for manually configured setups
+            // (though this shouldn't be reached due to the check above)
         }
 
         log::info!("Resolved Scoop root to: {}", best_path.display());

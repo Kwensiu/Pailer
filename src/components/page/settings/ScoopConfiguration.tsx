@@ -1,77 +1,118 @@
-import { createSignal, onMount, Show } from 'solid-js';
-import { invoke } from '@tauri-apps/api/core';
-import { FolderCog, Save, CircleCheckBig, Folder, RefreshCw } from 'lucide-solid';
-import Card from '../../common/Card';
-import { t } from '../../../i18n';
+import { createSignal, Show, createEffect, onMount } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
+import { FolderCog, Save, CircleCheckBig, AlertTriangle, Folder } from "lucide-solid";
+import Card from "../../common/Card";
+import { t } from "../../../i18n";
+import settingsStore from "../../../stores/settings";
 
 export interface ScoopConfigurationProps {
   onOpenDirectory?: () => void;
 }
 
 export default function ScoopConfiguration(props: ScoopConfigurationProps) {
-  const [scoopPath, setScoopPath] = createSignal('');
-  const [pathIsLoading, setPathIsLoading] = createSignal(true);
-  const [isDetecting, setIsDetecting] = createSignal(false);
-  const [isSaving, setIsSaving] = createSignal(false);
-  const [isValidating, setIsValidating] = createSignal(false);
-  const [pathError, setPathError] = createSignal<string | null>(null);
-  const [pathSuccessMessage, setPathSuccessMessage] = createSignal<string | null>(null);
-  const [isValidPath, setIsValidPath] = createSignal(true);
-  const [validationResult, setValidationResult] = createSignal<{
-    isValid: boolean;
-    message: string;
-  } | null>(null);
+    const { settings, setScoopPath } = settingsStore;
+    const [currentPath, setCurrentPath] = createSignal(settings.scoopPath || "");
+    const [isDetecting, setIsDetecting] = createSignal(false);
+    const [isSaving, setIsSaving] = createSignal(false);
+    const [pathError, setPathError] = createSignal<string | null>(null);
+    const [pathSuccessMessage, setPathSuccessMessage] = createSignal<string | null>(null);
+    const [isValidPath, setIsValidPath] = createSignal(true);
+    const [validationResult, setValidationResult] = createSignal<{ isValid: boolean; message: string } | null>(null);
 
-  const fetchScoopPath = async () => {
-    setPathIsLoading(true);
-    setPathError(null);
-    try {
-      const path = await invoke<string | null>('get_scoop_path', {});
-      setScoopPath(path ?? '');
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to fetch scoop path:', errorMsg);
-      setPathError(t('settings.scoopConfiguration.loadError'));
-    } finally {
-      setPathIsLoading(false);
-    }
-  };
+    createEffect(() => setCurrentPath(settings.scoopPath || ""));
 
-  const handleSavePath = async () => {
-    setIsSaving(true);
-    setPathError(null);
-    setPathSuccessMessage(null);
-    try {
-      await invoke('set_scoop_path', { path: scoopPath() });
-      setPathSuccessMessage(t('settings.scoopConfiguration.saveSuccess'));
-      setTimeout(() => setPathSuccessMessage(null), 5000);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to save scoop path:', errorMsg);
-      setPathError(t('settings.scoopConfiguration.saveError') + errorMsg);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    // Auto-detect path (if empty and not manually configured)
+    onMount(async () => {
+        if (!currentPath().trim() && !settings.scoopPathManuallyConfigured) {
+            try {
+                const detectedPath = await invoke<string>("detect_scoop_path");
+                if (detectedPath && detectedPath.trim()) {
+                    setCurrentPath(detectedPath);
+                    setIsValidPath(validatePath(detectedPath));
+                    // Auto-save the detected path
+                    await setScoopPath(detectedPath);
+                    setPathSuccessMessage(t("settings.scoopConfiguration.detectSuccess"));
+                    setTimeout(() => setPathSuccessMessage(null), 5000);
+                }
+            } catch (err) {
+                console.log("Auto-detection skipped or failed:", err);
+                // Do not display error, silently skip on first launch
+            }
+        }
+    });
 
-  const detectScoopPath = async () => {
-    setIsDetecting(true);
-    setPathError(null);
-    try {
-      const detectedPath = await invoke<string>('detect_scoop_path');
-      setScoopPath(detectedPath);
-      setPathSuccessMessage(t('settings.scoopConfiguration.detectSuccess'));
-      setIsValidPath(true);
-      setValidationResult(null);
-      setTimeout(() => setPathSuccessMessage(null), 5000);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to detect scoop path:', errorMsg);
-      setPathError(t('settings.scoopConfiguration.detectError'));
-    } finally {
-      setIsDetecting(false);
-    }
-  };
+    const handleSavePath = async () => {
+        setIsSaving(true);
+        setPathError(null);
+        setPathSuccessMessage(null);
+        setValidationResult(null);
+        try {
+            await setScoopPath(currentPath());
+            setPathSuccessMessage(t("settings.scoopConfiguration.saveSuccess"));
+            
+            // Auto-validate the saved path
+            if (currentPath().trim()) {
+                try {
+                    // First check if directory exists
+                    const directoryExists = await invoke<boolean>("check_directory_exists", { path: currentPath() });
+                    if (!directoryExists) {
+                        setValidationResult({
+                            isValid: false,
+                            message: t("settings.scoopConfiguration.directoryNotFound")
+                        });
+                    } else {
+                        // Directory exists, check if it's a valid Scoop directory
+                        const isValid = await invoke<boolean>("validate_scoop_directory", { path: currentPath() });
+                        if (isValid) {
+                            setPathSuccessMessage(t("settings.scoopConfiguration.validDirectory"));
+                        } else {
+                            setValidationResult({
+                                isValid: false,
+                                message: t("settings.scoopConfiguration.invalidDirectory")
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.log("Path validation failed:", err);
+                    // Do not display validation error, only log it
+                }
+            }
+            
+            setTimeout(() => {
+                setPathSuccessMessage(null);
+                setValidationResult(null);
+            }, 5000);
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error("Failed to save scoop path:", errorMsg);
+            setPathError(t("settings.scoopConfiguration.saveError") + errorMsg);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const detectScoopPath = async () => {
+        setIsDetecting(true);
+        setPathError(null);
+        try {
+            const detectedPath = await invoke<string>("detect_scoop_path");
+            setCurrentPath(detectedPath);
+            setIsValidPath(validatePath(detectedPath));
+            
+            // Directly save the detected path
+            await setScoopPath(detectedPath);
+            
+            setPathSuccessMessage(t("settings.scoopConfiguration.detectSuccess"));
+            setValidationResult(null);
+            setTimeout(() => setPathSuccessMessage(null), 5000);
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error("Failed to detect scoop path:", errorMsg);
+            setPathError(t("settings.scoopConfiguration.detectError"));
+        } finally {
+            setIsDetecting(false);
+        }
+    };
 
   // Validate path format
   const validatePath = (path: string) => {
@@ -82,147 +123,115 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
     return isValid;
   };
 
-  // Validate when path changes
-  const handlePathChange = (value: string) => {
-    setScoopPath(value);
-    if (value.trim() !== '') {
-      validatePath(value);
-    } else {
-      setIsValidPath(true); // Empty path is considered valid
-    }
-    // Clear previous validation result when path changes
-    setValidationResult(null);
-  };
+    // Validate when path changes
+    const handlePathChange = (value: string) => {
+        setCurrentPath(value);
+        if (value.trim() !== "") {
+            validatePath(value);
+        } else {
+            setIsValidPath(false); // Empty path is considered invalid
+        }
+        // Clear previous validation result when path changes
+        setValidationResult(null);
+    };
 
-  // Validate Scoop directory structure
-  const validateScoopDirectory = async () => {
-    if (!scoopPath() || !isValidPath()) {
-      setValidationResult({
-        isValid: false,
-        message: t('settings.scoopConfiguration.validationError'),
-      });
-      return;
-    }
-
-    setIsValidating(true);
-    setPathError(null);
-    try {
-      const isValid = await invoke<boolean>('validate_scoop_directory', { path: scoopPath() });
-      if (isValid) {
-        setPathSuccessMessage(t('settings.scoopConfiguration.validDirectory'));
-      } else {
-        setPathSuccessMessage(t('settings.scoopConfiguration.invalidDirectory'));
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to validate scoop directory:', errorMsg);
-      setValidationResult({
-        isValid: false,
-        message: t('settings.scoopConfiguration.validationFailed') + errorMsg,
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  onMount(() => {
-    fetchScoopPath();
-  });
-
-  return (
-    <Card
-      title={t('settings.scoopConfiguration.title')}
-      icon={FolderCog}
-      description={t('settings.scoopConfiguration.description')}
-      headerAction={
-        <div class="flex items-center gap-2">
-          <Show when={props.onOpenDirectory}>
-            <button
-              class="btn btn-ghost btn-sm"
-              onClick={props.onOpenDirectory}
-              title="Open Scoop Directory"
-            >
-              <Folder class="h-5 w-5" />
-            </button>
-          </Show>
-          <button
-            class="btn btn-ghost btn-sm"
-            onClick={fetchScoopPath}
-            disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating()}
-          >
-            <RefreshCw class="h-5 w-5" classList={{ 'animate-spin': pathIsLoading() }} />
-          </button>
-        </div>
-      }
-    >
-      <label class="label">
-        <span class="label-text flex items-center font-semibold">
-          {t('settings.scoopConfiguration.pathLabel')}
-        </span>
-      </label>
-
-      <div class="form-control w-full max-w-lg">
-        <div class="join w-full">
-          <input
-            type="text"
-            placeholder={
-              pathIsLoading()
-                ? t('settings.scoopConfiguration.loading')
-                : t('settings.scoopConfiguration.pathPlaceholder')
+    return (
+        <Card
+            title={t("settings.scoopConfiguration.title")}
+            icon={FolderCog}
+            description={t("settings.scoopConfiguration.description")}
+            headerAction={
+                <div class="flex items-center gap-2">
+                    <Show when={props.onOpenDirectory}>
+                        <button
+                            class="btn btn-ghost btn-sm"
+                            onClick={props.onOpenDirectory}
+                            title="Open Scoop Directory"
+                        >
+                            <Folder class="w-5 h-5" />
+                        </button>
+                    </Show>
+                </div>
             }
-            class={`input input-bordered join-item w-full ${!isValidPath() ? 'input-error' : ''}`}
-            value={scoopPath()}
-            onInput={(e) => handlePathChange(e.currentTarget.value)}
-            disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating()}
-          />
-          <button
-            class="btn btn-primary join-item"
-            onClick={handleSavePath}
-            disabled={
-              pathIsLoading() || isDetecting() || isSaving() || !isValidPath() || isValidating()
-            }
-          >
-            <Save class="mr-1 h-4 w-4" />
-            {t('settings.scoopConfiguration.save')}
-          </button>
-          <button
-            class={`btn join-item ${isDetecting() ? 'btn-info' : 'btn-info'}`}
-            onClick={detectScoopPath}
-            disabled={pathIsLoading() || isDetecting() || isSaving() || isValidating()}
-          >
-            {t('settings.scoopConfiguration.auto')}
-          </button>
-          <button
-            class={`btn join-item ${validationResult()?.isValid ? 'btn-soft' : 'btn-soft btn-primary'}`}
-            onClick={validateScoopDirectory}
-            disabled={
-              pathIsLoading() || isDetecting() || isSaving() || isValidating() || !scoopPath()
-            }
-          >
-            {t('settings.scoopConfiguration.test')}
-          </button>
-        </div>
+        >
+            <label class="label">
+                <span class="label-text font-semibold flex items-center">
+                    {t("settings.scoopConfiguration.pathLabel")}
+                </span>
+            </label>
+
+            <div class="form-control w-full max-w-lg">
+
+                <div class="join w-full">
+                    <input
+                        type="text"
+                        placeholder={t("settings.scoopConfiguration.pathPlaceholder")}
+                        class={`input input-bordered join-item w-full ${!isValidPath() ? 'input-warning' : ''}`}
+                        value={currentPath()}
+                        onInput={(e) => handlePathChange(e.currentTarget.value)}
+                        disabled={isDetecting() || isSaving()}
+                    />
+                    <button
+                        class="btn btn-primary join-item"
+                        onClick={handleSavePath}
+                        disabled={isDetecting() || isSaving() || !isValidPath()}
+                    >
+                        <Save class="w-4 h-4 mr-1" />
+                        {t("settings.scoopConfiguration.save")}
+                    </button>
+                    <button
+                        class={`btn join-item ${isDetecting() ? 'btn-info' : 'btn-info'}`}
+                        onClick={detectScoopPath}
+                        disabled={isDetecting() || isSaving()}
+                    >
+                        {t("settings.scoopConfiguration.auto")}
+                    </button>
+                </div>
 
         <div class="text-base-content/70 mt-2 text-sm">
           {t('settings.scoopConfiguration.autoDetectDescription')}
         </div>
 
-        {validationResult() && (
-          <div
-            class={`alert mt-4 text-sm ${validationResult()?.isValid ? 'alert-success' : 'alert-warning'}`}
-          >
-            <CircleCheckBig
-              class={`h-4 w-4 ${validationResult()?.isValid ? 'text-success' : 'text-warning'}`}
-            />
-            <span>{validationResult()?.message}</span>
-          </div>
-        )}
+                <div class={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    validationResult() 
+                        ? 'max-h-20 opacity-100' 
+                        : 'max-h-0 opacity-0'
+                }`}>
+                    <div class={`flex items-center gap-2 mt-4 p-3 rounded-lg text-sm ${
+                        validationResult()?.isValid 
+                            ? 'bg-success/10 text-success border border-success/20' 
+                            : 'bg-warning/10 text-warning border border-warning/20'
+                    }`}>
+                        {validationResult()?.isValid ? (
+                            <CircleCheckBig class="w-5 h-5 shrink-0" />
+                        ) : (
+                            <AlertTriangle class="w-5 h-5 shrink-0" />
+                        )}
+                        <span>{validationResult()?.message}</span>
+                    </div>
+                </div>
 
-        {pathError() && <div class="alert alert-error mt-4 text-sm">{pathError()}</div>}
-        {pathSuccessMessage() && (
-          <div class="alert alert-success mt-4 text-sm">{pathSuccessMessage()}</div>
-        )}
-      </div>
-    </Card>
-  );
+                <div class={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    pathError() 
+                        ? 'max-h-20 opacity-100' 
+                        : 'max-h-0 opacity-0'
+                }`}>
+                    <div class="alert alert-error mt-4 text-sm">
+                        {pathError()}
+                    </div>
+                </div>
+                
+                <div class={`transition-all duration-300 ease-in-out overflow-hidden ${
+                    pathSuccessMessage() 
+                        ? 'max-h-20 opacity-100' 
+                        : 'max-h-0 opacity-0'
+                }`}>
+                    <div class="flex items-center gap-2 mt-4 p-3 rounded-lg text-sm bg-success/10 text-success border border-success/20">
+                        <CircleCheckBig class="w-5 h-5 shrink-0" />
+                        <span>{pathSuccessMessage()}</span>
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
 }

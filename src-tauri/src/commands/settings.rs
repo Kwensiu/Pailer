@@ -130,6 +130,21 @@ pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
     })
 }
 
+/// Gets whether the scoop path was manually configured
+#[tauri::command]
+pub fn get_scoop_path_manually_configured<R: Runtime>(app: AppHandle<R>) -> Result<Option<bool>, String> {
+    with_store_get(app, |store| {
+        // Try to get from settings.scoopPathManuallyConfigured first
+        if let Some(settings) = store.get("settings") {
+            if let Some(manually_configured) = settings.get("scoopPathManuallyConfigured") {
+                return manually_configured.as_bool();
+            }
+        }
+        
+        None
+    })
+}
+
 /// Sets the Scoop path in the store.
 #[tauri::command]
 pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
@@ -189,6 +204,14 @@ pub fn validate_scoop_directory(path: String) -> Result<bool, String> {
     }
     
     Ok(true)
+}
+
+/// Checks if a directory exists at the given path
+#[tauri::command]
+pub fn check_directory_exists(path: String) -> Result<bool, String> {
+    use std::path::Path;
+    let path = Path::new(&path);
+    Ok(path.exists() && path.is_dir())
 }
 
 /// Detects the Scoop path by checking environment variables and Scoop's own configuration

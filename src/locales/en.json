@@ -520,6 +520,7 @@
       "description": "Set the installation path for your Scoop directory. Changes will take effect immediately.",
       "detectError": "Failed to detect Scoop path. Please make sure the SCOOP environment variable is set correctly.",
       "detectSuccess": "Scoop path detected successfully!",
+      "directoryNotFound": "Directory does not exist",
       "invalidDirectory": "Directory exists but Scoop structure is invalid. Missing 'apps' or 'buckets' directories.",
       "loadError": "Could not load Scoop path setting.",
       "pathLabel": "Scoop Installation Path",
