@@ -4,54 +4,12 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Runtime, Manager};
 use tauri_plugin_store::{Store, StoreExt};
-use aes_gcm::{Aes256Gcm, Key, Nonce};
-use aes_gcm::aead::{Aead, KeyInit};
-use rand::random;
-use base64::{Engine as _, engine::general_purpose};
 
+use crate::commands::crypto;
 /// Current store file name for unified settings (frontend + backend)
 const STORE_PATH: &str = "settings.json";
 /// Legacy store file name (for migration)
 const LEGACY_STORE_PATH: &str = "core.json";
-
-/// Fixed application-level encryption key (32 bytes for AES-256)
-// This is a simple approach following KISS principle - in production, consider using system keychain
-const ENCRYPTION_KEY: &[u8; 32] = b"ScoopMetaSecureKeyForAPIStor2024";
-
-fn encrypt_api_key(key: &str) -> Result<String, String> {
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(ENCRYPTION_KEY));
-    let nonce_bytes: [u8; 12] = random(); // 96-bit nonce
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    let ciphertext = cipher.encrypt(nonce, key.as_bytes())
-        .map_err(|e| format!("Encryption failed: {}", e))?;
-
-    // Concatenate nonce and ciphertext, then encode
-    let mut combined = nonce_bytes.to_vec();
-    combined.extend(ciphertext);
-    Ok(general_purpose::STANDARD.encode(&combined))
-}
-
-fn decrypt_api_key(encrypted_key: &str) -> Result<String, String> {
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(ENCRYPTION_KEY));
-
-    let combined = general_purpose::STANDARD.decode(encrypted_key)
-        .map_err(|e| format!("Base64 decode failed: {}", e))?;
-
-    if combined.len() < 12 {
-        return Err("Invalid encrypted data: too short".to_string());
-    }
-
-    let nonce_bytes = &combined[..12];
-    let nonce = Nonce::from_slice(nonce_bytes);
-    let ciphertext = &combined[12..];
-
-    let plaintext = cipher.decrypt(nonce, ciphertext.as_ref())
-        .map_err(|e| format!("Decryption failed: {}", e))?;
-
-    String::from_utf8(plaintext)
-        .map_err(|e| format!("UTF-8 decode failed: {}", e))
-}
 
 /// Migrates data from legacy store.json to core.json if needed.
 /// Returns true if migration was performed.
@@ -357,7 +315,7 @@ pub fn get_virustotal_api_key() -> Result<Option<String>, String> {
     match config.get("virustotal_api_key").and_then(|v| v.as_str()) {
         Some(encrypted_key) => {
             // Try to decrypt the key
-            match decrypt_api_key(encrypted_key) {
+            match crypto::decrypt_api_key(encrypted_key) {
                 Ok(decrypted_key) => Ok(Some(decrypted_key)),
                 Err(e) => {
                     // If decryption fails, it might be a legacy unencrypted key
@@ -381,7 +339,7 @@ pub fn set_virustotal_api_key(key: String) -> Result<(), String> {
         config.remove("virustotal_api_key");
     } else {
         // Encrypt the API key before storing
-        let encrypted_key = encrypt_api_key(&key)?;
+        let encrypted_key = crypto::encrypt_api_key(&key)?;
         config.insert("virustotal_api_key".to_string(), serde_json::json!(encrypted_key));
     }
     write_scoop_config(&config)

@@ -8,7 +8,7 @@ use winreg::{enums::*, RegKey};
 
 const REG_KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const REG_KEY_NAME: &str = "Pailer";
-const SILENT_STARTUP_KEY: &str = "ScoopMetaSilentStartup";
+const SILENT_STARTUP_KEY: &str = "PailerSilentStartup";
 
 /// Checks if the application is configured to start automatically on Windows boot.
 #[tauri::command]
