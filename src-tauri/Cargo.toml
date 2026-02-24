@@ -13,13 +13,14 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "scoopmeta_lib"
+name = "pailer_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.4", features = [] }
 
 [dependencies]
+windows-dpapi = "0.1.0"
 tauri = { version = "2.9", features = ["tray-icon"] }
 tauri-plugin-shell = "2.3.1"
 serde = { version = "1.0", features = ["derive"] }
@@ -52,9 +53,7 @@ git2 = "0.20"
 url = "2.5"
 lazy_static = "1.4.0"
 tempfile = "3.19"
-aes-gcm = "0.10"
 base64 = "0.22"
-rand = "0.10.0"
 
 [target."cfg(windows)".dependencies]
 tauri-plugin-updater = "2.7.1"

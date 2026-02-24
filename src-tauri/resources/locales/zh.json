@@ -1,4 +1,4 @@
-﻿{
+{
   "app": {
     "buckets": "仓库",
     "doctor": "诊断",
@@ -412,7 +412,7 @@
       "clearError": "清理错误",
       "clearingCache": "正在清理缓存...",
       "dataDirectory": "数据目录",
-      "description": "管理ScoopMeta产生的数据文件",
+      "description": "管理 Pailer 产生的数据文件",
       "factoryReset": "恢复出厂设置",
       "factoryResetButton": "恢复出厂设置",
       "factoryResetDescription": "清除所有应用数据、设置和缓存，恢复到初始状态",
