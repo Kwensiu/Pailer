@@ -4,6 +4,7 @@ pub mod bucket;
 pub mod bucket_install;
 pub mod bucket_parser;
 pub mod bucket_search;
+pub mod crypto;
 pub mod fallback_update;
 pub mod debug;
 pub mod doctor;
