@@ -68,7 +68,7 @@ function FloatingConfirmationPanel(props: FloatingConfirmationPanelProps) {
     return (
         <Portal>
             <Show when={rendered()}>
-                <div class="fixed inset-0 flex items-center justify-center z-52 p-2">
+                <div class="fixed inset-0 flex items-center justify-center z-61 p-2"> {/* z-61 to show above packageinfomodal*/}
                     <div
                         class="absolute inset-0 transition-all duration-300 ease-in-out"
                         classList={{
