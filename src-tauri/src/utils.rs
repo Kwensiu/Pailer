@@ -76,6 +76,20 @@ fn collect_common_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<Pa
         if let Ok(user_profile) = env::var("USERPROFILE") {
             push_candidate(seen, candidates, PathBuf::from(user_profile).join("scoop"));
         }
+
+        // Additional environment variables from old version
+        if let (Ok(home_drive), Ok(home_path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
+            let combined = format!("{}{}", home_drive.trim_end_matches('\\'), home_path);
+            push_candidate(seen, candidates, PathBuf::from(combined).join("scoop"));
+        }
+
+        if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
+            push_candidate(
+                seen,
+                candidates,
+                PathBuf::from(local_app_data).join("scoop"),
+            );
+        }
         
         // System-wide installation
         if let Ok(program_data) = env::var("PROGRAMDATA") {
@@ -90,7 +104,53 @@ fn collect_common_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<Pa
         
         // Common hardcoded paths
         push_candidate(seen, candidates, PathBuf::from(r"C:\scoop"));
-        push_candidate(seen, candidates, PathBuf::from(r"D:\scoop"));
+        push_candidate(seen, candidates, PathBuf::from(r"C:\ProgramData\scoop"));
+    }
+}
+
+fn collect_user_profile_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>) {
+    log::info!("Collecting user profile candidates");
+    let mut roots = Vec::new();
+
+    if let Ok(system_drive) = env::var("SystemDrive") {
+        let mut drive_root = PathBuf::from(system_drive.trim_end_matches('\\'));
+        drive_root.push("Users");
+        roots.push(drive_root);
+    }
+
+    roots.push(PathBuf::from(r"C:\Users"));
+
+    for root in roots {
+        if !root.is_dir() {
+            continue;
+        }
+
+        // Limit the number of user directories to scan for performance
+        let mut user_count = 0;
+        const MAX_USERS_TO_SCAN: usize = 10;
+        
+        if let Ok(entries) = fs::read_dir(&root) {
+            for entry in entries.filter_map(Result::ok) {
+                user_count += 1;
+                if user_count > MAX_USERS_TO_SCAN {
+                    log::info!("Stopping user directory scan after {} users for performance", MAX_USERS_TO_SCAN);
+                    break;
+                }
+                
+                let user_dir = entry.path();
+                let scoop_dir = user_dir.join("scoop");
+                if scoop_dir.is_dir() {
+                    log::info!("Found user scoop directory: {}", scoop_dir.display());
+                    push_candidate(seen, candidates, scoop_dir);
+                }
+
+                let local_scoop_dir = user_dir.join("AppData").join("Local").join("scoop");
+                if local_scoop_dir.is_dir() {
+                    log::info!("Found local AppData scoop directory: {}", local_scoop_dir.display());
+                    push_candidate(seen, candidates, local_scoop_dir);
+                }
+            }
+        }
     }
 }
 
@@ -110,6 +170,7 @@ where
     }
 
     collect_common_candidates(&mut seen, &mut candidates);
+    collect_user_profile_candidates(&mut seen, &mut candidates);
 
     log::info!("Built candidate list with {} paths", candidates.len());
     for (i, candidate) in candidates.iter().enumerate() {
@@ -123,7 +184,7 @@ fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
     log::info!("Evaluating Scoop candidate: {}", path.display());
     
     if !path.is_dir() {
-        log::info!("Candidate path is not a directory");
+        log::info!("Candidate path does not exist or is not a directory: {}", path.display());
         return None;
     }
 
