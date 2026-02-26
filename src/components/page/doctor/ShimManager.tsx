@@ -1,16 +1,6 @@
 import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import {
-  RefreshCw,
-  TriangleAlert,
-  Inbox,
-  Link,
-  EyeOff,
-  Plus,
-  BookText,
-  Folder,
-  Layers2,
-} from 'lucide-solid';
+import { TriangleAlert, Inbox, Link, EyeOff, Plus, BookText, Folder, Layers2 } from 'lucide-solid';
 import ShimDetailsModal from './ShimDetailsModal';
 import AddShimModal from './AddShimModal';
 import Card from '../../common/Card';
@@ -114,16 +104,19 @@ function ShimManager(props: ShimManagerProps) {
     <Card
       title={t('doctor.shimManager.title')}
       icon={Layers2}
+      onRefresh={fetchShims}
       headerAction={
         <div class="flex items-center gap-2">
-          <button
-            class="btn btn-primary btn-sm"
-            onClick={() => setIsAddModalOpen(true)}
-            disabled={isLoading() || isProcessing()}
-          >
-            <Plus class="h-4 w-4" /> {t('doctor.shimManager.addShim')}
-          </button>
-          <div class="divider divider-horizontal m-1" />
+          <Show when={allShims().length > 0}>
+            <button
+              class="btn btn-ghost btn-sm"
+              onClick={() => setIsAddModalOpen(true)}
+              disabled={isLoading() || isProcessing()}
+            >
+              <Plus class="h-4 w-4" /> {t('doctor.shimManager.addShim')}
+            </button>
+            <div class="divider divider-horizontal m-1" />
+          </Show>
           <Show when={props.onOpenDirectory}>
             <button
               class="btn btn-ghost btn-sm"
@@ -133,13 +126,6 @@ function ShimManager(props: ShimManagerProps) {
               <Folder class="h-5 w-5" />
             </button>
           </Show>
-          <button
-            class="btn btn-ghost btn-sm"
-            onClick={fetchShims}
-            disabled={isLoading() || isProcessing()}
-          >
-            <RefreshCw size={32} class="h-5 w-5" classList={{ 'animate-spin': isLoading() }} />
-          </button>
         </div>
       }
       description=""
@@ -153,7 +139,7 @@ function ShimManager(props: ShimManagerProps) {
         disabled={isLoading() || !!error() || allShims().length === 0}
       />
 
-      <div class="max-h-[60vh] overflow-y-auto">
+      <div class="bg-base-list max-h-[60vh] overflow-y-auto rounded-lg">
         <Show when={error()}>
           <div role="alert" class="alert alert-error">
             <TriangleAlert />

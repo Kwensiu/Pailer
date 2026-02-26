@@ -203,9 +203,9 @@ export default function AboutSection(props: AboutSectionProps) {
         <p class="text-base-content/60 text-sm">{t('settings.about.pleaseReportIssues')}</p>
       </div>
 
-      <div class="card-body space-y-4 p-6">
+      <div class="card-body bg-base-100 space-y-4 p-6">
         {/* Update Section */}
-        <div class="bg-base-100 border-base-content/5 rounded-xl border p-3 shadow-sm">
+        <div class="bg-base-200 border-base-content/5 rounded-xl border p-3 shadow-sm">
           <div class="flex min-h-[36px] items-center justify-between">
             <div class="flex items-center gap-2 font-semibold">
               <RefreshCw class="text-base-content/70 h-4 w-4" />
@@ -292,7 +292,7 @@ export default function AboutSection(props: AboutSectionProps) {
               )}
 
               {updateStatus() === 'error' && (
-                <div class="alert alert-error shadow-sm">
+                <div class="alert alert-error rounded-lg shadow-sm">
                   <div class="flex-1">
                     <div class="text-xs font-bold">{t('settings.about.updateFailed')}</div>
                     <div class="text-xs opacity-80">{updateError()}</div>

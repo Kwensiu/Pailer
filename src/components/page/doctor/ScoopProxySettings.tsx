@@ -79,7 +79,7 @@ function ScoopProxySettings() {
               disabled={isLoading() || isSaving()}
             />
             <button
-              class="btn btn-primary join-item"
+              class="btn btn-info join-item"
               onClick={handleSaveProxy}
               disabled={isLoading() || isSaving()}
             >

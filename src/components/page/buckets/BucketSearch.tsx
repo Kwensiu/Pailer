@@ -263,7 +263,7 @@ function BucketSearch(props: BucketSearchProps) {
 
             <Show when={expandedInfo()}>
               <div class="space-y-4">
-                <div class="bg-base-400 space-y-2 rounded-lg p-4">
+                <div class="bg-base-content-bg space-y-2 rounded-lg p-4">
                   <div class="flex justify-between">
                     <span>{t('bucket.search.estimatedDownloadSize')}</span>
                     <span class="font-bold">{expandedInfo()?.estimated_size_mb} MB</span>

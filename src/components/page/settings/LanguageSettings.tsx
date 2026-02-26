@@ -11,21 +11,19 @@ function LanguageSettings() {
       title={t('language.title')}
       icon={Globe}
       description={t('language.description')}
-      headerAction={
-        <select
-          class="select select-bordered select-sm min-w-[140px]"
-          value={settings.language}
-          onChange={(e) => {
-            const newLang = e.target.value;
-            if (newLang !== settings.language) {
-              setLanguage(newLang as 'en' | 'zh');
-            }
-          }}
-        >
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-        </select>
-      }
+      headerSelect={{
+        value: settings.language,
+        onChange: (e) => {
+          const newLang = (e.currentTarget as HTMLSelectElement).value;
+          if (newLang !== settings.language) {
+            setLanguage(newLang as 'en' | 'zh');
+          }
+        },
+        options: [
+          { value: 'en', label: 'English' },
+          { value: 'zh', label: '中文' },
+        ],
+      }}
     ></Card>
   );
 }

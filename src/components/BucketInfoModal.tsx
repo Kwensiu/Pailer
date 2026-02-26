@@ -241,7 +241,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
         </div>
         <ul
           tabindex="0"
-          class="dropdown-content menu bg-base-100 rounded-box z-100 w-52 p-2 shadow"
+          class="dropdown-content menu bg-base-100 border-base-200 rounded-box z-100 w-52 border p-2 shadow"
         >
           <Show when={props.bucket?.path}>
             <li>
@@ -349,7 +349,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
           </Show>
         </button>
       </Show>
-      <button class="btn-close-outline" data-modal-close>
+      <button class="btn btn-soft w-18" data-modal-close>
         {t('bucketInfo.close')}
       </button>
     </>
@@ -540,7 +540,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                 <h4 class="mb-3 flex items-center gap-2 border-b pb-2 text-lg font-medium">
                   {t('bucketInfo.availablePackages')} ({props.manifests.length})
                 </h4>
-                <div class="bg-base-100 rounded-lg p-3">
+                <div class="bg-base-content-bg rounded-lg p-3">
                   <ManifestsList
                     manifests={props.manifests}
                     loading={props.manifestsLoading}

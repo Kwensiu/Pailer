@@ -1,4 +1,4 @@
-import { Show, For } from 'solid-js';
+import { Show, For, createSignal, onMount, onCleanup } from 'solid-js';
 import { RefreshCw, X } from 'lucide-solid';
 import { BucketInfo } from '../../../hooks/useBuckets';
 import BucketCard from './BucketCard';
@@ -19,6 +19,21 @@ interface BucketGridProps {
 }
 
 function BucketGrid(props: BucketGridProps) {
+  const [isSmallScreen, setIsSmallScreen] = createSignal(false);
+
+  const checkScreenSize = () => {
+    setIsSmallScreen(window.innerWidth < 768);
+  };
+
+  onMount(() => {
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener('resize', checkScreenSize);
+  });
+
   return (
     <>
       <div class="mb-4 flex items-center justify-between">
@@ -39,18 +54,68 @@ function BucketGrid(props: BucketGridProps) {
               }
             >
               <button
-                class="btn btn-secondary btn-sm gap-2"
+                class="btn btn-accent btn-sm gap-2"
                 onClick={props.onUpdateAll}
                 disabled={props.updatingBuckets && props.updatingBuckets.size > 0}
               >
                 <RefreshCw class="h-4 w-4" />
-                {t('bucket.grid.updateAllGit')}
+                <span
+                  class="relative inline-block truncate transition-all duration-300 ease-in-out"
+                  classList={{
+                    'max-w-64': !isSmallScreen(),
+                    'max-w-16': isSmallScreen(),
+                  }}
+                >
+                  <span
+                    class="transition-opacity duration-300 ease-in-out"
+                    classList={{
+                      'relative opacity-100': isSmallScreen(),
+                      'absolute inset-0 opacity-0': !isSmallScreen(),
+                    }}
+                  >
+                    {t('bucket.grid.updateAllGitShort')}
+                  </span>
+                  <span
+                    class="transition-opacity duration-300 ease-in-out"
+                    classList={{
+                      'absolute inset-0 opacity-0': isSmallScreen(),
+                      'relative opacity-100': !isSmallScreen(),
+                    }}
+                  >
+                    {t('bucket.grid.updateAllGit')}
+                  </span>
+                </span>
               </button>
             </Show>
             <Show when={props.onRefresh}>
-              <button class="btn btn-outline btn-sm gap-2" onClick={props.onRefresh}>
+              <button class="btn btn-soft btn-sm gap-2" onClick={props.onRefresh}>
                 <RefreshCw class="h-4 w-4" />
-                {t('bucket.grid.reloadLocal')}
+                <span
+                  class="relative inline-block truncate transition-all duration-300 ease-in-out"
+                  classList={{
+                    'max-w-64': !isSmallScreen(),
+                    'max-w-16': isSmallScreen(),
+                  }}
+                >
+                  <span
+                    class="transition-opacity duration-300 ease-in-out"
+                    classList={{
+                      'relative opacity-100': isSmallScreen(),
+                      'absolute inset-0 opacity-0': !isSmallScreen(),
+                    }}
+                  >
+                    {t('bucket.grid.reloadLocalShort')}
+                  </span>
+                  <span
+                    class="transition-opacity duration-300 ease-in-out"
+                    classList={{
+                      'absolute inset-0 opacity-0': isSmallScreen(),
+                      'relative opacity-100': !isSmallScreen(),
+                    }}
+                  >
+                    {t('bucket.grid.reloadLocal')}
+                  </span>
+                </span>
               </button>
             </Show>
           </div>

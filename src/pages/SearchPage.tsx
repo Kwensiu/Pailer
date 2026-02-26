@@ -99,17 +99,23 @@ function SearchPage() {
               includesCount={binaryResults().length}
             />
           </div>
-          <div class="ml-4 w-48">
-            <select
-              class="select select-bordered w-full max-w-xs"
-              value={bucketFilter()}
-              onChange={(e) => setBucketFilter(e.currentTarget.value)}
+          <div class="dropdown">
+            <div tabindex="0" role="button" class="select select-bordered select-md min-w-40">
+              {bucketFilter() || t('search.filter.allBuckets')}
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-100 rounded-box border-base-300 z-1 mt-1.5 w-full border p-1 shadow"
             >
-              <option value="">{t('search.filter.allBuckets')}</option>
+              <li>
+                <a onClick={() => setBucketFilter('')}>{t('search.filter.allBuckets')}</a>
+              </li>
               {uniqueBuckets().map((bucket) => (
-                <option value={bucket}>{bucket}</option>
+                <li>
+                  <a onClick={() => setBucketFilter(bucket)}>{bucket}</a>
+                </li>
               ))}
-            </select>
+            </ul>
           </div>
         </div>
 

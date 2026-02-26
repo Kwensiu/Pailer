@@ -470,9 +470,9 @@ function BucketPage() {
 
         {/* Progress bar for updating all buckets */}
         <Show when={updateState().status !== 'idle'}>
-          <div class="bg-base-100 mt-0 rounded-lg p-4 shadow transition-opacity duration-300">
+          <div class="bg-base-100 rounded-box mb-4 p-4 shadow transition-opacity duration-300">
             <div class="mb-1 flex justify-between">
-              <span class="text-base font-medium">Updating Buckets</span>
+              <span class="text-base font-medium">{t('bucket.grid.updatingBuckets')}</span>
               <span class="text-sm font-medium">
                 {updateState().current}/{updateState().total}
               </span>
@@ -481,10 +481,10 @@ function BucketPage() {
               <div
                 class={`h-2.5 rounded-full transition-all duration-300 ${
                   updateState().status === 'completed'
-                    ? 'bg-green-500'
+                    ? 'bg-success'
                     : updateState().status === 'error'
-                      ? 'bg-red-500'
-                      : 'bg-orange-500'
+                      ? 'bg-error'
+                      : 'bg-warning'
                 }`}
                 style={{
                   width: `${(updateState().current / Math.max(updateState().total, 1)) * 100}%`,
@@ -494,7 +494,7 @@ function BucketPage() {
             <div class="mt-2 text-sm text-gray-500">
               {updateState().message}
               <Show when={updateState().status === 'completed'}>
-                <span> - This may take a few seconds to complete</span>
+                <span> - {t('bucket.grid.updateCompletionNote')}</span>
               </Show>
             </div>
           </div>
@@ -564,25 +564,27 @@ function BucketPage() {
 
       <OperationModal
         title={packageOperations.operationTitle()}
-        onClose={async (wasSuccess: boolean) => {
+        onClose={(_operationId: string, wasSuccess: boolean) => {
           packageOperations.closeOperationModal(wasSuccess);
           if (wasSuccess) {
             const currentSelected = packageInfo.selectedPackage();
             if (currentSelected) {
-              try {
-                const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
-                  'search_scoop',
-                  {
-                    term: currentSelected.name,
+              (async () => {
+                try {
+                  const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
+                    'search_scoop',
+                    {
+                      term: currentSelected.name,
+                    }
+                  );
+                  const match = response.packages.find((p) => p.name === currentSelected.name);
+                  if (match) {
+                    packageInfo.updateSelectedPackage(match);
                   }
-                );
-                const match = response.packages.find((p) => p.name === currentSelected.name);
-                if (match) {
-                  packageInfo.updateSelectedPackage(match);
+                } catch (e) {
+                  console.error('Failed to check package status', e);
                 }
-              } catch (e) {
-                console.error('Failed to check package status', e);
-              }
+              })();
             }
           }
         }}

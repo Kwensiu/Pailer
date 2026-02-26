@@ -6,7 +6,7 @@
   "i18n-ally.autoDetection": false,
   "i18n-ally.namespace": false,
   "i18n-ally.pathMatcher": "{locale}.json",
-  "i18n-ally.keystyle": "flat",
+  "i18n-ally.keystyle": "nested",
   "i18n-ally.enabledFrameworks": ["custom"],
   "i18n-ally.usage.scanningIgnore": [],
   "i18n-ally.editor.preferEditor": true,

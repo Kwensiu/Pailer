@@ -14,14 +14,15 @@ function ActionButton(props: {
   confirmText: string;
   loadingText: string;
   icon: typeof Trash2;
-  color: 'info' | 'warning' | 'error';
+  color: 'info' | 'warning' | 'error' | 'primary';
   isLoading: () => boolean;
   isConfirming: () => boolean;
   onClick: () => void;
+  requiresConfirmation?: boolean;
 }) {
   return (
     <div
-      class={`flex flex-col justify-between gap-3 p-3 sm:flex-row sm:items-center ${props.color === 'error' || props.color === 'warning' ? 'bg-base-200' : `bg-${props.color}/10`} ${props.color === 'error' ? 'border-red-300' : props.color === 'warning' ? 'border-orange-300' : `border-${props.color}/20`} rounded-md`}
+      class={`bg-base-200 flex flex-col justify-between gap-3 p-3 sm:flex-row sm:items-center ${props.color === 'error' ? 'border-red-300' : props.color === 'warning' ? 'border-orange-300' : `border-${props.color}/20`} rounded-md`}
     >
       <div class="flex items-start gap-2">
         <props.icon class={`text-${props.color} mt-0.5`} size={18} />
@@ -31,12 +32,7 @@ function ActionButton(props: {
         </div>
       </div>
       <button
-        class={`btn btn-xs ${props.color === 'error' ? 'border-red-700 bg-red-600 text-white hover:bg-red-700' : `btn-${props.color}`}`}
-        classList={{
-          'btn-error': props.isConfirming(),
-          'bg-red-600 hover:bg-red-700 text-white border-red-600':
-            props.color === 'error' && !props.isConfirming(),
-        }}
+        class={`btn btn-xs ${props.color === 'error' ? 'border-red-600 bg-red-600 text-white' : `btn-${props.color}`}`}
         onClick={props.onClick}
         disabled={props.isLoading()}
       >
@@ -197,35 +193,37 @@ export default function AppDataManagement() {
           </div>
         </Show>
         <div class="card-body p-2">
-          <div class="bg-base-100 border-base-content/5 rounded-lg border p-4 shadow-sm">
+          <div class="bg-base-content-bg border-base-content/5 rounded-lg border p-4 shadow-sm">
             <div class="space-y-3">
               {/* Data Directory */}
-              <div class="bg-base-200 flex flex-col justify-between gap-3 rounded-md p-3 sm:flex-row sm:items-center">
-                <div class="flex items-start gap-2">
-                  <Folder class="text-primary mt-0.5" size={18} />
-                  <div>
-                    <h3 class="text-sm font-medium">{t('settings.appData.dataDirectory')}</h3>
-                    <p class="text-base-content/70 mt-0.5 text-xs break-all">{appDataDirPath()}</p>
-                  </div>
-                </div>
-                <button class="btn btn-xs btn-primary" onClick={openAppDataDir}>
-                  {t('settings.appData.openDirectory')}
-                </button>
-              </div>
+              <ActionButton
+                title={t('settings.appData.dataDirectory')}
+                description={appDataDirPath()}
+                buttonText={t('settings.appData.openDirectory')}
+                confirmText={''}
+                loadingText={''}
+                icon={Folder}
+                color="primary"
+                isLoading={() => false}
+                isConfirming={() => false}
+                onClick={openAppDataDir}
+                requiresConfirmation={false}
+              />
 
               {/* Log Directory */}
-              <div class="bg-base-200 flex flex-col justify-between gap-3 rounded-md p-3 sm:flex-row sm:items-center">
-                <div class="flex items-start gap-2">
-                  <FileText class="text-primary mt-0.5" size={18} />
-                  <div>
-                    <h3 class="text-sm font-medium">{t('settings.appData.logDirectory')}</h3>
-                    <p class="text-base-content/70 mt-0.5 text-xs break-all">{logDir()}</p>
-                  </div>
-                </div>
-                <button class="btn btn-xs btn-primary" onClick={openLogDir}>
-                  {t('settings.appData.openDirectory')}
-                </button>
-              </div>
+              <ActionButton
+                title={t('settings.appData.logDirectory')}
+                description={logDir()}
+                buttonText={t('settings.appData.openDirectory')}
+                confirmText={''}
+                loadingText={''}
+                icon={FileText}
+                color="primary"
+                isLoading={() => false}
+                isConfirming={() => false}
+                onClick={openLogDir}
+                requiresConfirmation={false}
+              />
 
               {/* Clear Cache */}
               <ActionButton

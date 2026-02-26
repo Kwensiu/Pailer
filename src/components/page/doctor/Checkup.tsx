@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js';
-import { CircleCheckBig, CircleX, TriangleAlert, RefreshCw, Download } from 'lucide-solid';
+import { CircleCheckBig, CircleX, TriangleAlert, Download } from 'lucide-solid';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
 
@@ -26,11 +26,7 @@ function Checkup(props: CheckupProps) {
     <Card
       title={t('doctor.checkup.title')}
       icon={CircleCheckBig}
-      headerAction={
-        <button class="btn btn-ghost btn-sm" onClick={props.onRerun} disabled={props.isLoading}>
-          <RefreshCw classList={{ 'animate-spin': props.isLoading }} />
-        </button>
-      }
+      onRefresh={props.onRerun}
       description={t('doctor.checkup.description')}
     >
       <Show when={props.isLoading}>
@@ -50,7 +46,7 @@ function Checkup(props: CheckupProps) {
         <ul class="space-y-3">
           <For each={props.checkupResult}>
             {(item) => (
-              <li class="bg-base-100 rounded-lg p-3">
+              <li class="bg-base-200 rounded-lg p-3">
                 <div class="flex items-center">
                   <Show when={item.status} fallback={<CircleX class="text-error mr-3 h-5 w-5" />}>
                     <CircleCheckBig class="text-success mr-3 h-5 w-5" />

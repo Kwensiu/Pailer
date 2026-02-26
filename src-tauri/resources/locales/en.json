@@ -29,8 +29,12 @@
       "noBucketsFound": "No buckets found",
       "refresh": "Refresh",
       "reloadLocal": "Reload Local Buckets",
+      "reloadLocalShort": "Local",
       "title": "Installed Buckets",
-      "updateAllGit": "Update All Git Buckets"
+      "updateAllGit": "Update All Git Buckets",
+      "updateAllGitShort": "Git",
+      "updateCompletionNote": "This may take a few seconds to complete",
+      "updatingBuckets": "Updating Buckets"
     },
     "page": {
       "description": "Manage Scoop buckets - repositories containing package manifests"
@@ -247,6 +251,8 @@
       "version": "Version"
     },
     "header": {
+      "allBuckets": "All Buckets",
+      "bucketLabel": "Bucket",
       "checkStatus": "Check Status",
       "filter": "Filter",
       "refresh": "Refresh",
@@ -272,8 +278,7 @@
       "updated": "Updated",
       "version": "Version",
       "versionedTooltip": "Versioned install - cannot be updated"
-    },
-    "refresh": "Refresh"
+    }
   },
   "language": {
     "description": "Select your preferred language for the application interface.",

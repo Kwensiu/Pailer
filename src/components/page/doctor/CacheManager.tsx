@@ -1,6 +1,6 @@
 import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Trash2, Archive, RefreshCw, TriangleAlert, Inbox, Folder, Database } from 'lucide-solid';
+import { Trash2, Archive, TriangleAlert, Inbox, Folder, Database } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
 import ConfirmationModal from '../../ConfirmationModal';
 import Card from '../../common/Card';
@@ -178,6 +178,7 @@ function CacheManager(props: CacheManagerProps) {
       <Card
         title={t('doctor.cacheManager.title')}
         icon={Database}
+        onRefresh={fetchCacheContents}
         headerAction={
           <div class="flex items-center gap-2">
             <Show when={cacheContents().length > 0}>
@@ -204,13 +205,6 @@ function CacheManager(props: CacheManagerProps) {
                 <Folder class="h-5 w-5" />
               </button>
             </Show>
-            <button
-              class="btn btn-ghost btn-sm"
-              onClick={fetchCacheContents}
-              disabled={isLoading()}
-            >
-              <RefreshCw class="h-5 w-5" classList={{ 'animate-spin': isLoading() }} />
-            </button>
           </div>
         }
       >
@@ -223,7 +217,7 @@ function CacheManager(props: CacheManagerProps) {
           disabled={isLoading() || !!error() || cacheContents().length === 0}
         />
 
-        <div class="max-h-[60vh] overflow-y-auto">
+        <div class="bg-base-list max-h-[60vh] overflow-y-auto rounded-lg">
           <Show when={error()}>
             <div role="alert" class="alert alert-error">
               <TriangleAlert />

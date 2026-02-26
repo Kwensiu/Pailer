@@ -155,7 +155,7 @@ function CommandInputField() {
             disabled={exec.isRunning}
           />
           <button
-            class="btn btn-primary join-item"
+            class="btn btn-info join-item"
             onClick={handleRunCommand}
             disabled={exec.isRunning}
           >

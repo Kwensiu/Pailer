@@ -144,11 +144,11 @@ export default function Modal(props: ModalProps) {
       <Show when={rendered()}>
         <div class={`modal modal-open ${props.zIndex || 'z-50'}`} role="dialog">
           <div
-            class={`modal-box bg-base-300 border-base-300 flex max-h-[90vh] flex-col overflow-hidden border p-0 shadow-2xl ${getSizeClass()} ${props.class ?? ''} ${getAnimationClasses().modalBox}`}
+            class={`modal-box bg-base-100 border-base-200 flex max-h-[90vh] flex-col overflow-hidden border p-0 shadow-2xl ${getSizeClass()} ${props.class ?? ''} ${getAnimationClasses().modalBox}`}
             ref={setModalBoxRef}
           >
             {/* Header */}
-            <div class="border-base-200 bg-base-400 flex items-center justify-between border-b p-4">
+            <div class="border-base-300 bg-base-200 flex items-center justify-between border-b p-4">
               <h3 class="text-lg font-bold">{props.title}</h3>
               <div class="flex items-center gap-2">
                 <Show when={props.headerAction}>{props.headerAction}</Show>
@@ -165,11 +165,11 @@ export default function Modal(props: ModalProps) {
             </div>
 
             {/* Content */}
-            <div class="flex-1 overflow-y-auto p-6">{props.children}</div>
+            <div class="bg-base-100 flex-1 overflow-y-auto p-6">{props.children}</div>
 
             {/* Footer */}
             <Show when={props.footer}>
-              <div class="modal-action border-base-300 bg-base-300 mt-0 shrink-0 border-t p-4">
+              <div class="modal-action border-base-300 bg-base-200 mt-0 shrink-0 border-t p-4">
                 {props.footer}
               </div>
             </Show>

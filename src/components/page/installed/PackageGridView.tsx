@@ -53,7 +53,7 @@ const PackageCard = (props: {
 
   return (
     <div
-      class="card bg-base-300 hover:bg-base-400 z-0 transform cursor-pointer shadow-xl transition-all focus-within:z-20 hover:z-20 hover:scale-101"
+      class="card bg-base-card hover:bg-base-content-bg z-0 transform cursor-pointer shadow-md transition-all hover:scale-101"
       onClick={() => props.onViewInfo(pkg)}
       data-no-close-search
     >
@@ -108,12 +108,12 @@ const PackageCard = (props: {
             </h2>
           </div>
           <div class="dropdown dropdown-end shrink-0" onClick={(e) => e.stopPropagation()}>
-            <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-400">
+            <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-content-bg">
               <Ellipsis class="h-4 w-4" />
             </label>
             <ul
               tabindex="0"
-              class="dropdown-content menu bg-base-400 rounded-box z-1 w-44 p-2 shadow"
+              class="dropdown-content menu bg-base-content-bg rounded-box z-1 w-44 p-2 shadow"
             >
               <li>
                 <HoldToggleButton

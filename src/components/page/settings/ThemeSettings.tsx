@@ -11,21 +11,19 @@ function ThemeSettings() {
       title={t('settings.theme.title')}
       icon={settings.theme === 'dark' ? Moon : Sun}
       description={t('settings.theme.description')}
-      headerAction={
-        <select
-          class="select select-bordered select-sm min-w-[140px]"
-          value={settings.theme}
-          onChange={(e) => {
-            const newTheme = e.target.value;
-            if (newTheme !== settings.theme) {
-              setTheme(newTheme as 'light' | 'dark');
-            }
-          }}
-        >
-          <option value="light">{t('settings.theme.lightMode')}</option>
-          <option value="dark">{t('settings.theme.darkMode')}</option>
-        </select>
-      }
+      headerSelect={{
+        value: settings.theme,
+        onChange: (e) => {
+          const newTheme = (e.currentTarget as HTMLSelectElement).value;
+          if (newTheme !== settings.theme) {
+            setTheme(newTheme as 'light' | 'dark');
+          }
+        },
+        options: [
+          { value: 'light', label: t('settings.theme.lightMode') },
+          { value: 'dark', label: t('settings.theme.darkMode') },
+        ],
+      }}
     />
   );
 }

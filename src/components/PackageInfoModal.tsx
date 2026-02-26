@@ -347,7 +347,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
         <Ellipsis class="h-5 w-5" />
       </label>
-      <ul tabindex="0" class="dropdown-content menu bg-base-400 rounded-box w-52 p-2 shadow">
+      <ul tabindex="0" class="dropdown-content menu bg-base-content-bg rounded-box w-52 p-2 shadow">
         <li>
           <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
             <FileText class="mr-2 h-4 w-4" />
@@ -413,88 +413,47 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
   // Footer component (buttons)
   const footer = (
-    <>
-      <div class="mb-2 flex space-x-2 sm:mb-0">
-        {/* Update (Force Update) Bottom in PackageInfoModal */}
+    <div class="flex w-full items-center justify-between">
+      <div class="flex space-x-2">
+        {/* Uninstall Bottom in PackageInfoModal - moved from right */}
         <Show when={props.pkg?.is_installed}>
           <button
             type="button"
-            class="btn w-24"
-            classList={{
-              'btn-primary': !!props.pkg?.available_version && !updateConfirm(),
-              'btn-soft text-base-content/50': !props.pkg?.available_version && !updateConfirm(),
-              'btn-warning': updateConfirm(),
-            }}
+            class="btn btn-error"
+            classList={{ 'btn-warning': uninstallConfirm() }}
             onClick={() => {
-              if (updateConfirm()) {
-                // Execute force update
-                if (updateTimer()) {
-                  window.clearTimeout(updateTimer()!);
-                  setUpdateTimer(null);
+              if (uninstallConfirm()) {
+                // Execute uninstall
+                if (uninstallTimer()) {
+                  window.clearTimeout(uninstallTimer()!);
+                  setUninstallTimer(null);
                 }
-                setUpdateConfirm(false);
+                setUninstallConfirm(false);
                 if (props.pkg) {
-                  // Implement force update functionality and show in OperationModal
-                  // Use the dedicated handleForceUpdate function if available
-                  if (props.onForceUpdate) {
-                    props.onForceUpdate(props.pkg);
-                  } else if (props.setOperationTitle) {
-                    // Fallback to direct invocation with proper UI feedback
-                    props.setOperationTitle(`Force Updating ${props.pkg.name}`);
-                    invoke('update_package', {
-                      packageName: props.pkg.name,
-                      force: true,
-                    }).catch((err) => {
-                      console.error('Force update invocation failed:', err);
-                    });
-                  } else {
-                    console.warn(
-                      'Neither onForceUpdate nor setOperationTitle is provided for force update operation'
-                    );
-                  }
+                  props.onUninstall?.(props.pkg);
+                  // Notify parent that package state may change
                   props.onPackageStateChanged?.();
                 }
               } else {
-                if (props.pkg?.available_version) {
-                  // Normal update - use package operations hook for consistency
-                  if (props.pkg && props.onUpdate) {
-                    props.onUpdate(props.pkg);
-                    // Notify parent that package state may change
-                    props.onPackageStateChanged?.();
-                  } else if (props.pkg) {
-                    // Fallback to direct invocation if onUpdate is not provided
-                    // We should not directly call setOperationTitle, but use the hook function
-                    // This ensures the operationTitle signal is properly updated
-                    if (props.setOperationTitle) {
-                      props.setOperationTitle(`Updating ${props.pkg.name}`);
-                    }
-                    invoke('update_package', {
-                      packageName: props.pkg.name,
-                    }).catch((err) => {
-                      console.error('Update invocation failed:', err);
-                    });
-                    props.onPackageStateChanged?.();
-                  }
-                } else {
-                  // No update available, show force update confirmation
-                  setUpdateConfirm(true);
-                  const timer = window.setTimeout(() => {
-                    setUpdateConfirm(false);
-                    setUpdateTimer(null);
-                  }, 3000);
-                  setUpdateTimer(timer);
-                }
+                // First click - show confirmation
+                setUninstallConfirm(true);
+                const timer = window.setTimeout(() => {
+                  setUninstallConfirm(false);
+                  setUninstallTimer(null);
+                }, 3000);
+                setUninstallTimer(timer);
               }
             }}
           >
-            {updateConfirm() ? t('packageInfo.forceUpdate') : t('packageInfo.update')}
+            <Trash2 class="mr-2 h-4 w-4" />
+            {uninstallConfirm() ? t('packageInfo.sure') : t('buttons.uninstall')}
           </button>
         </Show>
         {/* Change Bucket Bottom in PackageInfoModal */}
         <Show when={props.pkg?.is_installed && props.onChangeBucket}>
           <button
             type="button"
-            class="btn btn-outline btn-primary"
+            class="btn btn-outline btn-info"
             onClick={() => {
               if (props.pkg) {
                 props.onChangeBucket!(props.pkg);
@@ -505,12 +464,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           </button>
         </Show>
       </div>
-      <div class="flex">
+      <div class="flex space-x-2">
         <form method="dialog">
           <Show when={!props.pkg?.is_installed && props.onInstall}>
             <button
               type="button"
-              class="btn btn-primary mr-2"
+              class="btn btn-primary"
               onClick={() => {
                 if (props.pkg) {
                   props.onInstall!(props.pkg);
@@ -523,45 +482,87 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               {t('buttons.install')}
             </button>
           </Show>
+          {/* Update (Force Update) Bottom in PackageInfoModal - moved from left */}
           <Show when={props.pkg?.is_installed}>
             <button
               type="button"
-              class="btn btn-error mr-2 w-32"
-              classList={{ 'btn-warning': uninstallConfirm() }}
+              class="btn mr-2 w-20"
+              classList={{
+                'btn-primary': !!props.pkg?.available_version && !updateConfirm(),
+                'btn-soft text-base-content/50': !props.pkg?.available_version && !updateConfirm(),
+                'btn-warning w-24': updateConfirm(),
+              }}
               onClick={() => {
-                if (uninstallConfirm()) {
-                  // Execute uninstall
-                  if (uninstallTimer()) {
-                    window.clearTimeout(uninstallTimer()!);
-                    setUninstallTimer(null);
+                if (updateConfirm()) {
+                  // Execute force update
+                  if (updateTimer()) {
+                    window.clearTimeout(updateTimer()!);
+                    setUpdateTimer(null);
                   }
-                  setUninstallConfirm(false);
+                  setUpdateConfirm(false);
                   if (props.pkg) {
-                    props.onUninstall?.(props.pkg);
-                    // Notify parent that package state may change
+                    // Implement force update functionality and show in OperationModal
+                    // Use the dedicated handleForceUpdate function if available
+                    if (props.onForceUpdate) {
+                      props.onForceUpdate(props.pkg);
+                    } else if (props.setOperationTitle) {
+                      // Fallback to direct invocation with proper UI feedback
+                      props.setOperationTitle(`Force Updating ${props.pkg.name}`);
+                      invoke('update_package', {
+                        packageName: props.pkg.name,
+                        force: true,
+                      }).catch((err) => {
+                        console.error('Force update invocation failed:', err);
+                      });
+                    } else {
+                      console.warn(
+                        'Neither onForceUpdate nor setOperationTitle is provided for force update operation'
+                      );
+                    }
                     props.onPackageStateChanged?.();
                   }
                 } else {
-                  // First click - show confirmation
-                  setUninstallConfirm(true);
-                  const timer = window.setTimeout(() => {
-                    setUninstallConfirm(false);
-                    setUninstallTimer(null);
-                  }, 3000);
-                  setUninstallTimer(timer);
+                  if (props.pkg?.available_version) {
+                    // Normal update - use package operations hook for consistency
+                    if (props.pkg && props.onUpdate) {
+                      props.onUpdate(props.pkg);
+                      // Notify parent that package state may change
+                      props.onPackageStateChanged?.();
+                    } else if (props.pkg) {
+                      // Fallback to direct invocation if onUpdate is not provided
+                      // We should not directly call setOperationTitle, but use the hook function
+                      // This ensures the operationTitle signal is properly updated
+                      if (props.setOperationTitle) {
+                        props.setOperationTitle(`Updating ${props.pkg.name}`);
+                      }
+                      invoke('update_package', {
+                        packageName: props.pkg.name,
+                      }).catch((err) => {
+                        console.error('Update invocation failed:', err);
+                      });
+                      props.onPackageStateChanged?.();
+                    }
+                  } else {
+                    // No update available, show force update confirmation
+                    setUpdateConfirm(true);
+                    const timer = window.setTimeout(() => {
+                      setUpdateConfirm(false);
+                      setUpdateTimer(null);
+                    }, 3000);
+                    setUpdateTimer(timer);
+                  }
                 }
               }}
             >
-              <Trash2 class="mr-2 h-4 w-4" />
-              {uninstallConfirm() ? t('packageInfo.sure') : t('buttons.uninstall')}
+              {updateConfirm() ? t('packageInfo.forceUpdate') : t('packageInfo.update')}
             </button>
           </Show>
-          <button class="btn" data-modal-close>
+          <button class="btn btn-soft w-20" data-modal-close>
             {props.showBackButton ? t('packageInfo.backToBucket') : t('packageInfo.close')}
           </button>
         </form>
       </div>
-    </>
+    </div>
   );
 
   return (
