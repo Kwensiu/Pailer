@@ -348,7 +348,7 @@ function App() {
           <input id="my-drawer" type="checkbox" class="drawer-toggle" />
           <div class="drawer-content flex h-screen flex-col">
             <Header currentView={view()} onNavigate={setView} />
-            <main class="z-1 flex-1 overflow-x-hidden overflow-y-auto p-6">
+            <main class="bg-base-200 z-1 flex-1 overflow-x-hidden overflow-y-auto p-6">
               <Show when={view() === 'search'}>
                 <SearchPage />
               </Show>

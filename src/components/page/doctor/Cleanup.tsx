@@ -15,11 +15,11 @@ function Cleanup(props: CleanupProps) {
       description={t('doctor.cleanup.description')}
     >
       <div class="mt-2 flex gap-2">
-        <button class="btn btn-primary" onClick={props.onCleanupApps}>
+        <button class="btn btn-warning" onClick={props.onCleanupApps}>
           <Trash2 class="mr-2 h-4 w-4" />
           {t('doctor.cleanup.cleanupOldVersions')}
         </button>
-        <button class="btn btn-secondary" onClick={props.onCleanupCache}>
+        <button class="btn btn-accent" onClick={props.onCleanupCache}>
           <Archive class="mr-2 h-4 w-4" />
           {t('doctor.cleanup.cleanupOutdatedCache')}
         </button>

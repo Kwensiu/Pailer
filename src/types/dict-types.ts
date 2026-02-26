@@ -29,8 +29,12 @@ export interface Dict {
       noBucketsFound: string;
       refresh: string;
       reloadLocal: string;
+      reloadLocalShort: string;
       title: string;
       updateAllGit: string;
+      updateAllGitShort: string;
+      updateCompletionNote: string;
+      updatingBuckets: string;
     };
     page: {
       description: string;
@@ -247,6 +251,8 @@ export interface Dict {
       version: string;
     };
     header: {
+      allBuckets: string;
+      bucketLabel: string;
       checkStatus: string;
       filter: string;
       refresh: string;
@@ -334,7 +340,8 @@ export interface Dict {
     viewManifest: string;
     warning: string;
   };
-  scan: {};
+  scan: {
+  };
   scoopStatus: {
     allGoodMessage: string;
     appsWithIssues: string;
@@ -520,6 +527,7 @@ export interface Dict {
       description: string;
       detectError: string;
       detectSuccess: string;
+      directoryNotFound: string;
       invalidDirectory: string;
       loadError: string;
       pathLabel: string;
@@ -598,14 +606,17 @@ export interface Dict {
     inProgress: string;
     loading: string;
   };
-  tray: {};
-  trayNotification: {};
+  tray: {
+  };
+  trayNotification: {
+  };
   update: {
     allTooltip: string;
     loading: string;
     success: string;
   };
-  updateChannel: {};
+  updateChannel: {
+  };
   warnings: {
     multiInstance: {
       dontShowAgain: string;

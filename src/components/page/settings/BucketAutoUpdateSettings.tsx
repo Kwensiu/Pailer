@@ -347,7 +347,7 @@ function CustomIntervalEditor(props: CustomIntervalEditorProps) {
             <span class="label-text text-xs">{t('settings.bucketAutoUpdate.unit')}</span>
           </label>
           <select
-            class="select select-sm select-bordered w-full"
+            class="select select-bordered select-sm w-full"
             value={unit()}
             disabled={props.disabled}
             onChange={(e) => {

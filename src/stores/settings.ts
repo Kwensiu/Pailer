@@ -53,6 +53,7 @@ interface Settings {
   };
   defaultLaunchPage: View;
   scoopPath?: string;
+  scoopPathManuallyConfigured?: boolean;
   language: string;
   trayAppsList: string[];
   powershell: {
@@ -113,6 +114,7 @@ function createSettingsStore() {
         // Migrate data from localStorage to Tauri store
         const settingsData = JSON.parse(localStorageData);
         await globalStore!.set('settings', settingsData);
+        await globalStore!.save();
         localStorage.removeItem('pailer-settings'); // Clean up localStorage after migration
       }
     } catch (error) {
@@ -161,6 +163,25 @@ function createSettingsStore() {
         const stored = await storeInstance.get<Settings>('settings');
         if (stored) {
           // Deep merge stored settings with defaults to handle new/missing keys
+          let scoopPathValue = stored.scoopPath;
+          // Migrate legacy scoop_path if scoopPath not set
+          if (!scoopPathValue) {
+            const legacyPath = await storeInstance.get<string>("scoop_path");
+            if (legacyPath) {
+              scoopPathValue = legacyPath;
+              // Optionally save to new location
+              (async () => {
+                try {
+                  const updatedSettings = { ...stored, scoopPath: legacyPath };
+                  await storeInstance.set('settings', updatedSettings);
+                  await storeInstance.delete("scoop_path");
+                  await storeInstance.save();
+                } catch (error) {
+                  console.error('Error migrating scoop_path:', error);
+                }
+              })();
+            }
+          }
           return {
             ...defaultSettings,
             virustotal: {
@@ -194,13 +215,9 @@ function createSettingsStore() {
               ...stored.update,
             },
             defaultLaunchPage: stored.defaultLaunchPage || defaultSettings.defaultLaunchPage,
-            scoopPath: stored.scoopPath,
-            language:
-              stored.language ||
-              (() => {
-                console.log('No stored language, detecting system language');
-                return detectSystemLanguage();
-              })(),
+            scoopPath: scoopPathValue,
+            scoopPathManuallyConfigured: stored.scoopPathManuallyConfigured,
+            language: stored.language || detectSystemLanguage(),
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
             powershell: {
               executable: stored.powershell?.executable || defaultSettings.powershell.executable,
@@ -242,23 +259,19 @@ function createSettingsStore() {
   })();
 
   const saveSettings = async (newSettings: Partial<Settings>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-
-      // Save to Tauri store
-      (async () => {
-        try {
-          const storeInstance = await getSettingsStore();
-          if (storeInstance) {
-            await storeInstance.set('settings', updated);
-          }
-        } catch (error) {
-          console.error('Error saving settings to store:', error);
-        }
-      })();
-
-      return updated;
-    });
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+    
+    const storeInstance = await getSettingsStore();
+    if (storeInstance) {
+      try {
+        await storeInstance.set('settings', updated);
+        await storeInstance.save();
+      } catch (error) {
+        console.error('Error saving settings to store:', error);
+        throw error;
+      }
+    }
   };
 
   const setVirusTotalSettings = async (newVtSettings: Partial<Settings['virustotal']>) => {
@@ -279,8 +292,8 @@ function createSettingsStore() {
     });
   };
 
-  const setTheme = (theme: 'dark' | 'light') => {
-    saveSettings({ theme });
+  const setTheme = async (theme: 'dark' | 'light') => {
+    await saveSettings({ theme });
   };
 
   const setDebugSettings = async (newDebugSettings: Partial<Settings['debug']>) => {
@@ -325,8 +338,7 @@ function createSettingsStore() {
 
   const setPowershellSettings = async (newPowershellSettings: Partial<Settings['powershell']>) => {
     try {
-      await invoke('set_powershell_exe', { exe: newPowershellSettings.executable! });
-      // Only update frontend if backend succeeds
+      await invoke("set_powershell_exe", { exe: newPowershellSettings.executable! });
       await saveSettings({
         powershell: {
           ...settings.powershell,
@@ -334,8 +346,16 @@ function createSettingsStore() {
         },
       });
     } catch (error) {
-      console.error('Failed to update PowerShell exe in backend:', error);
-      // Do not update frontend
+      console.error("Failed to update PowerShell exe in backend:", error);
+    }
+  };
+
+  const setScoopPath = async (path: string) => {
+    try {
+      await invoke("set_scoop_path", { path });
+      await saveSettings({ scoopPath: path, scoopPathManuallyConfigured: true });
+    } catch (error) {
+      console.error("Failed to set scoop path:", error);
     }
   };
 
@@ -343,19 +363,7 @@ function createSettingsStore() {
     await saveSettings(newCoreSettings);
   };
 
-  return {
-    settings,
-    setVirusTotalSettings,
-    setWindowSettings,
-    setDebugSettings,
-    setCleanupSettings,
-    setBucketSettings,
-    setUpdateSettings,
-    setTheme,
-    setDefaultLaunchPage,
-    setPowershellSettings,
-    setCoreSettings,
-  };
+return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setPowershellSettings, setScoopPath, setCoreSettings };
 }
 
 export default createRoot(createSettingsStore);

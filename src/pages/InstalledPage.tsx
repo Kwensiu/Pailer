@@ -131,7 +131,7 @@ function InstalledPage(props: InstalledPageProps) {
             />
           </svg>
           <span>Error: {error()}</span>
-          <button class="btn btn-sm btn-primary" onClick={() => fetchInstalledPackages()}>
+          <button class="btn btn-sm btn-primary" onClick={() => fetchInstalledPackages(false)}>
             Try Again
           </button>
         </div>

@@ -104,7 +104,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         <div class="mb-6 flex items-center gap-2">
           {/* Refresh Button */}
           <button
-            class="btn btn-ghost btn-circle tooltip tooltip-bottom"
+            class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
             data-tip={t('installed.header.refresh')}
             onClick={() => props.onRefresh()}
           >
@@ -112,7 +112,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
           </button>
           {/* Search Button */}
           <button
-            class="btn btn-ghost btn-circle tooltip tooltip-bottom"
+            class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
             data-tip={t('installed.header.search')}
             onClick={() => setIsSearchOpen(true)}
           >
@@ -124,7 +124,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             when={props.updatableCount() > 0}
             fallback={
               <button
-                class="btn btn-ghost btn-circle tooltip tooltip-bottom"
+                class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
                 data-tip={t('installed.header.checkStatus')}
                 onClick={props.onCheckStatus}
                 disabled={props.statusLoading?.()}
@@ -152,55 +152,60 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             </button>
           </Show>
 
-          {/* Filters Dropdown */}
-          <div class="dropdown dropdown-end">
-            <label
-              tabindex="0"
-              class="btn btn-ghost tooltip tooltip-bottom border-base-100/50 border"
-              data-tip={t('installed.header.filter')}
-            >
-              <Funnel class="h-4 w-4" />
-            </label>
-            <div
-              tabindex="0"
-              class="dropdown-content menu bg-base-300 rounded-box z-1 w-64 p-4 shadow"
-            >
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Bucket</span>
-                </label>
-                <select
-                  class="select select-bordered bg-base-300"
-                  value={props.selectedBucket()}
-                  onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
-                >
-                  <For each={props.uniqueBuckets()}>
-                    {(bucket) => (
-                      <option value={bucket}>{bucket === 'all' ? 'All Buckets' : bucket}</option>
-                    )}
-                  </For>
-                </select>
+          {/* Filters and View Toggle Group */}
+          <div class="join">
+            {/* Filters Dropdown */}
+            <div class="dropdown dropdown-end z-10">
+              <button
+                tabindex="0"
+                class="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom"
+                data-tip={t('installed.header.filter')}
+              >
+                <Funnel class="h-4 w-4" />
+              </button>
+              <div
+                tabindex="0"
+                class="dropdown-content menu bg-base-content-bg rounded-box z-10 w-64 p-4 shadow"
+              >
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{t('installed.header.bucketLabel')}</span>
+                  </label>
+                  <select
+                    class="select select-bordered select-sm bg-base-300"
+                    value={props.selectedBucket()}
+                    onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
+                  >
+                    <For each={props.uniqueBuckets()}>
+                      {(bucket) => (
+                        <option value={bucket}>
+                          {bucket === 'all' ? t('installed.header.allBuckets') : bucket}
+                        </option>
+                      )}
+                    </For>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* View Toggle Button */}
-          <button
-            class="btn btn-ghost tooltip tooltip-bottom border-base-100/50 border"
-            data-tip={
-              props.viewMode() === 'grid'
-                ? t('installed.header.switchToListView')
-                : t('installed.header.switchToGridView')
-            }
-            onClick={toggleViewMode}
-          >
-            <Show when={props.viewMode() === 'grid'}>
-              <List class="h-4 w-4" />
-            </Show>
-            <Show when={props.viewMode() === 'list'}>
-              <LayoutGrid class="h-4 w-4" />
-            </Show>
-          </button>
+            {/* View Toggle Button */}
+            <button
+              class="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom z-10"
+              data-tip={
+                props.viewMode() === 'grid'
+                  ? t('installed.header.switchToListView')
+                  : t('installed.header.switchToGridView')
+              }
+              onClick={toggleViewMode}
+            >
+              <Show when={props.viewMode() === 'grid'}>
+                <List class="h-4 w-4" />
+              </Show>
+              <Show when={props.viewMode() === 'list'}>
+                <LayoutGrid class="h-4 w-4" />
+              </Show>
+            </button>
+          </div>
         </div>
       </Show>
     </div>

@@ -394,14 +394,14 @@ function OperationModal(props: OperationModalProps) {
               onClick={handleMinimize}
             ></div>
             <div
-              class="bg-base-200 border-base-300 relative flex max-h-[90vh] flex-col overflow-hidden rounded-xl border shadow-2xl transition-all duration-300 ease-out"
+              class="bg-base-100 border-base-200 relative flex max-h-[90vh] flex-col overflow-hidden rounded-xl border shadow-2xl transition-all duration-300 ease-out"
               style="width: min(calc(100vw - 2 * var(--modal-padding, 1rem)), 64rem);"
               classList={{
                 'scale-90 opacity-0 translate-y-0': isClosing(),
                 'scale-100 opacity-100 translate-y-0': !isClosing(),
               }}
             >
-              <div class="border-base-300 flex items-center justify-between border-b p-4">
+              <div class="bg-base-200 border-base-300 flex items-center justify-between border-b p-4">
                 <h3 class="truncate text-lg font-bold">{currentOperation?.title}</h3>
                 <div class="flex space-x-2">
                   <button
@@ -421,7 +421,7 @@ function OperationModal(props: OperationModalProps) {
 
               <div
                 ref={scrollRef}
-                class="mx-4 my-3 grow overflow-y-auto rounded-lg bg-black p-4 font-mono text-xs text-white"
+                class="mx-4 my-3 grow overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
                 style="white-space: pre-wrap; word-break: break-word;"
               >
                 <For each={currentOperation?.output || []}>
@@ -459,7 +459,7 @@ function OperationModal(props: OperationModalProps) {
                 </div>
               </Show>
 
-              <div class="border-base-300 flex justify-end gap-2 border-t p-4">
+              <div class="bg-base-200 border-base-300 flex justify-end gap-2 border-t p-4">
                 <Show when={props.nextStep && currentOperation?.status === 'success'}>
                   <button class="btn btn-primary btn-sm" onClick={() => props.nextStep?.onNext()}>
                     {props.nextStep?.buttonLabel}

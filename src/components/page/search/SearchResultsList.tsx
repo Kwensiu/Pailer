@@ -43,16 +43,16 @@ function SearchResultsList(props: SearchResultsListProps) {
         <For each={paginatedResults()}>
           {(pkg) => (
             <div
-              class="card bg-base-200 transform cursor-pointer shadow-xl transition-all duration-200 hover:scale-101"
+              class="card bg-base-card transform cursor-pointer shadow-sm transition-all duration-200 hover:scale-101"
               onClick={() => props.onViewInfo(pkg)}
             >
               <div class="card-body">
                 <div class="flex items-start justify-between">
-                  <div class="min-w-0 flex-grow">
+                  <div class="min-w-0 grow">
                     <h3 class="card-title truncate">{pkg.name}</h3>
                     <p class="truncate">{t('search.results.fromBucket', { bucket: pkg.source })}</p>
                   </div>
-                  <div class="ml-4 flex flex-shrink-0 items-center gap-2 text-right">
+                  <div class="ml-4 flex shrink-0 items-center gap-2 text-right">
                     <span class="badge badge-primary badge-soft whitespace-nowrap">
                       {pkg.version}
                     </span>

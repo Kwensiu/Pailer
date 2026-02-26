@@ -1,6 +1,6 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { RefreshCw, Settings, Folder, Edit } from 'lucide-solid';
+import { Settings, Folder, Edit } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
 import { t } from '../../../i18n';
@@ -114,6 +114,7 @@ function ScoopInfo(props: ScoopInfoProps) {
       <Card
         title={t('doctor.scoopInfo.title')}
         icon={Settings}
+        onRefresh={() => fetchScoopInfo()}
         headerAction={
           <div class="flex items-center gap-2">
             <Show when={scoopConfig()}>
@@ -134,14 +135,6 @@ function ScoopInfo(props: ScoopInfoProps) {
                 <Folder class="h-5 w-5" />
               </button>
             </Show>
-
-            <button
-              class="btn btn-ghost btn-sm"
-              onClick={() => fetchScoopInfo()}
-              disabled={isLoading()}
-            >
-              <RefreshCw class="h-5 w-5" classList={{ 'animate-spin': isLoading() }} />
-            </button>
           </div>
         }
       >
@@ -157,7 +150,7 @@ function ScoopInfo(props: ScoopInfoProps) {
           <div class="space-y-4">
             <div>
               {scoopConfig() ? (
-                <div class="bg-base-300 overflow-x-auto rounded-lg p-4 text-sm">
+                <div class="bg-base-list overflow-x-auto rounded-lg p-4 text-sm">
                   <For each={Object.entries(scoopConfig()!)}>
                     {([key, value]) => (
                       <div class="border-base-100 flex border-b py-1 last:border-0">

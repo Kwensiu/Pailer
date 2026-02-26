@@ -29,8 +29,12 @@
       "noBucketsFound": "未找到仓库",
       "refresh": "刷新",
       "reloadLocal": "重新加载本地仓库",
+      "reloadLocalShort": "本地",
       "title": "已安装仓库",
-      "updateAllGit": "更新所有Git仓库"
+      "updateAllGit": "更新所有Git仓库",
+      "updateAllGitShort": "Git",
+      "updateCompletionNote": "这可能需要几秒钟完成",
+      "updatingBuckets": "更新仓库中"
     },
     "page": {
       "description": "管理 Scoop 仓库 - 包含软件包清单的仓库"
@@ -247,6 +251,8 @@
       "version": "版本"
     },
     "header": {
+      "allBuckets": "所有仓库",
+      "bucketLabel": "仓库",
       "checkStatus": "检查状态",
       "filter": "筛选",
       "refresh": "刷新",
@@ -291,7 +297,7 @@
   "noPackagesFound": {
     "browsePackages": "浏览软件包",
     "clearFilters": "清除筛选",
-    "noInstalledYet": "您尚未安装任何软件包。",
+    "noInstalledYet": "前往设置检查 Scoop 路径是否正确",
     "noMatchCriteria": "没有已安装的软件包符合当前筛选条件。",
     "title": "未找到软件包"
   },
@@ -312,7 +318,7 @@
     "errorLoadingVersions": "加载 {{name}} 版本失败: {{error}}",
     "errorSwitchingVersion": "切换到版本 v{{version}} 失败: {{error}}",
     "failedToOpenPath": "无法打开软件包路径",
-    "forceUpdate": "强制？",
+    "forceUpdate": "强制更新",
     "homepage": "主页",
     "includes": "包含",
     "installDate": "安装日期",
@@ -414,7 +420,7 @@
       "dataDirectory": "数据目录",
       "description": "管理 Pailer 产生的数据文件",
       "factoryReset": "恢复出厂设置",
-      "factoryResetButton": "恢复出厂设置",
+      "factoryResetButton": "清除数据",
       "factoryResetDescription": "清除所有应用数据、设置和缓存，恢复到初始状态",
       "loadError": "无法加载应用数据信息",
       "logDirectory": "Log 目录",
@@ -520,6 +526,7 @@
       "description": "设置您的 Scoop 目录安装路径，更改后建议重启以避免潜在问题。",
       "detectError": "无法检测 Scoop 路径。请确保正确设置了 SCOOP 环境变量。",
       "detectSuccess": "Scoop 路径检测成功！",
+      "directoryNotFound": "目录不存在",
       "invalidDirectory": "目录存在但 Scoop 结构无效。缺少 'apps' 或 'buckets' 目录。",
       "loadError": "无法加载 Scoop 路径设置。",
       "pathLabel": "Scoop 安装路径",

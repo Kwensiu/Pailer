@@ -128,20 +128,25 @@ fn find_latest_version_dir(package_path: &Path) -> Option<PathBuf> {
     result
 }
 
-fn locate_install_dir(package_path: &Path) -> Option<PathBuf> {
+fn locate_install_dir(package_path: &Path) -> Result<PathBuf, String> {
+    let package_name = extract_package_name(package_path)?;
     let current_path = package_path.join("current");
-    log::debug!(
-        "Locating install directory for package: {}, checking current path: {}",
-        package_path.display(),
-        current_path.display()
-    );
 
     if current_path.is_dir() {
-        log::debug!("Found current directory: {}", current_path.display());
-        Some(current_path)
+        log::debug!("Found current directory for package: {}", package_name);
+        Ok(current_path)
+    } else if let Some(fallback_dir) = find_latest_version_dir(package_path) {
+        log::info!(
+            "=== INSTALLED SCAN === 'current' missing for {}; using latest version directory '{}'",
+            package_name,
+            fallback_dir.display(),
+        );
+        Ok(fallback_dir)
     } else {
-        log::debug!("Current directory not found, searching for latest version directory");
-        find_latest_version_dir(package_path)
+        Err(format!(
+            "'current' directory not found for {} and no version directories available",
+            package_name
+        ))
     }
 }
 
@@ -154,9 +159,10 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
         .iter()
         .filter_map(|path| {
             path.file_name().and_then(|n| n.to_str()).map(|name| {
-                let modified_stamp = locate_install_dir(path)
-                    .map(|install_dir| get_install_modification_time(&install_dir))
-                    .unwrap_or_else(|| get_path_modification_time(path));
+                let modified_stamp = match locate_install_dir(path) {
+                    Ok(install_dir) => get_install_modification_time(&install_dir),
+                    Err(_) => get_path_modification_time(path),
+                };
                 
                 format!("{}:{}", name.to_ascii_lowercase(), modified_stamp)
             })
@@ -170,96 +176,220 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
     fingerprint
 }
 
-/// Loads the details for a single installed package from its directory.
-/// Uses quick synchronous checks without blocking retries; the frontend handles
-/// refresh after cold-start if any packages are not yet ready on fresh .msi installs.
-fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopPackage, String> {
-    let package_name = package_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or_else(|| format!("Invalid package directory name: {:?}", package_path))?
-        .to_string();
-
-    log::debug!("Loading package details for: {}", package_name);
-
-    let current_path = package_path.join("current");
-
-    let install_root = if current_path.is_dir() {
-        log::debug!("Found current directory for package: {}", package_name);
-        current_path.clone()
-    } else if let Some(fallback_dir) = find_latest_version_dir(package_path) {
-        log::info!(
-            "=== INSTALLED SCAN === 'current' missing for {}; using latest version directory '{}'",
-            package_name,
-            fallback_dir.display(),
-        );
-        fallback_dir
-    } else {
-        log::warn!(
-            "'current' directory not found for {} and no version directories available",
-            package_name
-        );
-        return Err(format!(
-            "'current' directory not found for {} and no version directories available",
-            package_name
-        ));
-    };
-
-    // Read and parse manifest.json
+/// Attempts to load manifest.json and install.json with various fallback strategies.
+fn load_manifests_with_fallback(
+    install_root: &Path, 
+    package_name: &str
+) -> Result<(PackageManifest, InstallManifest), String> {
+    // Try to read manifest.json
     let manifest_path = install_root.join("manifest.json");
     log::debug!(
-        "Reading manifest.json for package: {}, path: {}",
-        package_name,
-        manifest_path.display()
+        "Reading manifest.json for package: {}",
+        package_name
     );
-    let manifest_content = fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("Failed to read manifest.json for {}: {}", package_name, e))?;
+    
+    let manifest = if manifest_path.exists() {
+        let manifest_content = fs::read_to_string(&manifest_path)
+            .map_err(|e| format!("Failed to read manifest.json for {}: {}", package_name, e))?;
+        serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?
+    } else {
+        // Return error if manifest doesn't exist - this matches old version behavior
+        return Err(format!("Failed to read manifest.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+    };
 
-    let manifest: PackageManifest = serde_json::from_str(&manifest_content)
-        .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?;
-
-    // install.json might not exist for versioned installs
+    // Try to read install.json
     let install_manifest_path = install_root.join("install.json");
     log::debug!(
-        "Reading install.json for package: {}, path: {}",
-        package_name,
-        install_manifest_path.display()
+        "Reading install.json for package: {}",
+        package_name
     );
-    let install_manifest_content = fs::read_to_string(&install_manifest_path)
-        .map_err(|e| format!("Failed to read install.json for {}: {}", package_name, e))?;
-    let install_manifest: InstallManifest = serde_json::from_str(&install_manifest_content)
-        .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?;
+    
+    let install_manifest = if install_manifest_path.exists() {
+        let install_manifest_content = fs::read_to_string(&install_manifest_path)
+            .map_err(|e| format!("Failed to read install.json for {}: {}", package_name, e))?;
+        serde_json::from_str(&install_manifest_content)
+            .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?
+    } else {
+        // Return error if install.json doesn't exist - this matches old version behavior
+        return Err(format!("Failed to read install.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+    };
 
-    // Determine bucket - either from install.json or by searching buckets
-    let bucket = install_manifest
-        .bucket
-        .clone()
-        .or_else(|| find_package_bucket(scoop_path, &package_name))
-        .unwrap_or_else(|| {
-            log::debug!("Using default bucket 'main' for package: {}", package_name);
-            "main".to_string()
-        });
+    Ok((manifest, install_manifest))
+}
 
-    log::debug!("Determined bucket for package {}: {}", package_name, bucket);
 
-    // Check if this is a versioned install - versioned installs don't have a bucket field in install.json
-    // AND cannot be found in any bucket directory (indicating custom/generated manifest)
-    let is_versioned_install = install_manifest.bucket.is_none();
-    log::debug!(
-        "Is versioned install for {}: {}",
-        package_name,
-        is_versioned_install
-    );
+/// Attempts to extract version information from directory structure or files.
+fn extract_version_from_directory(install_root: &Path) -> Option<String> {
+    // Try to get version from parent directory name (version directories)
+    if let Some(dir_name) = install_root.file_name().and_then(|n| n.to_str()) {
+        // Check if directory name looks like a version (e.g., "1.2.3")
+        if is_valid_version_string(dir_name) {
+            return Some(dir_name.to_string());
+        }
+    }
+    
+    // Try to find version in any .json file content
+    if let Ok(entries) = fs::read_dir(install_root) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    match serde_json::from_str::<serde_json::Value>(&content) {
+                        Ok(json) => {
+                            if let Some(version) = json.get("version").and_then(|v| v.as_str()) {
+                                if !version.is_empty() {
+                                    return Some(version.to_string());
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let package_name = install_root.file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("unknown");
+                            log::warn!("Failed to parse JSON file in package {}: {}", package_name, e);
+                            // Continue processing other files, don't return error
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    None
+}
 
-    // Get the last modified time of the installation folder as install date
-    let updated_time = fs::metadata(&install_root)
+/// Validates if a string looks like a valid version string.
+fn is_valid_version_string(s: &str) -> bool {
+    if s.is_empty() {
+        return false;
+    }
+    
+    // Simple validation: contains at least one digit and no invalid characters
+    let has_digit = s.chars().any(|c| c.is_ascii_digit());
+    let has_invalid_chars = s.chars().any(|c| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '_');
+    
+    has_digit && !has_invalid_chars && !s.starts_with(['.', '-']) && !s.ends_with(['.', '-'])
+}
+
+/// Extracts package name from package directory path.
+fn extract_package_name(package_path: &Path) -> Result<String, String> {
+    package_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| format!("Invalid package directory name: {:?}", package_path))
+}
+
+/// Checks if a directory shows evidence of being a real package installation (not just a system directory like scoop itself).
+fn has_installation_evidence(install_root: &Path) -> bool {
+    // Check if there are version directories (indicating versioned install)
+    let has_version_dirs = fs::read_dir(install_root)
+        .ok()
+        .map(|entries| entries
+            .flatten()
+            .filter(|entry| entry.path().is_dir())
+            .any(|entry| {
+                entry.file_name()
+                    .to_str()
+                    .map(|name| name != "current" && is_valid_version_string(name))
+                    .unwrap_or(false)
+            })
+        )
+        .unwrap_or(false);
+
+    // Check if there are executable files
+    let has_executables = fs::read_dir(install_root)
+        .ok()
+        .map(|entries| entries
+            .flatten()
+            .any(|entry| {
+                let path = entry.path();
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    // Common executable file extensions
+                    matches!(ext.to_lowercase().as_str(), "exe" | "cmd" | "bat" | "ps1" | "lnk")
+                } else {
+                    false
+                }
+            })
+        )
+        .unwrap_or(false);
+
+    // Check if there are common application directories
+    let has_app_dirs = ["bin", "lib", "share", "data"].iter()
+        .any(|dir_name| install_root.join(dir_name).is_dir());
+
+    // If any of these conditions are met, it likely contains a real installation
+    has_version_dirs || has_executables || has_app_dirs
+}
+
+/// Loads package manifest and install manifest with fallback strategies.
+fn load_package_info(install_root: &Path, package_name: &str) -> Result<(PackageManifest, InstallManifest), String> {
+    // Exclude Scoop itself
+    if package_name.eq_ignore_ascii_case("scoop") {
+        return Err(format!("Skipping Scoop system package: {}", package_name));
+    }
+
+    match load_manifests_with_fallback(install_root, package_name) {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            // Only create fallback manifests if there's evidence of a real installation
+            if has_installation_evidence(install_root) {
+                log::warn!("Failed to load manifests for {}: {}, creating fallback manifests", package_name, e);
+                let version = extract_version_from_directory(install_root).unwrap_or_else(|| "unknown".to_string());
+                let description = Some(format!("Package: {} (Custom installation)", package_name));
+                let manifest = PackageManifest {
+                    version,
+                    description,
+                    ..Default::default()
+                };
+                let install_manifest = InstallManifest {
+                    bucket: None,
+                    ..Default::default()
+                };
+                Ok((manifest, install_manifest))
+            } else {
+                // No installation evidence, skip this directory
+                Err(e)
+            }
+        }
+    }
+}
+
+/// Determines the bucket for a package, with intelligent fallback logic.
+fn determine_bucket(install_manifest: &InstallManifest, scoop_path: &Path, package_name: &str) -> String {
+    if let Some(ref bucket_name) = install_manifest.bucket {
+        // Normal bucket installation
+        bucket_name.clone()
+    } else {
+        // Custom or unknown installation - try to find in buckets first
+        match find_package_bucket(scoop_path, package_name) {
+            Some(found_bucket) => {
+                log::debug!("Found package {} in bucket: {}", package_name, found_bucket);
+                found_bucket
+            }
+            None => {
+                // Truly custom installation
+                log::debug!("Package {} appears to be custom installed, marking as Custom", package_name);
+                "Custom".to_string()
+            }
+        }
+    }
+}
+
+/// Gets the installation/update time from the install root directory.
+fn get_install_time(install_root: &Path) -> String {
+    fs::metadata(install_root)
         .and_then(|m| m.modified())
         .map(|t| DateTime::<Utc>::from(t).to_rfc3339())
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
 
-    log::debug!("Package {} last updated: {}", package_name, updated_time);
-
-    Ok(ScoopPackage {
+/// Builds a ScoopPackage from the collected information.
+fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: String, updated_time: String, has_version_dirs: bool) -> ScoopPackage {
+    let is_versioned_install = if bucket == "Custom" { has_version_dirs } else { false };
+    
+    ScoopPackage {
         name: package_name,
         version: manifest.version,
         source: bucket,
@@ -268,7 +398,34 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
         info: manifest.description.unwrap_or_default(),
         is_versioned_install,
         ..Default::default()
-    })
+    }
+}
+
+/// Loads the details for a single installed package from its directory.
+/// Uses enhanced error recovery to handle various installation scenarios.
+fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopPackage, String> {
+    let package_name = extract_package_name(package_path)?;
+    log::debug!("Loading package details for: {}", package_name);
+
+    // Check if this package has version directories (indicating versioned install)
+    let has_version_dirs = fs::read_dir(package_path)
+        .ok()
+        .map(|entries| entries
+            .flatten()
+            .filter(|entry| entry.path().is_dir())
+            .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .any(|name| name != "current" && is_valid_version_string(&name))
+        )
+        .unwrap_or(false);
+
+    let install_root = locate_install_dir(package_path)?;
+    let (manifest, install_manifest) = load_package_info(&install_root, &package_name)?;
+    let bucket = determine_bucket(&install_manifest, scoop_path, &package_name);
+    let updated_time = get_install_time(&install_root);
+
+    log::debug!("Determined bucket for package {}: {}", package_name, bucket);
+
+    Ok(build_scoop_package(package_name, manifest, bucket, updated_time, has_version_dirs))
 }
 
 /// Fetches a list of all installed Scoop packages by scanning the filesystem.
@@ -379,10 +536,13 @@ async fn scan_installed_packages_internal<R: Runtime>(
                     Some(package)
                 }
                 Err(e) => {
+                    let package_name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown");
                     log::warn!(
-                        "{} Skipping package at '{}': {}",
+                        "{} Skipping package '{}': {}",
                         log_prefix,
-                        path.display(),
+                        package_name,
                         e
                     );
                     None
@@ -400,6 +560,9 @@ async fn scan_installed_packages_internal<R: Runtime>(
 
     // Update cache
     update_cache(state, packages.clone(), fingerprint.clone(), log_prefix).await;
+
+    // Also update package versions cache to maintain consistency
+    update_package_versions_cache(state, &packages, &fingerprint).await;
 
     log::debug!(
         "{} ✓ Returning {} installed packages",
@@ -467,13 +630,14 @@ pub async fn refresh_installed_packages<R: Runtime>(
 
     state.update_refresh_time();
 
-    // First invalidate the cache
+    // First invalidate cache to ensure fresh data
     log::info!("=== INSTALLED REFRESH === Invalidating cache");
     invalidate_installed_cache(state.clone()).await;
 
     // Then fetch fresh data
     log::info!("=== INSTALLED REFRESH === Fetching fresh data");
     let result = scan_installed_packages_internal(app, &state, false).await;
+    
     log::info!("=== INSTALLED REFRESH === refresh_installed_packages completed");
     result
 }
@@ -562,11 +726,56 @@ async fn update_cache(
     let mut cache_guard = state.installed_packages.lock().await;
     *cache_guard = Some(InstalledPackagesCache {
         packages: packages.clone(),
-        fingerprint,
+        fingerprint: fingerprint.clone(),
     });
     log::info!(
         "{} ✓ Cache updated with {} packages",
         log_prefix,
         packages.len()
+    );
+}
+
+/// Updates the package versions cache to maintain consistency with installed packages cache.
+/// This ensures that both caches are always in sync after a refresh.
+async fn update_package_versions_cache(
+    state: &AppState,
+    packages: &[ScoopPackage],
+    fingerprint: &str,
+) {
+    let scoop_path = state.scoop_path();
+    let mut versions_map = std::collections::HashMap::new();
+    
+    // Build versions map for versioned installs
+    for package in packages {
+        if package.is_versioned_install {
+            let package_path = scoop_path.join("apps").join(&package.name);
+            if let Ok(entries) = fs::read_dir(&package_path) {
+                let version_dirs: Vec<String> = entries
+                    .flatten()
+                    .map(|entry| entry.path())
+                    .filter(|path| path.is_dir())
+                    .filter_map(|path| path.file_name().and_then(|n| n.to_str()).map(String::from))
+                    .filter(|name| name != "current") // Exclude the current symlink
+                    .filter(|name| is_valid_version_string(name)) // Only include valid version directories
+                    .collect();
+                
+                if !version_dirs.is_empty() {
+                    versions_map.insert(package.name.clone(), version_dirs);
+                }
+            }
+        }
+    }
+    
+    // Update the versions cache
+    let versions_count = versions_map.len();
+    let mut versions_guard = state.package_versions.lock().await;
+    *versions_guard = Some(crate::state::PackageVersionsCache {
+        fingerprint: fingerprint.to_string(),
+        versions_map,
+    });
+    
+    log::info!(
+        "✓ Package versions cache updated with {} versioned packages",
+        versions_count
     );
 }

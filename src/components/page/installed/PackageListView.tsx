@@ -128,7 +128,7 @@ function PackageListView(props: PackageListViewProps) {
   };
 
   return (
-    <div class="bg-base-300 overflow-x-auto rounded-xl shadow-xl">
+    <div class="bg-base-100 overflow-x-auto rounded-xl shadow-xl">
       <table class="table">
         <thead>
           <tr>
@@ -173,7 +173,7 @@ function PackageListView(props: PackageListViewProps) {
                 <td class="max-w-xs whitespace-nowrap">
                   <div class="flex items-center gap-2">
                     <button
-                      class="btn btn-soft bg-base-400 sm:btn-sm overflow-hidden transition-all duration-200 hover:shadow-md"
+                      class="btn btn-soft bg-base-content-bg sm:btn-sm overflow-hidden transition-all duration-200 hover:shadow-md"
                       onClick={() => props.onViewInfo(pkg)}
                     >
                       <div class="max-w-[120px] truncate font-medium">{pkg.name}</div>
@@ -220,12 +220,12 @@ function PackageListView(props: PackageListViewProps) {
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-400">
+                    <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-content-bg">
                       <Ellipsis class="h-4 w-4" />
                     </label>
                     <ul
                       tabindex="0"
-                      class="dropdown-content menu bg-base-400 rounded-box z-100 w-44 p-2 shadow"
+                      class="dropdown-content menu bg-base-content-bg rounded-box z-100 w-44 p-2 shadow"
                     >
                       <li>
                         <HoldToggleButton

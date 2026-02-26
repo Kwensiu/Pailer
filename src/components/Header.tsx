@@ -28,7 +28,7 @@ const Header: Component<HeaderProps> = (props) => {
   document.addEventListener('keydown', toggleCommandPalette);
 
   return (
-    <div class="navbar bg-base-400 border-base-300 overflow-x-hidden overflow-y-hidden border-b shadow-sm">
+    <div class="navbar bg-base-100 border-base-300 overflow-x-hidden overflow-y-hidden border-b shadow-sm">
       <div class="flex-1">
         <a class="btn btn-ghost text-xl font-bold">{t('app.title')}</a>
       </div>
@@ -40,7 +40,7 @@ const Header: Component<HeaderProps> = (props) => {
                 <button
                   class="btn btn-sm btn-ghost transition-colors duration-200"
                   classList={{
-                    'bg-base-300 text-info font-semibold': props.currentView === item.view,
+                    'bg-base-300/70 text-info font-semibold': props.currentView === item.view,
                     'hover:bg-base-300/50': props.currentView !== item.view,
                   }}
                   onClick={() => props.onNavigate(item.view)}

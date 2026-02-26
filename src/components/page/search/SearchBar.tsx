@@ -17,7 +17,7 @@ function SearchBar(props: SearchBarProps) {
       <input
         type="text"
         placeholder={t('search.bar.placeholder')}
-        class="input bg-base-400 input-bordered relative w-full pr-16 pl-10"
+        class="input bg-base-100 input-bordered relative w-full pr-16 pl-10"
         value={props.searchTerm()}
         onInput={(e) => props.setSearchTerm(e.currentTarget.value)}
       />

@@ -1,4 +1,4 @@
-import { Home } from 'lucide-solid';
+import { House } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { View } from '../../../types/scoop';
@@ -24,21 +24,13 @@ function DefaultLaunchPageSettings() {
   return (
     <Card
       title={t('settings.defaultLaunchPage.title')}
-      icon={Home}
+      icon={House}
       description={t('settings.defaultLaunchPage.description')}
-      headerAction={
-        <label class="label cursor-pointer gap-3">
-          <select
-            class="select select-bordered select-outline select-sm min-w-[140px]"
-            value={settings.defaultLaunchPage || 'search'}
-            onChange={handlePageChange}
-          >
-            {pages().map((page) => (
-              <option value={page.value}>{page.label}</option>
-            ))}
-          </select>
-        </label>
-      }
+      headerSelect={{
+        value: settings.defaultLaunchPage || 'search',
+        onChange: handlePageChange,
+        options: pages(),
+      }}
     />
   );
 }

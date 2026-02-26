@@ -90,10 +90,16 @@ pub struct ScoopStatus {
 // -----------------------------------------------------------------------------
 // Manifest Types (from installed.rs)
 // -----------------------------------------------------------------------------
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct PackageManifest {
+    #[serde(default)]
     pub description: Option<String>,
+    #[serde(default = "default_version")]
     pub version: String,
+}
+
+fn default_version() -> String {
+    "unknown".to_string()
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
