@@ -1,12 +1,12 @@
-import { createSignal, onMount, createMemo, onCleanup } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { createLocalStorageSignal } from "./createLocalStorageSignal";
-import heldStore from "../stores/held";
-import installedPackagesStore from "../stores/installedPackagesStore";
-import { usePackageOperations } from "./usePackageOperations";
-import { usePackageInfo } from "./usePackageInfo";
-import { ScoopPackage } from "../types/scoop";
-import { useBuckets } from "./useBuckets";
+import { createSignal, onMount, createMemo, onCleanup } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import { createLocalStorageSignal } from './createLocalStorageSignal';
+import heldStore from '../stores/held';
+import installedPackagesStore from '../stores/installedPackagesStore';
+import { usePackageOperations } from './usePackageOperations';
+import { usePackageInfo } from './usePackageInfo';
+import { ScoopPackage } from '../types/scoop';
+import { useBuckets } from './useBuckets';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -33,7 +33,17 @@ interface ScoopStatus {
 }
 
 export function useInstalledPackages() {
-  const { packages, loading, error, uniqueBuckets, isCheckingForUpdates, isPackageVersioned, fetch, refetch, silentRefetch } = installedPackagesStore;
+  const {
+    packages,
+    loading,
+    error,
+    uniqueBuckets,
+    isCheckingForUpdates,
+    isPackageVersioned,
+    fetch,
+    refetch,
+    silentRefetch,
+  } = installedPackagesStore;
   const [operatingOn, setOperatingOn] = createSignal<string | null>(null);
   const [scoopStatus, setScoopStatus] = createSignal<ScoopStatus | null>(null);
   const [statusLoading, setStatusLoading] = createSignal(false);
@@ -43,19 +53,29 @@ export function useInstalledPackages() {
   const packageOperations = usePackageOperations();
   const packageInfo = usePackageInfo();
   const { buckets, fetchBuckets, cleanup: bucketsCleanup } = useBuckets();
-  
+
   // State for auto-showing versions in modal
   const [autoShowVersions, setAutoShowVersions] = createSignal(false);
 
-  const [viewMode, setViewMode] = createLocalStorageSignal<'grid' | 'list'>('installedViewMode', 'grid');
+  const [viewMode, setViewMode] = createLocalStorageSignal<'grid' | 'list'>(
+    'installedViewMode',
+    'grid'
+  );
   const [sortKey, setSortKey] = createLocalStorageSignal<SortKey>('installedSortKey', 'name');
-  const [sortDirection, setSortDirection] = createLocalStorageSignal<'asc' | 'desc'>('installedSortDirection', 'asc');
-  const [selectedBucket, setSelectedBucket] = createLocalStorageSignal<string>('installedSelectedBucket', 'all');
-  
+  const [sortDirection, setSortDirection] = createLocalStorageSignal<'asc' | 'desc'>(
+    'installedSortDirection',
+    'asc'
+  );
+  const [selectedBucket, setSelectedBucket] = createLocalStorageSignal<string>(
+    'installedSelectedBucket',
+    'all'
+  );
+
   // Change bucket states
   const [changeBucketModalOpen, setChangeBucketModalOpen] = createSignal(false);
-  const [currentPackageForBucketChange, setCurrentPackageForBucketChange] = createSignal<ScoopPackage | null>(null);
-  const [newBucketName, setNewBucketName] = createSignal("");
+  const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
+    createSignal<ScoopPackage | null>(null);
+  const [newBucketName, setNewBucketName] = createSignal('');
 
   onMount(() => {
     fetch();
@@ -76,10 +96,10 @@ export function useInstalledPackages() {
     try {
       // First refresh the packages list to catch any CLI installations
       await refetch();
-      const status = await invoke<ScoopStatus>("check_scoop_status");
+      const status = await invoke<ScoopStatus>('check_scoop_status');
       setScoopStatus(status);
     } catch (err) {
-      console.error("Failed to check scoop status:", err);
+      console.error('Failed to check scoop status:', err);
       setStatusError(err as string);
     } finally {
       setStatusLoading(false);
@@ -93,26 +113,26 @@ export function useInstalledPackages() {
     } else {
       await refetch();
     }
-  }
+  };
 
   const handleFetchPackageInfoForVersions = (pkg: ScoopPackage) => {
     setAutoShowVersions(true);
     packageInfo.fetchPackageInfo(pkg);
-  }
+  };
 
   const handleFetchPackageInfo = (pkg: ScoopPackage) => {
     setAutoShowVersions(false);
     packageInfo.fetchPackageInfo(pkg);
-  }
+  };
 
   const handleCloseInfoModalWithVersions = () => {
     setAutoShowVersions(false);
     packageInfo.closeModal();
-  }
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey() === key) {
-      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
       setSortDirection('asc');
@@ -122,7 +142,7 @@ export function useInstalledPackages() {
   const handleHold = async (pkgName: string) => {
     setOperatingOn(pkgName);
     try {
-      await invoke("hold_package", { packageName: pkgName });
+      await invoke('hold_package', { packageName: pkgName });
     } catch (err) {
       console.error(`Failed to hold package ${pkgName}:`, err);
     } finally {
@@ -135,7 +155,7 @@ export function useInstalledPackages() {
   const handleUnhold = async (pkgName: string) => {
     setOperatingOn(pkgName);
     try {
-      await invoke("unhold_package", { packageName: pkgName });
+      await invoke('unhold_package', { packageName: pkgName });
     } catch (err) {
       console.error(`Failed to unhold package ${pkgName}:`, err);
     } finally {
@@ -148,7 +168,7 @@ export function useInstalledPackages() {
   const handleSwitchVersion = async (pkgName: string, version: string) => {
     setOperatingOn(pkgName);
     try {
-      await invoke("switch_package_version", {
+      await invoke('switch_package_version', {
         packageName: pkgName,
         targetVersion: version,
         global: false, // TODO: Add support for global packages
@@ -165,7 +185,7 @@ export function useInstalledPackages() {
   const handleChangeBucket = async (pkg: ScoopPackage, newBucket: string) => {
     setOperatingOn(pkg.name);
     try {
-      await invoke("change_package_bucket", {
+      await invoke('change_package_bucket', {
         packageName: pkg.name,
         newBucket: newBucket,
       });
@@ -211,7 +231,7 @@ export function useInstalledPackages() {
       const currentSelected = packageInfo.selectedPackage();
       if (currentSelected) {
         // Find the package in the updated list
-        const updatedPackage = packages().find(p => p.name === currentSelected.name);
+        const updatedPackage = packages().find((p) => p.name === currentSelected.name);
 
         if (updatedPackage) {
           packageInfo.updateSelectedPackage(updatedPackage);
@@ -228,15 +248,17 @@ export function useInstalledPackages() {
   const processedPackages = createMemo(() => {
     let pkgs = [...packages()];
     if (selectedBucket() !== 'all') {
-      pkgs = pkgs.filter(p => p.source === selectedBucket());
+      pkgs = pkgs.filter((p) => p.source === selectedBucket());
     }
     const key = sortKey();
     const direction = sortDirection();
     const sortedPkgs = [...pkgs];
     sortedPkgs.sort((a, b) => {
       // 可更新应用始终优先显示，无论什么排序字段
-      const aHasUpdate = !!a.available_version && !heldStore.isHeld(a.name) && !a.is_versioned_install;
-      const bHasUpdate = !!b.available_version && !heldStore.isHeld(b.name) && !b.is_versioned_install;
+      const aHasUpdate =
+        !!a.available_version && !heldStore.isHeld(a.name) && !a.is_versioned_install;
+      const bHasUpdate =
+        !!b.available_version && !heldStore.isHeld(b.name) && !b.is_versioned_install;
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
@@ -250,7 +272,10 @@ export function useInstalledPackages() {
     return sortedPkgs;
   });
 
-  const updatableCount = () => packages().filter(p => !!p.available_version && !heldStore.isHeld(p.name) && !p.is_versioned_install).length;
+  const updatableCount = () =>
+    packages().filter(
+      (p) => !!p.available_version && !heldStore.isHeld(p.name) && !p.is_versioned_install
+    ).length;
 
   return {
     loading,
@@ -304,7 +329,7 @@ export function useInstalledPackages() {
     handleOpenChangeBucket,
     fetchInstalledPackages,
     checkForUpdates,
-    
+
     // Change bucket states
     changeBucketModalOpen,
     setChangeBucketModalOpen,
@@ -313,8 +338,8 @@ export function useInstalledPackages() {
     setNewBucketName,
     handleChangeBucketConfirm,
     handleChangeBucketCancel,
-    
+
     // Buckets for selection
-    buckets: buckets
+    buckets: buckets,
   };
 }

@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { createSignal } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface BucketInfo {
   name: string;
@@ -29,9 +29,9 @@ const listeners: ((buckets: BucketInfo[]) => void)[] = [];
 // Add a function to update the cache from outside the hook
 export function updateBucketsCache(buckets: BucketInfo[] | null) {
   cachedBuckets = buckets;
-  
+
   // Notify all listeners of the cache update
-  listeners.forEach(listener => listener(buckets || []));
+  listeners.forEach((listener) => listener(buckets || []));
 }
 
 export function useBuckets(): UseBucketsReturn {
@@ -41,7 +41,7 @@ export function useBuckets(): UseBucketsReturn {
   const [error, setError] = createSignal<string | null>(null);
 
   const notifyListeners = (newBuckets: BucketInfo[]) => {
-    listeners.forEach(listener => listener(newBuckets));
+    listeners.forEach((listener) => listener(newBuckets));
   };
 
   const subscribe = (listener: (buckets: BucketInfo[]) => void) => {
@@ -74,15 +74,15 @@ export function useBuckets(): UseBucketsReturn {
     }
     isFetching = true;
     setError(null);
-    
+
     try {
-      const result = await invoke<BucketInfo[]>("get_buckets");
+      const result = await invoke<BucketInfo[]>('get_buckets');
       cachedBuckets = result;
       shouldRefreshCache = false;
       setBuckets(result);
       notifyListeners(result);
     } catch (err) {
-      console.error("Failed to fetch buckets:", err);
+      console.error('Failed to fetch buckets:', err);
       setError(err as string);
     } finally {
       isFetching = false;
@@ -111,7 +111,7 @@ export function useBuckets(): UseBucketsReturn {
 
   const getBucketInfo = async (bucketName: string): Promise<BucketInfo | null> => {
     try {
-      return await invoke<BucketInfo>("get_bucket_info", { bucketName });
+      return await invoke<BucketInfo>('get_bucket_info', { bucketName });
     } catch (err) {
       console.error(`Failed to get info for bucket ${bucketName}:`, err);
       return null;
@@ -120,7 +120,7 @@ export function useBuckets(): UseBucketsReturn {
 
   const getBucketManifests = async (bucketName: string): Promise<string[]> => {
     try {
-      return await invoke<string[]>("get_bucket_manifests", { bucketName });
+      return await invoke<string[]>('get_bucket_manifests', { bucketName });
     } catch (err) {
       console.error(`Failed to get manifests for bucket ${bucketName}:`, err);
       return [];

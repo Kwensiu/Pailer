@@ -1,7 +1,7 @@
-import { createSignal, Show, onMount, onCleanup } from "solid-js";
-import { TriangleAlert, X } from "lucide-solid";
-import { useOperations } from "../stores/operations";
-import { t } from "../i18n";
+import { createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { TriangleAlert, X } from 'lucide-solid';
+import { useOperations } from '../stores/operations';
+import { t } from '../i18n';
 
 // 多实例警告组件
 const MultiInstanceWarning = () => {
@@ -38,28 +38,18 @@ const MultiInstanceWarning = () => {
 
   return (
     <Show when={shouldShowWarning()}>
-      <div class="fixed bottom-4 right-4 z-50 max-w-sm">
-        <div class="alert alert-warning shadow-lg border-warning bg-warning text-warning-content">
+      <div class="fixed right-4 bottom-4 z-50 max-w-sm">
+        <div class="alert alert-warning border-warning bg-warning text-warning-content shadow-lg">
           <div class="flex items-start gap-3">
-            <TriangleAlert class="w-5 h-5 shrink-0 mt-0.5" />
-            <div class="flex-1 min-w-0">
-              <div class="font-bold mb-1">
-                {t('warnings.multiInstance.title')}
-              </div>
-              <div class="text-sm mb-3">
-                {t('warnings.multiInstance.message')}
-              </div>
+            <TriangleAlert class="mt-0.5 h-5 w-5 shrink-0" />
+            <div class="min-w-0 flex-1">
+              <div class="mb-1 font-bold">{t('warnings.multiInstance.title')}</div>
+              <div class="mb-3 text-sm">{t('warnings.multiInstance.message')}</div>
               <div class="flex gap-2">
-                <button
-                  class="btn btn-sm btn-outline"
-                  onClick={handleClose}
-                >
+                <button class="btn btn-sm btn-outline" onClick={handleClose}>
                   {t('warnings.multiInstance.dontShowAgain')}
                 </button>
-                <button
-                  class="btn btn-sm btn-ghost"
-                  onClick={() => setIsVisible(false)}
-                >
+                <button class="btn btn-sm btn-ghost" onClick={() => setIsVisible(false)}>
                   {t('buttons.closeDialog')}
                 </button>
               </div>
@@ -69,7 +59,7 @@ const MultiInstanceWarning = () => {
               onClick={handleClose}
               aria-label={t('buttons.close')}
             >
-              <X class="w-4 h-4" />
+              <X class="h-4 w-4" />
             </button>
           </div>
         </div>

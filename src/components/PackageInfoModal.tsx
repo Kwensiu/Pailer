@@ -1,15 +1,15 @@
-import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from "solid-js";
-import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from "../types/scoop";
-import Modal from "./common/Modal";
+import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from 'solid-js';
+import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../types/scoop';
+import Modal from './common/Modal';
 import hljs from 'highlight.js/lib/core';
 
 import json from 'highlight.js/lib/languages/json';
-import { Download, Ellipsis, FileText, Trash2, ExternalLink, RefreshCw } from "lucide-solid";
-import { invoke } from "@tauri-apps/api/core";
-import ManifestModal from "./ManifestModal";
+import { Download, Ellipsis, FileText, Trash2, ExternalLink, RefreshCw } from 'lucide-solid';
+import { invoke } from '@tauri-apps/api/core';
+import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
-import settingsStore from "../stores/settings";
-import { t } from "../i18n";
+import settingsStore from '../stores/settings';
+import { t } from '../i18n';
 
 hljs.registerLanguage('json', json);
 
@@ -63,7 +63,7 @@ function DetailValue(props: { value: string }) {
 
   return (
     <Show when={parsed()} fallback={<span class="wrap-break-word">{props.value}</span>}>
-      <pre class="text-xs p-2 bg-base-100 rounded-lg whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
+      <pre class="bg-base-100 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs whitespace-pre-wrap">
         <code ref={codeRef} class="language-json">
           {JSON.stringify(parsed(), null, 2)}
         </code>
@@ -77,7 +77,7 @@ function IncludesValue(props: { value: string }) {
   const items = createMemo(() => props.value.split(/,\s*/).filter((s) => s.length > 0));
   return (
     <div class="max-h-18 overflow-y-auto">
-      <ul class="list-disc list-inside text-xs space-y-0.5">
+      <ul class="list-inside list-disc space-y-0.5 text-xs">
         <For each={items()}>{(item) => <li class="break-all">{item}</li>}</For>
       </ul>
     </div>
@@ -126,24 +126,24 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const { settings } = settingsStore;
   // Theme-specific colors
   const isDark = () => settings.theme === 'dark';
-  const codeBgColor = () => isDark() ? '#282c34' : '#f0f4f9';
+  const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
   // 格式化日期显示
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
-    
+
     try {
       const date = new Date(dateString);
       // 检查日期是否有效
       if (isNaN(date.getTime())) return dateString;
-      
+
       // 使用更简洁的日期格式
       return date.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     } catch (e) {
       return dateString;
@@ -170,7 +170,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       { key: 'Includes', label: t('packageInfo.includes') },
       { key: 'Installed', label: t('packageInfo.installed') },
       { key: 'Homepage', label: t('packageInfo.homepage') },
-      { key: 'License', label: t('packageInfo.license') }
+      { key: 'License', label: t('packageInfo.license') },
     ];
 
     const detailsMap = new Map(props.info.details);
@@ -225,7 +225,11 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
   // Auto-fetch version info if autoShowVersions is true and package is versioned
   createEffect(() => {
-    if (props.autoShowVersions && props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)) {
+    if (
+      props.autoShowVersions &&
+      props.pkg?.is_installed &&
+      props.isPackageVersioned?.(props.pkg.name)
+    ) {
       fetchVersionInfo(props.pkg);
     }
   });
@@ -270,7 +274,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     setManifestContent(null);
 
     try {
-      const result = await invoke<string>("get_package_manifest", {
+      const result = await invoke<string>('get_package_manifest', {
         packageName: pkg.name,
         bucket: pkg.source,
       });
@@ -296,7 +300,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     setVersionInfo(null);
 
     try {
-      const result = await invoke<VersionedPackageInfo>("get_package_versions", {
+      const result = await invoke<VersionedPackageInfo>('get_package_versions', {
         packageName: pkg.name,
         global: false, // TODO: Add support for global packages
       });
@@ -312,7 +316,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const switchVersion = async (pkg: ScoopPackage, targetVersion: string) => {
     setSwitchingVersion(targetVersion);
     try {
-      await invoke<string>("switch_package_version", {
+      await invoke<string>('switch_package_version', {
         packageName: pkg.name,
         targetVersion,
         global: false, // TODO: Add support for global packages
@@ -326,11 +330,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
       // Call the onSwitchVersion callback if provided
       props.onSwitchVersion?.(pkg, targetVersion);
-
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
-      setVersionError(t('packageInfo.errorSwitchingVersion', { version: targetVersion, error: errorMsg }));
+      setVersionError(
+        t('packageInfo.errorSwitchingVersion', { version: targetVersion, error: errorMsg })
+      );
     } finally {
       setSwitchingVersion(null);
     }
@@ -340,30 +345,33 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const headerAction = (
     <div class="dropdown dropdown-end">
       <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-        <Ellipsis class="w-5 h-5" />
+        <Ellipsis class="h-5 w-5" />
       </label>
-      <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-400 rounded-box w-52">
+      <ul tabindex="0" class="dropdown-content menu bg-base-400 rounded-box w-52 p-2 shadow">
         <li>
           <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
-            <FileText class="w-4 h-4 mr-2" />
+            <FileText class="mr-2 h-4 w-4" />
             {t('packageInfo.viewManifest')}
           </a>
         </li>
         <Show when={props.pkg?.is_installed}>
           <li>
-            <button type="button" onClick={async () => {
-              if (props.pkg) {
-                try {
-                  const packagePath = await invoke<string>("get_package_path", {
-                    packageName: props.pkg.name
-                  });
-                  await openPath(packagePath);
-                } catch (error) {
-                  console.error(t('packageInfo.failedToOpenPath'), error);
+            <button
+              type="button"
+              onClick={async () => {
+                if (props.pkg) {
+                  try {
+                    const packagePath = await invoke<string>('get_package_path', {
+                      packageName: props.pkg.name,
+                    });
+                    await openPath(packagePath);
+                  } catch (error) {
+                    console.error(t('packageInfo.failedToOpenPath'), error);
+                  }
                 }
-              }
-            }}>
-              <ExternalLink class="w-4 h-4 mr-2" />
+              }}
+            >
+              <ExternalLink class="mr-2 h-4 w-4" />
               {t('packageInfo.openInExplorer')}
             </button>
           </li>
@@ -371,28 +379,30 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         <Show when={props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)}>
           <li>
             <a onClick={() => props.pkg && fetchVersionInfo(props.pkg)}>
-              <RefreshCw class="w-4 h-4 mr-2" />
+              <RefreshCw class="mr-2 h-4 w-4" />
               {t('packageInfo.switchVersion')}
             </a>
           </li>
         </Show>
         <Show when={props.pkg?.is_installed}>
           <li>
-            <a onClick={async () => {
-              if (props.pkg) {
-                try {
-                  const debug = await invoke<string>("debug_package_structure", {
-                    packageName: props.pkg.name,
-                    global: false,
-                  });
-                  console.log("Package structure debug:", debug);
-                  alert(debug);
-                } catch (error) {
-                  console.error(t('packageInfo.debugFailed'), error);
+            <a
+              onClick={async () => {
+                if (props.pkg) {
+                  try {
+                    const debug = await invoke<string>('debug_package_structure', {
+                      packageName: props.pkg.name,
+                      global: false,
+                    });
+                    console.log('Package structure debug:', debug);
+                    alert(debug);
+                  } catch (error) {
+                    console.error(t('packageInfo.debugFailed'), error);
+                  }
                 }
-              }
-            }}>
-              <FileText class="w-4 h-4 mr-2" />
+              }}
+            >
+              <FileText class="mr-2 h-4 w-4" />
               {t('packageInfo.debugStructure')}
             </a>
           </li>
@@ -404,16 +414,16 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   // Footer component (buttons)
   const footer = (
     <>
-      <div class="flex space-x-2 mb-2 sm:mb-0">
+      <div class="mb-2 flex space-x-2 sm:mb-0">
         {/* Update (Force Update) Bottom in PackageInfoModal */}
         <Show when={props.pkg?.is_installed}>
           <button
             type="button"
             class="btn w-24"
             classList={{
-              "btn-primary": !!props.pkg?.available_version && !updateConfirm(),
-              "btn-soft text-base-content/50": !props.pkg?.available_version && !updateConfirm(),
-              "btn-warning": updateConfirm()
+              'btn-primary': !!props.pkg?.available_version && !updateConfirm(),
+              'btn-soft text-base-content/50': !props.pkg?.available_version && !updateConfirm(),
+              'btn-warning': updateConfirm(),
             }}
             onClick={() => {
               if (updateConfirm()) {
@@ -431,14 +441,16 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                   } else if (props.setOperationTitle) {
                     // Fallback to direct invocation with proper UI feedback
                     props.setOperationTitle(`Force Updating ${props.pkg.name}`);
-                    invoke("update_package", {
+                    invoke('update_package', {
                       packageName: props.pkg.name,
-                      force: true
-                    }).catch(err => {
-                      console.error("Force update invocation failed:", err);
+                      force: true,
+                    }).catch((err) => {
+                      console.error('Force update invocation failed:', err);
                     });
                   } else {
-                    console.warn("Neither onForceUpdate nor setOperationTitle is provided for force update operation");
+                    console.warn(
+                      'Neither onForceUpdate nor setOperationTitle is provided for force update operation'
+                    );
                   }
                   props.onPackageStateChanged?.();
                 }
@@ -456,10 +468,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                     if (props.setOperationTitle) {
                       props.setOperationTitle(`Updating ${props.pkg.name}`);
                     }
-                    invoke("update_package", {
-                      packageName: props.pkg.name
-                    }).catch(err => {
-                      console.error("Update invocation failed:", err);
+                    invoke('update_package', {
+                      packageName: props.pkg.name,
+                    }).catch((err) => {
+                      console.error('Update invocation failed:', err);
                     });
                     props.onPackageStateChanged?.();
                   }
@@ -475,7 +487,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               }
             }}
           >
-
             {updateConfirm() ? t('packageInfo.forceUpdate') : t('packageInfo.update')}
           </button>
         </Show>
@@ -508,7 +519,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 }
               }}
             >
-              <Download class="w-4 h-4 mr-2" />
+              <Download class="mr-2 h-4 w-4" />
               {t('buttons.install')}
             </button>
           </Show>
@@ -516,7 +527,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             <button
               type="button"
               class="btn btn-error mr-2 w-32"
-              classList={{ "btn-warning": uninstallConfirm() }}
+              classList={{ 'btn-warning': uninstallConfirm() }}
               onClick={() => {
                 if (uninstallConfirm()) {
                   // Execute uninstall
@@ -541,7 +552,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 }
               }}
             >
-              <Trash2 class="w-4 h-4 mr-2" />
+              <Trash2 class="mr-2 h-4 w-4" />
               {uninstallConfirm() ? t('packageInfo.sure') : t('buttons.uninstall')}
             </button>
           </Show>
@@ -567,29 +578,50 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         zIndex="z-[60]"
       >
         <Show when={props.loading}>
-          <div class="flex justify-center items-center h-40">
+          <div class="flex h-40 items-center justify-center">
             <span class="loading loading-spinner loading-lg"></span>
           </div>
         </Show>
         <Show when={props.error}>
           <div role="alert" class="alert alert-error">
-            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 shrink-0 stroke-current"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
             <span>{props.error}</span>
           </div>
         </Show>
         <Show when={props.info}>
-          <div class="flex flex-col md:flex-row gap-6">
+          <div class="flex flex-col gap-6 md:flex-row">
             <div class="flex-1">
-              <h4 class="text-lg font-medium mb-3 pb-2 border-b">{t('packageInfo.details')}</h4>
+              <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.details')}</h4>
               <div class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm">
                 <For each={orderedDetails()}>
                   {([label, value, originalKey]) => (
-                    <div class="grid grid-cols-3 gap-2 py-1 border-b border-base-content/10">
-                      <div class="font-semibold text-base-content/70 capitalize col-span-1">{label}:</div>
+                    <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
+                      <div class="text-base-content/70 col-span-1 font-semibold capitalize">
+                        {label}:
+                      </div>
                       <div class="col-span-2">
                         <Switch fallback={<DetailValue value={value} />}>
                           <Match when={originalKey === 'Homepage'}>
-                            <a href={value} target="_blank" rel="noopener noreferrer" class="link link-primary break-all">{value}</a>
+                            <a
+                              href={value}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="link link-primary break-all"
+                            >
+                              {value}
+                            </a>
                           </Match>
                           <Match when={originalKey === 'License'}>
                             <LicenseValue value={value} />
@@ -599,7 +631,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                           </Match>
                           <Match when={originalKey === 'Installed'}>
                             <div
-                              class="link-primary break-all inline-block bg-primary/5 rounded px-1.5 py-0.5 cursor-pointer border-x-2 border-bg-primary"
+                              class="link-primary bg-primary/5 border-bg-primary inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 try {
@@ -622,13 +654,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             </div>
             <Show when={props.info?.notes}>
               <div class="flex-1">
-                <h4 class="text-lg font-medium mb-3 border-b pb-2">{t('packageInfo.notes')}</h4>
+                <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.notes')}</h4>
                 <div
-                  class="rounded-xl overflow-hidden border border-base-content/10 shadow-inner"
-                  style={{ "background-color": codeBgColor() }}
+                  class="border-base-content/10 overflow-hidden rounded-xl border shadow-inner"
+                  style={{ 'background-color': codeBgColor() }}
                 >
-                  <pre class="p-4 m-0">
-                    <code ref={codeRef} class="nohighlight font-mono text-sm leading-relaxed bg-transparent! whitespace-pre-wrap">{props.info?.notes}</code>
+                  <pre class="m-0 p-4">
+                    <code
+                      ref={codeRef}
+                      class="nohighlight bg-transparent! font-mono text-sm leading-relaxed whitespace-pre-wrap"
+                    >
+                      {props.info?.notes}
+                    </code>
                   </pre>
                 </div>
               </div>
@@ -639,51 +676,57 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         {/* Version Switcher Section */}
         <Show when={versionInfo() || versionLoading()}>
           <div class="divider">{t('packageInfo.versionManager')}</div>
-          <Show when={versionLoading()} fallback={
-            <div class="bg-base-300 rounded-lg p-4">
-              <h4 class="text-lg font-medium mb-3">{t('packageInfo.availableVersions')}</h4>
-              <Show when={versionError()}>
-                <div role="alert" class="alert alert-error mb-3">
-                  <span>{versionError()}</span>
-                </div>
-              </Show>
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                <For each={versionInfo()?.available_versions || []}>
-                  {(version) => (
-                    <div
-                      class="card bg-base-100 shadow-sm p-3 transition-all hover:shadow-md"
-                      classList={{
-                        "ring-2 ring-primary": version.is_current,
-                      }}
-                    >
-                      <div class="flex items-center justify-between">
-                        <div>
-                          <div class="font-semibold text-sm">{version.version}</div>
-                          <Show when={version.is_current}>
-                            <div class="text-xs text-primary font-medium">{t('packageInfo.current')}</div>
+          <Show
+            when={versionLoading()}
+            fallback={
+              <div class="bg-base-300 rounded-lg p-4">
+                <h4 class="mb-3 text-lg font-medium">{t('packageInfo.availableVersions')}</h4>
+                <Show when={versionError()}>
+                  <div role="alert" class="alert alert-error mb-3">
+                    <span>{versionError()}</span>
+                  </div>
+                </Show>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  <For each={versionInfo()?.available_versions || []}>
+                    {(version) => (
+                      <div
+                        class="card bg-base-100 p-3 shadow-sm transition-all hover:shadow-md"
+                        classList={{
+                          'ring-2 ring-primary': version.is_current,
+                        }}
+                      >
+                        <div class="flex items-center justify-between">
+                          <div>
+                            <div class="text-sm font-semibold">{version.version}</div>
+                            <Show when={version.is_current}>
+                              <div class="text-primary text-xs font-medium">
+                                {t('packageInfo.current')}
+                              </div>
+                            </Show>
+                          </div>
+                          <Show when={!version.is_current}>
+                            <button
+                              class="btn btn-xs btn-primary"
+                              disabled={switchingVersion() === version.version}
+                              onClick={() => props.pkg && switchVersion(props.pkg, version.version)}
+                            >
+                              <Show
+                                when={switchingVersion() === version.version}
+                                fallback={t('packageInfo.switch')}
+                              >
+                                <span class="loading loading-spinner loading-xs"></span>
+                              </Show>
+                            </button>
                           </Show>
                         </div>
-                        <Show when={!version.is_current}>
-                          <button
-                            class="btn btn-xs btn-primary"
-                            disabled={switchingVersion() === version.version}
-                            onClick={() => props.pkg && switchVersion(props.pkg, version.version)}
-                          >
-                            <Show when={switchingVersion() === version.version}
-                              fallback={t('packageInfo.switch')}
-                            >
-                              <span class="loading loading-spinner loading-xs"></span>
-                            </Show>
-                          </button>
-                        </Show>
                       </div>
-                    </div>
-                  )}
-                </For>
+                    )}
+                  </For>
+                </div>
               </div>
-            </div>
-          }>
-            <div class="bg-base-300 rounded-lg p-4 flex items-center justify-center">
+            }
+          >
+            <div class="bg-base-300 flex items-center justify-center rounded-lg p-4">
               <span class="loading loading-spinner"></span>
             </div>
           </Show>
@@ -691,7 +734,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       </Modal>
 
       <ManifestModal
-        packageName={props.pkg?.name ?? ""}
+        packageName={props.pkg?.name ?? ''}
         manifestContent={manifestContent()}
         loading={manifestLoading()}
         error={manifestError()}

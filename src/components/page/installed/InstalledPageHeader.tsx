@@ -1,8 +1,16 @@
-import { For, Show, Accessor, Setter, createSignal, createEffect, onCleanup } from "solid-js";
+import { For, Show, Accessor, Setter, createSignal, createEffect, onCleanup } from 'solid-js';
 import {
-  Funnel, LayoutGrid, List, CircleArrowUp, Search, X, CircleCheckBig, CircleAlert, RefreshCw
+  Funnel,
+  LayoutGrid,
+  List,
+  CircleArrowUp,
+  Search,
+  X,
+  CircleCheckBig,
+  CircleAlert,
+  RefreshCw,
 } from 'lucide-solid';
-import { t } from "../../../i18n";
+import { t } from '../../../i18n';
 
 interface InstalledHeaderProps {
   updatableCount: Accessor<number>;
@@ -15,8 +23,8 @@ interface InstalledHeaderProps {
   selectedBucket: Accessor<string>;
   setSelectedBucket: Setter<string>;
 
-  viewMode: Accessor<"grid" | "list">;
-  setViewMode: Setter<"grid" | "list">;
+  viewMode: Accessor<'grid' | 'list'>;
+  setViewMode: Setter<'grid' | 'list'>;
 
   isCheckingForUpdates: Accessor<boolean>;
   onCheckForUpdates: () => void;
@@ -27,7 +35,6 @@ interface InstalledHeaderProps {
 }
 
 function InstalledPageHeader(props: InstalledHeaderProps) {
-
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
   let searchContainerRef: HTMLDivElement | undefined;
   let searchInputRef: HTMLInputElement | undefined;
@@ -43,12 +50,12 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
 
       if (searchContainerRef && !searchContainerRef.contains(event.target as Node)) {
         setIsSearchOpen(false);
-        props.setSearchQuery("");
+        props.setSearchQuery('');
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    onCleanup(() => document.removeEventListener("mousedown", handleClickOutside));
+    document.addEventListener('mousedown', handleClickOutside);
+    onCleanup(() => document.removeEventListener('mousedown', handleClickOutside));
   });
 
   createEffect(() => {
@@ -62,61 +69,74 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   };
 
   return (
-    <div class="flex justify-between items-center">
+    <div class="flex items-center justify-between">
       <Show
         when={!isSearchOpen()}
         fallback={
-          <div ref={searchContainerRef} class="flex grow items-center gap-2 mb-6">
+          <div ref={searchContainerRef} class="mb-6 flex grow items-center gap-2">
             <div class="join w-full">
-              <span class="join-item btn btn-disabled bg-base-200 border-none"> <Search class="w-4 h-4" /></span>
+              <span class="join-item btn btn-disabled bg-base-200 border-none">
+                {' '}
+                <Search class="h-4 w-4" />
+              </span>
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder={t("installed.header.searchPlaceholder")}
-                class="input input-bordered w-full join-item bg-base-200"
+                placeholder={t('installed.header.searchPlaceholder')}
+                class="input input-bordered join-item bg-base-200 w-full"
                 value={props.searchQuery()}
                 onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
               />
             </div>
-            <button class="btn btn-ghost btn-circle" onClick={() => {
-              setIsSearchOpen(false);
-              props.setSearchQuery("");
-            }}>
-              <X class="w-5 h-5" />
+            <button
+              class="btn btn-ghost btn-circle"
+              onClick={() => {
+                setIsSearchOpen(false);
+                props.setSearchQuery('');
+              }}
+            >
+              <X class="h-5 w-5" />
             </button>
           </div>
         }
       >
-        <h2 class="text-3xl font-bold mb-7">{t("installed.header.title")}</h2>
-        <div class="flex items-center gap-2 mb-6">
+        <h2 class="mb-7 text-3xl font-bold">{t('installed.header.title')}</h2>
+        <div class="mb-6 flex items-center gap-2">
           {/* Refresh Button */}
           <button
             class="btn btn-ghost btn-circle tooltip tooltip-bottom"
-            data-tip={t("installed.header.refresh")}
+            data-tip={t('installed.header.refresh')}
             onClick={() => props.onRefresh()}
           >
-            <RefreshCw class="w-5 h-5" />
+            <RefreshCw class="h-5 w-5" />
           </button>
           {/* Search Button */}
-          <button class="btn btn-ghost btn-circle tooltip tooltip-bottom" data-tip={t("installed.header.search")} onClick={() => setIsSearchOpen(true)}>
-            <Search class="w-5 h-5" />
+          <button
+            class="btn btn-ghost btn-circle tooltip tooltip-bottom"
+            data-tip={t('installed.header.search')}
+            onClick={() => setIsSearchOpen(true)}
+          >
+            <Search class="h-5 w-5" />
           </button>
 
           {/* Update All Button or Status Button */}
-          <Show when={props.updatableCount() > 0}
+          <Show
+            when={props.updatableCount() > 0}
             fallback={
               <button
                 class="btn btn-ghost btn-circle tooltip tooltip-bottom"
-                data-tip={t("installed.header.checkStatus")}
+                data-tip={t('installed.header.checkStatus')}
                 onClick={props.onCheckStatus}
                 disabled={props.statusLoading?.()}
               >
-                <Show when={props.statusLoading?.()}
+                <Show
+                  when={props.statusLoading?.()}
                   fallback={
-                    <Show when={props.scoopStatus?.()?.is_everything_ok}
-                      fallback={<CircleAlert class="w-4 h-4" />}
+                    <Show
+                      when={props.scoopStatus?.()?.is_everything_ok}
+                      fallback={<CircleAlert class="h-4 w-4" />}
                     >
-                      <CircleCheckBig class="w-4 h-4" />
+                      <CircleCheckBig class="h-4 w-4" />
                     </Show>
                   }
                 >
@@ -126,18 +146,25 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             }
           >
             <button class="btn btn-secondary gap-2" onClick={props.onUpdateAll}>
-              <CircleArrowUp class="w-4 h-4" />
-              <span class="hidden md:inline">{t("installed.header.updateAll")}&nbsp;</span>
+              <CircleArrowUp class="h-4 w-4" />
+              <span class="hidden md:inline">{t('installed.header.updateAll')}&nbsp;</span>
               <span>({props.updatableCount()})</span>
             </button>
           </Show>
 
           {/* Filters Dropdown */}
           <div class="dropdown dropdown-end">
-            <label tabindex="0" class="btn btn-ghost tooltip tooltip-bottom border border-base-100/50" data-tip={t("installed.header.filter")}>
-              <Funnel class="w-4 h-4" />
+            <label
+              tabindex="0"
+              class="btn btn-ghost tooltip tooltip-bottom border-base-100/50 border"
+              data-tip={t('installed.header.filter')}
+            >
+              <Funnel class="h-4 w-4" />
             </label>
-            <div tabindex="0" class="dropdown-content menu p-4 shadow bg-base-300 rounded-box w-64 z-1">
+            <div
+              tabindex="0"
+              class="dropdown-content menu bg-base-300 rounded-box z-1 w-64 p-4 shadow"
+            >
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">Bucket</span>
@@ -159,15 +186,19 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
 
           {/* View Toggle Button */}
           <button
-            class="btn btn-ghost tooltip tooltip-bottom border border-base-100/50"
-            data-tip={props.viewMode() === 'grid' ? t("installed.header.switchToListView") : t("installed.header.switchToGridView")}
+            class="btn btn-ghost tooltip tooltip-bottom border-base-100/50 border"
+            data-tip={
+              props.viewMode() === 'grid'
+                ? t('installed.header.switchToListView')
+                : t('installed.header.switchToGridView')
+            }
             onClick={toggleViewMode}
           >
             <Show when={props.viewMode() === 'grid'}>
-              <List class="w-4 h-4" />
+              <List class="h-4 w-4" />
             </Show>
             <Show when={props.viewMode() === 'list'}>
-              <LayoutGrid class="w-4 h-4" />
+              <LayoutGrid class="h-4 w-4" />
             </Show>
           </button>
         </div>

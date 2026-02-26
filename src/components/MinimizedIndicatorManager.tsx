@@ -1,21 +1,21 @@
-import { createSignal, For, Show, onMount, onCleanup } from "solid-js";
-import { CircleCheckBig, XCircle, Loader2 } from "lucide-solid";
-import { useOperations } from "../stores/operations";
-import type { MinimizedIndicatorProps } from "../types/operations";
-import { t } from "../i18n";
+import { createSignal, For, Show, onMount, onCleanup } from 'solid-js';
+import { CircleCheckBig, XCircle, Loader2 } from 'lucide-solid';
+import { useOperations } from '../stores/operations';
+import type { MinimizedIndicatorProps } from '../types/operations';
+import { t } from '../i18n';
 
 // 最小化指示器组件
 const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
   const getStatusIcon = () => {
     switch (props.status) {
       case 'in-progress':
-        return <Loader2 class="w-4 h-4 text-blue-500 animate-spin" />;
+        return <Loader2 class="h-4 w-4 animate-spin text-blue-500" />;
       case 'success':
-        return <CircleCheckBig class="w-4 h-4 text-success" />;
+        return <CircleCheckBig class="text-success h-4 w-4" />;
       case 'error':
-        return <XCircle class="w-4 h-4 text-error" />;
+        return <XCircle class="text-error h-4 w-4" />;
       case 'cancelled':
-        return <XCircle class="w-4 h-4 text-warning" />;
+        return <XCircle class="text-warning h-4 w-4" />;
       default:
         return null;
     }
@@ -41,7 +41,7 @@ const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
       class="minimized-indicator"
       classList={{
         'minimized-indicator--minimized': props.isMinimized,
-        'minimized-indicator--active': !props.isMinimized
+        'minimized-indicator--active': !props.isMinimized,
       }}
       onClick={props.onClick}
       role="button"
@@ -58,9 +58,7 @@ const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
         <div class="minimized-indicator__title" title={props.title}>
           {props.title}
         </div>
-        <div class="minimized-indicator__status">
-          {getStatusIcon()}
-        </div>
+        <div class="minimized-indicator__status">{getStatusIcon()}</div>
       </div>
     </div>
   );
@@ -68,18 +66,14 @@ const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
 
 // 最小化指示器管理器
 const MinimizedIndicatorManager = () => {
-  const { 
-    getActiveOperations, 
-    removeOperation, 
-    toggleMinimize 
-  } = useOperations();
+  const { getActiveOperations, removeOperation, toggleMinimize } = useOperations();
 
   const [showMore, setShowMore] = createSignal(false);
 
   // 获取最小化的操作列表
   const getMinimizedOperations = () => {
     return getActiveOperations()
-      .filter(op => op.isMinimized)
+      .filter((op) => op.isMinimized)
       .sort((a, b) => b.updatedAt - a.updatedAt); // 按更新时间倒序
   };
 
@@ -147,9 +141,7 @@ const MinimizedIndicatorManager = () => {
             aria-label={t('buttons.showMore')}
           >
             <div class="minimized-indicator__content">
-              <div class="minimized-indicator__title">
-                +{getMinimizedOperations().length - 5}
-              </div>
+              <div class="minimized-indicator__title">+{getMinimizedOperations().length - 5}</div>
             </div>
           </button>
         </Show>
@@ -162,9 +154,7 @@ const MinimizedIndicatorManager = () => {
             aria-label={t('buttons.showLess')}
           >
             <div class="minimized-indicator__content">
-              <div class="minimized-indicator__title">
-                {t('buttons.collapse')}
-              </div>
+              <div class="minimized-indicator__title">{t('buttons.collapse')}</div>
             </div>
           </button>
         </Show>

@@ -1,12 +1,16 @@
-import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from "solid-js";
-import { Portal } from "solid-js/web";
-import { listen, UnlistenFn, emit } from "@tauri-apps/api/event";
-import { useOperations } from "../stores/operations";
-import { OperationOutput as StoreOperationOutput, OperationResult as StoreOperationResult, OperationModalProps } from "../types/operations";
-import { X, Minimize2, ExternalLink } from "lucide-solid";
-import { t } from "../i18n";
-import { isErrorLineWithContext } from "../utils/errorDetection";
-import { stripAnsi } from "../utils/ansiUtils";
+import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from 'solid-js';
+import { Portal } from 'solid-js/web';
+import { listen, UnlistenFn, emit } from '@tauri-apps/api/event';
+import { useOperations } from '../stores/operations';
+import {
+  OperationOutput as StoreOperationOutput,
+  OperationResult as StoreOperationResult,
+  OperationModalProps,
+} from '../types/operations';
+import { X, Minimize2, ExternalLink } from 'lucide-solid';
+import { t } from '../i18n';
+import { isErrorLineWithContext } from '../utils/errorDetection';
+import { stripAnsi } from '../utils/ansiUtils';
 
 // Define VirustotalResult locally since it's not exported from types
 interface VirustotalResult {
@@ -15,7 +19,9 @@ interface VirustotalResult {
 }
 
 // Helper component to find and render links in a line of text
-const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (props) => {
+const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (
+  props
+) => {
   const cleanLine = stripAnsi(props.line);
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -26,7 +32,7 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
   // If it's an error line, wrap it in error styling
   if (isError) {
     return (
-      <span class="text-red-400 font-mono">
+      <span class="font-mono text-red-400">
         {cleanLine.match(urlRegex) ? (
           <For each={cleanLine.split(urlRegex)}>
             {(part) => {
@@ -34,7 +40,7 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
                 return (
                   <a href={part} target="_blank" class="link link-error inline-flex items-center">
                     {part}
-                    <ExternalLink class="w-3 h-3 ml-1" />
+                    <ExternalLink class="ml-1 h-3 w-3" />
                   </a>
                 );
               }
@@ -57,7 +63,7 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
               return (
                 <a href={part} target="_blank" class="link link-info inline-flex items-center">
                   {part}
-                  <ExternalLink class="w-3 h-3 ml-1" />
+                  <ExternalLink class="ml-1 h-3 w-3" />
                 </a>
               );
             }
@@ -72,14 +78,14 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
 };
 
 function OperationModal(props: OperationModalProps) {
-  const { 
-    removeOperation, 
-    addOperationOutput, 
+  const {
+    removeOperation,
+    addOperationOutput,
     setOperationResult,
     toggleMinimize,
     setOperationStatus,
     generateOperationId,
-    operations
+    operations,
   } = useOperations();
 
   const [isClosing, setIsClosing] = createSignal(false);
@@ -106,7 +112,12 @@ function OperationModal(props: OperationModalProps) {
     const currentOp = operation();
     if (!props.title || !currentOp) return;
 
-    console.log('Setting up persistent listeners for operation:', operationId(), 'Status:', currentOp.status);
+    console.log(
+      'Setting up persistent listeners for operation:',
+      operationId(),
+      'Status:',
+      currentOp.status
+    );
     setRendered(true);
 
     let outputListener: UnlistenFn | undefined;
@@ -117,7 +128,7 @@ function OperationModal(props: OperationModalProps) {
     const setupListeners = async () => {
       try {
         // Common output listener for all operations
-        outputListener = await listen<StoreOperationOutput>("operation-output", (event) => {
+        outputListener = await listen<StoreOperationOutput>('operation-output', (event) => {
           if (isDisposed) return;
           console.log('Received operation-output event:', event.payload);
           // Support both operationId and operation_id for compatibility
@@ -135,82 +146,88 @@ function OperationModal(props: OperationModalProps) {
               operationId: operationId(),
               line: event.payload.line,
               source: event.payload.source,
-              message: event.payload.message
+              message: event.payload.message,
             });
           } else {
             console.log('Operation output ignored - different operationId:', {
               received: eventOperationId,
-              current: operationId()
+              current: operationId(),
             });
           }
         });
 
         if (props.isScan) {
           // Listen for the special VirusTotal result event
-          vtResultListener = await listen<VirustotalResult>("virustotal-scan-finished", (event) => {
+          vtResultListener = await listen<VirustotalResult>('virustotal-scan-finished', (event) => {
             if (isDisposed) return;
             // This is a global event, but we need to check if it's for this operation
             // For now, assume it's for the current scan operation
             const result: StoreOperationResult = {
               operationId: operationId(),
               success: !event.payload.detections_found && !event.payload.is_api_key_missing,
-              message: event.payload.detections_found 
-                ? `Found ${event.payload.detections_found} potential threats` 
+              message: event.payload.detections_found
+                ? `Found ${event.payload.detections_found} potential threats`
                 : event.payload.is_api_key_missing
-                ? "VirusTotal API key not configured"
-                : "No threats detected",
-              timestamp: Date.now()
+                  ? 'VirusTotal API key not configured'
+                  : 'No threats detected',
+              timestamp: Date.now(),
             };
-            
+
             setOperationResult(operationId(), result);
-            
+
             if (!event.payload.detections_found && !event.payload.is_api_key_missing) {
               props.onInstallConfirm?.();
             }
           });
         } else {
           // Standard listener for install, update, etc.
-          standardResultListener = await listen<StoreOperationResult>("operation-finished", (event) => {
-            if (isDisposed) return;
-            console.log('Received operation-finished event:', event.payload);
-            // Support both operationId and operation_id for compatibility
-            const eventOperationId = event.payload.operationId || event.payload.operation_id;
-            console.log('Current operationId():', operationId());
-            console.log('Event payload operationId:', eventOperationId);
-            console.log('Comparison result:', eventOperationId === operationId());
-            // Only process result for this operation
-            if (eventOperationId === operationId()) {
-              // 检查操作是否仍然存在，防止竞态条件
-              const currentOp = operation();
-              if (!currentOp) {
-                console.log('Operation no longer exists, ignoring result');
-                return;
+          standardResultListener = await listen<StoreOperationResult>(
+            'operation-finished',
+            (event) => {
+              if (isDisposed) return;
+              console.log('Received operation-finished event:', event.payload);
+              // Support both operationId and operation_id for compatibility
+              const eventOperationId = event.payload.operationId || event.payload.operation_id;
+              console.log('Current operationId():', operationId());
+              console.log('Event payload operationId:', eventOperationId);
+              console.log('Comparison result:', eventOperationId === operationId());
+              // Only process result for this operation
+              if (eventOperationId === operationId()) {
+                // 检查操作是否仍然存在，防止竞态条件
+                const currentOp = operation();
+                if (!currentOp) {
+                  console.log('Operation no longer exists, ignoring result');
+                  return;
+                }
+                console.log('Operation finished matches current operationId:', operationId());
+                console.log(
+                  'Setting operation status to:',
+                  event.payload.success ? 'success' : 'error'
+                );
+                setOperationResult(operationId(), event.payload);
+                setOperationStatus(operationId(), event.payload.success ? 'success' : 'error');
+
+                if (event.payload.success && props.nextStep) {
+                  // Handle next step logic
+                  props.nextStep.onNext();
+                }
+              } else {
+                console.log('Operation finished ignored - different operationId:', {
+                  received: eventOperationId,
+                  current: operationId(),
+                });
               }
-              console.log('Operation finished matches current operationId:', operationId());
-              console.log('Setting operation status to:', event.payload.success ? 'success' : 'error');
-              setOperationResult(operationId(), event.payload);
-              setOperationStatus(operationId(), event.payload.success ? 'success' : 'error');
-              
-              if (event.payload.success && props.nextStep) {
-                // Handle next step logic
-                props.nextStep.onNext();
-              }
-            } else {
-              console.log('Operation finished ignored - different operationId:', {
-                received: eventOperationId,
-                current: operationId()
-              });
             }
-          });
+          );
         }
       } catch (error) {
-        console.error("Failed to setup operation listeners:", error);
+        console.error('Failed to setup operation listeners:', error);
         // Set error result to notify user
         const errorResult: StoreOperationResult = {
           operationId: operationId(),
           success: false,
-          message: "Failed to initialize operation monitoring",
-          timestamp: Date.now()
+          message: 'Failed to initialize operation monitoring',
+          timestamp: Date.now(),
         };
         setOperationResult(operationId(), errorResult);
       }
@@ -220,10 +237,15 @@ function OperationModal(props: OperationModalProps) {
 
     // Only cleanup when operation is complete or component unmounts
     onCleanup(() => {
-      console.log('Checking cleanup for operation:', operationId(), 'Current status:', operation()?.status);
+      console.log(
+        'Checking cleanup for operation:',
+        operationId(),
+        'Current status:',
+        operation()?.status
+      );
       const op = operation();
       // Only cleanup if operation is complete (success/error) or no longer exists
-      if (!op || (op.status === 'success' || op.status === 'error' || op.status === 'cancelled')) {
+      if (!op || op.status === 'success' || op.status === 'error' || op.status === 'cancelled') {
         console.log('Cleaning up persistent listeners for operation:', operationId());
         isDisposed = true;
         outputListener?.();
@@ -299,10 +321,14 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: true,
         showIndicator: true,
         title: currentOperation.title,
-        result: currentOperation.status === 'success' ? 'success' : 
-               currentOperation.status === 'error' ? 'error' : 'in-progress'
+        result:
+          currentOperation.status === 'success'
+            ? 'success'
+            : currentOperation.status === 'error'
+              ? 'error'
+              : 'in-progress',
       });
-      
+
       toggleMinimize(operationId());
     } else if (currentOperation) {
       console.log('Restoring operation:', currentOperation.title);
@@ -311,10 +337,14 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: false,
         showIndicator: false,
         title: currentOperation.title,
-        result: currentOperation.status === 'success' ? 'success' : 
-               currentOperation.status === 'error' ? 'error' : 'in-progress'
+        result:
+          currentOperation.status === 'success'
+            ? 'success'
+            : currentOperation.status === 'error'
+              ? 'error'
+              : 'in-progress',
       });
-      
+
       toggleMinimize(operationId());
     }
   };
@@ -322,7 +352,12 @@ function OperationModal(props: OperationModalProps) {
   // Scroll to bottom when new output is added, but only if user is near bottom
   createEffect(() => {
     const currentOperation = operation();
-    if (scrollRef && currentOperation?.output && currentOperation.output.length > 0 && !currentOperation.isMinimized) {
+    if (
+      scrollRef &&
+      currentOperation?.output &&
+      currentOperation.output.length > 0 &&
+      !currentOperation.isMinimized
+    ) {
       // Use requestAnimationFrame to ensure DOM is updated before scrolling
       requestAnimationFrame(() => {
         const container = scrollRef!;
@@ -348,98 +383,102 @@ function OperationModal(props: OperationModalProps) {
     <Portal>
       <Show when={rendered() && currentOperation}>
         <Show when={!currentOperation.isMinimized}>
-          <div class="fixed inset-0 flex items-center justify-center z-60 p-4 sm:p-6 md:p-8">
+          <div class="fixed inset-0 z-60 flex items-center justify-center p-4 sm:p-6 md:p-8">
             <div
               class="absolute inset-0 transition-all duration-300 ease-out"
               classList={{
-                "opacity-0": isClosing(),
-                "opacity-80": !isClosing(),
+                'opacity-0': isClosing(),
+                'opacity-80': !isClosing(),
               }}
               style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
               onClick={handleMinimize}
             ></div>
             <div
-              class="relative bg-base-200 rounded-xl shadow-2xl border border-base-300 max-h-[90vh] overflow-hidden flex flex-col transition-all duration-300 ease-out"
+              class="bg-base-200 border-base-300 relative flex max-h-[90vh] flex-col overflow-hidden rounded-xl border shadow-2xl transition-all duration-300 ease-out"
               style="width: min(calc(100vw - 2 * var(--modal-padding, 1rem)), 64rem);"
               classList={{
-                "scale-90 opacity-0 translate-y-0": isClosing(),
-                "scale-100 opacity-100 translate-y-0": !isClosing(),
+                'scale-90 opacity-0 translate-y-0': isClosing(),
+                'scale-100 opacity-100 translate-y-0': !isClosing(),
               }}
             >
-            <div class="flex justify-between items-center p-4 border-b border-base-300">
-              <h3 class="font-bold text-lg truncate">{currentOperation?.title}</h3>
-              <div class="flex space-x-2">
-                <button
-                  class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
-                  onClick={handleMinimize}
-                >
-                  <Minimize2 class="w-6 h-6 sm:w-5 sm:h-5" />
-                </button>
-                <button
-                  class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
-                  onClick={handleForceClose}
-                >
-                  <X class="w-6 h-6 sm:w-5 sm:h-5" />
-                </button>
+              <div class="border-base-300 flex items-center justify-between border-b p-4">
+                <h3 class="truncate text-lg font-bold">{currentOperation?.title}</h3>
+                <div class="flex space-x-2">
+                  <button
+                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
+                    onClick={handleMinimize}
+                  >
+                    <Minimize2 class="h-6 w-6 sm:h-5 sm:w-5" />
+                  </button>
+                  <button
+                    class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
+                    onClick={handleForceClose}
+                  >
+                    <X class="h-6 w-6 sm:h-5 sm:w-5" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div
-              ref={scrollRef}
-              class="bg-black text-white font-mono text-xs p-4 rounded-lg mx-4 my-3 overflow-y-auto grow"
-              style="white-space: pre-wrap; word-break: break-word;"
-            >
-              <For each={currentOperation?.output || []}>
-                {(line, index) => (
-                  <div class="mb-1">
-                    <LineWithLinks
-                      line={line.line}
-                      isStderr={line.source === "stderr"}
-                      previousLines={currentOperation?.output?.slice(0, index()).map(item => item.line)}
-                    />
+              <div
+                ref={scrollRef}
+                class="mx-4 my-3 grow overflow-y-auto rounded-lg bg-black p-4 font-mono text-xs text-white"
+                style="white-space: pre-wrap; word-break: break-word;"
+              >
+                <For each={currentOperation?.output || []}>
+                  {(line, index) => (
+                    <div class="mb-1">
+                      <LineWithLinks
+                        line={line.line}
+                        isStderr={line.source === 'stderr'}
+                        previousLines={currentOperation?.output
+                          ?.slice(0, index())
+                          .map((item) => item.line)}
+                      />
+                    </div>
+                  )}
+                </For>
+                <Show when={currentOperation?.status === 'in-progress'}>
+                  <div class="mt-2 flex animate-pulse items-center">
+                    <span class="loading loading-spinner loading-xs mr-2"></span>
+                    {t('status.inProgress')}
                   </div>
-                )}
-              </For>
-              <Show when={currentOperation?.status === 'in-progress'}>
-                <div class="flex items-center animate-pulse mt-2">
-                  <span class="loading loading-spinner loading-xs mr-2"></span>
-                  {t('status.inProgress')}
+                </Show>
+              </div>
+
+              <Show when={currentOperation?.status === 'error'}>
+                <div class="alert alert-error mx-4 my-2 rounded-lg">
+                  <span>{currentOperation.result?.message || 'Operation failed'}</span>
                 </div>
               </Show>
-            </div>
 
-            <Show when={currentOperation?.status === 'error'}>
-              <div class="alert alert-error mx-4 my-2 rounded-lg">
-                <span>{currentOperation.result?.message || "Operation failed"}</span>
-              </div>
-            </Show>
-
-            <Show when={currentOperation?.status === 'success'}>
-              <div class="alert alert-success mx-4 my-2 rounded-lg">
-                <span>{currentOperation.result?.message || "Operation completed successfully"}</span>
-              </div>
-            </Show>
-
-            <div class="flex justify-end p-4 gap-2 border-t border-base-300">
-              <Show when={props.nextStep && currentOperation?.status === 'success'}>
-                <button class="btn btn-primary btn-sm" onClick={() => props.nextStep?.onNext()}>
-                  {props.nextStep?.buttonLabel}
-                </button>
+              <Show when={currentOperation?.status === 'success'}>
+                <div class="alert alert-success mx-4 my-2 rounded-lg">
+                  <span>
+                    {currentOperation.result?.message || 'Operation completed successfully'}
+                  </span>
+                </div>
               </Show>
-              <button
-                classList={{
-                  "btn btn-sm": true,
-                  "btn-error": currentOperation?.status === 'in-progress',
-                  "btn-primary": currentOperation?.status === 'success',
-                  "btn-warning": currentOperation?.status === 'error'
-                }}
-                onClick={handleMainButtonClick}
-              >
-                {getCloseButtonText()}
-              </button>
+
+              <div class="border-base-300 flex justify-end gap-2 border-t p-4">
+                <Show when={props.nextStep && currentOperation?.status === 'success'}>
+                  <button class="btn btn-primary btn-sm" onClick={() => props.nextStep?.onNext()}>
+                    {props.nextStep?.buttonLabel}
+                  </button>
+                </Show>
+                <button
+                  classList={{
+                    'btn btn-sm': true,
+                    'btn-error': currentOperation?.status === 'in-progress',
+                    'btn-primary': currentOperation?.status === 'success',
+                    'btn-warning': currentOperation?.status === 'error',
+                  }}
+                  onClick={handleMainButtonClick}
+                >
+                  {getCloseButtonText()}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         </Show>
       </Show>
     </Portal>

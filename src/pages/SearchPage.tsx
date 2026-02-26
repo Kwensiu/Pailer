@@ -1,21 +1,23 @@
-import PackageInfoModal from "../components/PackageInfoModal";
-import OperationModal from "../components/OperationModal";
+import PackageInfoModal from '../components/PackageInfoModal';
+import OperationModal from '../components/OperationModal';
 
-import { useSearch } from "../hooks/useSearch";
-import SearchBar from "../components/page/search/SearchBar";
-import SearchResultsTabs from "../components/page/search/SearchResultsTabs";
-import SearchResultsList from "../components/page/search/SearchResultsList";
+import { useSearch } from '../hooks/useSearch';
+import SearchBar from '../components/page/search/SearchBar';
+import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
+import SearchResultsList from '../components/page/search/SearchResultsList';
 
-import { createSignal, createEffect, onCleanup, onMount } from "solid-js";
-import { t } from "../i18n";
-import { createTauriSignal } from "../hooks/createTauriSignal";
-import { RefreshCw } from "lucide-solid";
+import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
+import { t } from '../i18n';
+import { createTauriSignal } from '../hooks/createTauriSignal';
+import { RefreshCw } from 'lucide-solid';
 
 function SearchPage() {
   const {
-    searchTerm, setSearchTerm,
+    searchTerm,
+    setSearchTerm,
     loading,
-    activeTab, setActiveTab,
+    activeTab,
+    setActiveTab,
     resultsToShow,
     packageResults,
     binaryResults,
@@ -36,7 +38,7 @@ function SearchPage() {
     restoreSearchResults,
     refreshSearchResults,
     bucketFilter,
-    setBucketFilter
+    setBucketFilter,
   } = useSearch();
 
   const [currentPage, setCurrentPage] = createTauriSignal('searchCurrentPage', 1);
@@ -62,7 +64,7 @@ function SearchPage() {
     setCurrentPage(1);
 
     // Get the bucket's name
-    const buckets = [...new Set([...packageResults(), ...binaryResults()].map(p => p.source))];
+    const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
     setUniqueBuckets(buckets);
   });
 
@@ -72,23 +74,23 @@ function SearchPage() {
 
   return (
     <div class="p-4">
-      <div class="max-w-3xl mx-auto">
-        <div class="flex items-center gap-2 mb-4">
+      <div class="mx-auto max-w-3xl">
+        <div class="mb-4 flex items-center gap-2">
           <div class="flex-1">
             <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
           </div>
           <button
             class="btn btn-square tooltip tooltip-top hover:btn-outline"
-            data-tip={t("search.refreshResults")}
+            data-tip={t('search.refreshResults')}
             onClick={handleRefresh}
             disabled={refreshing() || !searchTerm()}
           >
-            <RefreshCw class={`w-5 h-5 ${refreshing() || loading() ? 'animate-spin' : ''}`} />
+            <RefreshCw class={`h-5 w-5 ${refreshing() || loading() ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* Tabs and bucket filter on the same line */}
-        <div class="flex justify-between items-center mb-6">
+        <div class="mb-6 flex items-center justify-between">
           <div class="flex-1">
             <SearchResultsTabs
               activeTab={activeTab}
@@ -103,8 +105,8 @@ function SearchPage() {
               value={bucketFilter()}
               onChange={(e) => setBucketFilter(e.currentTarget.value)}
             >
-              <option value="">{t("search.filter.allBuckets")}</option>
-              {uniqueBuckets().map(bucket => (
+              <option value="">{t('search.filter.allBuckets')}</option>
+              {uniqueBuckets().map((bucket) => (
                 <option value={bucket}>{bucket}</option>
               ))}
             </select>

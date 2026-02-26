@@ -1,15 +1,15 @@
-import { For, Show, createSignal, createMemo, onMount } from "solid-js";
-import PackageInfoModal from "../components/PackageInfoModal";
-import ScoopStatusModal from "../components/ScoopStatusModal";
-import OperationModal from "../components/OperationModal";
-import { useInstalledPackages } from "../hooks/useInstalledPackages";
-import InstalledPageHeader from "../components/page/installed/InstalledPageHeader";
-import PackageListView from "../components/page/installed/PackageListView";
-import PackageGridView from "../components/page/installed/PackageGridView";
-import { View } from "../types/scoop";
-import { createTauriSignal } from "../hooks/createTauriSignal";
-import FloatingConfirmationPanel from "../components/ChangeBucketModal";
-import { t } from "../i18n";
+import { For, Show, createSignal, createMemo, onMount } from 'solid-js';
+import PackageInfoModal from '../components/PackageInfoModal';
+import ScoopStatusModal from '../components/ScoopStatusModal';
+import OperationModal from '../components/OperationModal';
+import { useInstalledPackages } from '../hooks/useInstalledPackages';
+import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
+import PackageListView from '../components/page/installed/PackageListView';
+import PackageGridView from '../components/page/installed/PackageGridView';
+import { View } from '../types/scoop';
+import { createTauriSignal } from '../hooks/createTauriSignal';
+import FloatingConfirmationPanel from '../components/ChangeBucketModal';
+import { t } from '../i18n';
 
 interface InstalledPageProps {
   onNavigate?: (view: View) => void;
@@ -23,10 +23,16 @@ function InstalledPage(props: InstalledPageProps) {
     updatableCount,
     uniqueBuckets,
     isCheckingForUpdates,
-    viewMode, setViewMode,
-    sortKey, sortDirection,
-    selectedBucket, setSelectedBucket,
-    selectedPackage, info, infoLoading, infoError,
+    viewMode,
+    setViewMode,
+    sortKey,
+    sortDirection,
+    selectedBucket,
+    setSelectedBucket,
+    selectedPackage,
+    info,
+    infoLoading,
+    infoError,
     setOperationTitle,
     operationTitle,
     operationNextStep,
@@ -60,10 +66,10 @@ function InstalledPage(props: InstalledPageProps) {
     handleChangeBucketCancel,
     handleCloseOperationModal,
     // Buckets for selection
-    buckets
+    buckets,
   } = useInstalledPackages();
 
-  const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', "");
+  const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', '');
   const [showStatusModal, setShowStatusModal] = createSignal(false);
 
   // Execute a silent refresh when the component mounts
@@ -80,7 +86,7 @@ function InstalledPage(props: InstalledPageProps) {
     const query = searchQuery().toLowerCase();
     if (!query) return processedPackages();
 
-    return processedPackages().filter(p => p.name.toLowerCase().includes(query));
+    return processedPackages().filter((p) => p.name.toLowerCase().includes(query));
   });
 
   return (
@@ -104,28 +110,53 @@ function InstalledPage(props: InstalledPageProps) {
       />
 
       <Show when={loading()}>
-        <div class="flex justify-center items-center h-64">
+        <div class="flex h-64 items-center justify-center">
           <span class="loading loading-spinner loading-lg"></span>
         </div>
       </Show>
 
       <Show when={error()}>
         <div role="alert" class="alert alert-error">
-          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6 shrink-0 stroke-current"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
           <span>Error: {error()}</span>
-          <button class="btn btn-sm btn-primary" onClick={() => fetchInstalledPackages()}>Try Again</button>
+          <button class="btn btn-sm btn-primary" onClick={() => fetchInstalledPackages()}>
+            Try Again
+          </button>
         </div>
       </Show>
 
       <Show when={!loading() && !error() && filteredPackages().length === 0}>
         <div class="flex flex-col items-center justify-center py-16 text-center">
-          <div class="bg-base-300 rounded-full p-4 mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+          <div class="bg-base-300 mb-6 rounded-full p-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="text-base-content/50 h-16 w-16"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
+              />
             </svg>
           </div>
-          <h3 class="text-2xl font-bold mb-2">{t('noPackagesFound.title')}</h3>
-          <p class="text-lg text-base-content/70 mb-6 max-w-md">
+          <h3 class="mb-2 text-2xl font-bold">{t('noPackagesFound.title')}</h3>
+          <p class="text-base-content/70 mb-6 max-w-md text-lg">
             <Show when={searchQuery() || selectedBucket() !== 'all'}>
               {t('noPackagesFound.noMatchCriteria')}
             </Show>
@@ -137,18 +168,15 @@ function InstalledPage(props: InstalledPageProps) {
             <button
               class="btn btn-primary mb-4"
               onClick={() => {
-                setSearchQuery("");
-                setSelectedBucket("all");
+                setSearchQuery('');
+                setSelectedBucket('all');
               }}
             >
               {t('noPackagesFound.clearFilters')}
             </button>
           </Show>
           <Show when={!searchQuery() && selectedBucket() === 'all'}>
-            <button
-              class="btn btn-primary"
-              onClick={() => props.onNavigate?.("search")}
-            >
+            <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
               {t('noPackagesFound.browsePackages')}
             </button>
           </Show>
@@ -156,20 +184,23 @@ function InstalledPage(props: InstalledPageProps) {
       </Show>
 
       <Show when={!loading() && !error() && filteredPackages().length > 0}>
-        <Show when={viewMode() === 'list'}
-          fallback={<PackageGridView
-            packages={filteredPackages}
-            onViewInfo={handleFetchPackageInfo}
-            onViewInfoForVersions={handleFetchPackageInfoForVersions}
-            onUpdate={handleUpdate}
-            onHold={handleHold}
-            onUnhold={handleUnhold}
-            onSwitchVersion={handleSwitchVersion}
-            onUninstall={handleUninstall}
-            onChangeBucket={handleOpenChangeBucket}
-            operatingOn={operatingOn}
-            isPackageVersioned={isPackageVersioned}
-          />}
+        <Show
+          when={viewMode() === 'list'}
+          fallback={
+            <PackageGridView
+              packages={filteredPackages}
+              onViewInfo={handleFetchPackageInfo}
+              onViewInfoForVersions={handleFetchPackageInfoForVersions}
+              onUpdate={handleUpdate}
+              onHold={handleHold}
+              onUnhold={handleUnhold}
+              onSwitchVersion={handleSwitchVersion}
+              onUninstall={handleUninstall}
+              onChangeBucket={handleOpenChangeBucket}
+              operatingOn={operatingOn}
+              isPackageVersioned={isPackageVersioned}
+            />
+          }
         >
           <PackageListView
             packages={filteredPackages}
@@ -206,20 +237,23 @@ function InstalledPage(props: InstalledPageProps) {
                 onInput={(e) => setNewBucketName(e.currentTarget.value)}
                 class="select select-bordered w-full max-w-xs"
               >
-                <option value="" disabled>{t('packageInfo.bucket')}</option>
+                <option value="" disabled>
+                  {t('packageInfo.bucket')}
+                </option>
                 <For each={buckets()}>
-                  {(bucket) => (
-                    <option value={bucket.name}>{bucket.name}</option>
-                  )}
+                  {(bucket) => <option value={bucket.name}>{bucket.name}</option>}
                 </For>
               </select>
-              <div class="text-sm text-base-content/70 mt-2">
+              <div class="text-base-content/70 mt-2 text-sm">
                 {t('packageInfo.current')}: {currentPackageForBucketChange()?.source}
               </div>
             </div>
-            <div class="p-3 bg-info/10 rounded-lg border border-info/20">
-              <p class="text-xs text-info-content/85">
-                <strong class="text-yellow-800 dark:text-yellow-200">{t('packageInfo.warning')}:</strong> {t('packageInfo.ensureSoftwarePresent')}
+            <div class="bg-info/10 border-info/20 rounded-lg border p-3">
+              <p class="text-info-content/85 text-xs">
+                <strong class="text-yellow-800 dark:text-yellow-200">
+                  {t('packageInfo.warning')}:
+                </strong>{' '}
+                {t('packageInfo.ensureSoftwarePresent')}
               </p>
             </div>
           </div>

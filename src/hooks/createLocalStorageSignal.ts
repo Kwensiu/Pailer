@@ -1,9 +1,6 @@
-import { createSignal, createEffect, Signal, createRoot } from "solid-js";
+import { createSignal, createEffect, Signal, createRoot } from 'solid-js';
 
-export function createLocalStorageSignal<T>(
-  key: string,
-  initialValue: T,
-): Signal<T> {
+export function createLocalStorageSignal<T>(key: string, initialValue: T): Signal<T> {
   return createRoot(() => {
     // 同步读取 localStorage
     let storedValue: T | undefined;
@@ -15,9 +12,9 @@ export function createLocalStorageSignal<T>(
     } catch (error) {
       console.error(`Error reading ${key} from localStorage:`, error);
     }
-    
+
     const [value, setValue] = createSignal<T>(storedValue ?? initialValue);
-    
+
     // 同步保存到 localStorage
     createEffect(() => {
       try {
@@ -26,7 +23,7 @@ export function createLocalStorageSignal<T>(
         console.error(`Error saving ${key} to localStorage:`, error);
       }
     });
-    
+
     return [value, setValue];
   });
 }

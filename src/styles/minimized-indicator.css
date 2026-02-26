@@ -27,7 +27,9 @@
   border-color: rgba(156, 163, 175, 0.3) !important; /* fallback border - 灰色边框 */
   border-radius: 0.5rem;
   padding: 0.75rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.15),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   /* 减小固定宽度 - 从300px减少到240px */
@@ -41,14 +43,16 @@
 }
 
 /* 亮色主题下的背景 */
-[data-theme="light"] .minimized-indicator {
+[data-theme='light'] .minimized-indicator {
   background-color: rgba(64, 64, 64, 0.9) !important; /* 更深的背景色 - 深灰色 */
   border-color: rgba(0, 0, 0, 0.3) !important; /* 浅灰色边框 */
 }
 
 /* 指示器悬停效果 */
 .minimized-indicator:hover {
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.15);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.2),
+    0 4px 6px -4px rgb(0 0 0 / 0.15);
   border-color: var(--fallback-b3, oklch(var(--b3)));
   background-color: var(--fallback-b2, oklch(var(--b2) / 1)); /* 悬停时背景稍微变亮 */
 }
@@ -149,7 +153,7 @@
     right: 0.5rem;
     gap: 0.25rem;
   }
-  
+
   /* 保持指示器大小不变，只调整位置 */
   .minimized-indicator {
     /* 保持减小的固定大小 */
@@ -158,7 +162,7 @@
     max-width: 240px;
     padding: 0.75rem; /* 保持原内边距 */
   }
-  
+
   .minimized-indicator__title {
     font-size: 0.875rem; /* 保持原字体大小 */
   }
@@ -174,7 +178,7 @@
     max-height: none;
     overflow-x: auto;
   }
-  
+
   /* 保持指示器大小不变，只调整排列方式 */
   .minimized-indicator {
     transform: translateX(calc(var(--index) * 250px)); /* 水平排列，保持减小宽度 + 间距 */
@@ -183,11 +187,11 @@
     min-width: 240px;
     max-width: 240px;
   }
-  
+
   .minimized-indicator:hover {
     transform: translateX(calc(var(--index) * 250px)) scale(1.02);
   }
-  
+
   @keyframes minimized-indicator-enter {
     from {
       opacity: 0;
@@ -198,7 +202,7 @@
       transform: translateX(calc(var(--index) * 250px)) scale(1);
     }
   }
-  
+
   @keyframes minimized-indicator-exit {
     from {
       opacity: 1;
@@ -217,11 +221,11 @@
     background: var(--fallback-b2, oklch(var(--b2)));
     border-color: var(--fallback-bc, oklch(var(--bc) / 0.2));
   }
-  
+
   .minimized-indicator:hover {
     border-color: var(--fallback-b3, oklch(var(--b3)));
   }
-  
+
   .minimized-indicator__close {
     background: var(--fallback-b1, oklch(var(--b1)));
   }
@@ -233,7 +237,7 @@
     border-width: 2px;
     border-color: var(--fallback-bc, oklch(var(--bc)));
   }
-  
+
   .minimized-indicator:focus {
     outline-width: 3px;
   }
@@ -245,11 +249,11 @@
     transition: none;
     animation: none;
   }
-  
+
   .minimized-indicator:hover {
     transform: none;
   }
-  
+
   .minimized-indicator__close {
     transition: none;
   }

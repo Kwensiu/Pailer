@@ -21,12 +21,12 @@ export function formatIsoDate(isoString: string): string {
  * @returns Formatted date string or "Unknown" for invalid/empty input
  */
 export function formatBucketDate(dateString: string | undefined): string {
-  if (!dateString) return "Unknown";
-  
+  if (!dateString) return 'Unknown';
+
   try {
     return new Date(dateString).toLocaleDateString();
   } catch (error) {
     console.error('Failed to format bucket date:', dateString, error);
-    return "Invalid Date";
+    return 'Invalid Date';
   }
 }

@@ -1,18 +1,18 @@
-import { createSignal, onMount, Show, onCleanup } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { useBuckets, type BucketInfo } from "../hooks/useBuckets";
-import { usePackageInfo } from "../hooks/usePackageInfo";
-import { usePackageOperations } from "../hooks/usePackageOperations";
-import { createTauriSignal } from "../hooks/createTauriSignal";
-import { ScoopPackage } from "../types/scoop";
-import BucketInfoModal from "../components/BucketInfoModal";
-import PackageInfoModal from "../components/PackageInfoModal";
-import OperationModal from "../components/OperationModal";
-import BucketSearch from "../components/page/buckets/BucketSearch";
-import BucketGrid from "../components/page/buckets/BucketGrid";
-import BucketSearchResults from "../components/page/buckets/BucketSearchResults";
-import { SearchableBucket } from "../hooks/useBucketSearch";
-import { t } from "../i18n";
+import { createSignal, onMount, Show, onCleanup } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import { useBuckets, type BucketInfo } from '../hooks/useBuckets';
+import { usePackageInfo } from '../hooks/usePackageInfo';
+import { usePackageOperations } from '../hooks/usePackageOperations';
+import { createTauriSignal } from '../hooks/createTauriSignal';
+import { ScoopPackage } from '../types/scoop';
+import BucketInfoModal from '../components/BucketInfoModal';
+import PackageInfoModal from '../components/PackageInfoModal';
+import OperationModal from '../components/OperationModal';
+import BucketSearch from '../components/page/buckets/BucketSearch';
+import BucketGrid from '../components/page/buckets/BucketGrid';
+import BucketSearchResults from '../components/page/buckets/BucketSearchResults';
+import { SearchableBucket } from '../hooks/useBucketSearch';
+import { t } from '../i18n';
 
 interface BucketUpdateResult {
   success: boolean;
@@ -30,13 +30,15 @@ type UpdateState = {
 };
 
 function BucketPage() {
-  const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests, cleanup } = useBuckets();
+  const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests, cleanup } =
+    useBuckets();
   const packageInfo = usePackageInfo();
   const packageOperations = usePackageOperations();
 
-
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
-  const [selectedBucketDescription, setSelectedBucketDescription] = createSignal<string | undefined>(undefined);
+  const [selectedBucketDescription, setSelectedBucketDescription] = createSignal<
+    string | undefined
+  >(undefined);
   const [manifests, setManifests] = createSignal<string[]>([]);
   const [manifestsLoading, setManifestsLoading] = createSignal(false);
 
@@ -55,7 +57,7 @@ function BucketPage() {
     status: 'idle',
     current: 0,
     total: 0,
-    message: ""
+    message: '',
   });
 
   let resultTimerIds: Map<string, number> = new Map();
@@ -102,11 +104,13 @@ function BucketPage() {
   };
 
   // Additional state for external bucket modal
-  const [selectedSearchBucket, setSelectedSearchBucket] = createSignal<SearchableBucket | null>(null);
+  const [selectedSearchBucket, setSelectedSearchBucket] = createSignal<SearchableBucket | null>(
+    null
+  );
 
   const handleSearchBucketSelect = async (searchBucket: SearchableBucket) => {
     // First check if this bucket is already installed locally
-    const installedBucket = buckets().find(b => b.name === searchBucket.name);
+    const installedBucket = buckets().find((b) => b.name === searchBucket.name);
 
     if (installedBucket) {
       // Bucket is installed locally - use the regular handler to show manifests
@@ -119,7 +123,7 @@ function BucketPage() {
         path: searchBucket.url, // Use URL as path for external buckets
         is_git_repo: true,
         git_url: searchBucket.url,
-        git_branch: "main", // Default branch
+        git_branch: 'main', // Default branch
         last_updated: searchBucket.last_updated,
         manifest_count: searchBucket.apps,
       };
@@ -144,18 +148,17 @@ function BucketPage() {
     // Create a ScoopPackage object for the package info modal
     const pkg: ScoopPackage = {
       name: packageName,
-      version: "", // Will be fetched by package info
+      version: '', // Will be fetched by package info
       source: bucketName,
-      updated: "",
+      updated: '',
       is_installed: false, // Will be determined by package info
-      info: "",
-      match_source: "name"
+      info: '',
+      match_source: 'name',
     };
 
     // Simply open package info modal - bucket modal stays open underneath
     await packageInfo.fetchPackageInfo(pkg);
   };
-
 
   // Handle bucket installation/removal - refresh bucket list
   const handleBucketInstalled = async () => {
@@ -179,17 +182,17 @@ function BucketPage() {
   // Handle updating a single bucket
   const handleUpdateBucket = async (bucketName: string, shouldRefreshBuckets: boolean = true) => {
     // Add to updating set
-    setUpdatingBuckets(prev => new Set([...prev, bucketName]));
+    setUpdatingBuckets((prev) => new Set([...prev, bucketName]));
 
     try {
-      const result = await invoke<BucketUpdateResult>("update_bucket", {
-        bucketName: bucketName
+      const result = await invoke<BucketUpdateResult>('update_bucket', {
+        bucketName: bucketName,
       });
 
       // Store result message
-      setUpdateResults(prev => ({
+      setUpdateResults((prev) => ({
         ...prev,
-        [bucketName]: result.message
+        [bucketName]: result.message,
       }));
 
       if (result.success) {
@@ -210,7 +213,7 @@ function BucketPage() {
 
       // Clear result message after 2 seconds to avoid long display
       const timerId = window.setTimeout(() => {
-        setUpdateResults(prev => {
+        setUpdateResults((prev) => {
           const newResults = { ...prev };
           delete newResults[bucketName];
           return newResults;
@@ -223,13 +226,13 @@ function BucketPage() {
       return result; // Return the result
     } catch (error) {
       console.error('Failed to update bucket:', bucketName, error);
-      setUpdateResults(prev => ({
+      setUpdateResults((prev) => ({
         ...prev,
-        [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`
+        [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`,
       }));
 
       const timerId = window.setTimeout(() => {
-        setUpdateResults(prev => {
+        setUpdateResults((prev) => {
           const newResults = { ...prev };
           delete newResults[bucketName];
           return newResults;
@@ -242,7 +245,7 @@ function BucketPage() {
       throw error; // Re-throw the error
     } finally {
       // Remove from updating set in all cases
-      setUpdatingBuckets(prev => {
+      setUpdatingBuckets((prev) => {
         const newSet = new Set(prev);
         newSet.delete(bucketName);
         return newSet;
@@ -255,14 +258,14 @@ function BucketPage() {
     // If we're cancelling or already updating, don't start a new update
     if (updateState().status === 'updating') return;
 
-    const gitBuckets = buckets().filter(bucket => bucket.is_git_repo);
+    const gitBuckets = buckets().filter((bucket) => bucket.is_git_repo);
 
     // Set updating all flag to prevent full page reload
     setUpdateState({
       status: 'updating',
       current: 0,
       total: gitBuckets.length,
-      message: "Starting updates..."
+      message: 'Starting updates...',
     });
 
     // Flag to track cancellation
@@ -272,16 +275,16 @@ function BucketPage() {
     const cancellable = {
       cancel: () => {
         cancelled = true;
-        setUpdateState(prev => ({
+        setUpdateState((prev) => ({
           ...prev,
           status: 'cancelled',
-          message: "Cancelling..."
+          message: 'Cancelling...',
         }));
 
         // Refresh bucket list when cancelled
         markForRefresh();
         fetchBuckets(true, true);
-      }
+      },
     };
 
     currentUpdateOperation = cancellable;
@@ -292,9 +295,9 @@ function BucketPage() {
         // Check if cancelled before starting
         if (cancelled) return Promise.resolve();
 
-        setUpdateState(prev => ({
+        setUpdateState((prev) => ({
           ...prev,
-          message: `Updating ${bucket.name} (${index + 1}/${gitBuckets.length})`
+          message: `Updating ${bucket.name} (${index + 1}/${gitBuckets.length})`,
         }));
 
         // Update bucket but don't refresh the bucket list yet
@@ -304,18 +307,18 @@ function BucketPage() {
           // Check if cancelled after update
           if (cancelled) return Promise.resolve();
 
-          setUpdateState(prev => ({
+          setUpdateState((prev) => ({
             ...prev,
-            current: prev.current + 1
+            current: prev.current + 1,
           }));
 
           return result;
         } catch (error) {
           console.error(`Failed to update bucket ${bucket.name}:`, error);
 
-          setUpdateState(prev => ({
+          setUpdateState((prev) => ({
             ...prev,
-            current: prev.current + 1
+            current: prev.current + 1,
           }));
 
           return Promise.resolve();
@@ -333,27 +336,27 @@ function BucketPage() {
       await fetchBuckets(true, true);
 
       // Show completion state
-      setUpdateState(prev => ({
+      setUpdateState((prev) => ({
         ...prev,
         status: 'completed',
-        message: "Complete"
+        message: 'Complete',
       }));
     } catch (error) {
       // Check if this is a cancellation
       if (cancelled) {
-        setUpdateState(prev => ({
+        setUpdateState((prev) => ({
           ...prev,
           status: 'cancelled',
-          message: "Cancelled"
+          message: 'Cancelled',
         }));
         return;
       }
 
-      console.error("Error updating all buckets:", error);
-      setUpdateState(prev => ({
+      console.error('Error updating all buckets:', error);
+      setUpdateState((prev) => ({
         ...prev,
         status: 'error',
-        message: "Error occurred during update"
+        message: 'Error occurred during update',
       }));
     } finally {
       // Clear updating all flag and hide progress bar after delay
@@ -362,17 +365,17 @@ function BucketPage() {
       }
 
       stateTimerId = window.setTimeout(() => {
-        setUpdateState(prev => ({
+        setUpdateState((prev) => ({
           ...prev,
-          status: 'idle'
+          status: 'idle',
         }));
       }, 300);
 
       // Hide progress bar after 3 seconds
       const progressBarTimerId = window.setTimeout(() => {
-        setUpdateState(prev => ({
+        setUpdateState((prev) => ({
           ...prev,
-          status: prev.status === 'completed' ? 'idle' : prev.status
+          status: prev.status === 'completed' ? 'idle' : prev.status,
         }));
 
         window.clearTimeout(progressBarTimerId);
@@ -412,15 +415,17 @@ function BucketPage() {
 
   return (
     <div class="p-6">
-      <div class="max-w-6xl mx-auto">
+      <div class="mx-auto max-w-6xl">
         {/* Header Section */}
-        <div class={`mb-6 relative transition-all duration-300 ${isSearchActive() ? 'mb-32' : 'mb-6'}`}>
+        <div
+          class={`relative mb-6 transition-all duration-300 ${isSearchActive() ? 'mb-32' : 'mb-6'}`}
+        >
           <div class="flex items-center justify-between">
-            <div class={`transition-all duration-300 ${isSearchActive() ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-              <h1 class="text-3xl font-bold mb-2">{t("app.buckets")}</h1>
-              <p class="text-base-content/70">
-                {t("bucket.page.description")}
-              </p>
+            <div
+              class={`transition-all duration-300 ${isSearchActive() ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+            >
+              <h1 class="mb-2 text-3xl font-bold">{t('app.buckets')}</h1>
+              <p class="text-base-content/70">{t('bucket.page.description')}</p>
             </div>
 
             <BucketSearch
@@ -441,8 +446,11 @@ function BucketPage() {
         {/* Main Content */}
         {/* Search Results */}
         <Show when={isSearchActive()}>
-          <div class={`transition-all duration-300 ${isSearchActive() ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}>
+          <div
+            class={`transition-all duration-300 ${
+              isSearchActive() ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`}
+          >
             <div class="card bg-base-100">
               <div class="card-body">
                 <BucketSearchResults
@@ -462,22 +470,24 @@ function BucketPage() {
 
         {/* Progress bar for updating all buckets */}
         <Show when={updateState().status !== 'idle'}>
-          <div class="mt-0 p-4 bg-base-100 rounded-lg shadow transition-opacity duration-300">
-            <div class="flex justify-between mb-1">
-              <span class="text-base font-medium">
-                Updating Buckets
-              </span>
+          <div class="bg-base-100 mt-0 rounded-lg p-4 shadow transition-opacity duration-300">
+            <div class="mb-1 flex justify-between">
+              <span class="text-base font-medium">Updating Buckets</span>
               <span class="text-sm font-medium">
                 {updateState().current}/{updateState().total}
               </span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="h-2.5 w-full rounded-full bg-gray-200">
               <div
-                class={`h-2.5 rounded-full transition-all duration-300 ${updateState().status === 'completed' ? 'bg-green-500' :
-                  updateState().status === 'error' ? 'bg-red-500' : 'bg-orange-500'
-                  }`}
+                class={`h-2.5 rounded-full transition-all duration-300 ${
+                  updateState().status === 'completed'
+                    ? 'bg-green-500'
+                    : updateState().status === 'error'
+                      ? 'bg-red-500'
+                      : 'bg-orange-500'
+                }`}
                 style={{
-                  width: `${(updateState().current / Math.max(updateState().total, 1)) * 100}%`
+                  width: `${(updateState().current / Math.max(updateState().total, 1)) * 100}%`,
                 }}
               ></div>
             </div>
@@ -492,8 +502,11 @@ function BucketPage() {
 
         {/* Regular Buckets View */}
         <Show when={!isSearchActive()}>
-          <div class={`transition-all duration-300 ${!isSearchActive() ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}>
+          <div
+            class={`transition-all duration-300 ${
+              !isSearchActive() ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`}
+          >
             <div class="card bg-base-100">
               <div class="card-body">
                 <BucketGrid
@@ -509,8 +522,6 @@ function BucketPage() {
                   isUpdatingAll={updateState().status === 'updating'}
                   isCancelling={updateState().status === 'cancelled'}
                 />
-
-
               </div>
             </div>
           </div>
@@ -559,15 +570,18 @@ function BucketPage() {
             const currentSelected = packageInfo.selectedPackage();
             if (currentSelected) {
               try {
-                const response = await invoke<{ packages: ScoopPackage[], is_cold: boolean }>("search_scoop", {
-                  term: currentSelected.name,
-                });
-                const match = response.packages.find(p => p.name === currentSelected.name);
+                const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
+                  'search_scoop',
+                  {
+                    term: currentSelected.name,
+                  }
+                );
+                const match = response.packages.find((p) => p.name === currentSelected.name);
                 if (match) {
                   packageInfo.updateSelectedPackage(match);
                 }
               } catch (e) {
-                console.error("Failed to check package status", e);
+                console.error('Failed to check package status', e);
               }
             }
           }

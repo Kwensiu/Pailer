@@ -1,8 +1,8 @@
-import { createRoot } from "solid-js";
-import { createStore } from "solid-js/store";
-import { Store } from "@tauri-apps/plugin-store";
-import { invoke } from "@tauri-apps/api/core";
-import { View } from "../types/scoop";
+import { createRoot } from 'solid-js';
+import { createStore } from 'solid-js/store';
+import { Store } from '@tauri-apps/plugin-store';
+import { invoke } from '@tauri-apps/api/core';
+import { View } from '../types/scoop';
 
 /// Current store file name for frontend settings
 const STORE_NAME = 'settings.json';
@@ -82,16 +82,16 @@ const defaultSettings: Settings = {
     preserveVersionCount: 3,
   },
   buckets: {
-    autoUpdateInterval: "off",
+    autoUpdateInterval: 'off',
     autoUpdatePackagesEnabled: false,
     silentUpdateEnabled: false,
     updateHistoryEnabled: true, // 默认启用
   },
   update: {
-    channel: "stable",
+    channel: 'stable',
   },
-  defaultLaunchPage: "installed",
-  language: "en",
+  defaultLaunchPage: 'installed',
+  language: 'en',
   trayAppsList: [],
   powershell: {
     executable: 'auto',
@@ -102,10 +102,10 @@ function createSettingsStore() {
   // Initialize the Tauri store
   const initStore = async () => {
     if (storeInitialized) return globalStore;
-    
+
     globalStore = await getSettingsStore();
     storeInitialized = true;
-    
+
     // First-time setup: migrate from localStorage if exists
     try {
       const localStorageData = localStorage.getItem('pailer-settings');
@@ -118,7 +118,7 @@ function createSettingsStore() {
     } catch (error) {
       console.error('Error migrating settings from localStorage:', error);
     }
-    
+
     return globalStore;
   };
 
@@ -140,10 +140,10 @@ function createSettingsStore() {
 
   const getInitialSettings = async (): Promise<Settings> => {
     const storeInstance = await initStore();
-    
+
     // Check for factory reset marker
     const needsFactoryReset = await checkFactoryReset();
-    
+
     if (needsFactoryReset) {
       // Clear any existing settings and return defaults
       if (storeInstance) {
@@ -155,7 +155,7 @@ function createSettingsStore() {
       }
       return { ...defaultSettings, ...getFirstLaunchDefaults() };
     }
-    
+
     if (storeInstance) {
       try {
         const stored = await storeInstance.get<Settings>('settings');
@@ -171,7 +171,8 @@ function createSettingsStore() {
               ...defaultSettings.window,
               ...stored.window,
               silentStartup: stored.window?.silentStartup ?? defaultSettings.window.silentStartup,
-              trayAppsEnabled: stored.window?.trayAppsEnabled ?? defaultSettings.window.trayAppsEnabled,
+              trayAppsEnabled:
+                stored.window?.trayAppsEnabled ?? defaultSettings.window.trayAppsEnabled,
             },
             theme: stored.theme || defaultSettings.theme,
             debug: {
@@ -185,7 +186,8 @@ function createSettingsStore() {
             buckets: {
               ...defaultSettings.buckets,
               ...stored.buckets,
-              silentUpdateEnabled: stored.buckets?.silentUpdateEnabled ?? defaultSettings.buckets.silentUpdateEnabled,
+              silentUpdateEnabled:
+                stored.buckets?.silentUpdateEnabled ?? defaultSettings.buckets.silentUpdateEnabled,
             },
             update: {
               ...defaultSettings.update,
@@ -193,7 +195,12 @@ function createSettingsStore() {
             },
             defaultLaunchPage: stored.defaultLaunchPage || defaultSettings.defaultLaunchPage,
             scoopPath: stored.scoopPath,
-            language: stored.language || (() => { console.log('No stored language, detecting system language'); return detectSystemLanguage(); })(),
+            language:
+              stored.language ||
+              (() => {
+                console.log('No stored language, detecting system language');
+                return detectSystemLanguage();
+              })(),
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
             powershell: {
               executable: stored.powershell?.executable || defaultSettings.powershell.executable,
@@ -228,16 +235,16 @@ function createSettingsStore() {
     setSettings(initialSettings);
     // Initialize backend PowerShell exe from settings
     try {
-      await invoke("set_powershell_exe", { exe: initialSettings.powershell.executable });
+      await invoke('set_powershell_exe', { exe: initialSettings.powershell.executable });
     } catch (error) {
-      console.error("Failed to initialize PowerShell exe in backend:", error);
+      console.error('Failed to initialize PowerShell exe in backend:', error);
     }
   })();
 
   const saveSettings = async (newSettings: Partial<Settings>) => {
-    setSettings(prev => {
+    setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-      
+
       // Save to Tauri store
       (async () => {
         try {
@@ -249,7 +256,7 @@ function createSettingsStore() {
           console.error('Error saving settings to store:', error);
         }
       })();
-      
+
       return updated;
     });
   };
@@ -318,7 +325,7 @@ function createSettingsStore() {
 
   const setPowershellSettings = async (newPowershellSettings: Partial<Settings['powershell']>) => {
     try {
-      await invoke("set_powershell_exe", { exe: newPowershellSettings.executable! });
+      await invoke('set_powershell_exe', { exe: newPowershellSettings.executable! });
       // Only update frontend if backend succeeds
       await saveSettings({
         powershell: {
@@ -327,7 +334,7 @@ function createSettingsStore() {
         },
       });
     } catch (error) {
-      console.error("Failed to update PowerShell exe in backend:", error);
+      console.error('Failed to update PowerShell exe in backend:', error);
       // Do not update frontend
     }
   };
@@ -336,7 +343,19 @@ function createSettingsStore() {
     await saveSettings(newCoreSettings);
   };
 
-  return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setPowershellSettings, setCoreSettings };
+  return {
+    settings,
+    setVirusTotalSettings,
+    setWindowSettings,
+    setDebugSettings,
+    setCleanupSettings,
+    setBucketSettings,
+    setUpdateSettings,
+    setTheme,
+    setDefaultLaunchPage,
+    setPowershellSettings,
+    setCoreSettings,
+  };
 }
 
 export default createRoot(createSettingsStore);

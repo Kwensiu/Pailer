@@ -60,7 +60,7 @@ function getSourceFiles(dirs, extensions = ['.ts', '.tsx', '.js', '.jsx']) {
       }
     }
   }
-  dirs.forEach(dir => walk(dir, extensions));
+  dirs.forEach((dir) => walk(dir, extensions));
   return files;
 }
 
@@ -82,13 +82,13 @@ function isKeyUsed(key, filePath) {
       `"${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`
     );
   }
-  return patterns.some(pattern => new RegExp(pattern, 'g').test(content));
+  return patterns.some((pattern) => new RegExp(pattern, 'g').test(content));
 }
 
 // Create readline interface
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 // Main function
@@ -112,13 +112,15 @@ async function findUnusedKeys() {
       }
     }
 
-    let unusedKeys = allKeys.filter(key => !usedKeys.has(key));
+    let unusedKeys = allKeys.filter((key) => !usedKeys.has(key));
 
     // Exclude backend-used keys (e.g., tray section used in Rust)
-    unusedKeys = unusedKeys.filter(key => !key.startsWith('settings.tray.') && !key.startsWith('settings.bucketAutoUpdate.'));
+    unusedKeys = unusedKeys.filter(
+      (key) => !key.startsWith('settings.tray.') && !key.startsWith('settings.bucketAutoUpdate.')
+    );
 
     console.log('Unused keys:');
-    unusedKeys.forEach(key => console.log(`- ${key}`));
+    unusedKeys.forEach((key) => console.log(`- ${key}`));
     console.log(`\nFound ${unusedKeys.length} unused keys.`);
 
     if (unusedKeys.length === 0) {
@@ -126,7 +128,7 @@ async function findUnusedKeys() {
       return;
     }
 
-    const answer = await new Promise(resolve => {
+    const answer = await new Promise((resolve) => {
       rl.question('Do you want to delete these unused keys? (y/n): ', resolve);
     });
 

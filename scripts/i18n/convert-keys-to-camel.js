@@ -44,13 +44,13 @@ async function convertToCamelCase() {
     console.log('Keys will be converted from snake_case to camelCase.');
     console.log('English locale file:', path.relative(__dirname, baseLocalePath));
     console.log('Chinese locale file:', path.relative(__dirname, zhLocalePath));
-    
+
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
-    const answer = await new Promise(resolve => {
+    const answer = await new Promise((resolve) => {
       rl.question('Do you want to proceed with the conversion? (y/N): ', (input) => {
         rl.close();
         resolve(input.toLowerCase());

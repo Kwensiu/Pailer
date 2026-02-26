@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { createSignal } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 
 export interface BucketInstallOptions {
   name: string;
@@ -37,8 +37,12 @@ export function useBucketInstall() {
   });
 
   // Helper to update specific bucket operation state
-  const updateBucketState = (bucketName: string, operation: 'install' | 'remove', isActive: boolean) => {
-    setState(prev => {
+  const updateBucketState = (
+    bucketName: string,
+    operation: 'install' | 'remove',
+    isActive: boolean
+  ) => {
+    setState((prev) => {
       const newState = { ...prev };
       if (operation === 'install') {
         const newSet = new Set(prev.installingBuckets);
@@ -64,25 +68,25 @@ export function useBucketInstall() {
   };
 
   const validateBucketInstall = async (name: string, url: string): Promise<BucketInstallResult> => {
-    setState(prev => ({ ...prev, isValidating: true, error: null }));
-    
+    setState((prev) => ({ ...prev, isValidating: true, error: null }));
+
     try {
-      const result = await invoke<BucketInstallResult>("validate_bucket_install", {
+      const result = await invoke<BucketInstallResult>('validate_bucket_install', {
         name,
         url,
       });
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         isValidating: false,
         lastResult: result,
         error: result.success ? null : result.message,
       }));
-      
+
       return result;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Validation failed";
-      setState(prev => ({
+      const errorMsg = error instanceof Error ? error.message : 'Validation failed';
+      setState((prev) => ({
         ...prev,
         isValidating: false,
         error: errorMsg,
@@ -95,33 +99,33 @@ export function useBucketInstall() {
   const installBucket = async (options: BucketInstallOptions): Promise<BucketInstallResult> => {
     const bucketName = options.name || extractBucketNameFromUrl(options.url);
     updateBucketState(bucketName, 'install', true);
-    setState(prev => ({ ...prev, error: null }));
-    
+    setState((prev) => ({ ...prev, error: null }));
+
     try {
       console.log(`Starting installation of bucket: ${bucketName} from ${options.url}`);
-      const result = await invoke<BucketInstallResult>("install_bucket", {
+      const result = await invoke<BucketInstallResult>('install_bucket', {
         options,
       });
-      
+
       console.log(`Installation result for ${bucketName}:`, result);
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         lastResult: result,
         error: result.success ? null : result.message,
       }));
-      
+
       updateBucketState(bucketName, 'install', false);
-      
+
       if (result.success) {
         console.log(`✅ Successfully installed bucket: ${bucketName}`);
       }
-      
+
       return result;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Installation failed";
+      const errorMsg = error instanceof Error ? error.message : 'Installation failed';
       console.error(`❌ Installation failed for ${bucketName}:`, errorMsg);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMsg,
         lastResult: null,
@@ -133,33 +137,33 @@ export function useBucketInstall() {
 
   const updateBucket = async (bucketName: string): Promise<BucketInstallResult> => {
     updateBucketState(bucketName, 'install', true);
-    setState(prev => ({ ...prev, error: null }));
-    
+    setState((prev) => ({ ...prev, error: null }));
+
     try {
       console.log(`Starting update of bucket: ${bucketName}`);
-      const result = await invoke<BucketInstallResult>("update_bucket", {
+      const result = await invoke<BucketInstallResult>('update_bucket', {
         bucketName,
       });
-      
+
       console.log(`Update result for ${bucketName}:`, result);
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         lastResult: result,
         error: result.success ? null : result.message,
       }));
-      
+
       updateBucketState(bucketName, 'install', false);
-      
+
       if (result.success) {
         console.log(`✅ Successfully updated bucket: ${bucketName}`);
       }
-      
+
       return result;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Update failed";
+      const errorMsg = error instanceof Error ? error.message : 'Update failed';
       console.error(`❌ Update failed for ${bucketName}:`, errorMsg);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMsg,
         lastResult: null,
@@ -171,33 +175,33 @@ export function useBucketInstall() {
 
   const removeBucket = async (bucketName: string): Promise<BucketInstallResult> => {
     updateBucketState(bucketName, 'remove', true);
-    setState(prev => ({ ...prev, error: null }));
-    
+    setState((prev) => ({ ...prev, error: null }));
+
     try {
       console.log(`Starting removal of bucket: ${bucketName}`);
-      const result = await invoke<BucketInstallResult>("remove_bucket", {
+      const result = await invoke<BucketInstallResult>('remove_bucket', {
         bucketName,
       });
-      
+
       console.log(`Removal result for ${bucketName}:`, result);
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         lastResult: result,
         error: result.success ? null : result.message,
       }));
-      
+
       updateBucketState(bucketName, 'remove', false);
-      
+
       if (result.success) {
         console.log(`✅ Successfully removed bucket: ${bucketName}`);
       }
-      
+
       return result;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Removal failed";
+      const errorMsg = error instanceof Error ? error.message : 'Removal failed';
       console.error(`❌ Removal failed for ${bucketName}:`, errorMsg);
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         error: errorMsg,
         lastResult: null,
@@ -213,25 +217,34 @@ export function useBucketInstall() {
     if (url.includes('/') && !url.includes('://')) {
       const parts = url.split('/');
       if (parts.length === 2) {
-        return parts[1].toLowerCase().replace(/^scoop-/, '').replace(/^Scoop-/, '');
+        return parts[1]
+          .toLowerCase()
+          .replace(/^scoop-/, '')
+          .replace(/^Scoop-/, '');
       }
     }
-    
+
     // Handle full URLs
     try {
       const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
       const pathParts = urlObj.pathname.split('/').filter(Boolean);
       if (pathParts.length >= 2) {
         const repoName = pathParts[1].replace(/\.git$/, '');
-        return repoName.toLowerCase().replace(/^scoop-/, '').replace(/^Scoop-/, '');
+        return repoName
+          .toLowerCase()
+          .replace(/^scoop-/, '')
+          .replace(/^Scoop-/, '');
       }
     } catch {
       // Fallback: extract from the end of the URL
       const parts = url.replace(/\.git$/, '').split('/');
       const lastPart = parts[parts.length - 1];
-      return lastPart.toLowerCase().replace(/^scoop-/, '').replace(/^Scoop-/, '');
+      return lastPart
+        .toLowerCase()
+        .replace(/^scoop-/, '')
+        .replace(/^Scoop-/, '');
     }
-    
+
     return url.toLowerCase();
   };
 

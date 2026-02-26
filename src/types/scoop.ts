@@ -5,7 +5,7 @@ export interface ScoopPackage {
   updated: string;
   is_installed: boolean;
   info: string;
-  match_source: "name" | "binary" | "none" | "path";
+  match_source: 'name' | 'binary' | 'none' | 'path';
   available_version?: string;
   is_versioned_install?: boolean;
 }
@@ -39,4 +39,4 @@ export interface VersionedPackageInfo {
   available_versions: PackageVersion[];
 }
 
-export type View = "search" | "installed" | "bucket" | "settings" | "doctor"; 
+export type View = 'search' | 'installed' | 'bucket' | 'settings' | 'doctor';

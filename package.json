@@ -9,7 +9,9 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
-    "i18n": "copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed'"
+    "i18n": "(copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed') && node scripts/i18n/generate-dict-types.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "license": "MIT",
   "dependencies": {
@@ -30,6 +32,8 @@
     "@tauri-apps/cli": "^2.10.0",
     "@types/node": "^25.3.0",
     "daisyui": "^5.5.19",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",

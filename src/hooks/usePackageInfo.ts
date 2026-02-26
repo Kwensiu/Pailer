@@ -1,6 +1,6 @@
-import { createSignal } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { ScoopPackage, ScoopInfo } from "../types/scoop";
+import { createSignal } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import { ScoopPackage, ScoopInfo } from '../types/scoop';
 
 interface UsePackageInfoReturn {
   selectedPackage: () => ScoopPackage | null;
@@ -13,55 +13,55 @@ interface UsePackageInfoReturn {
 }
 
 export function usePackageInfo(): UsePackageInfoReturn {
-    const [selectedPackage, setSelectedPackage] = createSignal<ScoopPackage | null>(null);
-    const [info, setInfo] = createSignal<ScoopInfo | null>(null);
-    const [loading, setLoading] = createSignal(false);
-    const [error, setError] = createSignal<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = createSignal<ScoopPackage | null>(null);
+  const [info, setInfo] = createSignal<ScoopInfo | null>(null);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
 
-    const fetchPackageInfo = async (pkg: ScoopPackage) => {
-        if (selectedPackage()?.name === pkg.name) {
-            closeModal();
-            return;
-        }
+  const fetchPackageInfo = async (pkg: ScoopPackage) => {
+    if (selectedPackage()?.name === pkg.name) {
+      closeModal();
+      return;
+    }
 
-        setSelectedPackage(pkg);
-        setLoading(true);
-        setError(null);
-        setInfo(null);
+    setSelectedPackage(pkg);
+    setLoading(true);
+    setError(null);
+    setInfo(null);
 
-        try {
-            const infoResponse = await invoke<ScoopInfo>("get_package_info", {
-                packageName: pkg.name,
-            });
-            setInfo(infoResponse);
-        } catch (err) {
-            setError(String(err));
-        } finally {
-            setLoading(false);
-        }
-    };
+    try {
+      const infoResponse = await invoke<ScoopInfo>('get_package_info', {
+        packageName: pkg.name,
+      });
+      setInfo(infoResponse);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const closeModal = () => {
-        setSelectedPackage(null);
-        setInfo(null);
-        setLoading(false);
-        setError(null);
-    };
+  const closeModal = () => {
+    setSelectedPackage(null);
+    setInfo(null);
+    setLoading(false);
+    setError(null);
+  };
 
-    const updateSelectedPackage = (pkg: ScoopPackage) => {
-        // Only update if it's the same package (by name)
-        if (selectedPackage()?.name === pkg.name) {
-            setSelectedPackage(pkg);
-        }
-    };
+  const updateSelectedPackage = (pkg: ScoopPackage) => {
+    // Only update if it's the same package (by name)
+    if (selectedPackage()?.name === pkg.name) {
+      setSelectedPackage(pkg);
+    }
+  };
 
-    return {
-        selectedPackage,
-        info,
-        loading,
-        error,
-        fetchPackageInfo,
-        closeModal,
-        updateSelectedPackage
-    };
+  return {
+    selectedPackage,
+    info,
+    loading,
+    error,
+    fetchPackageInfo,
+    closeModal,
+    updateSelectedPackage,
+  };
 }

@@ -1,10 +1,10 @@
-import { Show } from "solid-js";
-import { RefreshCw, Eye } from "lucide-solid";
-import { BucketInfo } from "../../../hooks/useBuckets";
+import { Show } from 'solid-js';
+import { RefreshCw, Eye } from 'lucide-solid';
+import { BucketInfo } from '../../../hooks/useBuckets';
 import { openPath } from '@tauri-apps/plugin-opener';
-import Card from "../../common/Card";
-import { formatBucketDate } from "../../../utils/date";
-import { t } from "../../../i18n";
+import Card from '../../common/Card';
+import { formatBucketDate } from '../../../utils/date';
+import { t } from '../../../i18n';
 
 interface BucketCardProps {
   bucket: BucketInfo;
@@ -18,37 +18,35 @@ function BucketCard(props: BucketCardProps) {
   return (
     <div class="relative">
       <Show when={props.bucket.git_branch}>
-        <div class="badge badge-outline badge-sm absolute top-[21px] right-[16px] z-10 bg-base-100/90 backdrop-blur-sm">
+        <div class="badge badge-outline badge-sm bg-base-100/90 absolute top-[21px] right-[16px] z-10 backdrop-blur-sm">
           {props.bucket.git_branch}
         </div>
       </Show>
 
       <Card
         title={
-          <h3 class="whitespace-nowrap overflow-hidden text-ellipsis" title={props.bucket.name}>
+          <h3 class="overflow-hidden text-ellipsis whitespace-nowrap" title={props.bucket.name}>
             {props.bucket.name}
           </h3>
         }
         description={
-          <div class="text-sm text-base-content/70">
-            <div class="flex items-center gap-1 mb-1">
-              <span class="font-bold text-primary text-xl">
-                {props.bucket.manifest_count}
-              </span>
-              <span class="text-sm">{t("bucket.card.packages")}</span>
+          <div class="text-base-content/70 text-sm">
+            <div class="mb-1 flex items-center gap-1">
+              <span class="text-primary text-xl font-bold">{props.bucket.manifest_count}</span>
+              <span class="text-sm">{t('bucket.card.packages')}</span>
             </div>
             <Show when={props.bucket.last_updated}>
-              <div class="text-xs text-base-content/50">
-                {t("bucket.card.updated", { date: formatBucketDate(props.bucket.last_updated) })}
+              <div class="text-base-content/50 text-xs">
+                {t('bucket.card.updated', { date: formatBucketDate(props.bucket.last_updated) })}
               </div>
             </Show>
           </div>
         }
-        class="bg-base-200 shadow-sm hover:shadow-md transition-all duration-200 border border-base-300"
+        class="bg-base-200 border-base-300 border shadow-sm transition-all duration-200 hover:shadow-md"
       >
         <Show when={props.bucket.git_url}>
           <div
-            class="text-xs text-base-content/40 mt-2 truncate font-mono bg-base-100 px-2 py-1 rounded cursor-pointer hover:underline"
+            class="text-base-content/40 bg-base-100 mt-2 cursor-pointer truncate rounded px-2 py-1 font-mono text-xs hover:underline"
             onClick={() => openPath(props.bucket.git_url!)}
             title={props.bucket.git_url}
           >
@@ -58,19 +56,17 @@ function BucketCard(props: BucketCardProps) {
 
         {/* Update result message */}
         <Show when={props.updateResult}>
-          <div class="mt-2 text-xs p-2 rounded bg-base-100 border">
-            {props.updateResult}
-          </div>
+          <div class="bg-base-100 mt-2 rounded border p-2 text-xs">{props.updateResult}</div>
         </Show>
 
         {/* Action buttons */}
-        <div class="flex gap-2 mt-3">
+        <div class="mt-3 flex gap-2">
           <button
             class="btn btn-primary btn-sm flex-1 gap-2"
             onClick={() => props.onViewBucket(props.bucket)}
           >
-            <Eye class="w-4 h-4" />
-            {t("bucket.card.view")}
+            <Eye class="h-4 w-4" />
+            {t('bucket.card.view')}
           </button>
 
           <Show when={props.bucket.is_git_repo && props.onUpdateBucket}>
@@ -82,12 +78,10 @@ function BucketCard(props: BucketCardProps) {
               }}
               disabled={props.isUpdating}
             >
-              <Show when={props.isUpdating}
-                fallback={<RefreshCw class="w-4 h-4" />}
-              >
+              <Show when={props.isUpdating} fallback={<RefreshCw class="h-4 w-4" />}>
                 <span class="loading loading-spinner loading-xs"></span>
               </Show>
-              {props.isUpdating ? t("bucket.card.updating") : t("bucket.card.update")}
+              {props.isUpdating ? t('bucket.card.updating') : t('bucket.card.update')}
             </button>
           </Show>
         </div>

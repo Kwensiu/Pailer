@@ -1,16 +1,12 @@
-import { defineConfig } from "vite";
-import solid from "vite-plugin-solid";
-import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from 'vite';
+import solid from 'vite-plugin-solid';
+import tailwindcss from '@tailwindcss/vite';
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => ({
-  plugins: [
-    tailwindcss(),
-    solid(),
-  ],
+  plugins: [tailwindcss(), solid()],
   base: mode === 'development' ? './' : '/',
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -36,14 +32,17 @@ export default defineConfig(({ command, mode }) => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: 1421,
         }
       : undefined,
-    watch: mode === 'development' ? {
-      // 3. tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    } : undefined,
+    watch:
+      mode === 'development'
+        ? {
+            // 3. tell vite to ignore watching `src-tauri`
+            ignored: ['**/src-tauri/**'],
+          }
+        : undefined,
   },
 }));

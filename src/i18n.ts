@@ -20,13 +20,13 @@ const getInitialLocale = (): Locale => {
   } catch (error) {
     console.warn('Failed to get language from settings store:', error);
   }
-  
+
   // Check if a locale is saved in localStorage (legacy fallback)
   const savedLocale = localStorage.getItem('pailer-language');
   if (savedLocale && supportedLocales.includes(savedLocale)) {
     return savedLocale as Locale;
   }
-  
+
   // If no saved locale, detect system language
   const systemLang = (navigator.language || navigator.languages?.[0] || 'en').split('-')[0];
   if (supportedLocales.includes(systemLang)) {
@@ -43,7 +43,7 @@ const { locale, setLocale, dict, t } = createRoot(() => {
   createEffect(async () => {
     const currentLocale = locale();
     const previousLocale = settingsStore.settings.language || 'en';
-    
+
     // Only sync if locale actually changed
     if (currentLocale !== previousLocale) {
       try {
@@ -64,23 +64,27 @@ const { locale, setLocale, dict, t } = createRoot(() => {
   });
 
   // Create a resource to load the dictionary for the current locale
-  const [dict] = createResource(locale, async (lang) => {
-    try {
-      const localeModule = await import(`./locales/${lang}.json`);
-      return i18n.flatten(localeModule.default as Record<string, any>) as Dict;
-    } catch (error) {
-      console.warn(`Failed to load locale ${lang}, falling back to en:`, error);
-      const enModule = await import('./locales/en.json');
-      return i18n.flatten(enModule.default as Record<string, any>) as Dict;
+  const [dict] = createResource(
+    locale,
+    async (lang) => {
+      try {
+        const localeModule = await import(`./locales/${lang}.json`);
+        return i18n.flatten(localeModule.default as Record<string, any>) as Dict;
+      } catch (error) {
+        console.warn(`Failed to load locale ${lang}, falling back to en:`, error);
+        const enModule = await import('./locales/en.json');
+        return i18n.flatten(enModule.default as Record<string, any>) as Dict;
+      }
+    },
+    {
+      initialValue: i18n.flatten({
+        'app.title': 'Pailer',
+        'messages.loading': 'Loading...',
+        'status.error': 'Error',
+        'buttons.close': 'Close',
+      } as Record<string, any>) as Dict,
     }
-  }, {
-    initialValue: i18n.flatten({
-      'app.title': 'Pailer',
-      'messages.loading': 'Loading...',
-      'status.error': 'Error',
-      'buttons.close': 'Close'
-    } as Record<string, any>) as Dict,
-  });
+  );
 
   const t = i18n.translator(dict, i18n.resolveTemplate);
 

@@ -1,13 +1,13 @@
-import { createStore } from "solid-js/store";
-import { createEffect, createMemo, onCleanup, createRoot } from "solid-js";
-import { createTauriSignal } from "../hooks/createTauriSignal";
-import type { 
-  OperationState, 
-  OperationOutput, 
-  OperationResult, 
+import { createStore } from 'solid-js/store';
+import { createEffect, createMemo, onCleanup, createRoot } from 'solid-js';
+import { createTauriSignal } from '../hooks/createTauriSignal';
+import type {
+  OperationState,
+  OperationOutput,
+  OperationResult,
   OperationStatus,
-  MultiInstanceWarning 
-} from "../types/operations";
+  MultiInstanceWarning,
+} from '../types/operations';
 
 // Command execution state interface
 export interface CommandExecutionState {
@@ -19,30 +19,32 @@ export interface CommandExecutionState {
 
 // Wrap reactive computations in createRoot for proper disposal
 const operationsStore = createRoot(() => {
-// Operation state store
+  // Operation state store
   const [operations, setOperations] = createStore<Record<string, OperationState>>({});
 
   // Command execution state - persists across page navigation
   const [commandExecution, setCommandExecution] = createStore<CommandExecutionState>({
-    command: "",
+    command: '',
     output: [],
     isRunning: false,
-    useScoopPrefix: true
+    useScoopPrefix: true,
   });
 
   // Current active operations count - automatically calculated using createMemo
   const activeOperationsCount = createMemo(() => {
-    return Object.values(operations).filter(op => 
-      op.status === 'in-progress' || op.isMinimized
-    ).length;
+    return Object.values(operations).filter((op) => op.status === 'in-progress' || op.isMinimized)
+      .length;
   });
 
   // Multi-instance warning configuration - using persistent storage
-  const [multiInstanceWarning, setMultiInstanceWarning] = createTauriSignal<MultiInstanceWarning>('multiInstanceWarning', {
-    enabled: true,
-    threshold: 2,
-    dismissed: false
-  });
+  const [multiInstanceWarning, setMultiInstanceWarning] = createTauriSignal<MultiInstanceWarning>(
+    'multiInstanceWarning',
+    {
+      enabled: true,
+      threshold: 2,
+      dismissed: false,
+    }
+  );
 
   // Operation management Hook
   const useOperations = () => {
@@ -52,12 +54,12 @@ const operationsStore = createRoot(() => {
       const newOperation: OperationState = {
         ...operation,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
 
       setOperations(newOperation.id, newOperation);
       // Active operations count will be automatically updated through createMemo
-      
+
       // Check if multi-instance warning needs to be displayed
       checkMultiInstanceWarning();
     };
@@ -72,18 +74,22 @@ const operationsStore = createRoot(() => {
     const updateOperation = (id: string, updates: Partial<OperationState>) => {
       setOperations(id, {
         ...updates,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       });
     };
 
     // Add operation output - optimize performance, reduce array creation
-    const addOperationOutput = (operationId: string, output: Omit<OperationOutput, 'timestamp'>) => {
+    const addOperationOutput = (
+      operationId: string,
+      output: Omit<OperationOutput, 'timestamp'>
+    ) => {
       const timestamp = Date.now();
       const newOutput: OperationOutput = { ...output, timestamp };
-      
+
       setOperations(operationId, 'output', (prev = []) => {
         // If approaching limit, directly create new array and truncate
-        if (prev.length >= 950) { // Process in advance to avoid frequently reaching 1000 limit
+        if (prev.length >= 950) {
+          // Process in advance to avoid frequently reaching 1000 limit
           const updated = prev.slice(-50); // Keep last 50 entries
           updated.push(newOutput);
           return updated;
@@ -97,7 +103,7 @@ const operationsStore = createRoot(() => {
     const setOperationResult = (operationId: string, result: OperationResult) => {
       updateOperation(operationId, {
         status: result.success ? 'success' : 'error',
-        result
+        result,
       });
     };
 
@@ -106,7 +112,7 @@ const operationsStore = createRoot(() => {
       const operation = operations[operationId];
       if (operation) {
         updateOperation(operationId, {
-          isMinimized: !operation.isMinimized
+          isMinimized: !operation.isMinimized,
         });
       }
     };
@@ -118,8 +124,8 @@ const operationsStore = createRoot(() => {
 
     // Get active operations
     const getActiveOperations = () => {
-      return Object.values(operations).filter(op => 
-        op.status === 'in-progress' || op.isMinimized
+      return Object.values(operations).filter(
+        (op) => op.status === 'in-progress' || op.isMinimized
       );
     };
 
@@ -129,7 +135,7 @@ const operationsStore = createRoot(() => {
     const checkMultiInstanceWarning = () => {
       const warning = multiInstanceWarning();
       const activeCount = activeOperationsCount(); // Use computed property
-      
+
       if (warning.enabled && !warning.dismissed && activeCount >= warning.threshold) {
         return true;
       }
@@ -148,31 +154,31 @@ const operationsStore = createRoot(() => {
 
     // Command execution methods
     const setCommand = (command: string) => {
-      setCommandExecution("command", command);
+      setCommandExecution('command', command);
     };
 
     const setCommandRunning = (isRunning: boolean) => {
-      setCommandExecution("isRunning", isRunning);
+      setCommandExecution('isRunning', isRunning);
     };
 
     const toggleScoopPrefix = () => {
-      setCommandExecution("useScoopPrefix", prev => !prev);
+      setCommandExecution('useScoopPrefix', (prev) => !prev);
     };
 
     const addCommandOutput = (output: OperationOutput) => {
-      setCommandExecution("output", prev => [...prev, output]);
+      setCommandExecution('output', (prev) => [...prev, output]);
     };
 
     const clearCommandOutput = () => {
-      setCommandExecution("output", []);
+      setCommandExecution('output', []);
     };
 
     const resetCommandState = () => {
       setCommandExecution({
-        command: "",
+        command: '',
         output: [],
         isRunning: false,
-        useScoopPrefix: true
+        useScoopPrefix: true,
       });
     };
 
@@ -207,7 +213,7 @@ const operationsStore = createRoot(() => {
       updateMultiInstanceWarning,
 
       // Utility methods
-      generateOperationId
+      generateOperationId,
     };
   };
 
@@ -226,7 +232,7 @@ const operationsStore = createRoot(() => {
         }
       });
     }, 60000); // Clean up once per minute
-    
+
     onCleanup(() => {
       clearInterval(cleanupInterval);
     });
@@ -242,4 +248,3 @@ export const generateOperationId = (operationType: string): string => {
 
 // Operation management Hook - export function returned from createRoot
 export const useOperations = operationsStore;
-

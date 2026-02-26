@@ -1,7 +1,7 @@
-import { createSignal, createRoot } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import { ScoopPackage, UpdatablePackage } from "../types/scoop";
-import heldStore from "./held";
+import { createSignal, createRoot } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import { ScoopPackage, UpdatablePackage } from '../types/scoop';
+import heldStore from './held';
 
 export interface DisplayPackage extends ScoopPackage {
   available_version?: string;
@@ -16,119 +16,110 @@ function createInstalledPackagesStore() {
   const [isCheckingForUpdates, setIsCheckingForUpdates] = createSignal(false);
   const [versionedPackages, setVersionedPackages] = createSignal<string[]>([]);
 
-const checkForUpdates = async () => {
-  setIsCheckingForUpdates(true);
-  try {
-    const updatable = await invoke<UpdatablePackage[]>("check_for_updates");
-    const updatableMap = new Map(updatable.map(p => [p.name, p.available]));
+  const checkForUpdates = async () => {
+    setIsCheckingForUpdates(true);
+    try {
+      const updatable = await invoke<UpdatablePackage[]>('check_for_updates');
+      const updatableMap = new Map(updatable.map((p) => [p.name, p.available]));
 
-    setPackages(pkgs => pkgs.map(p => ({
-      ...p,
-      available_version: updatableMap.get(p.name)
-    })));
-  } catch (err) {
-    console.error("Failed to check for updates:", err);
-  } finally {
-    setIsCheckingForUpdates(false);
-  }
-};
+      setPackages((pkgs) =>
+        pkgs.map((p) => ({
+          ...p,
+          available_version: updatableMap.get(p.name),
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to check for updates:', err);
+    } finally {
+      setIsCheckingForUpdates(false);
+    }
+  };
 
-const fetchVersionedPackages = async () => {
-  try {
-    const versioned = await invoke<string[]>("get_versioned_packages", {
-      global: false, // TODO: Add support for global packages
-    });
-    setVersionedPackages(versioned);
-  } catch (err) {
-    console.error("Failed to fetch versioned packages:", err);
-  }
-};
+  const fetchVersionedPackages = async () => {
+    try {
+      const versioned = await invoke<string[]>('get_versioned_packages', {
+        global: false, // TODO: Add support for global packages
+      });
+      setVersionedPackages(versioned);
+    } catch (err) {
+      console.error('Failed to fetch versioned packages:', err);
+    }
+  };
 
-const fetchInstalledPackages = async () => {
-  if (isLoaded() || loading()) {
-    return;
-  }
+  const fetchInstalledPackages = async () => {
+    if (isLoaded() || loading()) {
+      return;
+    }
 
-  setLoading(true);
-  setError(null);
-  try {
-    const installedPackages = await invoke<ScoopPackage[]>("get_installed_packages_full");
-    setPackages(installedPackages);
-    const buckets = new Set<string>(installedPackages.map(p => p.source));
-    setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
-    setIsLoaded(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const installedPackages = await invoke<ScoopPackage[]>('get_installed_packages_full');
+      setPackages(installedPackages);
+      const buckets = new Set<string>(installedPackages.map((p) => p.source));
+      setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
+      setIsLoaded(true);
 
-    await Promise.all([
-      heldStore.refetch(),
-      checkForUpdates(),
-      fetchVersionedPackages()
-    ]);
-  } catch (err) {
-    console.error("Failed to fetch installed packages:", err);
-    setError("Failed to load installed packages");
-    setPackages([]);
-  } finally {
-    setLoading(false);
-  }
-};
+      await Promise.all([heldStore.refetch(), checkForUpdates(), fetchVersionedPackages()]);
+    } catch (err) {
+      console.error('Failed to fetch installed packages:', err);
+      setError('Failed to load installed packages');
+      setPackages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const refetch = async () => {
-  setIsLoaded(false);
-  setLoading(true);
-  setError(null);
-  try {
-    const installedPackages = await invoke<ScoopPackage[]>("refresh_installed_packages");
-    setPackages(installedPackages);
-    const buckets = new Set<string>(installedPackages.map(p => p.source));
-    setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
-    setIsLoaded(true);
+  const refetch = async () => {
+    setIsLoaded(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages');
+      setPackages(installedPackages);
+      const buckets = new Set<string>(installedPackages.map((p) => p.source));
+      setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
+      setIsLoaded(true);
 
-    await Promise.all([
-      heldStore.refetch(),
-      checkForUpdates(),
-      fetchVersionedPackages()
-    ]);
-  } catch (err) {
-    console.error("Failed to refresh installed packages:", err);
-    setError("Failed to refresh installed packages");
-    setPackages([]);
-  } finally {
-    setLoading(false);
-  }
-}
+      await Promise.all([heldStore.refetch(), checkForUpdates(), fetchVersionedPackages()]);
+    } catch (err) {
+      console.error('Failed to refresh installed packages:', err);
+      setError('Failed to refresh installed packages');
+      setPackages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const silentRefetch = async () => {
-  setError(null);
-  try {
-    // 并行获取包数据和更新信息
-    const [installedPackages, updateInfo] = await Promise.all([
-      invoke<ScoopPackage[]>("refresh_installed_packages"),
-      invoke<UpdatablePackage[]>("check_for_updates").catch(() => [])
-    ]);
+  const silentRefetch = async () => {
+    setError(null);
+    try {
+      // 并行获取包数据和更新信息
+      const [installedPackages, updateInfo] = await Promise.all([
+        invoke<ScoopPackage[]>('refresh_installed_packages'),
+        invoke<UpdatablePackage[]>('check_for_updates').catch(() => []),
+      ]);
 
-    // 一次性合并数据
-    const packagesWithUpdates = installedPackages.map(pkg => ({
-      ...pkg,
-      available_version: updateInfo.find(u => u.name === pkg.name)?.available
-    }));
+      // 一次性合并数据
+      const packagesWithUpdates = installedPackages.map((pkg) => ({
+        ...pkg,
+        available_version: updateInfo.find((u) => u.name === pkg.name)?.available,
+      }));
 
-    // 一次性设置完整数据
-    setPackages(packagesWithUpdates);
-    const buckets = new Set<string>(installedPackages.map(p => p.source));
-    setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
-    setIsLoaded(true);
+      // 一次性设置完整数据
+      setPackages(packagesWithUpdates);
+      const buckets = new Set<string>(installedPackages.map((p) => p.source));
+      setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
+      setIsLoaded(true);
 
-    // 静默更新其他状态
-    await Promise.all([
-      heldStore.refetch(),
-      fetchVersionedPackages()
-    ]);
-  } catch (err) {
-    console.error("Failed to silently refresh installed packages:", err);
-    setError("Failed to refresh installed packages");
-    setPackages([]);
-  }
-}
+      // 静默更新其他状态
+      await Promise.all([heldStore.refetch(), fetchVersionedPackages()]);
+    } catch (err) {
+      console.error('Failed to silently refresh installed packages:', err);
+      setError('Failed to refresh installed packages');
+      setPackages([]);
+    }
+  };
 
   const isPackageVersioned = (packageName: string) => {
     return versionedPackages().includes(packageName);
@@ -151,4 +142,4 @@ const silentRefetch = async () => {
   };
 }
 
-export default createRoot(createInstalledPackagesStore); 
+export default createRoot(createInstalledPackagesStore);
