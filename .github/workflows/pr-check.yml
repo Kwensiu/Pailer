@@ -36,7 +36,7 @@ jobs:
         run: |
           echo "🔄 Running i18n..."
           pnpm run i18n
-          
+
           echo "🔄 Running format..."
           pnpm run format:linux
 
@@ -63,7 +63,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            
+
             for (const comment of comments.data) {
               if (comment.body.includes('🤖 Format Check Reminder') && 
                   comment.user.type === 'Bot') {
@@ -74,22 +74,28 @@ jobs:
                 });
               }
             }
-            
+
             // Create new comment
             const newComment = `## 🤖 Format Check Reminder
-            
-            **English:**
+
+            **Notice:**
             The project detected that \`pnpm i18n + pnpm format\` has not been run. If you have new commits in the future, please remember to run these commands.
-            
+
+            - \`pnpm i18n\` is not mandatory, only required when actually changing translation keys
+            - \`pnpm format\` in this project only processes changed files by default
+
             **This is only a reminder and does not require immediate execution.**
-            
+
             ---
-            
-            **中文:**
+
+            **提示:**
             检测到项目未运行 \`pnpm i18n + pnpm format\`。如果后续有新的commit，请记得运行这些命令。
-            
+
+            - \`pnpm i18n\` 并非强制，允许只在实际更改翻译键时运行 
+            - \`pnpm format\` 在当前项目默认只处理已更改文件
+
             **仅作提示无需立刻执行。**`;
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -115,6 +121,11 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libglib2.0-dev libpango1.0-dev libcairo2-dev libgdk-pixbuf2.0-dev
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -135,19 +146,19 @@ jobs:
       - name: Test Tauri build configuration
         run: |
           echo "🔍 Testing Tauri build configuration..."
-          
+
           # Check if tauri.conf.json is valid
           if ! pnpm run tauri info > /dev/null 2>&1; then
             echo "❌ Tauri configuration error"
             pnpm run tauri info
             exit 1
           fi
-          
+
           # Test build without bundling (faster)
           echo "🏗️ Testing build process..."
           cd src-tauri
           cargo check --release
-          
+
           echo "✅ Build test passed - no configuration or compilation errors"
 
       - name: Comment on PR about build failure
@@ -161,7 +172,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            
+
             for (const comment of comments.data) {
               if (comment.body.includes('❌ Build Test Failed') && 
                   comment.user.type === 'Bot') {
@@ -172,28 +183,28 @@ jobs:
                 });
               }
             }
-            
+
             // Create new build failure comment
             const failureComment = `## ❌ Build Test Failed
-            
-            **English:**
-            The build test failed. Please check the build logs for details and fix the issues before merging.
-            
+
+            **Build Test Failed:**
+            Please check the build logs for details and fix the issues before merging.
+
             Common issues:
             - Frontend build errors (TypeScript, CSS, etc.)
             - Rust compilation errors
             - Tauri configuration problems
-            
+
             ---
-            
-            **中文:**
-            构建测试失败。请检查构建日志了解详情，并在合并前修复问题。
-            
+
+            **构建测试失败：**
+            请检查构建日志了解详情，并在合并前修复问题。
+
             常见问题：
             - 前端构建错误（TypeScript、CSS等）
             - Rust编译错误
             - Tauri配置问题`;
-            
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
