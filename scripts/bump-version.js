@@ -8,7 +8,9 @@ const __dirname = path.dirname(__filename);
 
 const newVersion = process.argv[2];
 if (!newVersion) {
-  console.error('Usage: node scripts/bump-version.js <new-version> [--pre <pre-id>] [--commit] [--tag] [--push] [--dry-run]');
+  console.error(
+    'Usage: node scripts/bump-version.js <new-version> [--pre <pre-id>] [--commit] [--tag] [--push] [--dry-run]'
+  );
   process.exit(1);
 }
 
@@ -39,7 +41,9 @@ for (let i = 3; i < process.argv.length; i++) {
     i++; // skip next arg
   } else {
     console.error(`Unknown flag: ${arg}`);
-    console.error('Usage: node scripts/bump-version.js <new-version> [--pre <pre-id>] [--commit] [--tag] [--push] [--dry-run]');
+    console.error(
+      'Usage: node scripts/bump-version.js <new-version> [--pre <pre-id>] [--commit] [--tag] [--push] [--dry-run]'
+    );
     process.exit(1);
   }
 }
@@ -53,7 +57,9 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const oldPackageVersion = packageJson.version;
 packageJson.version = fullVersion;
 if (dryRun) {
-  console.log(`[DRY RUN] Would update package.json version from ${oldPackageVersion} to ${fullVersion}`);
+  console.log(
+    `[DRY RUN] Would update package.json version from ${oldPackageVersion} to ${fullVersion}`
+  );
 } else {
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   console.log(`Updated package.json version to ${fullVersion}`);
@@ -76,7 +82,9 @@ const tauriConf = JSON.parse(fs.readFileSync(tauriConfPath, 'utf8'));
 const oldTauriVersion = tauriConf.version;
 tauriConf.version = fullVersion;
 if (dryRun) {
-  console.log(`[DRY RUN] Would update tauri.conf.json version from ${oldTauriVersion} to ${fullVersion}`);
+  console.log(
+    `[DRY RUN] Would update tauri.conf.json version from ${oldTauriVersion} to ${fullVersion}`
+  );
 } else {
   fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + '\n');
   console.log(`Updated tauri.conf.json version to ${fullVersion}`);
@@ -88,11 +96,7 @@ console.log(dryRun ? 'Dry run completed successfully!' : 'Version bump completed
 if (doCommit || doTag || doPush) {
   console.log('Performing Git operations...');
   try {
-    const filesToStage = [
-      'package.json',
-      'src-tauri/Cargo.toml',
-      'src-tauri/tauri.conf.json'
-    ];
+    const filesToStage = ['package.json', 'src-tauri/Cargo.toml', 'src-tauri/tauri.conf.json'];
     if (dryRun) {
       console.log(`[DRY RUN] Would run: git add ${filesToStage.join(' ')}`);
     } else {
@@ -121,7 +125,9 @@ if (doCommit || doTag || doPush) {
     if (doPush) {
       if (dryRun) {
         console.log(`[DRY RUN] Would run: git rev-parse --abbrev-ref HEAD`);
-        console.log(`[DRY RUN] Assuming branch 'main', would run: git push origin main && git push --tags`);
+        console.log(
+          `[DRY RUN] Assuming branch 'main', would run: git push origin main && git push --tags`
+        );
       } else {
         const branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
         execSync(`git push origin ${branch}`, { stdio: 'inherit' });

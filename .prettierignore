@@ -30,3 +30,4 @@ Thumbs.db
 # Generated files
 src-tauri/gen/
 src-tauri/target/
+CHANGELOG.md
