@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $cfg.version = "${{ inputs.version }}"
+          \( cfg.version = " \){{ inputs.version }}"
           $cfg.bundle.createUpdaterArtifacts = $true
           $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
@@ -78,28 +78,24 @@ jobs:
           TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.json
         run: pnpm run tauri build
 
-      - name: Debug Tauri bundle output (关键检查)
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Output "=== Release 目录 ==="
-          Get-ChildItem src-tauri/target/release/ -Recurse | Select Name, FullName | Format-Table
-
-          Write-Output "=== nsis 目录内容（包括 zip） ==="
-          Get-ChildItem src-tauri/target/release/bundle/nsis/ -Recurse -ErrorAction SilentlyContinue | Select Name, FullName | Format-Table
-
-          Write-Output "是否有 zip 文件？"
-          Get-ChildItem src-tauri/target/release/bundle/nsis/ -Filter "*.zip" -Recurse -ErrorAction SilentlyContinue
-
       - name: Extract metadata (product name & version)
         id: meta
         shell: pwsh
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          
+          # 添加调试输出
+          Write-Output "=== Extracted metadata ==="
+          Write-Output "version from config: $($cfg.version)"
+          Write-Output "productName from config: $($cfg.productName)"
+          Write-Output "exePath: src-tauri/target/release/$($cfg.productName).exe"
+          Write-Output "installerPath: src-tauri/target/release/bundle/nsis/$(\( cfg.productName)_ \)($cfg.version)_x64-setup.exe"
+          
+          # 原有输出逻辑
           "version=$($cfg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "exePath=src-tauri/target/release/$($cfg.productName).exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "installerPath=src-tauri/target/release/bundle/nsis/$($cfg.productName)_$($cfg.version)_x64-setup.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "installerPath=src-tauri/target/release/bundle/nsis/$(\( cfg.productName)_ \)($cfg.version)_x64-setup.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Compress executable with UPX
         run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
