@@ -1,7 +1,14 @@
 name: Workflow Cleanup
 on:
   schedule:
-    - cron: '0 0 1 * *'
+    # Run every Monday at 04:10 UTC (12:10 Beijing time)
+    - cron: '10 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry Run'
+        default: true
+        type: boolean
 
 jobs:
   del_runs:
@@ -10,11 +17,161 @@ jobs:
       actions: write
       contents: read
     steps:
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+      - name: Cleanup Logic
+        uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          retain_days: 30
-          keep_minimum_runs: 6
-          dry_run: false
+          script: |
+            const { owner, repo } = context.repo;
+            const dryRun = process.env.DRY_RUN !== 'false';
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+            const workflows = await github.rest.actions.listRepoWorkflows({ owner, repo });
+
+            for (const workflow of workflows.data.workflows) {
+              const name = workflow.name;
+              console.log(`\n--- [Checking] ${name} ---`);
+
+              // Handle pagination for workflow runs
+              let allRuns = [];
+              let page = 1;
+              const perPage = 100;
+
+              while (true) {
+                try {
+                  const runs = await github.rest.actions.listWorkflowRuns({
+                    owner, repo, workflow_id: workflow.id, per_page: perPage, page: page
+                  });
+                  
+                  allRuns = allRuns.concat(runs.data.workflow_runs);
+                  
+                  if (runs.data.workflow_runs.length < perPage) break;
+                  page++;
+                } catch (error) {
+                  console.log(`❌ Failed to fetch runs for ${name}: ${error.message}`);
+                  break; // 退出循环而不是无限继续
+                }
+              }
+
+              const sortedRuns = allRuns.sort((a, b) => 
+                new Date(b.created_at) - new Date(a.created_at)
+              );
+
+              // Default retention policy
+              let successKeep = 6;
+              let failureKeep = 0; 
+              let totalKeep = 6;
+              let thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+              // 1. Category-specific policy definitions
+              if (name === 'Release Build' || name === 'Beta Build') {
+                successKeep = 10;
+                failureKeep = 3; 
+              } else if (name === 'Release Please') {
+                // Your new requirement: always keep the latest 4 records
+                totalKeep = 4;
+              } else if (name === 'Workflow Cleanup') {
+                totalKeep = 1;
+              } else if (name === 'PR Check') {
+                totalKeep = 3;
+              }
+
+              let successCount = 0;
+              let failureCount = 0;
+              let cancelledCount = 0;
+              let processedTotal = 0;
+
+              for (const run of sortedRuns) {
+                // Skip if the task is still running
+                if (run.status !== 'completed') {
+                  console.log(`[Skip] In Progress: #${run.id}`);
+                  continue;
+                }
+
+                let shouldDelete = false;
+                const isOld = new Date(run.created_at) < thirtyDaysAgo;
+
+                // A. Logic for Build-type workflows
+                if (name === 'Release Build' || name === 'Beta Build') {
+                  if (run.conclusion === 'success') {
+                    successCount++;
+                    if (successCount > successKeep) shouldDelete = true;
+                  } else if (run.conclusion === 'failure') {
+                    failureCount++;
+                    if (failureCount > failureKeep) shouldDelete = true;
+                  } else if (run.conclusion === 'cancelled') {
+                    // Cancelled runs: keep latest 1, delete others
+                    cancelledCount++;
+                    if (cancelledCount > 1) shouldDelete = true;
+                  } else if (run.conclusion === 'neutral') {
+                    // Neutral runs should never be deleted
+                    shouldDelete = false;
+                  } else {
+                    if (isOld) shouldDelete = true;
+                  }
+                } 
+                // B. Logic for other workflows (PR Check / Cleanup / Release Please)
+                else {
+                  if (run.conclusion === 'neutral') {
+                    // Neutral runs should never be deleted for any workflow type
+                    shouldDelete = false;
+                  } else if (run.conclusion === 'cancelled') {
+                    // Cancelled runs: keep latest 1, delete others
+                    cancelledCount++;
+                    if (cancelledCount > 1) shouldDelete = true;
+                  } else {
+                    processedTotal++;
+                    if (processedTotal > totalKeep) {
+                      // For specified workflows, delete immediately when over limit; others need 30 days
+                      const isForceCleanup = ['PR Check', 'Workflow Cleanup', 'Release Please'].includes(name);
+                      if (isOld || isForceCleanup) {
+                        shouldDelete = true;
+                      }
+                    }
+                  }
+                }
+
+                if (shouldDelete) {
+                  if (dryRun) {
+                    console.log(`[Dry Run] Deleting ${name} (#${run.id}) | Result: ${run.conclusion} | Created: ${run.created_at}`);
+                  } else {
+                    try {
+                      await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
+                      console.log(`✅ Deleted: #${run.id}`);
+                      // Reduced sleep time to avoid timeout while still respecting rate limits
+                      await sleep(1000); 
+                    } catch (e) {
+                      console.log(`❌ Failed to delete #${run.id}: ${e.message}`);
+
+                      // 简单的速率限制处理，最多重试3次
+                      if (e.status === 403 || e.message.includes('rate limit') || e.message.includes('API rate limit exceeded')) {
+                        let retryCount = 0;
+                        const maxRetries = 3;
+                        
+                        while (retryCount < maxRetries) {
+                          retryCount++;
+                          console.log(`⏳ Rate limit hit, waiting 2 minutes (retry ${retryCount}/${maxRetries})...`);
+                          await sleep(120000); // 等待2分钟
+                          
+                          try {
+                            await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
+                            console.log(`✅ Retry successful: #${run.id}`);
+                            break; // 成功则退出重试循环
+                          } catch (retryError) {
+                            console.log(`❌ Retry ${retryCount} failed for #${run.id}: ${retryError.message}`);
+                            if (retryCount >= maxRetries) {
+                              console.log(`❌ Max retries reached for #${run.id}, skipping...`);
+                            }
+                          }
+                        }
+                      } else {
+                        // 其他类型的错误，记录但继续
+                        console.log(`⚠️ Skipping #${run.id} due to error: ${e.message}`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
