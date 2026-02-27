@@ -5,7 +5,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     reviewers:
       - 'Kwensiu'
     assignees:
@@ -33,6 +33,14 @@ updates:
       prefix: 'deps'
       include: 'scope'
     groups:
+      production-dependencies:
+        dependency-type: 'production'
+        patterns:
+          - '*'
+      development-dependencies:
+        dependency-type: 'development'
+        patterns:
+          - '*'
       security-updates:
         applies-to: security-updates
         patterns:
