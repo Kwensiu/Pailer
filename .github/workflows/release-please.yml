@@ -1,32 +1,38 @@
-name: Release Build
+name: Release Please
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g. 1.0.0)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Pre-release'
-        required: false
-        default: false
-        type: boolean
+    branches:
+      - main
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  build:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/.release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+
+  build-and-upload:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: windows-latest
     env:
       NODE_VERSION: '20'
-      # 1. 将签名环境变量移至作业级别
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,16 +63,10 @@ jobs:
         run: choco install upx -y
 
       - name: Install project dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile   # 建议改成 frozen-lockfile，更安全
 
-      - name: Update Tauri config version
-        shell: pwsh
-        run: |
-          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $version = if ($env:GITHUB_EVENT_NAME -eq 'push') { "${{ github.ref_name }}" -replace '^v', '' } else { "${{ inputs.version }}" }
-          $cfg.version = $version
-          $cfg.bundle.createUpdaterArtifacts = $true
-          $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
+      # 注意：这里不需要再手动 Update Tauri config version
+      # 因为 Release Please 已经修改了 src-tauri/tauri.conf.json 的 version
 
       - name: Build & bundle application (Tauri)
         env:
@@ -80,46 +80,11 @@ jobs:
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
           "version=$($cfg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          # 定义主可执行文件路径，供后续步骤使用
           "exePath=src-tauri/target/release/$($cfg.productName).exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "installerPath=src-tauri/target/release/bundle/nsis/$($cfg.productName)_$($cfg.version)_x64-setup.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Compress executable with UPX
         run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
-
-      # 4. 移除手动生成 update.json 的步骤，依赖 Tauri 自动生成
-      # - name: Generate updater artifacts
-      #   id: updater
-      #   ...
-
-      - name: Generate release notes from commits
-        id: release-notes
-        shell: bash
-        run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          VERSION="${{ steps.meta.outputs.version }}"
-          if [ -z "$LAST_TAG" ]; then
-            BODY=$(cat <<EOF
-          # Release Notes
-          ## [$VERSION]
-          - Initial release
-          This release includes various improvements and bug fixes.
-          EOF
-          )
-          else
-            COMMITS=$(git log --oneline $LAST_TAG..HEAD --no-merges | sed 's/^/- /')
-            BODY=$(cat <<EOF
-          # Release Notes
-          ## [$VERSION]
-          ### Changes
-          $COMMITS
-          This release includes various improvements and bug fixes.
-          EOF
-          )
-          fi
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Prepare artifacts list
         id: prepare
@@ -136,14 +101,13 @@ jobs:
           echo "$artifacts" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release with artifacts
-        uses: ncipollo/release-action@v1.20.0
+      - name: Upload artifacts to existing release
+        uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ steps.meta.outputs.version }}
-          name: v${{ steps.meta.outputs.version }}
-          body: ${{ steps.release-notes.outputs.body }}
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag: ${{ needs.release-please.outputs.tag_name }}
+          allowUpdates: true
           artifacts: ${{ steps.prepare.outputs.artifacts }}
+          omitBody: true
+          omitName: true
           artifactErrorsFailBuild: true
