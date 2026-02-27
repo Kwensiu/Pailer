@@ -5,6 +5,10 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main, develop]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   pre-check:
     runs-on: ubuntu-latest
@@ -36,17 +40,62 @@ jobs:
           echo "🔄 Running format..."
           pnpm run format:linux
 
-      - name: Check for changes after i18n (warning only)
+      - name: Check for changes after i18n
+        id: verify-changed
         run: |
           if [[ -n $(git status --porcelain) ]]; then
-            echo "⚠️  WARNING: Changes detected after i18n:"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📝 Changes detected after i18n:"
             git status --porcelain
-            echo ""
-            echo "💡 Suggestion: Run 'pnpm run i18n && pnpm run format' locally and commit the changes."
-            echo "📋 This is only a warning and will not block the PR."
           else
+            echo "changed=false" >> $GITHUB_OUTPUT
             echo "✅ No changes needed - i18n and format are correct"
           fi
+
+      - name: Comment on PR about format changes
+        if: steps.verify-changed.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find and delete previous format reminder comments
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            for (const comment of comments.data) {
+              if (comment.body.includes('🤖 Format Check Reminder') && 
+                  comment.user.type === 'Bot') {
+                await github.rest.issues.deleteComment({
+                  comment_id: comment.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+              }
+            }
+            
+            // Create new comment
+            const newComment = `## 🤖 Format Check Reminder
+            
+            **English:**
+            The project detected that \`pnpm i18n + pnpm format\` has not been run. If you have new commits in the future, please remember to run these commands.
+            
+            **This is only a reminder and does not require immediate execution.**
+            
+            ---
+            
+            **中文:**
+            检测到项目未运行 \`pnpm i18n + pnpm format\`。如果后续有新的commit，请记得运行这些命令。
+            
+            **仅作提示无需立刻执行。**`;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: newComment
+            });
 
   build-test:
     runs-on: ubuntu-latest
@@ -100,3 +149,54 @@ jobs:
           cargo check --release
           
           echo "✅ Build test passed - no configuration or compilation errors"
+
+      - name: Comment on PR about build failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find and delete previous build failure comments
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            for (const comment of comments.data) {
+              if (comment.body.includes('❌ Build Test Failed') && 
+                  comment.user.type === 'Bot') {
+                await github.rest.issues.deleteComment({
+                  comment_id: comment.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+              }
+            }
+            
+            // Create new build failure comment
+            const failureComment = `## ❌ Build Test Failed
+            
+            **English:**
+            The build test failed. Please check the build logs for details and fix the issues before merging.
+            
+            Common issues:
+            - Frontend build errors (TypeScript, CSS, etc.)
+            - Rust compilation errors
+            - Tauri configuration problems
+            
+            ---
+            
+            **中文:**
+            构建测试失败。请检查构建日志了解详情，并在合并前修复问题。
+            
+            常见问题：
+            - 前端构建错误（TypeScript、CSS等）
+            - Rust编译错误
+            - Tauri配置问题`;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: failureComment
+            });
