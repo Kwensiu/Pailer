@@ -30,7 +30,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3MkExMTEyRDJBMTdFQjYKUldTMmZxSFNFaEVxbC92WFEwOWo3VGgxWmhCQ0xBTDJPMjk5NFBiNU1CSml3NFNaa1pMTllDOVcK",
       "endpoints": [
-        "https://github.com/Kwensiu/Pailer/releases/latest/download/update.json"
+        "https://github.com/Kwensiu/Pailer/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "basicUi"

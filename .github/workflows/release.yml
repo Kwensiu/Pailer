@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 1.0.0)'
+        description: 'Version number (e.g. 0.2.1)'
         required: true
         type: string
       prerelease:
@@ -61,7 +61,7 @@ jobs:
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Update Tauri config version (manual only)
+      - name: Update Tauri config version (manual dispatch only)
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
@@ -72,59 +72,27 @@ jobs:
           $cfg.bundle.createUpdaterArtifacts = $true
           $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
-      - name: Build & bundle application (Tauri)
-        env:
-          TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.json
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Build Tauri app
         run: pnpm run tauri build
 
-      - name: Extract metadata (product name & version)
-        id: meta
+      - name: Compress executable with UPX (optional, if you still need it)
         shell: pwsh
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          
           $product = $cfg.productName
-          $version = $cfg.version
-          
-          if (-not $product) { 
-            Write-Error "productName not found" 
-            exit 1 
-          }
-          if (-not $version) { 
-            Write-Error "version not found" 
-            exit 1 
-          }
-          
           $exePath = "src-tauri/target/release/$product.exe"
-          $installerPath = "src-tauri/target/release/bundle/nsis/${product}_${version}_x64-setup.exe"
-          
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "product=$product" >> $env:GITHUB_OUTPUT
-          "exePath=$exePath" >> $env:GITHUB_OUTPUT
-          "installerPath=$installerPath" >> $env:GITHUB_OUTPUT
+          if (Test-Path $exePath) {
+            upx --best --lzma $exePath
+          }
 
-      - name: Compress executable with UPX
-        run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
-
-      - name: Prepare artifacts list
-        id: prepare
-        shell: bash
-        run: |
-          artifacts="${{ steps.meta.outputs.exePath }},${{ steps.meta.outputs.installerPath }}"
-          
-          if [ -f "src-tauri/target/release/bundle/nsis/update.json" ]; then
-            artifacts+=",src-tauri/target/release/bundle/nsis/update.json"
-          fi
-          
-          echo "artifacts=$artifacts" >> $GITHUB_OUTPUT
-
-      - name: Upload artifacts to release
-        uses: ncipollo/release-action@v1
+      - name: Build & Upload Artifacts (including latest.json) to Existing Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
-          allowUpdates: true
-          artifacts: ${{ steps.prepare.outputs.artifacts }}
-          omitBody: true
-          omitName: true
-          artifactErrorsFailBuild: true
+          tagName: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
