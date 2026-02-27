@@ -112,8 +112,8 @@ jobs:
         run: |
           artifacts="${{ steps.meta.outputs.exePath }},${{ steps.meta.outputs.installerPath }}"
           
-          if [ -f "src-tauri/target/release/bundle/nsis/latest.json" ]; then
-            artifacts+=",src-tauri/target/release/bundle/nsis/latest.json"
+          if [ -f "src-tauri/target/release/bundle/nsis/update.json" ]; then
+            artifacts+=",src-tauri/target/release/bundle/nsis/update.json"
           fi
           
           echo "artifacts=$artifacts" >> $GITHUB_OUTPUT
