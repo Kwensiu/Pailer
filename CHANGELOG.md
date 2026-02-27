@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Kwensiu/Pailer/compare/v0.2.0...v0.2.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* update release workflow ([#15](https://github.com/Kwensiu/Pailer/issues/15)) ([87e5e4b](https://github.com/Kwensiu/Pailer/commit/87e5e4ba56a0be8654ffbc078a002a06b785d784))
+
 ## [0.2.0](https://github.com/Kwensiu/Pailer/compare/v0.1.0...v0.2.0) (2026-02-27)
 
 
