@@ -67,9 +67,11 @@ jobs:
       - name: Update Tauri config version (manual only)
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          \( cfg.version = " \){{ inputs.version }}"
+          $cfg.version = $env:INPUT_VERSION
           $cfg.bundle.createUpdaterArtifacts = $true
           $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
