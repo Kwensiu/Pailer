@@ -1,0 +1,102 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+jobs:
+  pre-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check i18n and format
+        run: |
+          echo "🔄 Running i18n..."
+          pnpm run i18n
+          
+          echo "🔄 Checking format..."
+          pnpm run format:check
+
+      - name: Check for changes after i18n (warning only)
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "⚠️  WARNING: Changes detected after i18n:"
+            git status --porcelain
+            echo ""
+            echo "💡 Suggestion: Run 'pnpm run i18n && pnpm run format' locally and commit the changes."
+            echo "📋 This is only a warning and will not block the PR."
+          else
+            echo "✅ No changes needed - i18n and format are correct"
+          fi
+
+  build-test:
+    runs-on: ubuntu-latest
+    needs: pre-check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Test Tauri build configuration
+        run: |
+          echo "🔍 Testing Tauri build configuration..."
+          
+          # Check if tauri.conf.json is valid
+          if ! pnpm run tauri info > /dev/null 2>&1; then
+            echo "❌ Tauri configuration error"
+            pnpm run tauri info
+            exit 1
+          fi
+          
+          # Test build without bundling (faster)
+          echo "🏗️ Testing build process..."
+          cd src-tauri
+          cargo check --release
+          
+          echo "✅ Build test passed - no configuration or compilation errors"
