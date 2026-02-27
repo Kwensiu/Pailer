@@ -86,7 +86,6 @@ jobs:
           $product = $cfg.productName
           $version = $cfg.version
           
-          # 防呆
           if (-not $product) { 
             Write-Error "productName not found" 
             exit 1 
@@ -99,13 +98,6 @@ jobs:
           $exePath = "src-tauri/target/release/$product.exe"
           $installerPath = "src-tauri/target/release/bundle/nsis/${product}_${version}_x64-setup.exe"
           
-          Write-Output "=== Extracted metadata ==="
-          Write-Output "version       : $version"
-          Write-Output "productName   : $product"
-          Write-Output "exePath       : $exePath"
-          Write-Output "installerPath : $installerPath"
-          
-          # 正确写入 GitHub output
           "version=$version" >> $env:GITHUB_OUTPUT
           "product=$product" >> $env:GITHUB_OUTPUT
           "exePath=$exePath" >> $env:GITHUB_OUTPUT
@@ -118,22 +110,18 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          # 创建逗号分隔的列表
           artifacts="${{ steps.meta.outputs.exePath }},${{ steps.meta.outputs.installerPath }}"
           
-          # 如果存在更新器文件则添加
           if [ -f "src-tauri/target/release/bundle/nsis/latest.json" ]; then
             artifacts+=",src-tauri/target/release/bundle/nsis/latest.json"
           fi
           
           echo "artifacts=$artifacts" >> $GITHUB_OUTPUT
-          echo "Prepared artifacts: $artifacts"
 
       - name: Upload artifacts to release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # 关键修复：动态设置标签
           tag: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           allowUpdates: true
           artifacts: ${{ steps.prepare.outputs.artifacts }}
