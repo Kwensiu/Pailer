@@ -279,6 +279,7 @@ export interface Dict {
       version: string;
       versionedTooltip: string;
     };
+    refresh: string;
   };
   language: {
     description: string;
@@ -340,8 +341,7 @@ export interface Dict {
     viewManifest: string;
     warning: string;
   };
-  scan: {
-  };
+  scan: {};
   scoopStatus: {
     allGoodMessage: string;
     appsWithIssues: string;
@@ -606,17 +606,14 @@ export interface Dict {
     inProgress: string;
     loading: string;
   };
-  tray: {
-  };
-  trayNotification: {
-  };
+  tray: {};
+  trayNotification: {};
   update: {
     allTooltip: string;
     loading: string;
     success: string;
   };
-  updateChannel: {
-  };
+  updateChannel: {};
   warnings: {
     multiInstance: {
       dontShowAgain: string;

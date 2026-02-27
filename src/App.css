@@ -42,14 +42,14 @@
 
   --light-icon: oklch(70% 0.12 232.661);
 
-  --dark-base-50: oklch(0.355 0.02 254.72);
-  --dark-base-100: oklch(0.33 0.018 253.82);
-  --dark-base-150: oklch(0.306 0.015 252.92);
-  --dark-base-200: oklch(0.281 0.013 252.02);
-  --dark-base-250: oklch(0.256 0.011 251.12);
-  --dark-base-300: oklch(0.232 0.009 250.22);
-  --dark-base-350: oklch(0.207 0.006 249.32);
-  --dark-base-400: oklch(0.182 0.004 248.42);
+  --dark-base-50: oklch(0.35 0.02 254.72);
+  --dark-base-100: oklch(0.325 0.018 253.82);
+  --dark-base-150: oklch(0.311 0.015 252.92);
+  --dark-base-200: oklch(0.276 0.013 252.02);
+  --dark-base-250: oklch(0.251 0.011 251.12);
+  --dark-base-300: oklch(0.227 0.009 250.22);
+  --dark-base-350: oklch(0.202 0.006 249.32);
+  --dark-base-400: oklch(0.177 0.004 248.42);
 
   --dark-base-list: oklch(0.27 0.012 251.77);
   --dark-base-card: oklch(0.36 0.02 254.1);
