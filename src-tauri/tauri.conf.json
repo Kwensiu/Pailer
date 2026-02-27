@@ -60,12 +60,7 @@
           "SimpChinese"
         ],
         "displayLanguageSelector": false
-      },
-      "wix": {
-        "fragmentPaths": [
-          "./windows/fragments/env-refresh.wxs"
-        ]
       }
     }
-  }
+  } 
 }
