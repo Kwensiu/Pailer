@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Kwensiu/Pailer/compare/v0.2.1...v0.2.2) (2026-02-27)
+
+
+### Features
+
+* add release-please and change workflow to tauri-action@v0 ([#18](https://github.com/Kwensiu/Pailer/issues/18)) ([ae0fe90](https://github.com/Kwensiu/Pailer/commit/ae0fe90bb0f1d7ebc706c96210e17e2213cd762f))
+
 ## [0.2.1](https://github.com/Kwensiu/Pailer/compare/v0.2.0...v0.2.1) (2026-02-27)
 
 
