@@ -31,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 完整历史，便于 git describe 等命令
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -59,11 +59,8 @@ jobs:
         run: choco install upx -y
 
       - name: Install project dependencies
-        run: pnpm install --frozen-lockfile # 建议改成 frozen，更稳定
+        run: pnpm install --frozen-lockfile
 
-      # 重要：Release Please 已自动更新 src-tauri/tauri.conf.json 的 version
-      # 所以这里不再需要 Update Tauri config version 步骤
-      # 如果是手动 dispatch 触发的，才需要处理版本
       - name: Update Tauri config version (manual only)
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh
@@ -86,7 +83,7 @@ jobs:
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
           
-          # 添加调试输出
+          # 调试输出 - 用正确语法
           Write-Output "=== Extracted metadata ==="
           Write-Output "version from config: $($cfg.version)"
           Write-Output "productName from config: $($cfg.productName)"
@@ -113,6 +110,8 @@ jobs:
             artifacts="$artifacts
           ./src-tauri/target/release/bundle/nsis/latest.json"
           fi
+          echo "=== Artifacts list ==="
+          echo "$artifacts"
           echo "artifacts<<EOF" >> $GITHUB_OUTPUT
           echo "$artifacts" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
