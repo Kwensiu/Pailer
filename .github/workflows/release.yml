@@ -82,28 +82,34 @@ jobs:
         shell: pwsh
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-
+          
           $product = $cfg.productName
           $version = $cfg.version
-
+          
           # 防呆
-          if (-not $product) { Write-Error "productName not found"; exit 1 }
-          if (-not $version) { Write-Error "version not found"; exit 1 }
-
+          if (-not $product) { 
+            Write-Error "productName not found" 
+            exit 1 
+          }
+          if (-not $version) { 
+            Write-Error "version not found" 
+            exit 1 
+          }
+          
           $exePath = "src-tauri/target/release/$product.exe"
-          \( installerPath = "src-tauri/target/release/bundle/nsis/ \){product}_${version}_x64-setup.exe"
-
+          $installerPath = "src-tauri/target/release/bundle/nsis/${product}_${version}_x64-setup.exe"
+          
           Write-Output "=== Extracted metadata ==="
           Write-Output "version       : $version"
           Write-Output "productName   : $product"
           Write-Output "exePath       : $exePath"
           Write-Output "installerPath : $installerPath"
-
-          # 正確寫入 GitHub output
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "product=$product" >> $env:GITHUB_OUTPUT
-          echo "exePath=$exePath" >> $env:GITHUB_OUTPUT
-          echo "installerPath=$installerPath" >> $env:GITHUB_OUTPUT
+          
+          # 正确写入 GitHub output
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "product=$product" >> $env:GITHUB_OUTPUT
+          "exePath=$exePath" >> $env:GITHUB_OUTPUT
+          "installerPath=$installerPath" >> $env:GITHUB_OUTPUT
 
       - name: Compress executable with UPX
         run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
@@ -113,21 +119,17 @@ jobs:
         shell: bash
         run: |
           artifacts="${{ steps.meta.outputs.exePath }}"
-          artifacts="$artifacts
-          ${{ steps.meta.outputs.installerPath }}"
-          artifacts="$artifacts
-          ${{ steps.meta.outputs.installerPath }}.sig"
-
-          # 如果有 updater 的 latest.json 也加進去
-          if [ -f "./src-tauri/target/release/bundle/nsis/latest.json" ]; then
-            artifacts="$artifacts
-          ./src-tauri/target/release/bundle/nsis/latest.json"
+          artifacts+=$'\n'"${{ steps.meta.outputs.installerPath }}"
+          
+          # Add updater artifacts if they exist
+          if [ -f "src-tauri/target/release/bundle/nsis/latest.json" ]; then
+            artifacts+=$'\n'"src-tauri/target/release/bundle/nsis/latest.json"
           fi
-
+          
           echo "=== Artifacts to upload ==="
           echo "$artifacts"
-
-          # 多行輸出到 artifacts
+          
+          # Multiline output
           echo "artifacts<<EOF" >> $GITHUB_OUTPUT
           echo "$artifacts" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
