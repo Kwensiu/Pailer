@@ -98,7 +98,7 @@ jobs:
           script: |
             // Create new comment (old ones already cleaned up)
             const newComment = `## 🤖 Format Check Reminder
-
+            
             **Notice:**
             The project detected that \`pnpm i18n\` or \`pnpm format\` has not been run.
             If you have new commits in the future, please remember to run \`git diff --name-only origin/develop | ForEach-Object { if ($_.Trim()) { npx prettier --write $_ } }\`
@@ -118,7 +118,7 @@ jobs:
             - \`pnpm format\` 格式化所有文件以确保代码风格一致
 
             **仅作提示无需立刻执行。**`;
-
+            
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
