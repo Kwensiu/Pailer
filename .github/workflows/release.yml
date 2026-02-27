@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 1.0.0)'
+        description: 'Version number (e.g. 0.2.1)'
         required: true
         type: string
       prerelease:
@@ -31,12 +31,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 完整历史，便于 git describe 等命令
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10.27.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -59,60 +59,40 @@ jobs:
         run: choco install upx -y
 
       - name: Install project dependencies
-        run: pnpm install --frozen-lockfile # 建议改成 frozen，更稳定
+        run: pnpm install --frozen-lockfile
 
-      # 重要：Release Please 已自动更新 src-tauri/tauri.conf.json 的 version
-      # 所以这里不再需要 Update Tauri config version 步骤
-      # 如果是手动 dispatch 触发的，才需要处理版本
-      - name: Update Tauri config version (manual only)
+      - name: Update Tauri config version (manual dispatch only)
         if: github.event_name == 'workflow_dispatch'
         shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $cfg.version = "${{ inputs.version }}"
+          $cfg.version = $env:INPUT_VERSION
           $cfg.bundle.createUpdaterArtifacts = $true
           $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
-      - name: Build & bundle application (Tauri)
-        env:
-          TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.json
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Build Tauri app
         run: pnpm run tauri build
 
-      - name: Extract metadata (product name & version)
-        id: meta
+      - name: Compress executable with UPX (optional, if you still need it)
         shell: pwsh
         run: |
           $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          "version=$($cfg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "exePath=src-tauri/target/release/$($cfg.productName).exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "installerPath=src-tauri/target/release/bundle/nsis/$($cfg.productName)_$($cfg.version)_x64-setup.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          $product = $cfg.productName
+          $exePath = "src-tauri/target/release/$product.exe"
+          if (Test-Path $exePath) {
+            upx --best --lzma $exePath
+          }
 
-      - name: Compress executable with UPX
-        run: upx --best --lzma ${{ steps.meta.outputs.exePath }}
-
-      - name: Prepare artifacts list
-        id: prepare
-        shell: bash
-        run: |
-          artifacts="${{ steps.meta.outputs.exePath }}
-          ${{ steps.meta.outputs.installerPath }}
-          ${{ steps.meta.outputs.installerPath }}.sig"
-          if [ -f "./src-tauri/target/release/bundle/nsis/latest.json" ]; then
-            artifacts="$artifacts
-          ./src-tauri/target/release/bundle/nsis/latest.json"
-          fi
-          echo "artifacts<<EOF" >> $GITHUB_OUTPUT
-          echo "$artifacts" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Upload artifacts to release
-        uses: ncipollo/release-action@v1
+      - name: Build & Upload Artifacts (including latest.json) to Existing Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          allowUpdates: true
-          artifacts: ${{ steps.prepare.outputs.artifacts }}
-          omitBody: true
-          omitName: true
-          artifactErrorsFailBuild: true
+          tagName: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}

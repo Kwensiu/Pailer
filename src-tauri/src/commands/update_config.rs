@@ -56,11 +56,8 @@ pub async fn configure_updater_for_channel(_app_handle: &AppHandle) -> Result<()
 pub async fn get_update_info_for_channel(app_handle: AppHandle) -> Result<serde_json::Value, String> {
     let channel = get_update_channel(app_handle.clone()).await?;
     
-    let endpoint = if channel == "test" {
-        "https://raw.githubusercontent.com/Kwensiu/Pailer/refs/heads/test/docs/test-update.json"
-    } else {
-        "https://github.com/Kwensiu/Pailer/releases/latest/download/update.json"
-    };
+    // Always use stable channel endpoint
+    let endpoint = "https://github.com/Kwensiu/Pailer/releases/latest/download/update.json";
     
     // Create a custom response with the appropriate endpoint
     // This will be used by the frontend to override the standard updater check

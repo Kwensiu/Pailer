@@ -49,7 +49,7 @@ interface Settings {
     updateHistoryEnabled: boolean;
   };
   update: {
-    channel: 'stable' | 'test';
+    channel: 'stable';
   };
   defaultLaunchPage: View;
   scoopPath?: string;

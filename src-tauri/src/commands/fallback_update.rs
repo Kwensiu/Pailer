@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tauri::AppHandle;
-use crate::commands::update_config::get_update_channel;
 
 // Repository constants
 const REPO_OWNER: &str = "Kwensiu";
@@ -26,7 +25,6 @@ struct GitHubRelease {
     published_at: String,
     body: Option<String>,
     assets: Vec<GitHubAsset>,
-    prerelease: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -38,21 +36,13 @@ struct GitHubAsset {
 /// Check for updates using GitHub API directly
 /// This is used as a fallback when Tauri updater fails or doesn't find updates
 #[tauri::command]
-pub async fn check_for_fallback_update(app_handle: AppHandle) -> Result<FallbackUpdateInfo, String> {
+pub async fn check_for_fallback_update(_app_handle: AppHandle) -> Result<FallbackUpdateInfo, String> {
     log::info!("Starting fallback update check using GitHub API");
     
-    // Get the current channel
-    let channel = get_update_channel(app_handle.clone()).await?;
-    log::info!("Checking for updates on channel: {}", channel);
+    // Get the latest release from GitHub API for stable channel
+    let api_url = format!("https://api.github.com/repos/{}/{}/releases/latest", REPO_OWNER, REPO_NAME);
     
-    // Get the latest release from GitHub API
-    let api_url = if channel == "test" {
-        // For test channel, we'll look for a pre-release or specific tag
-        format!("https://api.github.com/repos/{}/{}/releases", REPO_OWNER, REPO_NAME)
-    } else {
-        // For stable channel, get the latest stable release
-        format!("https://api.github.com/repos/{}/{}/releases/latest", REPO_OWNER, REPO_NAME)
-    };
+    log::info!("Checking for updates on stable channel");
     
     log::debug!("Fetching release info from: {}", api_url);
     
@@ -69,31 +59,10 @@ pub async fn check_for_fallback_update(app_handle: AppHandle) -> Result<Fallback
         return Err(format!("GitHub API returned status: {}", response.status()));
     }
     
-    // Parse the response
-    let releases: Vec<GitHubRelease> = if channel == "test" {
-        // For test channel, we get all releases and find the latest pre-release or test release
-        response.json::<Vec<GitHubRelease>>()
-            .await
-            .map_err(|e| format!("Failed to parse releases: {}", e))?
-    } else {
-        // For stable channel, we get the single latest release
-        let release = response.json::<GitHubRelease>()
-            .await
-            .map_err(|e| format!("Failed to parse release: {}", e))?;
-        vec![release]
-    };
-    
-    // Find the appropriate release
-    let release = if channel == "test" {
-        // Find the latest pre-release or release with "test" in the tag
-        releases.into_iter()
-            .filter(|r| r.prerelease || r.tag_name.to_lowercase().contains("test"))
-            .next()
-            .ok_or("No test release found")?
-    } else {
-        releases.into_iter().next()
-            .ok_or("No stable release found")?
-    };
+    // Parse the response as a single release (stable channel)
+    let release = response.json::<GitHubRelease>()
+        .await
+        .map_err(|e| format!("Failed to parse release: {}", e))?;
     
     // Extract version from tag (remove 'v' prefix if present)
     let version = release.tag_name.strip_prefix('v').unwrap_or(&release.tag_name).to_string();
@@ -117,7 +86,7 @@ pub async fn check_for_fallback_update(app_handle: AppHandle) -> Result<Fallback
     
     // For the signature, we'll need to get it from the update.json file
     // This is a limitation of using GitHub API directly
-    let signature = get_signature_for_version(&version, &channel).await?;
+    let signature = get_signature_for_version(&version).await?;
     
     // Create update info
     let update_info = FallbackUpdateInfo {
@@ -125,21 +94,18 @@ pub async fn check_for_fallback_update(app_handle: AppHandle) -> Result<Fallback
         pub_date: release.published_at,
         download_url: windows_asset.browser_download_url,
         signature,
-        notes: format!("Update available for {} channel", channel),
+        notes: format!("Update available for stable channel"),
         body: release.body,
-        channel,
+        channel: "stable".to_string(),
     };
     
     Ok(update_info)
 }
 
 /// Get signature for a specific version from the update.json file
-async fn get_signature_for_version(_version: &str, channel: &str) -> Result<String, String> {
-    let update_json_url = if channel == "test" {
-        format!("https://raw.githubusercontent.com/Kwensiu/Pailer/refs/heads/test/docs/test-update.json")
-    } else {
-        format!("https://github.com/Kwensiu/Pailer/releases/latest/download/update.json")
-    };
+async fn get_signature_for_version(_version: &str) -> Result<String, String> {
+    // Always use stable channel update.json URL
+    let update_json_url = format!("https://github.com/Kwensiu/Pailer/releases/latest/download/update.json");
     
     log::debug!("Fetching signature from: {}", update_json_url);
     
