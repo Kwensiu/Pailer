@@ -118,10 +118,10 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          # Create comma-separated list
+          # 创建逗号分隔的列表
           artifacts="${{ steps.meta.outputs.exePath }},${{ steps.meta.outputs.installerPath }}"
           
-          # Add updater artifacts if they exist
+          # 如果存在更新器文件则添加
           if [ -f "src-tauri/target/release/bundle/nsis/latest.json" ]; then
             artifacts+=",src-tauri/target/release/bundle/nsis/latest.json"
           fi
@@ -133,7 +133,8 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
+          # 关键修复：动态设置标签
+          tag: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
           allowUpdates: true
           artifacts: ${{ steps.prepare.outputs.artifacts }}
           omitBody: true
