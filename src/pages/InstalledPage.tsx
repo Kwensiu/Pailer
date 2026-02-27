@@ -71,7 +71,6 @@ function InstalledPage(props: InstalledPageProps) {
 
   const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', '');
   const [showStatusModal, setShowStatusModal] = createSignal(false);
-  const [isRefreshing, setIsRefreshing] = createSignal(false);
 
   // Execute a silent refresh when the component mounts
   onMount(() => {
@@ -81,15 +80,6 @@ function InstalledPage(props: InstalledPageProps) {
   const handleCheckStatus = async () => {
     await checkScoopStatus();
     setShowStatusModal(true);
-  };
-
-  const handleForceRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await fetchInstalledPackages(false);
-    } finally {
-      setIsRefreshing(false);
-    }
   };
 
   const filteredPackages = createMemo(() => {
@@ -186,22 +176,9 @@ function InstalledPage(props: InstalledPageProps) {
             </button>
           </Show>
           <Show when={!searchQuery() && selectedBucket() === 'all'}>
-            <div class="space-y-4">
-              <button
-                class="btn btn-primary"
-                onClick={() => props.onNavigate?.("search")}
-              >
+              <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
                 {t('noPackagesFound.browsePackages')}
               </button>
-              <button
-                class="btn btn-secondary"
-                classList={{ "loading": isRefreshing() }}
-                disabled={isRefreshing()}
-                onClick={handleForceRefresh}
-              >
-                {t('installed.refresh')}
-              </button>
-            </div>
           </Show>
         </div>
       </Show>

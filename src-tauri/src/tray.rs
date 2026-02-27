@@ -24,7 +24,7 @@ pub fn setup_system_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let menu = build_tray_menu(app, shortcuts_map.clone())?;
 
     let _tray = TrayIconBuilder::with_id("main")
-        .tooltip("Pailer - Scoop Package Manager")
+        .tooltip("Pailer")
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
         .show_menu_on_left_click(false)
