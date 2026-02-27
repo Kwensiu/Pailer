@@ -166,7 +166,7 @@ function createSettingsStore() {
           let scoopPathValue = stored.scoopPath;
           // Migrate legacy scoop_path if scoopPath not set
           if (!scoopPathValue) {
-            const legacyPath = await storeInstance.get<string>("scoop_path");
+            const legacyPath = await storeInstance.get<string>('scoop_path');
             if (legacyPath) {
               scoopPathValue = legacyPath;
               // Optionally save to new location
@@ -174,7 +174,7 @@ function createSettingsStore() {
                 try {
                   const updatedSettings = { ...stored, scoopPath: legacyPath };
                   await storeInstance.set('settings', updatedSettings);
-                  await storeInstance.delete("scoop_path");
+                  await storeInstance.delete('scoop_path');
                   await storeInstance.save();
                 } catch (error) {
                   console.error('Error migrating scoop_path:', error);
@@ -261,7 +261,7 @@ function createSettingsStore() {
   const saveSettings = async (newSettings: Partial<Settings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
-    
+
     const storeInstance = await getSettingsStore();
     if (storeInstance) {
       try {
@@ -338,7 +338,7 @@ function createSettingsStore() {
 
   const setPowershellSettings = async (newPowershellSettings: Partial<Settings['powershell']>) => {
     try {
-      await invoke("set_powershell_exe", { exe: newPowershellSettings.executable! });
+      await invoke('set_powershell_exe', { exe: newPowershellSettings.executable! });
       await saveSettings({
         powershell: {
           ...settings.powershell,
@@ -346,16 +346,16 @@ function createSettingsStore() {
         },
       });
     } catch (error) {
-      console.error("Failed to update PowerShell exe in backend:", error);
+      console.error('Failed to update PowerShell exe in backend:', error);
     }
   };
 
   const setScoopPath = async (path: string) => {
     try {
-      await invoke("set_scoop_path", { path });
+      await invoke('set_scoop_path', { path });
       await saveSettings({ scoopPath: path, scoopPathManuallyConfigured: true });
     } catch (error) {
-      console.error("Failed to set scoop path:", error);
+      console.error('Failed to set scoop path:', error);
     }
   };
 
@@ -363,7 +363,20 @@ function createSettingsStore() {
     await saveSettings(newCoreSettings);
   };
 
-return { settings, setVirusTotalSettings, setWindowSettings, setDebugSettings, setCleanupSettings, setBucketSettings, setUpdateSettings, setTheme, setDefaultLaunchPage, setPowershellSettings, setScoopPath, setCoreSettings };
+  return {
+    settings,
+    setVirusTotalSettings,
+    setWindowSettings,
+    setDebugSettings,
+    setCleanupSettings,
+    setBucketSettings,
+    setUpdateSettings,
+    setTheme,
+    setDefaultLaunchPage,
+    setPowershellSettings,
+    setScoopPath,
+    setCoreSettings,
+  };
 }
 
 export default createRoot(createSettingsStore);

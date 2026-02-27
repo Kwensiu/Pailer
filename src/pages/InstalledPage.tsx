@@ -176,9 +176,9 @@ function InstalledPage(props: InstalledPageProps) {
             </button>
           </Show>
           <Show when={!searchQuery() && selectedBucket() === 'all'}>
-              <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
-                {t('noPackagesFound.browsePackages')}
-              </button>
+            <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
+              {t('noPackagesFound.browsePackages')}
+            </button>
           </Show>
         </div>
       </Show>
