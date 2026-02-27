@@ -78,6 +78,19 @@ jobs:
           TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.json
         run: pnpm run tauri build
 
+      - name: Debug Tauri bundle output (关键检查)
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Output "=== Release 目录 ==="
+          Get-ChildItem src-tauri/target/release/ -Recurse | Select Name, FullName | Format-Table
+
+          Write-Output "=== nsis 目录内容（包括 zip） ==="
+          Get-ChildItem src-tauri/target/release/bundle/nsis/ -Recurse -ErrorAction SilentlyContinue | Select Name, FullName | Format-Table
+
+          Write-Output "是否有 zip 文件？"
+          Get-ChildItem src-tauri/target/release/bundle/nsis/ -Filter "*.zip" -Recurse -ErrorAction SilentlyContinue
+
       - name: Extract metadata (product name & version)
         id: meta
         shell: pwsh
