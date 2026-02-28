@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { Power } from 'lucide-solid';
 import SettingsToggle from '../../common/SettingsToggle';
@@ -69,28 +69,30 @@ export default function StartupSettings() {
           showStatusLabel={true}
         />
       }
-    >
-      <Show when={isAutoStartEnabled()}>
-        <div class="divider my-4"></div>
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium">{t('settings.startup.silentStartup.title')}</span>
-            <span class="text-base-content/60 text-[11px]">
-              {t('settings.startup.silentStartup.description')}
-            </span>
+      conditionalContent={{
+        condition: isAutoStartEnabled(),
+        children: (
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col">
+              <span class="text-sm font-medium">{t('settings.startup.silentStartup.title')}</span>
+              <span class="text-base-content/60 text-[11px]">
+                {t('settings.startup.silentStartup.description')}
+              </span>
+            </div>
+            <label class="label cursor-pointer">
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={isSilentStartupEnabled()}
+                onChange={async () => {
+                  await toggleSilentStartup();
+                }}
+              />
+            </label>
           </div>
-          <label class="label cursor-pointer">
-            <input
-              type="checkbox"
-              class="toggle toggle-primary"
-              checked={isSilentStartupEnabled()}
-              onChange={async () => {
-                await toggleSilentStartup();
-              }}
-            />
-          </label>
-        </div>
-      </Show>
+        ),
+      }}
+    >
     </Card>
   );
 }
