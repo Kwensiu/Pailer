@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "i18n": "(copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed') && node scripts/i18n/generate-dict-types.js",
     "bump-version": "node scripts/bump-version.js",
-    "format": "powershell -c \"git diff --cached --name-only --diff-filter=ACM | ForEach-Object { if ($_.Trim()) { & prettier --write $_ } }\"",
+    "format": "powershell -c \"git status --porcelain | Where-Object { $_.Substring(0,1) -match '[AMC]' -or $_.Substring(1,1) -match '[AMC]' } | ForEach-Object { $_.Substring(3) } | ForEach-Object { & prettier --write $_ }\"",
+    "format:pr": "powershell -c \"git diff --name-only origin/develop | ForEach-Object { if ($_.Trim()) { pnpm exec prettier --write $_ } }\"",
     "format:check": "prettier --check .",
     "format:linux": "git diff --cached --name-only --diff-filter=ACM | xargs -r prettier --write"
   },

@@ -1,4 +1,4 @@
-import { Component, For } from 'solid-js';
+import { Component, For, onMount, onCleanup } from 'solid-js';
 import { View } from '../types/scoop.ts';
 import { Package, Search, Settings, Stethoscope, FolderOpen } from 'lucide-solid';
 import installedPackagesStore from '../stores/installedPackagesStore';
@@ -25,7 +25,13 @@ const Header: Component<HeaderProps> = (props) => {
     }
   };
 
-  document.addEventListener('keydown', toggleCommandPalette);
+  onMount(() => {
+    document.addEventListener('keydown', toggleCommandPalette);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('keydown', toggleCommandPalette);
+  });
 
   return (
     <div class="navbar bg-base-100 border-base-300 overflow-x-hidden overflow-y-hidden border-b shadow-sm">

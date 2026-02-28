@@ -84,7 +84,7 @@ function SearchResultsList(props: SearchResultsListProps) {
       <Show when={props.results.length > ITEMS_PER_PAGE}>
         <div class="mt-6 flex items-center justify-center space-x-2">
           <button
-            class="btn btn-sm"
+            class="btn btn-soft btn-sm rounded-xl"
             disabled={props.currentPage <= 1}
             onClick={() => props.onPageChange(props.currentPage - 1)}
           >
@@ -99,7 +99,7 @@ function SearchResultsList(props: SearchResultsListProps) {
           </span>
 
           <button
-            class="btn btn-sm"
+            class="btn btn-soft btn-sm rounded-xl"
             disabled={props.currentPage >= totalPages()}
             onClick={() => props.onPageChange(props.currentPage + 1)}
           >
