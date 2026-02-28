@@ -375,6 +375,21 @@ export interface Dict {
       clearSearch: string;
       exactMatchTooltip: string;
       placeholder: string;
+      searchHelp: string;
+    };
+    emptyState: {
+      title: string;
+      description: string;
+    };
+    help: {
+      title: string;
+      description: string;
+      examples: string;
+      normalSearch: string;
+      bucketSearch: string;
+      allBuckets: string;
+      exactMatch: string;
+      note: string;
     };
     filter: {
       allBuckets: string;
@@ -515,6 +530,11 @@ export interface Dict {
       installed: string;
       search: string;
       settings: string;
+      title: string;
+    };
+    hotkey: {
+      description: string;
+      note: string;
       title: string;
     };
     heldPackages: {
