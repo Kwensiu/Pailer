@@ -100,13 +100,13 @@ function InstalledPage(props: InstalledPageProps) {
     return processedPackages().filter((p) => {
       // 支持包名匹配
       if (p.name.toLowerCase().includes(query)) return true;
-      
+
       // 支持源（bucket）匹配
       if (p.source.toLowerCase().includes(query)) return true;
-      
+
       // 支持版本匹配
       if (p.version.toLowerCase().includes(query)) return true;
-      
+
       return false;
     });
   });
@@ -160,7 +160,7 @@ function InstalledPage(props: InstalledPageProps) {
       </Show>
 
       <Show when={!loading() && !error() && filteredPackages().length === 0}>
-        <div class="flex flex-col items-center justify-center py-16 text-center">
+        <div class="flex flex-col items-center justify-center pt-20 text-center">
           <div class="bg-base-300 mb-6 rounded-full p-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"

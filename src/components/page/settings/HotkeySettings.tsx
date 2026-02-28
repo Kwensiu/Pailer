@@ -29,11 +29,7 @@ export default function HotkeySettings() {
       }
       conditionalContent={{
         condition: true,
-        children: (
-          <div class="text-base-content/60 text-[11px]">
-            {t('settings.hotkey.note')}
-          </div>
-        ),
+        children: <div class="text-base-content/60 text-[11px]">{t('settings.hotkey.note')}</div>,
       }}
     />
   );

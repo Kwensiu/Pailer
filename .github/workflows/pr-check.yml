@@ -112,7 +112,7 @@ jobs:
 
             **提示:**
             检测到项目未运行 \`pnpm i18n\` 或 \`pnpm format\`。
-            如果后续有新的commit，请记得运行\`git diff --name-only origin/develop | ForEach-Object { if ($_.Trim()) { npx prettier --write $_ } }\`
+            如果后续有新的commit，请记得运行 \`pnpm format:pr\` 格式化当前 PR 产生的所有更改文件。
 
             - \`pnpm i18n\` 并非强制，允许只在实际更改翻译键时运行 
             - \`pnpm format\` 格式化所有文件以确保代码风格一致

@@ -374,7 +374,22 @@
     "bar": {
       "clearSearch": "Clear search",
       "exactMatchTooltip": "Wrap with \"quotes\" for exact match",
-      "placeholder": "Search for apps from local Buckets"
+      "placeholder": "Search for apps from local Buckets",
+      "searchHelp": "Search help"
+    },
+    "emptyState": {
+      "title": "Search for Applications",
+      "description": "Search through packages from your local Scoop buckets"
+    },
+    "help": {
+      "title": "Search Format Help",
+      "description": "You can use special search formats to find packages more precisely:",
+      "examples": "Examples:",
+      "normalSearch": "Search for packages containing '7zip' in any bucket",
+      "bucketSearch": "Search for packages containing '7zip' only in buckets whose names contain 'main'",
+      "allBuckets": "Search for packages containing '7zip' in all buckets (same as normal search)",
+      "exactMatch": "Search for packages with exact name '7zip' only in buckets with exact name 'main'",
+      "note": "Tip: You can also start typing letters/numbers directly on the page to quickly search."
     },
     "filter": {
       "allBuckets": "All Buckets"

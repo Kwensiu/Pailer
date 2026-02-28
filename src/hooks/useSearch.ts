@@ -5,6 +5,7 @@ import { ScoopPackage, ScoopInfo } from '../types/scoop';
 import { usePackageOperations } from './usePackageOperations';
 import { usePackageInfo } from './usePackageInfo';
 import { OperationNextStep } from '../types/operations';
+import { parseSearchFormat, type ParsedSearch } from './useGlobalHotkey';
 
 interface UseSearchReturn {
   searchTerm: () => string;
@@ -79,7 +80,7 @@ export function useSearch(): UseSearchReturn {
   let currentCacheVersion: number = 0;
   let currentSearchController: AbortController | null = null;
 
-  // 同步搜索内容到 sessionStorage
+  // Sync search content to sessionStorage
   createEffect(() => {
     const term = searchTerm();
     if (term) {
@@ -89,13 +90,13 @@ export function useSearch(): UseSearchReturn {
     }
   });
 
-  // 同步分页状态到 sessionStorage
+  // Sync pagination state to sessionStorage
   createEffect(() => {
     const tab = activeTab();
     sessionStorage.setItem('searchActiveTab', tab);
   });
 
-  // 同步搜索结果到 sessionStorage
+  // Sync search results to sessionStorage
   createEffect(() => {
     const currentResults = results();
     const term = searchTerm();
@@ -104,7 +105,7 @@ export function useSearch(): UseSearchReturn {
       sessionStorage.setItem('searchResultsTerm', term);
       sessionStorage.setItem('searchResultsVersion', cacheVersion().toString());
     } else {
-      // 清空搜索时清理 sessionStorage
+      // Clear sessionStorage when search is cleared
       sessionStorage.removeItem('searchResults');
       sessionStorage.removeItem('searchResultsTerm');
       sessionStorage.removeItem('searchResultsVersion');
@@ -151,23 +152,69 @@ export function useSearch(): UseSearchReturn {
       return;
     }
 
+    // Parse search format
+    const parsedSearch: ParsedSearch = parseSearchFormat(searchTerm());
+    console.log('🔍 Parsed search:', parsedSearch);
+
+    // If search format has only bucket name without app name (like "/main"), return empty results directly
+    if (parsedSearch.bucketName && !parsedSearch.appName.trim()) {
+      console.log('🚫 Empty app name in bucket-only search, returning empty results');
+      setResults([]);
+      searchResultsCache = [];
+      currentSearchTermCache = searchTerm();
+      currentCacheVersion = cacheVersion();
+      return;
+    }
+
     currentSearchController = new AbortController();
     const { signal } = currentSearchController;
 
     setLoading(true);
     setError(null);
     try {
+      // For normal search, use original search term
+      // For bucket-limited search, we need to filter on frontend, so search with app name first
+      const searchQuery = parsedSearch.bucketName ? parsedSearch.appName : searchTerm();
+
       const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
         'search_scoop',
         {
-          term: searchTerm(),
+          term: searchQuery,
         }
       );
+
       if (!signal.aborted || force) {
-        setResults(response.packages);
-        searchResultsCache = response.packages;
+        let filteredResults = response.packages;
+
+        // Apply bucket filtering
+        if (parsedSearch.bucketName) {
+          filteredResults = response.packages.filter((pkg) => {
+            if (parsedSearch.forceBucketMatch) {
+              // Force match: bucket name must exactly equal specified name
+              return pkg.source === parsedSearch.bucketName;
+            } else {
+              // Include match: bucket name contains specified string
+              return pkg.source.toLowerCase().includes(parsedSearch.bucketName!.toLowerCase());
+            }
+          });
+        }
+
+        // Apply app name exact match filtering (if force match is specified)
+        if (parsedSearch.forceAppMatch) {
+          filteredResults = filteredResults.filter((pkg) => {
+            if (parsedSearch.forceAppMatch) {
+              // Force match: app name must exactly equal specified name
+              return pkg.name === parsedSearch.appName;
+            }
+          });
+        }
+
+        setResults(filteredResults);
+        searchResultsCache = filteredResults;
         currentSearchTermCache = searchTerm();
         currentCacheVersion = cacheVersion();
+
+        console.log(`✅ Search completed: ${filteredResults.length} results found`);
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -192,14 +239,14 @@ export function useSearch(): UseSearchReturn {
     if (isRestoring) {
       return;
     }
-    
+
     isRestoring = true;
-    
-    // 首先尝试从 sessionStorage 恢复
+
+    // First try to restore from sessionStorage
     const storedResults = sessionStorage.getItem('searchResults');
     const storedTerm = sessionStorage.getItem('searchResultsTerm');
     const storedVersion = sessionStorage.getItem('searchResultsVersion');
-    
+
     if (
       storedResults &&
       storedTerm === searchTerm() &&
@@ -212,17 +259,17 @@ export function useSearch(): UseSearchReturn {
         setLoading(false);
       } catch (error) {
         console.error('Failed to parse stored search results:', error);
-        // 如果解析失败，清除损坏的数据
+        // If parsing fails, clear corrupted data
         sessionStorage.removeItem('searchResults');
         sessionStorage.removeItem('searchResultsTerm');
         sessionStorage.removeItem('searchResultsVersion');
-        // 清除内存缓存，强制重新搜索
+        // Clear memory cache to ensure new search term uses sessionStorage or re-search
         searchResultsCache = null;
         currentSearchTermCache = null;
         handleSearch();
       }
     }
-    // 如果 sessionStorage 没有有效数据，尝试内存缓存
+    // If sessionStorage has no valid data, try memory cache
     else if (
       searchResultsCache &&
       currentSearchTermCache === searchTerm() &&
@@ -234,7 +281,7 @@ export function useSearch(): UseSearchReturn {
     } else if (searchTerm().trim() !== '') {
       handleSearch();
     }
-    
+
     isRestoring = false;
   };
 
@@ -246,7 +293,7 @@ export function useSearch(): UseSearchReturn {
 
       if (searchTerm().trim() === '') {
         setResults([]);
-        // 清理内存缓存，让 sessionStorage 优先
+        // Clear memory cache to prioritize sessionStorage
         searchResultsCache = null;
         currentSearchTermCache = null;
         setLoading(false);
@@ -254,14 +301,14 @@ export function useSearch(): UseSearchReturn {
         return;
       }
 
-      // 检查是否有有效的缓存，如果有则不清理内存缓存
-      const hasValidCache = 
+      // Check if there is valid cache, if yes, don't clear memory cache
+      const hasValidCache =
         searchResultsCache &&
         currentSearchTermCache === searchTerm() &&
         currentCacheVersion === cacheVersion();
-      
+
       if (!hasValidCache) {
-        // 清理内存缓存，确保新搜索词使用 sessionStorage 或重新搜索
+        // Clear memory cache to ensure new search term uses sessionStorage or re-search
         searchResultsCache = null;
         currentSearchTermCache = null;
 
@@ -270,7 +317,7 @@ export function useSearch(): UseSearchReturn {
           handleSearch();
         }, 600);
       }
-      // 有有效缓存时，不设置 debounce timer
+      // If there is valid cache, do not set debounce timer
     })
   );
 
@@ -304,9 +351,17 @@ export function useSearch(): UseSearchReturn {
   const binaryResults = () => results().filter((p) => p.match_source === 'binary');
   const resultsToShow = () => {
     const filteredResults = activeTab() === 'packages' ? packageResults() : binaryResults();
-    if (bucketFilter()) {
+
+    // Check if search format has already specified bucket limit
+    const parsedSearch: ParsedSearch = parseSearchFormat(searchTerm());
+    const hasSearchBucketFilter = parsedSearch.bucketName !== undefined;
+
+    // If search format has already specified bucket, don't apply global bucket filter
+    // Otherwise, apply global bucket filter
+    if (!hasSearchBucketFilter && bucketFilter()) {
       return filteredResults.filter((p) => p.source === bucketFilter());
     }
+
     return filteredResults;
   };
 

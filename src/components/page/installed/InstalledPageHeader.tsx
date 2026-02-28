@@ -43,11 +43,20 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   useGlobalSearchHotkey({
     shouldClear: () => props.searchQuery().length > 0,
     onSearchStart: (char: string) => {
-      setIsExpanded(true);
-      props.setSearchQuery(char);
+      // If there is already text, append the character; otherwise replace
+      if (props.searchQuery().length > 0) {
+        props.setSearchQuery(props.searchQuery() + char);
+      } else {
+        setIsExpanded(true);
+        props.setSearchQuery(char);
+      }
     },
     onClearSearch: () => {
       props.setSearchQuery('');
+    },
+    onFocusInput: () => {
+      setIsExpanded(true);
+      setTimeout(() => searchInputRef?.focus(), 0);
     },
   });
 
