@@ -177,28 +177,30 @@ jobs:
 
       - name: Light error check
         run: |
-          echo "🔍 Running light error checks..."
+          Write-Host "🔍 Running light error checks..."
 
           # Check if Tauri configuration is valid
-          if ! pnpm run tauri info > /dev/null 2>&1; then
-            echo "❌ Tauri configuration error"
-            pnpm run tauri info
-            exit 1
-          fi
+          try {
+              pnpm run tauri info 2>$null
+          } catch {
+              Write-Host "❌ Tauri configuration error"
+              pnpm run tauri info
+              exit 1
+          }
 
           # Quick TypeScript type checking (no emit)
-          echo "📝 Checking TypeScript compilation..."
-          if command -v tsc >/dev/null 2>&1; then
-            npx tsc --noEmit --skipLibCheck
-          else
-            echo "⚠️ TypeScript compiler not available, skipping type check"
-          fi
+          Write-Host "📝 Checking TypeScript compilation..."
+          if (Get-Command tsc -ErrorAction SilentlyContinue) {
+              npx tsc --noEmit --skipLibCheck
+          } else {
+              Write-Host "⚠️ TypeScript compiler not available, skipping type check"
+          }
 
           # Light Tauri build check (no bundle, debug mode)
-          echo "🔨 Running light Tauri build..."
+          Write-Host "🔨 Running light Tauri build..."
           pnpm run tauri build --no-bundle --debug
 
-          echo "✅ Light checks passed - no critical errors detected"
+          Write-Host "✅ Light checks passed - no critical errors detected"
 
       - name: Comment on PR about build failure
         if: failure()
