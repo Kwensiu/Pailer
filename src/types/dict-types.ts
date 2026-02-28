@@ -164,15 +164,24 @@ export interface Dict {
       description: string;
       install: string;
       installing: string;
+      issuesFound: string;
       items: {
         gitInstalled: string;
+        gitSuggestion: string;
         helperInstalled: string;
+        helperNotInstalled: string;
+        helperSuggestion: string;
         longPathsEnabled: string;
+        longPathsSuggestion: string;
         mainBucketInstalled: string;
+        mainBucketSuggestion: string;
         scoopOnNtfs: string;
+        scoopOnNtfsSuggestion: string;
         windowsDeveloperModeEnabled: string;
+        windowsDeveloperModeSuggestion: string;
       };
-      suggestion: string;
+      noIssues: string;
+      scrollToIssues: string;
       title: string;
     };
     cleanup: {

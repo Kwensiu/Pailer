@@ -164,15 +164,24 @@
       "description": "This tool checks for common problems with your Scoop setup.",
       "install": "Install",
       "installing": "Installing...",
+      "issuesFound": "Issues Found",
       "items": {
         "gitInstalled": "Git is installed",
-        "helperInstalled": "Helper '{{name}}' is installed",
+        "gitSuggestion": "Scoop relies on Git. Please install it, for example by running: scoop install git",
+        "helperInstalled": "Package '{{name}}' is installed",
+        "helperNotInstalled": "Package '{{name}}' is not installed",
+        "helperSuggestion": "Please install the helper package '{{name}}' for the best experience.",
         "longPathsEnabled": "Long paths are enabled",
+        "longPathsSuggestion": "Enable long paths by running this command in an administrator PowerShell: Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1",
         "mainBucketInstalled": "Main bucket is installed",
+        "mainBucketSuggestion": "The main bucket is essential for many packages. To add it, run: scoop bucket add main",
         "scoopOnNtfs": "Scoop is on an NTFS filesystem (found: {{filesystem}})",
-        "windowsDeveloperModeEnabled": "Windows Developer Mode is enabled"
+        "scoopOnNtfsSuggestion": "Scoop requires an NTFS volume to work properly. Please ensure the Scoop directory is on an NTFS partition.",
+        "windowsDeveloperModeEnabled": "Windows Developer Mode is enabled",
+        "windowsDeveloperModeSuggestion": "Windows Developer Mode is not enabled. Operations relevant to symlinks may fail without proper rights. Please enable it in the Windows Settings."
       },
-      "suggestion": "Suggestion:",
+      "noIssues": "Checkup completed successfully. No issues found.",
+      "scrollToIssues": "Scroll to issues",
       "title": "Scoop Health Check"
     },
     "cleanup": {

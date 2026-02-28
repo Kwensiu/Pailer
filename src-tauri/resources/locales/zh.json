@@ -164,15 +164,24 @@
       "description": "此工具检查您的 Scoop 设置中的常见问题。",
       "install": "安装",
       "installing": "正在安装...",
+      "issuesFound": "发现问题",
       "items": {
         "gitInstalled": "Git 已安装",
+        "gitSuggestion": "Scoop 依赖 Git。请安装它，例如运行：scoop install git",
         "helperInstalled": "软件包 '{{name}}' 已安装",
+        "helperNotInstalled": "软件包 '{{name}}' 未安装",
+        "helperSuggestion": "请安装软件包 '{{name}}' 以获得最佳体验。",
         "longPathsEnabled": "长路径已启用",
+        "longPathsSuggestion": "通过在管理员 PowerShell 中运行此命令启用长路径：Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1",
         "mainBucketInstalled": "Main 仓库已安装",
+        "mainBucketSuggestion": "Main 仓库对于许多软件包至关重要。要添加它，请运行：scoop bucket add main",
         "scoopOnNtfs": "Scoop 位于 {{filesystem}} 文件系统上（找到：{{filesystem}}）",
-        "windowsDeveloperModeEnabled": "Windows 开发者模式已启用"
+        "scoopOnNtfsSuggestion": "Scoop 需要 NTFS 卷才能正常工作。请确保 Scoop 目录位于 NTFS 分区上。",
+        "windowsDeveloperModeEnabled": "Windows 开发者模式已启用",
+        "windowsDeveloperModeSuggestion": "Windows 开发者模式未启用。相关到符号链接的操作可能因权限不足而失败。请在 Windows 设置中启用它。"
       },
-      "suggestion": "建议：",
+      "noIssues": "检查完成，没有发现问题。",
+      "scrollToIssues": "滚动到问题",
       "title": "Scoop 健康检查"
     },
     "cleanup": {
