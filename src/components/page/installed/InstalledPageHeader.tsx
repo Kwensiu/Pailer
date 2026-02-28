@@ -11,7 +11,6 @@ import {
   RefreshCw,
 } from 'lucide-solid';
 import { t } from '../../../i18n';
-import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
 
 interface InstalledHeaderProps {
   updatableCount: Accessor<number>;
@@ -40,26 +39,6 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   let focusTimeoutId: ReturnType<typeof setTimeout> | undefined;
   const [isExpanded, setIsExpanded] = createSignal(false);
 
-  useGlobalSearchHotkey({
-    shouldClear: () => props.searchQuery().length > 0,
-    onSearchStart: (char: string) => {
-      // If there is already text, append the character; otherwise replace
-      if (props.searchQuery().length > 0) {
-        props.setSearchQuery(props.searchQuery() + char);
-      } else {
-        setIsExpanded(true);
-        props.setSearchQuery(char);
-      }
-    },
-    onClearSearch: () => {
-      props.setSearchQuery('');
-    },
-    onFocusInput: () => {
-      setIsExpanded(true);
-      setTimeout(() => searchInputRef?.focus(), 0);
-    },
-  });
-
   // Auto-expand when there's search content, collapse when empty
   createEffect(() => {
     if (props.searchQuery()) {
@@ -82,6 +61,38 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         clearTimeout(focusTimeoutId);
         focusTimeoutId = undefined;
       }
+    });
+  });
+
+  // Global keyboard event listener for quick search
+  createEffect(() => {
+    const handleGlobalKeydown = (e: KeyboardEvent) => {
+      // Only handle when not already focused on input
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
+        return;
+      }
+
+      // Check if the key is a letter (a-z) or digit (0-9)
+      if (
+        e.key.length === 1 &&
+        /[a-zA-Z0-9]/.test(e.key) &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        setIsExpanded(true);
+        // Set the search query to the typed character
+        props.setSearchQuery(e.key);
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeydown);
+    onCleanup(() => {
+      document.removeEventListener('keydown', handleGlobalKeydown);
     });
   });
 

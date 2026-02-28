@@ -6,7 +6,7 @@ import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
 import SearchResultsList from '../components/page/search/SearchResultsList';
 
-import { createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
 import { t } from '../i18n';
 import { createTauriSignal } from '../hooks/createTauriSignal';
 import { RefreshCw } from 'lucide-solid';
@@ -49,19 +49,6 @@ function SearchPage() {
     restoreSearchResults();
   });
 
-  // 监听搜索结果变化来更新 buckets 列表
-  createEffect(() => {
-    const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
-    setUniqueBuckets(buckets);
-  });
-
-  // 重置分页到第一页当结果或标签变化时
-  createEffect(() => {
-    resultsToShow();
-    activeTab();
-    setCurrentPage(1);
-  });
-
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -70,6 +57,16 @@ function SearchPage() {
       setRefreshing(false);
     }
   };
+
+  createEffect(() => {
+    resultsToShow();
+    activeTab();
+    setCurrentPage(1);
+
+    // Get the bucket's name
+    const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
+    setUniqueBuckets(buckets);
+  });
 
   onCleanup(() => {
     cleanup();
@@ -122,49 +119,20 @@ function SearchPage() {
           </div>
         </div>
 
-        {/* Empty state when no search term */}
-        <Show when={!searchTerm().trim()}>
-          <div class="flex flex-col items-center justify-center pt-12 text-center">
-            <div class="bg-base-300 mb-6 rounded-full p-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="text-base-content/50 h-16 w-16"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-            <h3 class="mb-2 text-2xl font-bold">{t('search.emptyState.title')}</h3>
-            <p class="text-base-content/70 mb-4 max-w-md text-lg">
-              {t('search.emptyState.description')}
-            </p>
-          </div>
-        </Show>
-
-        {/* Search results */}
-        <Show when={searchTerm().trim()}>
-          <SearchResultsList
-            loading={loading()}
-            results={resultsToShow()}
-            searchTerm={searchTerm()}
-            activeTab={activeTab()}
-            onViewInfo={fetchPackageInfo}
-            onInstall={handleInstall}
-            onPackageStateChanged={() => {
-              // This will be called when install buttons are clicked
-              // The actual refresh will happen in closeOperationModal when the operation completes
-            }}
-            currentPage={currentPage()}
-            onPageChange={setCurrentPage}
-          />
-        </Show>
+        <SearchResultsList
+          loading={loading()}
+          results={resultsToShow()}
+          searchTerm={searchTerm()}
+          activeTab={activeTab()}
+          onViewInfo={fetchPackageInfo}
+          onInstall={handleInstall}
+          onPackageStateChanged={() => {
+            // This will be called when install buttons are clicked
+            // The actual refresh will happen in closeOperationModal when the operation completes
+          }}
+          currentPage={currentPage()}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       <PackageInfoModal

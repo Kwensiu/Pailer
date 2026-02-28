@@ -376,22 +376,7 @@
     "bar": {
       "clearSearch": "清除搜索",
       "exactMatchTooltip": "使用\"引号\"进行精确匹配",
-      "placeholder": "搜索本地仓库中的应用程序",
-      "searchHelp": "搜索帮助"
-    },
-    "emptyState": {
-      "title": "搜索应用程序",
-      "description": "搜索您本地 Scoop 仓库中的软件包"
-    },
-    "help": {
-      "title": "搜索格式帮助",
-      "description": "您可以使用特殊的搜索格式来更精确地查找软件包：",
-      "examples": "示例：",
-      "normalSearch": "在任意仓库中搜索包含 '7zip' 的软件包",
-      "bucketSearch": "仅在名称包含 'main' 的仓库中搜索包含 '7zip' 的软件包",
-      "allBuckets": "在所有仓库中搜索包含 '7zip' 的软件包（与普通搜索相同）",
-      "exactMatch": "仅在名称为 'main' 的仓库中搜索名称为 '7zip' 的软件包",
-      "note": "提示：您也可以在页面上直接输入字母或数字来进行快速搜索。"
+      "placeholder": "搜索本地仓库中的应用程序"
     },
     "filter": {
       "allBuckets": "所有仓库"
