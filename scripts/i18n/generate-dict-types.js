@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,11 +35,19 @@ function generateInterface(obj, indent = '') {
 function generateTypes() {
   try {
     const baseData = JSON.parse(fs.readFileSync(baseLocalePath, 'utf-8'));
-    const interfaceStr = `export interface Dict {\n${generateInterface(baseData, '  ')}\n  [key: string]: string | ((...args: any[]) => string) | any;\n}`;
+    const interfaceStr = `export interface Dict {\n${generateInterface(baseData, '  ')}  [key: string]: string | ((...args: any[]) => string) | any;\n}\n`;
 
     const outputPath = path.join(__dirname, '..', '..', 'src', 'types', 'dict-types.ts');
     fs.writeFileSync(outputPath, interfaceStr, 'utf-8');
-    console.log(`Type file generated: ${outputPath}`);
+
+    // Format the generated file with Prettier
+    try {
+      execSync(`pnpm prettier --write "${outputPath}"`, { stdio: 'inherit' });
+      console.log(`Type file generated and formatted: ${outputPath}`);
+    } catch (error) {
+      console.warn(`Failed to format generated file: ${error.message}`);
+      console.log(`Type file generated: ${outputPath}`);
+    }
   } catch (error) {
     console.error('Type generation failed:', error.message);
   }
