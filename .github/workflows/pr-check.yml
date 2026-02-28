@@ -176,6 +176,7 @@ jobs:
         run: pnpm run build
 
       - name: Light error check
+        id: light_check
         run: |
           Write-Host "🔍 Running light error checks..."
 
@@ -190,10 +191,18 @@ jobs:
 
           # Quick TypeScript type checking (no emit)
           Write-Host "📝 Checking TypeScript compilation..."
-          if (Get-Command tsc -ErrorAction SilentlyContinue) {
-              npx tsc --noEmit --skipLibCheck
+          $modifiedFiles = git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>$null
+          $tsFiles = $modifiedFiles | Where-Object { $_ -match '\.(ts|tsx)$' }
+          if ($tsFiles) {
+              try {
+                  npx tsc --noEmit --skipLibCheck $tsFiles
+                  Write-Host "✅ TypeScript check passed for modified files"
+              } catch {
+                  Write-Host "❌ TypeScript compilation failed for modified files"
+                  exit 1
+              }
           } else {
-              Write-Host "⚠️ TypeScript compiler not available, skipping type check"
+              Write-Host "ℹ️ No TypeScript files modified, skipping type check"
           }
 
           # Light Tauri build check (no bundle, debug mode)
@@ -215,11 +224,6 @@ jobs:
 
             Common issues:
             - Frontend build errors (TypeScript, CSS, etc.)
-
-            常见问题：
-            - 前端构建错误（TypeScript、CSS等）
-            - Rust编译错误
-            - Tauri配置问题`;
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
