@@ -31,7 +31,8 @@ export default function Card(props: CardProps) {
 
   const additionalContentId =
     typeof props.title === 'string' && props.additionalContent
-      ? `card-additional-${props.title.replace(/\s+/g, '-').toLowerCase()}`      : undefined;
+      ? `card-additional-${props.title.replace(/\s+/g, '-').toLowerCase()}`
+      : undefined;
 
   createEffect(() => {
     if (props.conditionalContent?.condition) {
@@ -119,13 +120,16 @@ export default function Card(props: CardProps) {
             aria-expanded={props.conditionalContent!.condition}
             style={{
               'max-height': `${contentHeight()}px`,
-              'opacity': props.conditionalContent!.condition ? '1' : '0',
-              'overflow': 'hidden',
-              'transition': 'max-height 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s'
+              opacity: props.conditionalContent!.condition ? '1' : '0',
+              overflow: 'hidden',
+              transition: 'max-height 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s',
             }}
           >
             <div class="my-2"></div>
-            <div ref={contentRef} class="bg-base-200 border border-base-300 rounded-lg p-4 shadow-sm">
+            <div
+              ref={contentRef}
+              class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm"
+            >
               {props.conditionalContent!.children}
             </div>
           </div>

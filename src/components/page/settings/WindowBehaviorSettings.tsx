@@ -253,12 +253,12 @@ function WindowBehaviorSettings() {
 
           {/* Apps Management Section */}
           <div
-            class={`transition-all duration-300 ease-in-out overflow-hidden ${
-              settings.window.trayAppsEnabled ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0'
+            class={`overflow-hidden transition-all duration-300 ease-in-out ${
+              settings.window.trayAppsEnabled ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
             }`}
           >
             <div class="divider my-4"></div>
-            <div class="bg-base-200 border border-base-300 rounded-lg p-4 shadow-sm">
+            <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">
               <Show when={!isLoadingApps()} fallback={<div>{t('loading')}</div>}>
                 {/* Selected Apps */}
                 <div class="mb-6">
