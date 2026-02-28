@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import OperationModal from '../components/OperationModal';
 import ScoopConfiguration from '../components/page/settings/ScoopConfiguration';
 import StartupSettings from '../components/page/settings/StartupSettings';
+import HotkeySettings from '../components/page/settings/HotkeySettings';
 import VirusTotalSettings from '../components/page/settings/VirusTotalSettings';
 import HeldPackagesManagement from '../components/page/settings/HeldPackagesManagement';
 import AboutSection, { AboutSectionRef } from '../components/page/settings/AboutSection';
@@ -118,6 +119,7 @@ function SettingsPage(props: SettingsPageProps) {
               <LanguageSettings />
               <TraySettings />
               <StartupSettings />
+              <HotkeySettings />
               <DefaultLaunchPageSettings />
               <DebugSettings />
             </div>
