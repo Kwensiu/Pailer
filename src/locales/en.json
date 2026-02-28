@@ -517,6 +517,11 @@
       "settings": "Settings",
       "title": "Default Launch Page"
     },
+    "hotkey": {
+      "description": "Enable or disable in-app keyboard shortcuts",
+      "note": "When enabled, you can type letters or numbers directly on package pages to quickly search.",
+      "title": "Hotkeys"
+    },
     "heldPackages": {
       "description": "Packages on hold are prevented from being updated via Pailer or Scoop.",
       "noPackagesHeld": "No packages are currently on hold.",

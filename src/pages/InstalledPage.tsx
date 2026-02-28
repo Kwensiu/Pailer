@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo, onMount } from 'solid-js';
+import { Show, createSignal, createMemo, onMount, createEffect, onCleanup } from 'solid-js';
 import PackageInfoModal from '../components/PackageInfoModal';
 import ScoopStatusModal from '../components/ScoopStatusModal';
 import OperationModal from '../components/OperationModal';
@@ -7,8 +7,7 @@ import InstalledPageHeader from '../components/page/installed/InstalledPageHeade
 import PackageListView from '../components/page/installed/PackageListView';
 import PackageGridView from '../components/page/installed/PackageGridView';
 import { View } from '../types/scoop';
-import { createTauriSignal } from '../hooks/createTauriSignal';
-import FloatingConfirmationPanel from '../components/ChangeBucketModal';
+import ChangeBucketModal from '../components/ChangeBucketModal';
 import { t } from '../i18n';
 
 interface InstalledPageProps {
@@ -69,12 +68,46 @@ function InstalledPage(props: InstalledPageProps) {
     buckets,
   } = useInstalledPackages();
 
-  const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', '');
+  const [searchQuery, setSearchQuery] = createSignal<string>(
+    sessionStorage.getItem('installedSearchQuery') || ''
+  );
   const [showStatusModal, setShowStatusModal] = createSignal(false);
+
+  // 同步搜索内容到 sessionStorage
+  createEffect(() => {
+    const query = searchQuery();
+    if (query) {
+      sessionStorage.setItem('installedSearchQuery', query);
+    } else {
+      sessionStorage.removeItem('installedSearchQuery');
+    }
+  });
 
   // Execute a silent refresh when the component mounts
   onMount(() => {
     fetchInstalledPackages(true);
+
+    // Global ESC key handler to clear search when not focused
+    const handleGlobalEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && searchQuery()) {
+        // Check if any input is focused
+        const activeElement = document.activeElement;
+        const isInputFocused =
+          activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
+
+        if (!isInputFocused) {
+          e.preventDefault();
+          setSearchQuery('');
+          // Also clear sessionStorage to ensure search box collapses
+          sessionStorage.removeItem('installedSearchQuery');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalEsc);
+    onCleanup(() => {
+      document.removeEventListener('keydown', handleGlobalEsc);
+    });
   });
 
   const handleCheckStatus = async () => {
@@ -221,44 +254,17 @@ function InstalledPage(props: InstalledPageProps) {
         </Show>
       </Show>
 
-      <Show when={changeBucketModalOpen()}>
-        <FloatingConfirmationPanel
-          isOpen={changeBucketModalOpen()}
-          title={t('packageInfo.changeBucketFor', { name: currentPackageForBucketChange()?.name })}
-          onConfirm={async () => {
-            await handleChangeBucketConfirm();
-          }}
-          onCancel={handleChangeBucketCancel}
-        >
-          <div class="space-y-4">
-            <div>
-              <select
-                value={newBucketName()}
-                onInput={(e) => setNewBucketName(e.currentTarget.value)}
-                class="select select-bordered w-full max-w-xs"
-              >
-                <option value="" disabled>
-                  {t('packageInfo.bucket')}
-                </option>
-                <For each={buckets()}>
-                  {(bucket) => <option value={bucket.name}>{bucket.name}</option>}
-                </For>
-              </select>
-              <div class="text-base-content/70 mt-2 text-sm">
-                {t('packageInfo.current')}: {currentPackageForBucketChange()?.source}
-              </div>
-            </div>
-            <div class="bg-info/10 border-info/20 rounded-lg border p-3">
-              <p class="text-info-content/85 text-xs">
-                <strong class="text-yellow-800 dark:text-yellow-200">
-                  {t('packageInfo.warning')}:
-                </strong>{' '}
-                {t('packageInfo.ensureSoftwarePresent')}
-              </p>
-            </div>
-          </div>
-        </FloatingConfirmationPanel>
-      </Show>
+      <ChangeBucketModal
+        isOpen={changeBucketModalOpen()}
+        package={currentPackageForBucketChange()}
+        buckets={buckets()}
+        newBucketName={newBucketName()}
+        onNewBucketNameChange={setNewBucketName}
+        onConfirm={async () => {
+          await handleChangeBucketConfirm();
+        }}
+        onCancel={handleChangeBucketCancel}
+      />
 
       <PackageInfoModal
         pkg={selectedPackage()}
