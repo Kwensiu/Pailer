@@ -1,6 +1,7 @@
 import { Accessor, Setter, Show } from 'solid-js';
 import { CircleQuestionMark, Search, X } from 'lucide-solid';
 import { t } from '../../../i18n';
+import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
 
 interface SearchBarProps {
   searchTerm: Accessor<string>;
@@ -8,6 +9,21 @@ interface SearchBarProps {
 }
 
 function SearchBar(props: SearchBarProps) {
+  let searchInputRef: HTMLInputElement | undefined;
+
+  useGlobalSearchHotkey({
+    shouldClear: () => props.searchTerm().length > 0,
+    onSearchStart: (char: string) => {
+      props.setSearchTerm(char);
+    },
+    onClearSearch: () => {
+      props.setSearchTerm('');
+    },
+    onFocusInput: () => {
+      setTimeout(() => searchInputRef?.focus(), 0);
+    },
+  });
+
   return (
     <div class="relative w-full">
       <span class="absolute inset-y-0 left-0 z-10 flex items-center pl-3">
@@ -15,11 +31,18 @@ function SearchBar(props: SearchBarProps) {
       </span>
 
       <input
+        ref={searchInputRef}
         type="text"
         placeholder={t('search.bar.placeholder')}
         class="input bg-base-100 input-bordered relative w-full pr-16 pl-10"
         value={props.searchTerm()}
         onInput={(e) => props.setSearchTerm(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            e.preventDefault();
+            searchInputRef?.blur();
+          }
+        }}
       />
       <div class="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
         <Show when={props.searchTerm().length > 0}>
