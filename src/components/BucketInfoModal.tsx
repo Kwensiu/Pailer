@@ -227,7 +227,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   const headerAction = (
     <div class="flex items-center gap-2">
       <Show when={props.bucket?.is_git_repo}>
-        <div class="badge badge-info badge-sm">
+        <div class="badge badge-primary badge-sm">
           <GitBranch class="mr-1 h-3 w-3" />
           {t('bucketInfo.git')}
         </div>

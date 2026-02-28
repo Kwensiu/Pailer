@@ -215,30 +215,6 @@ function CommandInputField() {
           </button>
         </div>
       </div>
-
-      <div class="mt-4 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-        <div class="bg-info/10 rounded p-2">
-          <p>
-            <strong>{t('doctor.commandInput.packageManagement')}:</strong> install, uninstall,
-            update, info
-          </p>
-        </div>
-        <div class="bg-info/10 rounded p-2">
-          <p>
-            <strong>{t('doctor.commandInput.information')}:</strong> list, status, checkup
-          </p>
-        </div>
-        <div class="bg-info/10 rounded p-2">
-          <p>
-            <strong>{t('doctor.commandInput.search')}:</strong> search, show, cat
-          </p>
-        </div>
-        <div class="bg-info/10 rounded p-2">
-          <p>
-            <strong>{t('doctor.commandInput.maintenance')}:</strong> cleanup, cache, reset
-          </p>
-        </div>
-      </div>
     </Card>
   );
 }
