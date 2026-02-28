@@ -92,7 +92,6 @@ export default function StartupSettings() {
           </div>
         ),
       }}
-    >
-    </Card>
+    ></Card>
   );
 }

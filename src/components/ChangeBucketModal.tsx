@@ -54,9 +54,7 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
         </div>
         <div class="bg-warning/90 border-info/20 rounded-sm border p-3">
           <p class="text-info-content/85 text-sm">
-            <strong class="text-yellow-800">
-              {t('packageInfo.warning')}:
-            </strong>{' '}
+            <strong class="text-yellow-800">{t('packageInfo.warning')}:</strong>{' '}
             {t('packageInfo.ensureSoftwarePresent')}
           </p>
         </div>

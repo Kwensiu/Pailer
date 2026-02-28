@@ -90,7 +90,9 @@ export default function BucketAutoUpdateSettings() {
           <>
             <div class="flex items-center justify-between">
               <div class="flex flex-col">
-                <span class="text-sm font-medium">{t('settings.bucketAutoUpdate.silentUpdate')}</span>
+                <span class="text-sm font-medium">
+                  {t('settings.bucketAutoUpdate.silentUpdate')}
+                </span>
                 <span class="text-base-content/60 text-[11px]">
                   {t('settings.bucketAutoUpdate.silentUpdateDescription')}
                 </span>
