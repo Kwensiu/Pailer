@@ -77,6 +77,28 @@ function TrayAppsSettings() {
       title={t('settings.trayApps.title')}
       icon={Monitor}
       description={t('settings.trayApps.description')}
+      conditionalContent={{
+        condition: selectedApps().length > 0,
+        children: (
+          <>
+            <p class="text-info mb-2 text-sm font-medium">
+              {t('settings.trayApps.selectedCount', { count: selectedApps().length })}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <For each={selectedApps()}>
+                {(appName) => {
+                  const app = availableApps().find((a) => a.name === appName);
+                  return (
+                    <span class="bg-info/20 text-info inline-flex items-center rounded-full px-2 py-1 text-xs">
+                      {app?.display_name || appName}
+                    </span>
+                  );
+                }}
+              </For>
+            </div>
+          </>
+        ),
+      }}
     >
       <Show when={!isLoading()} fallback={<div>{t('loading')}</div>}>
         <div class="space-y-3">
@@ -107,26 +129,6 @@ function TrayAppsSettings() {
             }
           >
             <p class="text-base-content/50 text-sm">{t('settings.trayApps.noAppsFound')}</p>
-          </Show>
-
-          <Show when={selectedApps().length > 0}>
-            <div class="bg-info/10 border-info/20 mt-4 rounded-lg border p-3">
-              <p class="text-info mb-2 text-sm font-medium">
-                {t('settings.trayApps.selectedCount', { count: selectedApps().length })}
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <For each={selectedApps()}>
-                  {(appName) => {
-                    const app = availableApps().find((a) => a.name === appName);
-                    return (
-                      <span class="bg-info/20 text-info inline-flex items-center rounded-full px-2 py-1 text-xs">
-                        {app?.display_name || appName}
-                      </span>
-                    );
-                  }}
-                </For>
-              </div>
-            </div>
           </Show>
         </div>
       </Show>

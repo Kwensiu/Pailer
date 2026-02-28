@@ -84,6 +84,60 @@ export default function BucketAutoUpdateSettings() {
           {saving() && <span class="loading loading-spinner loading-xs" />}
         </div>
       }
+      conditionalContent={{
+        condition: settings.buckets.autoUpdateInterval !== 'off',
+        children: (
+          <>
+            <div class="flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="text-sm font-medium">{t('settings.bucketAutoUpdate.silentUpdate')}</span>
+                <span class="text-base-content/60 text-[11px]">
+                  {t('settings.bucketAutoUpdate.silentUpdateDescription')}
+                </span>
+              </div>
+              <label class="label cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={settings.buckets.silentUpdateEnabled}
+                  onChange={async (e) => {
+                    await setBucketSettings({ silentUpdateEnabled: e.currentTarget.checked });
+                    await invoke('set_config_value', {
+                      key: 'buckets.silentUpdateEnabled',
+                      value: e.currentTarget.checked,
+                    });
+                  }}
+                />
+              </label>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between">
+              <div class="flex flex-col">
+                <span class="text-sm font-medium">
+                  {t('settings.bucketAutoUpdate.autoUpdatePackages')}
+                </span>
+                <span class="text-base-content/60 text-[11px]">
+                  {t('settings.bucketAutoUpdate.autoUpdatePackagesDescription')}
+                </span>
+              </div>
+              <label class="label cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={settings.buckets.autoUpdatePackagesEnabled}
+                  onChange={async (e) => {
+                    await setBucketSettings({ autoUpdatePackagesEnabled: e.currentTarget.checked });
+                    await invoke('set_config_value', {
+                      key: 'buckets.autoUpdatePackagesEnabled',
+                      value: e.currentTarget.checked,
+                    });
+                  }}
+                />
+              </label>
+            </div>
+          </>
+        ),
+      }}
     >
       <div class="flex flex-col gap-2">
         {INTERVAL_OPTIONS.map((opt) => (
@@ -106,7 +160,7 @@ export default function BucketAutoUpdateSettings() {
       </div>
 
       {/* Custom interval */}
-      <div class="bg-base-300/40 border-base-content/50 mt-4 rounded-md border border-dashed p-3">
+      <div class="bg-base-300/60 border-base-content/50 rounded-md border p-3">
         <label class="mb-3 flex cursor-pointer items-center justify-between">
           <div>
             <span class="text-xs font-semibold tracking-wide uppercase opacity-90">
@@ -154,57 +208,6 @@ export default function BucketAutoUpdateSettings() {
         </Show>
       </div>
 
-      <Show when={settings.buckets.autoUpdateInterval !== 'off'}>
-        <div class="divider my-4"></div>
-
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium">{t('settings.bucketAutoUpdate.silentUpdate')}</span>
-            <span class="text-base-content/60 text-[11px]">
-              {t('settings.bucketAutoUpdate.silentUpdateDescription')}
-            </span>
-          </div>
-          <label class="label cursor-pointer">
-            <input
-              type="checkbox"
-              class="toggle toggle-primary"
-              checked={settings.buckets.silentUpdateEnabled}
-              onChange={async (e) => {
-                await setBucketSettings({ silentUpdateEnabled: e.currentTarget.checked });
-                await invoke('set_config_value', {
-                  key: 'buckets.silentUpdateEnabled',
-                  value: e.currentTarget.checked,
-                });
-              }}
-            />
-          </label>
-        </div>
-
-        <div class="mt-4 flex items-center justify-between">
-          <div class="flex flex-col">
-            <span class="text-sm font-medium">
-              {t('settings.bucketAutoUpdate.autoUpdatePackages')}
-            </span>
-            <span class="text-base-content/60 text-[11px]">
-              {t('settings.bucketAutoUpdate.autoUpdatePackagesDescription')}
-            </span>
-          </div>
-          <label class="label cursor-pointer">
-            <input
-              type="checkbox"
-              class="toggle toggle-primary"
-              checked={settings.buckets.autoUpdatePackagesEnabled}
-              onChange={async (e) => {
-                await setBucketSettings({ autoUpdatePackagesEnabled: e.currentTarget.checked });
-                await invoke('set_config_value', {
-                  key: 'buckets.autoUpdatePackagesEnabled',
-                  value: e.currentTarget.checked,
-                });
-              }}
-            />
-          </label>
-        </div>
-      </Show>
       {error() && <div class="alert alert-error mt-4 text-xs">{error()}</div>}
     </Card>
   );
