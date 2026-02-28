@@ -12,7 +12,7 @@ interface ScoopApp {
   display_name: string;
 }
 
-function WindowBehaviorSettings() {
+function TraySettings() {
   const { settings, setWindowSettings } = settingsStore;
   const [isSaving, setIsSaving] = createSignal(false);
   const [availableApps, setAvailableApps] = createSignal<ScoopApp[]>([]);
@@ -333,4 +333,4 @@ function WindowBehaviorSettings() {
   );
 }
 
-export default WindowBehaviorSettings;
+export default TraySettings;

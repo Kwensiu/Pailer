@@ -9,7 +9,7 @@ import AboutSection, { AboutSectionRef } from '../components/page/settings/About
 import DebugSettings from '../components/page/settings/DebugSettings';
 import AutoCleanupSettings from '../components/page/settings/AutoCleanupSettings';
 import BucketAutoUpdateSettings from '../components/page/settings/BucketAutoUpdateSettings';
-import WindowBehaviorSettings from '../components/page/settings/WindowBehaviorSettings';
+import TraySettings from '../components/page/settings/TraySettings';
 import ThemeSettings from '../components/page/settings/ThemeSettings';
 import DefaultLaunchPageSettings from '../components/page/settings/DefaultLaunchPageSettings';
 import AppDataManagement from '../components/page/settings/AppDataManagement';
@@ -116,7 +116,7 @@ function SettingsPage(props: SettingsPageProps) {
             <div class="space-y-6">
               <ThemeSettings />
               <LanguageSettings />
-              <WindowBehaviorSettings />
+              <TraySettings />
               <StartupSettings />
               <DefaultLaunchPageSettings />
               <DebugSettings />
