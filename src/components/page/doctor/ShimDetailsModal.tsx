@@ -1,4 +1,4 @@
-import { Show } from 'solid-js';
+import { Show, createSignal, onCleanup, createEffect } from 'solid-js';
 import { Trash2, Eye, EyeOff } from 'lucide-solid';
 import { Shim } from './ShimManager';
 import { t } from '../../../i18n';
@@ -14,8 +14,46 @@ interface ShimDetailsModalProps {
 }
 
 function ShimDetailsModal(props: ShimDetailsModalProps) {
+  // State for delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = createSignal(false);
+  const [deleteTimer, setDeleteTimer] = createSignal<number | null>(null);
+
+  // Cleanup timer on unmount
+  onCleanup(() => {
+    if (deleteTimer()) {
+      window.clearTimeout(deleteTimer()!);
+    }
+  });
+
+  // Reset confirmation when modal closes or shim changes
+  createEffect(() => {
+    if (!props.isOpen || !props.shim) {
+      setDeleteConfirm(false);
+      if (deleteTimer()) {
+        window.clearTimeout(deleteTimer()!);
+        setDeleteTimer(null);
+      }
+    }
+  });
+
   const handleRemove = () => {
-    props.onRemove(props.shim.name);
+    if (deleteConfirm()) {
+      // Execute delete
+      if (deleteTimer()) {
+        window.clearTimeout(deleteTimer()!);
+        setDeleteTimer(null);
+      }
+      setDeleteConfirm(false);
+      props.onRemove(props.shim.name);
+    } else {
+      // First click - show confirmation
+      setDeleteConfirm(true);
+      const timer = window.setTimeout(() => {
+        setDeleteConfirm(false);
+        setDeleteTimer(null);
+      }, 3000);
+      setDeleteTimer(timer);
+    }
   };
 
   const handleAlter = () => {
@@ -31,8 +69,17 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
       animation="scale"
       footer={
         <>
-          <button class="btn btn-error" onClick={handleRemove} disabled={props.isOperationRunning}>
-            <Trash2 class="h-4 w-4" /> {t('doctor.shimDetails.remove')}
+          <button
+            class="btn"
+            classList={{
+              'btn-error': !deleteConfirm(),
+              'btn-warning': deleteConfirm(),
+            }}
+            onClick={handleRemove}
+            disabled={props.isOperationRunning}
+          >
+            <Trash2 class="h-4 w-4" />{' '}
+            {deleteConfirm() ? t('buttons.confirm') : t('doctor.shimDetails.remove')}
           </button>
           <button class="btn" onClick={handleAlter} disabled={props.isOperationRunning}>
             <Show

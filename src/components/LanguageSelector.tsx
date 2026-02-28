@@ -8,7 +8,7 @@ const LanguageSelector: Component = () => {
       class="tooltip tooltip-left"
       data-tip={t('switch_to_' + (locale() === 'zh' ? 'english' : 'chinese'))}
     >
-      <button class="btn btn-ghost btn-circle" onClick={toggleLanguage} title={t('language')}>
+      <button class="btn btn-ghost btn-circle" onClick={toggleLanguage} title={t('language.title')}>
         <Languages class="h-5 w-5" />
       </button>
     </div>

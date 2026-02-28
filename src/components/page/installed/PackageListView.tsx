@@ -128,7 +128,7 @@ function PackageListView(props: PackageListViewProps) {
   };
 
   return (
-    <div class="bg-base-100 overflow-x-auto rounded-xl shadow-xl">
+    <div class="bg-base-card overflow-x-auto rounded-xl shadow-xl">
       <table class="table">
         <thead>
           <tr>
@@ -173,7 +173,7 @@ function PackageListView(props: PackageListViewProps) {
                 <td class="max-w-xs whitespace-nowrap">
                   <div class="flex items-center gap-2">
                     <button
-                      class="btn btn-soft bg-base-content-bg sm:btn-sm overflow-hidden transition-all duration-200 hover:shadow-md"
+                      class="btn btn-soft bg-base-100 sm:btn-sm overflow-hidden transition-all duration-200 hover:shadow-md"
                       onClick={() => props.onViewInfo(pkg)}
                     >
                       <div class="max-w-[120px] truncate font-medium">{pkg.name}</div>

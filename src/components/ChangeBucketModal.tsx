@@ -1,127 +1,68 @@
-import { Show, createSignal, createEffect, onCleanup, onMount } from 'solid-js';
-import { Portal } from 'solid-js/web';
-import { X } from 'lucide-solid';
+import Modal from './common/Modal';
 import { t } from '../i18n';
+import { For } from 'solid-js';
+import { ScoopPackage } from '../types/scoop';
+import { BucketInfo } from '../hooks/useBuckets';
 
-interface FloatingConfirmationPanelProps {
+interface ChangeBucketModalProps {
   isOpen: boolean;
-  title: string;
+  package: ScoopPackage | null;
+  buckets: BucketInfo[];
+  newBucketName: string;
+  onNewBucketNameChange: (value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
-  confirmText?: string;
-  cancelText?: string;
-  children: any;
 }
 
-function FloatingConfirmationPanel(props: FloatingConfirmationPanelProps) {
-  const [isVisible, setIsVisible] = createSignal(false);
-  const [isClosing, setIsClosing] = createSignal(false);
-  const [rendered, setRendered] = createSignal(false);
-
-  // Create animation
-  createEffect(() => {
-    if (props.isOpen) {
-      setRendered(true);
-      setTimeout(() => setIsVisible(true), 10);
-    } else {
-      setIsVisible(false);
-    }
-  });
-
-  createEffect(() => {
-    if (isClosing()) {
-      const timer = setTimeout(() => {
-        setRendered(false);
-        setIsClosing(false);
-        // Call onCancel when closing is finished to ensure parent state is reset
-        props.onCancel();
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  });
-
-  const handleClose = () => {
-    setIsClosing(true);
-    setIsVisible(false);
-  };
-
-  const handleBackdropClick = (e: MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      handleClose();
-    }
-  };
-
-  const handleKeyUp = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
-    }
-  };
-
-  onMount(() => {
-    document.addEventListener('keyup', handleKeyUp);
-  });
-
-  onCleanup(() => {
-    document.removeEventListener('keyup', handleKeyUp);
-  });
-
+function ChangeBucketModal(props: ChangeBucketModalProps) {
   return (
-    <Portal>
-      <Show when={rendered()}>
-        <div class="fixed inset-0 z-61 flex items-center justify-center p-2">
-          {' '}
-          {/* z-61 to show above packageinfomodal*/}
-          <div
-            class="absolute inset-0 transition-all duration-300 ease-in-out"
-            classList={{
-              'opacity-0': !isVisible() || isClosing(),
-              'opacity-100': isVisible() && !isClosing(),
-            }}
-            style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(2px);"
-            onClick={handleBackdropClick}
-          ></div>
-          <div
-            class="bg-base-200 border-base-300 relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl border shadow-2xl transition-all duration-300 ease-in-out sm:max-w-lg md:max-w-xl"
-            classList={{
-              'scale-95 opacity-0': !isVisible() || isClosing(),
-              'scale-100 opacity-100': isVisible() && !isClosing(),
-            }}
+    <Modal
+      isOpen={props.isOpen}
+      onClose={props.onCancel}
+      title={t('packageInfo.changeBucketFor', { name: props.package?.name })}
+      size="medium"
+      animation="scale"
+      zIndex="z-61"
+      footer={
+        <>
+          <button class="btn btn-close-outline" onClick={props.onCancel}>
+            {t('buttons.cancel')}
+          </button>
+          <button class="btn btn-primary" onClick={props.onConfirm}>
+            {t('buttons.confirm')}
+          </button>
+        </>
+      }
+    >
+      <div class="space-y-4">
+        <div>
+          <select
+            value={props.newBucketName}
+            onInput={(e) => props.onNewBucketNameChange(e.currentTarget.value)}
+            class="select select-bordered w-full max-w-xs rounded-lg"
           >
-            <div class="border-base-300 flex items-center justify-between border-b p-4">
-              <h3 class="truncate text-lg font-bold">{props.title}</h3>
-              <button
-                class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
-                onClick={handleClose}
-              >
-                <X class="h-4 w-4" />
-              </button>
-            </div>
-            <div class="grow space-y-2 overflow-y-auto px-4 py-4">{props.children}</div>
-            <div class="border-base-300 flex justify-end gap-2 border-t p-4">
-              <button class="btn" onClick={handleClose}>
-                {props.cancelText || t('buttons.cancel')}
-              </button>
-              <button
-                class="btn btn-primary"
-                onClick={() => {
-                  setIsClosing(true);
-                  setIsVisible(false);
-                  const timer = setTimeout(() => {
-                    setRendered(false);
-                    setIsClosing(false);
-                    props.onConfirm();
-                  }, 300);
-                  return () => clearTimeout(timer);
-                }}
-              >
-                {props.confirmText || t('buttons.confirm')}
-              </button>
-            </div>
+            <option value="" disabled>
+              {t('packageInfo.bucket')}
+            </option>
+            <For each={props.buckets}>
+              {(bucket) => <option value={bucket.name}>{bucket.name}</option>}
+            </For>
+          </select>
+          <div class="text-base-content/70 mt-2 text-sm">
+            {t('packageInfo.current')}: {props.package?.source}
           </div>
         </div>
-      </Show>
-    </Portal>
+        <div class="bg-warning/90 border-info/20 rounded-sm border p-3">
+          <p class="text-info-content/85 text-sm">
+            <strong class="text-yellow-800">
+              {t('packageInfo.warning')}:
+            </strong>{' '}
+            {t('packageInfo.ensureSoftwarePresent')}
+          </p>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
-export default FloatingConfirmationPanel;
+export default ChangeBucketModal;
