@@ -11,9 +11,9 @@
     "tauri": "tauri",
     "i18n": "(copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed') && node scripts/i18n/generate-dict-types.js",
     "bump-version": "node scripts/bump-version.js",
-    "format": "powershell -c \"git diff --name-only | ForEach-Object { if ($_.Trim()) { & prettier --write $_ } }\"",
+    "format": "powershell -c \"git diff --cached --name-only --diff-filter=ACM | ForEach-Object { if ($_.Trim()) { & prettier --write $_ } }\"",
     "format:check": "prettier --check .",
-    "format:linux": "git diff --name-only | xargs -r prettier --write"
+    "format:linux": "git diff --cached --name-only --diff-filter=ACM | xargs -r prettier --write"
   },
   "license": "MIT",
   "dependencies": {

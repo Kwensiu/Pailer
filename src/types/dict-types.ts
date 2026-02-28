@@ -630,6 +630,5 @@ export interface Dict {
       title: string;
     };
   };
-
   [key: string]: string | ((...args: any[]) => string) | any;
 }
