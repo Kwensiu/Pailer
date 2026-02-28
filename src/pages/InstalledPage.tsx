@@ -1,4 +1,4 @@
-import { Show, createSignal, createMemo, onMount, createEffect, onCleanup } from 'solid-js';
+import { Show, createSignal, createMemo, onMount, createEffect } from 'solid-js';
 import PackageInfoModal from '../components/PackageInfoModal';
 import ScoopStatusModal from '../components/ScoopStatusModal';
 import OperationModal from '../components/OperationModal';
@@ -86,28 +86,6 @@ function InstalledPage(props: InstalledPageProps) {
   // Execute a silent refresh when the component mounts
   onMount(() => {
     fetchInstalledPackages(true);
-
-    // Global ESC key handler to clear search when not focused
-    const handleGlobalEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && searchQuery()) {
-        // Check if any input is focused
-        const activeElement = document.activeElement;
-        const isInputFocused =
-          activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA';
-
-        if (!isInputFocused) {
-          e.preventDefault();
-          setSearchQuery('');
-          // Also clear sessionStorage to ensure search box collapses
-          sessionStorage.removeItem('installedSearchQuery');
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleGlobalEsc);
-    onCleanup(() => {
-      document.removeEventListener('keydown', handleGlobalEsc);
-    });
   });
 
   const handleCheckStatus = async () => {
@@ -116,10 +94,21 @@ function InstalledPage(props: InstalledPageProps) {
   };
 
   const filteredPackages = createMemo(() => {
-    const query = searchQuery().toLowerCase();
+    const query = searchQuery().toLowerCase().trim();
     if (!query) return processedPackages();
 
-    return processedPackages().filter((p) => p.name.toLowerCase().includes(query));
+    return processedPackages().filter((p) => {
+      // 支持包名匹配
+      if (p.name.toLowerCase().includes(query)) return true;
+      
+      // 支持源（bucket）匹配
+      if (p.source.toLowerCase().includes(query)) return true;
+      
+      // 支持版本匹配
+      if (p.version.toLowerCase().includes(query)) return true;
+      
+      return false;
+    });
   });
 
   return (

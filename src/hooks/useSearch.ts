@@ -5,7 +5,6 @@ import { ScoopPackage, ScoopInfo } from '../types/scoop';
 import { usePackageOperations } from './usePackageOperations';
 import { usePackageInfo } from './usePackageInfo';
 import { OperationNextStep } from '../types/operations';
-import { createTauriSignal } from './createTauriSignal';
 
 interface UseSearchReturn {
   searchTerm: () => string;
@@ -54,14 +53,18 @@ let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 
 export function useSearch(): UseSearchReturn {
-  const [searchTerm, setSearchTerm] = createTauriSignal<string>('pailer-search-term', '');
+  const [searchTerm, setSearchTerm] = createSignal<string>(
+    sessionStorage.getItem('searchTerm') || ''
+  );
 
   const [error, setError] = createSignal<string | null>(null);
   const [results, setResults] = createSignal<ScoopPackage[]>([]);
   const [loading, setLoading] = createSignal(false);
-  const [activeTab, setActiveTab] = createTauriSignal<'packages' | 'includes'>(
-    'search-active-tab',
-    'packages'
+  const [activeTab, setActiveTab] = createSignal<'packages' | 'includes'>(
+    (() => {
+      const stored = sessionStorage.getItem('searchActiveTab');
+      return stored === 'packages' || stored === 'includes' ? stored : 'packages';
+    })()
   );
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const [bucketFilter, setBucketFilter] = createSignal<string>('');
@@ -75,6 +78,38 @@ export function useSearch(): UseSearchReturn {
   let debounceTimer: ReturnType<typeof setTimeout>;
   let currentCacheVersion: number = 0;
   let currentSearchController: AbortController | null = null;
+
+  // 同步搜索内容到 sessionStorage
+  createEffect(() => {
+    const term = searchTerm();
+    if (term) {
+      sessionStorage.setItem('searchTerm', term);
+    } else {
+      sessionStorage.removeItem('searchTerm');
+    }
+  });
+
+  // 同步分页状态到 sessionStorage
+  createEffect(() => {
+    const tab = activeTab();
+    sessionStorage.setItem('searchActiveTab', tab);
+  });
+
+  // 同步搜索结果到 sessionStorage
+  createEffect(() => {
+    const currentResults = results();
+    const term = searchTerm();
+    if (term && currentResults.length > 0) {
+      sessionStorage.setItem('searchResults', JSON.stringify(currentResults));
+      sessionStorage.setItem('searchResultsTerm', term);
+      sessionStorage.setItem('searchResultsVersion', cacheVersion().toString());
+    } else {
+      // 清空搜索时清理 sessionStorage
+      sessionStorage.removeItem('searchResults');
+      sessionStorage.removeItem('searchResultsTerm');
+      sessionStorage.removeItem('searchResultsVersion');
+    }
+  });
 
   onMount(async () => {
     restoreSearchResults();
@@ -104,7 +139,6 @@ export function useSearch(): UseSearchReturn {
     }
 
     if (isRestoring && !force) {
-      console.log('Skipping search - currently restoring');
       return;
     }
 
@@ -134,7 +168,6 @@ export function useSearch(): UseSearchReturn {
         searchResultsCache = response.packages;
         currentSearchTermCache = searchTerm();
         currentCacheVersion = cacheVersion();
-        console.log('Search completed and results cached');
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -150,16 +183,47 @@ export function useSearch(): UseSearchReturn {
   // Function to refresh search results after package operations
   const refreshSearchResults = async (force: boolean = false) => {
     if (searchTerm().trim() !== '' || force) {
-      console.log(`Refreshing search results ${force ? '(forced)' : ''}...`);
       await handleSearch(force);
     }
   };
 
   // Restore search results from cache
   const restoreSearchResults = () => {
+    if (isRestoring) {
+      return;
+    }
+    
     isRestoring = true;
-    console.log('Attempting to restore search results');
+    
+    // 首先尝试从 sessionStorage 恢复
+    const storedResults = sessionStorage.getItem('searchResults');
+    const storedTerm = sessionStorage.getItem('searchResultsTerm');
+    const storedVersion = sessionStorage.getItem('searchResultsVersion');
+    
     if (
+      storedResults &&
+      storedTerm === searchTerm() &&
+      storedVersion === cacheVersion().toString() &&
+      searchTerm().trim() !== ''
+    ) {
+      try {
+        const parsedResults = JSON.parse(storedResults);
+        setResults(parsedResults);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to parse stored search results:', error);
+        // 如果解析失败，清除损坏的数据
+        sessionStorage.removeItem('searchResults');
+        sessionStorage.removeItem('searchResultsTerm');
+        sessionStorage.removeItem('searchResultsVersion');
+        // 清除内存缓存，强制重新搜索
+        searchResultsCache = null;
+        currentSearchTermCache = null;
+        handleSearch();
+      }
+    }
+    // 如果 sessionStorage 没有有效数据，尝试内存缓存
+    else if (
       searchResultsCache &&
       currentSearchTermCache === searchTerm() &&
       searchTerm().trim() !== '' &&
@@ -167,25 +231,22 @@ export function useSearch(): UseSearchReturn {
     ) {
       setResults(searchResultsCache);
       setLoading(false);
-      console.log('Restored search results from cache');
     } else if (searchTerm().trim() !== '') {
-      console.log('No cache found, initiating search');
       handleSearch();
     }
-    setTimeout(() => {
-      isRestoring = false;
-    }, 0);
+    
+    isRestoring = false;
   };
 
   createEffect(
     on([searchTerm], () => {
       if (isRestoring) {
-        console.log('Skipping search effect during restore process');
         return;
       }
 
       if (searchTerm().trim() === '') {
         setResults([]);
+        // 清理内存缓存，让 sessionStorage 优先
         searchResultsCache = null;
         currentSearchTermCache = null;
         setLoading(false);
@@ -193,11 +254,23 @@ export function useSearch(): UseSearchReturn {
         return;
       }
 
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        console.log('Initiating search after debounce, term:', searchTerm());
-        handleSearch();
-      }, 600);
+      // 检查是否有有效的缓存，如果有则不清理内存缓存
+      const hasValidCache = 
+        searchResultsCache &&
+        currentSearchTermCache === searchTerm() &&
+        currentCacheVersion === cacheVersion();
+      
+      if (!hasValidCache) {
+        // 清理内存缓存，确保新搜索词使用 sessionStorage 或重新搜索
+        searchResultsCache = null;
+        currentSearchTermCache = null;
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          handleSearch();
+        }, 600);
+      }
+      // 有有效缓存时，不设置 debounce timer
     })
   );
 

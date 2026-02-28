@@ -49,6 +49,19 @@ function SearchPage() {
     restoreSearchResults();
   });
 
+  // 监听搜索结果变化来更新 buckets 列表
+  createEffect(() => {
+    const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
+    setUniqueBuckets(buckets);
+  });
+
+  // 重置分页到第一页当结果或标签变化时
+  createEffect(() => {
+    resultsToShow();
+    activeTab();
+    setCurrentPage(1);
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -57,16 +70,6 @@ function SearchPage() {
       setRefreshing(false);
     }
   };
-
-  createEffect(() => {
-    resultsToShow();
-    activeTab();
-    setCurrentPage(1);
-
-    // Get the bucket's name
-    const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
-    setUniqueBuckets(buckets);
-  });
 
   onCleanup(() => {
     cleanup();
