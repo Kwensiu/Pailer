@@ -14,7 +14,6 @@ use winreg::{enums::*, RegKey};
 pub fn check_windows_developer_mode() -> CheckupItem {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let key_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock";
-    let suggestion = Some("Windows Developer Mode is not enabled. Operations relevant to symlinks may fail without proper rights. Please enable it in the Windows Settings.".to_string());
 
     let status = match hklm.open_subkey(key_path) {
         Ok(key) => key
@@ -28,7 +27,12 @@ pub fn check_windows_developer_mode() -> CheckupItem {
         status,
         key: "windowsDeveloperModeEnabled".to_string(),
         params: None,
-        suggestion: if status { None } else { suggestion },
+        suggestion_key: if status {
+            None
+        } else {
+            Some("windowsDeveloperModeSuggestion".to_string())
+        },
+        suggestion_params: None,
     }
 }
 
@@ -37,7 +41,6 @@ pub fn check_windows_developer_mode() -> CheckupItem {
 pub fn check_long_paths_enabled() -> CheckupItem {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let key_path = r"SYSTEM\CurrentControlSet\Control\FileSystem";
-    let suggestion = Some("Enable long paths by running this command in an administrator PowerShell: Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1".to_string());
 
     let status = match hklm.open_subkey(key_path) {
         Ok(key) => key
@@ -51,7 +54,12 @@ pub fn check_long_paths_enabled() -> CheckupItem {
         status,
         key: "longPathsEnabled".to_string(),
         params: None,
-        suggestion: if status { None } else { suggestion },
+        suggestion_key: if status {
+            None
+        } else {
+            Some("longPathsSuggestion".to_string())
+        },
+        suggestion_params: None,
     }
 }
 
@@ -117,7 +125,10 @@ fn get_filesystem_type(path: &Path) -> Result<String, String> {
     let fs_name_nul_pos = fs_name_buf
         .iter()
         .position(|&c| c == 0)
-        .unwrap_or(fs_name_buf.len());
+        .unwrap_or_else(|| {
+            log::warn!("Filesystem name buffer not null-terminated, using full buffer");
+            fs_name_buf.len()
+        });
     Ok(String::from_utf16_lossy(&fs_name_buf[..fs_name_nul_pos]))
 }
 
@@ -139,10 +150,11 @@ pub fn check_scoop_on_ntfs(scoop_path: &Path) -> CheckupItem {
         status: is_ntfs,
         key: "scoopOnNtfs".to_string(),
         params: Some(serde_json::json!({"filesystem": fs_type})),
-        suggestion: if is_ntfs {
+        suggestion_key: if is_ntfs {
             None
         } else {
-            Some("Scoop requires an NTFS volume to work properly. Please ensure the Scoop directory is on an NTFS partition.".to_string())
+            Some("scoopOnNtfsSuggestion".to_string())
         },
+        suggestion_params: None,
     }
 }

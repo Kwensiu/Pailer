@@ -25,8 +25,10 @@ pub struct CheckupItem {
     pub key: String,
     /// Optional parameters for the key.
     pub params: Option<serde_json::Value>,
-    /// An optional suggestion for the user to fix a failed check.
-    pub suggestion: Option<String>,
+    /// An optional suggestion key for the user to fix a failed check.
+    pub suggestion_key: Option<String>,
+    /// Optional parameters for the suggestion key.
+    pub suggestion_params: Option<serde_json::Value>,
 }
 
 /// Checks if Git is installed and available in the PATH.
@@ -41,14 +43,12 @@ async fn check_git_installed() -> CheckupItem {
         status: git_installed,
         key: "gitInstalled".to_string(),
         params: None,
-        suggestion: if git_installed {
+        suggestion_key: if git_installed {
             None
         } else {
-            Some(
-                "Scoop relies on Git. Please install it, for example by running: scoop install git"
-                    .to_string(),
-            )
+            Some("gitSuggestion".to_string())
         },
+        suggestion_params: None,
     }
 }
 
@@ -60,14 +60,12 @@ fn check_main_bucket_installed(scoop_path: &Path) -> CheckupItem {
         status: main_bucket_installed,
         key: "mainBucketInstalled".to_string(),
         params: None,
-        suggestion: if main_bucket_installed {
+        suggestion_key: if main_bucket_installed {
             None
         } else {
-            Some(
-                "The main bucket is essential for many packages. To add it, run: scoop bucket add main"
-                    .to_string(),
-            )
+            Some("mainBucketSuggestion".to_string())
         },
+        suggestion_params: None,
     }
 }
 
@@ -89,13 +87,15 @@ fn check_missing_helpers(scoop_path: &Path) -> Vec<CheckupItem> {
                 status: is_installed,
                 key: "helperInstalled".to_string(),
                 params: Some(serde_json::json!({"name": helper})),
-                suggestion: if is_installed {
+                suggestion_key: if is_installed {
                     None
                 } else {
-                    Some(format!(
-                        "This helper is recommended. Install it with: scoop install {}",
-                        helper
-                    ))
+                    Some("helperSuggestion".to_string())
+                },
+                suggestion_params: if is_installed {
+                    None
+                } else {
+                    Some(serde_json::json!({"name": helper}))
                 },
             }
         })
