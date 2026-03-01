@@ -20,8 +20,8 @@ Pailer 项目 fork 自 [Rscoop](https://github.com/AmarBego/Rscoop)，并在其�
 
 <table align="center">
   <tr>
-    <td align="center"><img src="./pic/bucket-dark-en.png" width="200"></td>
-    <td align="center"><img src="./pic/installed-light-cn.png" width="200"></td>
+    <td align="center"><img src="./pic/bucket-dark-en.png" width="600"></td>
+    <td align="center"><img src="./pic/installed-light-cn.png" width="600"></td>
   </tr>
 </table>
 

@@ -20,8 +20,8 @@ Pailer is Forked from [Rscoop](https://github.com/AmarBego/Rscoop), which has </
 
 <table align="center">
   <tr>
-    <td align="center"><img src="./doc/pic/bucket-dark-en.png" width="200"></td>
-    <td align="center"><img src="./doc/pic/installed-light-cn.png" width="200"></td>
+    <td align="center"><img src="./doc/pic/bucket-dark-en.png" width="600"></td>
+    <td align="center"><img src="./doc/pic/installed-light-cn.png" width="600"></td>
   </tr>
 </table>
 
