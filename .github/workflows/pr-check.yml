@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pre-check:
+  i18n-format-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -100,22 +100,22 @@ jobs:
             const newComment = `## 🤖 Format Check Reminder
 
             **Notice:**
-            The project detected that \`pnpm i18n\` or \`pnpm format\` has not been run.
-            If you have new commits in the future, please remember to run \`git diff --name-only origin/develop | ForEach-Object { if ($_.Trim()) { npx prettier --write $_ } }\`
+            The project detected that \`make i18n\` or \`make format\` has not been run.
+            If you have new commits in the future, please remember to run \`make format-pr\`
 
-            - \`pnpm i18n\` is not mandatory, only required when actually changing translation keys
-            - \`pnpm format\` formats all files to ensure consistent code style
+            - \`make i18n\` is not mandatory, only required when actually changing translation keys
+            - \`make format-pr\` formats files to ensure consistent code style
 
             **This is only a reminder and does not require immediate execution.**
 
             ---
 
             **提示:**
-            检测到项目未运行 \`pnpm i18n\` 或 \`pnpm format\`。
-            如果后续有新的commit，请记得运行 \`pnpm format:pr\` 格式化当前 PR 产生的所有更改文件。
+            检测到项目未运行 \`make i18n\` 或 \`make format\`。
+            如果后续有新的commit，请记得运行 \`make format-pr\` 格式化当前 PR 产生的所有更改文件。
 
-            - \`pnpm i18n\` 并非强制，允许只在实际更改翻译键时运行 
-            - \`pnpm format\` 格式化所有文件以确保代码风格一致
+            - \`make i18n\` 并非强制，允许只在实际更改翻译键时运行 
+            - \`make format-pr\` 格式化所有文件以确保代码风格一致
 
             **仅作提示无需立刻执行。**`;
 
@@ -126,9 +126,9 @@ jobs:
               body: newComment
             });
 
-  build-test:
+  lint-check:
     runs-on: windows-latest
-    needs: pre-check
+    needs: i18n-format-check
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
