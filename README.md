@@ -18,6 +18,13 @@ Pailer is Forked from [Rscoop](https://github.com/AmarBego/Rscoop), which has </
 
 ---
 
+<table align="center">
+  <tr>
+    <td align="center"><img src="public\bucket-dark-en.png" width="200"></td>
+    <td align="center"><img src="public\installed-light-cn.png" width="200"></td>
+  </tr>
+</table>
+
 ## ✨ Features
 
 * **🚀 Extreme Performance**: Built with Tauri + Rust, ensuring minimal memory footprint and lightning-fast startup.
