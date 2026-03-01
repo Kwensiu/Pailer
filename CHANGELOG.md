@@ -38,7 +38,9 @@ Pailer is a modern, powerful GUI manager for Scoop, forked from AmarBego's [Rsco
 
 ### 📦 Installation
 - Download from [GitHub Releases](https://github.com/Kwensiu/Pailer/releases)
-- Windows installer with automatic updates
+- Download with Scoop:
+  - `scoop bucket add carrot https://github.com/Kwensiu/scoop-carrot`
+  - `scoop install pailer`
 - Portable version available for advanced users
 
 ### 🔧 Requirements
