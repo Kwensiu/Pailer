@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="./src-tauri/icons/icon.png" alt="Pailer Logo" width="120">
+<img src="https://raw.githubusercontent.com/Kwensiu/Pailer/main/src-tauri/icons/icon.png" alt="Pailer Logo" width="120">
 
 # Pailer
 
 **Tauri + Rust**
+
+中文版本 | [English](../README.md)
 
 Pailer 是一个为 [Scoop](https://scoop.sh/) 打造的现代化桌面客户端
 </br>
