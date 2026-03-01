@@ -86,7 +86,7 @@ function ScoopProxySettings() {
               {t('doctor.proxySettings.save')}
             </button>
             <button
-              class="btn join-item border-none bg-orange-500 hover:bg-orange-600"
+              class="btn btn-warning join-item"
               onClick={handleClearProxy}
               disabled={isLoading() || isSaving() || !proxyValue()}
             >

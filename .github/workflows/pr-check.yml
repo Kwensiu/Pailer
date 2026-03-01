@@ -1,0 +1,235 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  i18n-format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Clean up old bot comments
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find and delete all previous bot comments for this PR
+            const comments = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            for (const comment of comments.data) {
+              if (comment.user.type === 'Bot' && 
+                  (comment.body.includes('🤖 Format Check Reminder') || 
+                   comment.body.includes('❌ Validation Failed'))) {
+                await github.rest.issues.deleteComment({
+                  comment_id: comment.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                });
+                console.log(`Deleted old bot comment: ${comment.id}`);
+              }
+            }
+
+      - name: Check i18n and format
+        id: check
+        continue-on-error: true
+        run: |
+          echo "🔄 Running i18n..."
+          pnpm run i18n
+
+          echo "🔄 Checking format..."
+          if pnpm run format:check; then
+            echo "format_failed=false" >> $GITHUB_OUTPUT
+          else
+            echo "format_failed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes after i18n
+        id: verify-changed
+        run: |
+          # Check for relevant changes (exclude Windows NUL file)
+          relevant_changes=$(git status --porcelain | grep -v "^?? nul$" || true)
+          if [[ -n "$relevant_changes" ]] || [[ "${{ steps.check.outputs.format_failed }}" == "true" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📝 Changes detected after i18n or format issues found:"
+            git status --porcelain
+            if [[ "${{ steps.check.outputs.format_failed }}" == "true" ]]; then
+              echo "⚠️ Format issues detected"
+            fi
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "✅ No changes needed - i18n and format are correct"
+          fi
+
+      - name: Comment on PR about format changes
+        if: steps.verify-changed.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Create new comment (old ones already cleaned up)
+            const newComment = `## 🤖 Format Check Reminder
+
+            **Notice:**
+            The project detected that \`make i18n\` or \`make format\` has not been run.
+            If you have new commits in the future, please remember to run \`make format-pr\`
+
+            - \`make i18n\` is not mandatory, only required when actually changing translation keys
+            - \`make format-pr\` formats files to ensure consistent code style
+
+            **This is only a reminder and does not require immediate execution.**
+
+            ---
+
+            **提示:**
+            检测到项目未运行 \`make i18n\` 或 \`make format\`。
+            如果后续有新的commit，请记得运行 \`make format-pr\` 格式化当前 PR 产生的所有更改文件。
+
+            - \`make i18n\` 并非强制，允许只在实际更改翻译键时运行 
+            - \`make format-pr\` 格式化所有文件以确保代码风格一致
+
+            **仅作提示无需立刻执行。**`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: newComment
+            });
+
+  lint-check:
+    runs-on: windows-latest
+    needs: i18n-format-check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install system dependencies
+        run: |
+          echo "📦 Installing system dependencies for Windows..."
+          # Windows Tauri builds don't require additional system dependencies like Linux
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-deps-
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Light validation check
+        id: light_check
+        run: |
+          Write-Host "🔍 Running light validation checks..."
+
+          # Check if Tauri configuration is valid
+          try {
+              pnpm run tauri info 2>$null
+          } catch {
+              Write-Host "❌ Tauri configuration error"
+              pnpm run tauri info
+              exit 1
+          }
+
+          # Quick TypeScript type checking (no emit)
+          Write-Host "📝 Checking TypeScript compilation..."
+          $modifiedFiles = git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>$null
+          $tsFiles = $modifiedFiles | Where-Object { $_ -match '\.(ts|tsx)$' }
+          if ($tsFiles) {
+              try {
+                  npx tsc --noEmit --skipLibCheck $tsFiles
+                  Write-Host "✅ TypeScript check passed for modified files"
+              } catch {
+                  Write-Host "❌ TypeScript compilation failed for modified files"
+                  exit 1
+              }
+          } else {
+              Write-Host "ℹ️ No TypeScript files modified, skipping type check"
+          }
+
+          Write-Host "✅ Validation checks passed - no critical errors detected"
+
+          # Debug exit code
+          Write-Host "Last exit code: $LASTEXITCODE"
+          exit 0
+
+      - name: Comment on PR about build failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Create new validation failure comment (old ones already cleaned up)
+            const failureComment = `## ❌ Validation Failed
+
+            **Validation Failed:**
+            Please check the validation logs for details and fix the issues before merging.
+
+            Common issues:
+            - Configuration errors or TypeScript type errors`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: failureComment
+            });

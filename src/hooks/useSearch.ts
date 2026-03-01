@@ -5,7 +5,7 @@ import { ScoopPackage, ScoopInfo } from '../types/scoop';
 import { usePackageOperations } from './usePackageOperations';
 import { usePackageInfo } from './usePackageInfo';
 import { OperationNextStep } from '../types/operations';
-import { createTauriSignal } from './createTauriSignal';
+import { parseSearchFormat, type ParsedSearch } from './useGlobalHotkey';
 
 interface UseSearchReturn {
   searchTerm: () => string;
@@ -54,14 +54,18 @@ let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 
 export function useSearch(): UseSearchReturn {
-  const [searchTerm, setSearchTerm] = createTauriSignal<string>('pailer-search-term', '');
+  const [searchTerm, setSearchTerm] = createSignal<string>(
+    sessionStorage.getItem('searchTerm') || ''
+  );
 
   const [error, setError] = createSignal<string | null>(null);
   const [results, setResults] = createSignal<ScoopPackage[]>([]);
   const [loading, setLoading] = createSignal(false);
-  const [activeTab, setActiveTab] = createTauriSignal<'packages' | 'includes'>(
-    'search-active-tab',
-    'packages'
+  const [activeTab, setActiveTab] = createSignal<'packages' | 'includes'>(
+    (() => {
+      const stored = sessionStorage.getItem('searchActiveTab');
+      return stored === 'packages' || stored === 'includes' ? stored : 'packages';
+    })()
   );
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const [bucketFilter, setBucketFilter] = createSignal<string>('');
@@ -75,6 +79,38 @@ export function useSearch(): UseSearchReturn {
   let debounceTimer: ReturnType<typeof setTimeout>;
   let currentCacheVersion: number = 0;
   let currentSearchController: AbortController | null = null;
+
+  // Sync search content to sessionStorage
+  createEffect(() => {
+    const term = searchTerm();
+    if (term) {
+      sessionStorage.setItem('searchTerm', term);
+    } else {
+      sessionStorage.removeItem('searchTerm');
+    }
+  });
+
+  // Sync pagination state to sessionStorage
+  createEffect(() => {
+    const tab = activeTab();
+    sessionStorage.setItem('searchActiveTab', tab);
+  });
+
+  // Sync search results to sessionStorage
+  createEffect(() => {
+    const currentResults = results();
+    const term = searchTerm();
+    if (term && currentResults.length > 0) {
+      sessionStorage.setItem('searchResults', JSON.stringify(currentResults));
+      sessionStorage.setItem('searchResultsTerm', term);
+      sessionStorage.setItem('searchResultsVersion', cacheVersion().toString());
+    } else {
+      // Clear sessionStorage when search is cleared
+      sessionStorage.removeItem('searchResults');
+      sessionStorage.removeItem('searchResultsTerm');
+      sessionStorage.removeItem('searchResultsVersion');
+    }
+  });
 
   onMount(async () => {
     restoreSearchResults();
@@ -104,7 +140,6 @@ export function useSearch(): UseSearchReturn {
     }
 
     if (isRestoring && !force) {
-      console.log('Skipping search - currently restoring');
       return;
     }
 
@@ -117,24 +152,69 @@ export function useSearch(): UseSearchReturn {
       return;
     }
 
+    // Parse search format
+    const parsedSearch: ParsedSearch = parseSearchFormat(searchTerm());
+    console.log('🔍 Parsed search:', parsedSearch);
+
+    // If search format has only bucket name without app name (like "/main"), return empty results directly
+    if (parsedSearch.bucketName && !parsedSearch.appName.trim()) {
+      console.log('🚫 Empty app name in bucket-only search, returning empty results');
+      setResults([]);
+      searchResultsCache = [];
+      currentSearchTermCache = searchTerm();
+      currentCacheVersion = cacheVersion();
+      return;
+    }
+
     currentSearchController = new AbortController();
     const { signal } = currentSearchController;
 
     setLoading(true);
     setError(null);
     try {
+      // For normal search, use original search term
+      // For bucket-limited search, we need to filter on frontend, so search with app name first
+      const searchQuery = parsedSearch.bucketName ? parsedSearch.appName : searchTerm();
+
       const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
         'search_scoop',
         {
-          term: searchTerm(),
+          term: searchQuery,
         }
       );
+
       if (!signal.aborted || force) {
-        setResults(response.packages);
-        searchResultsCache = response.packages;
+        let filteredResults = response.packages;
+
+        // Apply bucket filtering
+        if (parsedSearch.bucketName) {
+          filteredResults = response.packages.filter((pkg) => {
+            if (parsedSearch.forceBucketMatch) {
+              // Force match: bucket name must exactly equal specified name
+              return pkg.source === parsedSearch.bucketName;
+            } else {
+              // Include match: bucket name contains specified string
+              return pkg.source.toLowerCase().includes(parsedSearch.bucketName!.toLowerCase());
+            }
+          });
+        }
+
+        // Apply app name exact match filtering (if force match is specified)
+        if (parsedSearch.forceAppMatch) {
+          filteredResults = filteredResults.filter((pkg) => {
+            if (parsedSearch.forceAppMatch) {
+              // Force match: app name must exactly equal specified name
+              return pkg.name === parsedSearch.appName;
+            }
+          });
+        }
+
+        setResults(filteredResults);
+        searchResultsCache = filteredResults;
         currentSearchTermCache = searchTerm();
         currentCacheVersion = cacheVersion();
-        console.log('Search completed and results cached');
+
+        console.log(`✅ Search completed: ${filteredResults.length} results found`);
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
@@ -150,16 +230,47 @@ export function useSearch(): UseSearchReturn {
   // Function to refresh search results after package operations
   const refreshSearchResults = async (force: boolean = false) => {
     if (searchTerm().trim() !== '' || force) {
-      console.log(`Refreshing search results ${force ? '(forced)' : ''}...`);
       await handleSearch(force);
     }
   };
 
   // Restore search results from cache
   const restoreSearchResults = () => {
+    if (isRestoring) {
+      return;
+    }
+
     isRestoring = true;
-    console.log('Attempting to restore search results');
+
+    // First try to restore from sessionStorage
+    const storedResults = sessionStorage.getItem('searchResults');
+    const storedTerm = sessionStorage.getItem('searchResultsTerm');
+    const storedVersion = sessionStorage.getItem('searchResultsVersion');
+
     if (
+      storedResults &&
+      storedTerm === searchTerm() &&
+      storedVersion === cacheVersion().toString() &&
+      searchTerm().trim() !== ''
+    ) {
+      try {
+        const parsedResults = JSON.parse(storedResults);
+        setResults(parsedResults);
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to parse stored search results:', error);
+        // If parsing fails, clear corrupted data
+        sessionStorage.removeItem('searchResults');
+        sessionStorage.removeItem('searchResultsTerm');
+        sessionStorage.removeItem('searchResultsVersion');
+        // Clear memory cache to ensure new search term uses sessionStorage or re-search
+        searchResultsCache = null;
+        currentSearchTermCache = null;
+        handleSearch();
+      }
+    }
+    // If sessionStorage has no valid data, try memory cache
+    else if (
       searchResultsCache &&
       currentSearchTermCache === searchTerm() &&
       searchTerm().trim() !== '' &&
@@ -167,25 +278,22 @@ export function useSearch(): UseSearchReturn {
     ) {
       setResults(searchResultsCache);
       setLoading(false);
-      console.log('Restored search results from cache');
     } else if (searchTerm().trim() !== '') {
-      console.log('No cache found, initiating search');
       handleSearch();
     }
-    setTimeout(() => {
-      isRestoring = false;
-    }, 0);
+
+    isRestoring = false;
   };
 
   createEffect(
     on([searchTerm], () => {
       if (isRestoring) {
-        console.log('Skipping search effect during restore process');
         return;
       }
 
       if (searchTerm().trim() === '') {
         setResults([]);
+        // Clear memory cache to prioritize sessionStorage
         searchResultsCache = null;
         currentSearchTermCache = null;
         setLoading(false);
@@ -193,11 +301,23 @@ export function useSearch(): UseSearchReturn {
         return;
       }
 
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        console.log('Initiating search after debounce, term:', searchTerm());
-        handleSearch();
-      }, 600);
+      // Check if there is valid cache, if yes, don't clear memory cache
+      const hasValidCache =
+        searchResultsCache &&
+        currentSearchTermCache === searchTerm() &&
+        currentCacheVersion === cacheVersion();
+
+      if (!hasValidCache) {
+        // Clear memory cache to ensure new search term uses sessionStorage or re-search
+        searchResultsCache = null;
+        currentSearchTermCache = null;
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          handleSearch();
+        }, 600);
+      }
+      // If there is valid cache, do not set debounce timer
     })
   );
 
@@ -231,9 +351,17 @@ export function useSearch(): UseSearchReturn {
   const binaryResults = () => results().filter((p) => p.match_source === 'binary');
   const resultsToShow = () => {
     const filteredResults = activeTab() === 'packages' ? packageResults() : binaryResults();
-    if (bucketFilter()) {
+
+    // Check if search format has already specified bucket limit
+    const parsedSearch: ParsedSearch = parseSearchFormat(searchTerm());
+    const hasSearchBucketFilter = parsedSearch.bucketName !== undefined;
+
+    // If search format has already specified bucket, don't apply global bucket filter
+    // Otherwise, apply global bucket filter
+    if (!hasSearchBucketFilter && bucketFilter()) {
       return filteredResults.filter((p) => p.source === bucketFilter());
     }
+
     return filteredResults;
   };
 

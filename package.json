@@ -1,6 +1,6 @@
 {
   "name": "pailer",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "",
   "type": "module",
   "scripts": {
@@ -9,10 +9,12 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
-    "i18n": "(copy /Y src\\locales\\* src-tauri\\resources\\locales\\ >nul 2>&1 || echo 'Locale sync completed') && node scripts/i18n/generate-dict-types.js",
-    "bump-version": "node scripts/bump-version.js",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "i18n": "make i18n",
+    "bump-version": "make bump",
+    "format": "make format",
+    "format:all": "npx prettier --write .",
+    "format:pr": "make format-pr",
+    "format:check": "make check"
   },
   "license": "MIT",
   "dependencies": {

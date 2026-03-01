@@ -3,13 +3,14 @@ import { invoke } from '@tauri-apps/api/core';
 import OperationModal from '../components/OperationModal';
 import ScoopConfiguration from '../components/page/settings/ScoopConfiguration';
 import StartupSettings from '../components/page/settings/StartupSettings';
+import HotkeySettings from '../components/page/settings/HotkeySettings';
 import VirusTotalSettings from '../components/page/settings/VirusTotalSettings';
 import HeldPackagesManagement from '../components/page/settings/HeldPackagesManagement';
 import AboutSection, { AboutSectionRef } from '../components/page/settings/AboutSection';
 import DebugSettings from '../components/page/settings/DebugSettings';
 import AutoCleanupSettings from '../components/page/settings/AutoCleanupSettings';
 import BucketAutoUpdateSettings from '../components/page/settings/BucketAutoUpdateSettings';
-import WindowBehaviorSettings from '../components/page/settings/WindowBehaviorSettings';
+import TraySettings from '../components/page/settings/TraySettings';
 import ThemeSettings from '../components/page/settings/ThemeSettings';
 import DefaultLaunchPageSettings from '../components/page/settings/DefaultLaunchPageSettings';
 import AppDataManagement from '../components/page/settings/AppDataManagement';
@@ -116,8 +117,9 @@ function SettingsPage(props: SettingsPageProps) {
             <div class="space-y-6">
               <ThemeSettings />
               <LanguageSettings />
-              <WindowBehaviorSettings />
+              <TraySettings />
               <StartupSettings />
+              <HotkeySettings />
               <DefaultLaunchPageSettings />
               <DebugSettings />
             </div>

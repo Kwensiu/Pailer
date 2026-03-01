@@ -4,7 +4,7 @@ import Modal from './common/Modal';
 import hljs from 'highlight.js/lib/core';
 
 import json from 'highlight.js/lib/languages/json';
-import { Download, Ellipsis, FileText, Trash2, ExternalLink, RefreshCw } from 'lucide-solid';
+import { Download, Ellipsis, FileText, ExternalLink, RefreshCw } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -354,28 +354,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             {t('packageInfo.viewManifest')}
           </a>
         </li>
-        <Show when={props.pkg?.is_installed}>
-          <li>
-            <button
-              type="button"
-              onClick={async () => {
-                if (props.pkg) {
-                  try {
-                    const packagePath = await invoke<string>('get_package_path', {
-                      packageName: props.pkg.name,
-                    });
-                    await openPath(packagePath);
-                  } catch (error) {
-                    console.error(t('packageInfo.failedToOpenPath'), error);
-                  }
-                }
-              }}
-            >
-              <ExternalLink class="mr-2 h-4 w-4" />
-              {t('packageInfo.openInExplorer')}
-            </button>
-          </li>
-        </Show>
         <Show when={props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)}>
           <li>
             <a onClick={() => props.pkg && fetchVersionInfo(props.pkg)}>
@@ -407,6 +385,28 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             </a>
           </li>
         </Show>
+        <Show when={props.pkg?.is_installed}>
+          <li>
+            <button
+              type="button"
+              onClick={async () => {
+                if (props.pkg) {
+                  try {
+                    const packagePath = await invoke<string>('get_package_path', {
+                      packageName: props.pkg.name,
+                    });
+                    await openPath(packagePath);
+                  } catch (error) {
+                    console.error(t('packageInfo.failedToOpenPath'), error);
+                  }
+                }
+              }}
+            >
+              <ExternalLink class="mr-2 h-4 w-4" />
+              {t('packageInfo.openInExplorer')}
+            </button>
+          </li>
+        </Show>
       </ul>
     </div>
   );
@@ -419,7 +419,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         <Show when={props.pkg?.is_installed}>
           <button
             type="button"
-            class="btn btn-error"
+            class="btn btn-error w-20"
             classList={{ 'btn-warning': uninstallConfirm() }}
             onClick={() => {
               if (uninstallConfirm()) {
@@ -445,7 +445,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               }
             }}
           >
-            <Trash2 class="mr-2 h-4 w-4" />
             {uninstallConfirm() ? t('packageInfo.sure') : t('buttons.uninstall')}
           </button>
         </Show>
@@ -453,7 +452,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         <Show when={props.pkg?.is_installed && props.onChangeBucket}>
           <button
             type="button"
-            class="btn btn-outline btn-info"
+            class="btn btn-info"
             onClick={() => {
               if (props.pkg) {
                 props.onChangeBucket!(props.pkg);

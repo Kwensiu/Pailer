@@ -26,11 +26,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10.27.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -43,8 +45,6 @@ jobs:
         with:
           toolchain: stable
 
-      # Cache Rust dependencies and build artifacts (cargo registry, git, and target dir)
-      # Swatinem/rust-cache handles lockfile hashing and cache priming automatically.
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
@@ -55,38 +55,35 @@ jobs:
         run: choco install upx -y
 
       - name: Install project dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Update Tauri config version
         shell: pwsh
         run: |
-          $cfg = Get-Content src-tauri/tauri.conf.test.json | ConvertFrom-Json
+          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
           $cfg.version = "${{ inputs.version }}"
           $cfg.bundle.createUpdaterArtifacts = $false
-          $cfg.bundle | Add-Member -MemberType NoteProperty -Name signing -Value $null -Force
-          $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.test.json
+          $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
 
-      # One command builds frontend, compiles Rust, and bundles installers
-      - name: Build & bundle application (Tauri)
-        env:
-          TAURI_CONFIG_PATH: ./src-tauri/tauri.conf.test.json
+      - name: Build frontend
+        run: pnpm run build
+
+      - name: Build Tauri app
         run: pnpm run tauri build
 
-      - name: Extract metadata (product name & version)
-        id: meta
+      - name: Compress executable with UPX
         shell: pwsh
         run: |
-          $cfg = Get-Content src-tauri/tauri.conf.test.json | ConvertFrom-Json
-          "version=${{ inputs.version }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "product=$($cfg.productName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-      - name: Compress executable with UPX
-        run: upx --best --lzma src-tauri/target/release/${{ steps.meta.outputs.product }}.exe
+          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $product = $cfg.productName
+          $exePath = "src-tauri/target/release/$product.exe"
+          if (Test-Path $exePath) {
+            upx --best --lzma $exePath
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}
           path: |
-            ./src-tauri/target/release/${{ steps.meta.outputs.product }}.exe
-            ./src-tauri/target/release/bundle/nsis/${{ steps.meta.outputs.product }}_${{ steps.meta.outputs.version }}_x64-setup.exe
+            ./src-tauri/target/release/bundle/nsis/*.exe

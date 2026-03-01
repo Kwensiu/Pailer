@@ -1,4 +1,5 @@
 import { createSignal, onMount, createMemo, Show, onCleanup } from 'solid-js';
+import { TriangleAlert } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import Checkup, { CheckupItem } from '../components/page/doctor/Checkup';
@@ -26,6 +27,20 @@ function DoctorPage() {
   const [isCheckupLoading, setIsCheckupLoading] = createSignal(true);
   const [checkupError, setCheckupError] = createSignal<string | null>(null);
   const [isRetrying, setIsRetrying] = createSignal(false);
+
+  // Check if there are issues in the checkup result
+  const hasIssues = createMemo(() => {
+    return (
+      !isCheckupLoading() &&
+      !checkupError() &&
+      checkupResult().length > 0 &&
+      checkupResult().some((item) => !item.status)
+    );
+  });
+
+  let checkupRef: HTMLDivElement | undefined;
+
+  const scrollToCheckup = () => checkupRef?.scrollIntoView({ behavior: 'smooth' });
 
   // Derived state from global operations store
   const currentOperationId = createMemo(() => {
@@ -71,10 +86,8 @@ function DoctorPage() {
       setCheckupResult(result);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to run sfsu checkup:', errorMsg);
-      setCheckupError(
-        "Could not run sfsu checkup. Please ensure 'sfsu' is installed and accessible in your PATH."
-      );
+      console.error('Failed to run health check:', errorMsg);
+      setCheckupError('Could not run health check. Please ensure your Scoop setup is correct.');
       setCheckupResult([]);
     } finally {
       if (isRetry) {
@@ -87,15 +100,6 @@ function DoctorPage() {
 
   onMount(() => {
     runCheckup();
-  });
-
-  // Derived state to determine if checkup requires attention
-  const needsAttention = createMemo(() => {
-    if (isCheckupLoading() || checkupError() || checkupResult().length === 0) {
-      return false;
-    }
-    // Needs attention if any item is not OK (status is false)
-    return checkupResult().some((item) => !item.status);
   });
 
   const handleInstallHelper = async (helperId: string) => {
@@ -225,15 +229,24 @@ function DoctorPage() {
   return (
     <>
       <div class="p-6">
-        <h1 class="mb-6 text-3xl font-bold">{t('doctor.title')}</h1>
+        <div class="mb-7 flex items-center justify-between">
+          <h1 class="text-3xl font-bold">{t('doctor.title')}</h1>
+          <Show when={hasIssues()}>
+            <button
+              class="btn btn-warning btn-md"
+              onClick={scrollToCheckup}
+              title={t('doctor.checkup.scrollToIssues')}
+            >
+              <TriangleAlert class="mr-1 h-4 w-4" />
+              {t('doctor.checkup.issuesFound')}
+            </button>
+          </Show>
+        </div>
 
         <div class="space-y-8">
           <ScoopInfo onOpenDirectory={handleOpenScoopDirectory} />
           <CommandInputField />
           <ScoopProxySettings />
-
-          <Show when={needsAttention()}>{checkupComponent}</Show>
-
           <Cleanup onCleanupApps={handleCleanupApps} onCleanupCache={handleCleanupCache} />
           <CacheManager
             onOpenDirectory={handleOpenCacheDirectory}
@@ -241,15 +254,7 @@ function DoctorPage() {
             onCleanupCache={handleCleanupCache}
           />
           <ShimManager onOpenDirectory={handleOpenShimDirectory} />
-
-          <Show
-            when={
-              !needsAttention() &&
-              (isCheckupLoading() || checkupResult().length > 0 || checkupError())
-            }
-          >
-            {checkupComponent}
-          </Show>
+          <div ref={checkupRef}>{checkupComponent}</div>
         </div>
       </div>
       <OperationModal

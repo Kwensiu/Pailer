@@ -12,7 +12,7 @@ interface ScoopApp {
   display_name: string;
 }
 
-function WindowBehaviorSettings() {
+function TraySettings() {
   const { settings, setWindowSettings } = settingsStore;
   const [isSaving, setIsSaving] = createSignal(false);
   const [availableApps, setAvailableApps] = createSignal<ScoopApp[]>([]);
@@ -207,6 +207,25 @@ function WindowBehaviorSettings() {
           showStatusLabel={true}
         />
       }
+      conditionalContent={{
+        condition: settings.window.closeToTray,
+        children: (
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <h4 class="text-base-content font-medium">
+                {t('settings.trayApps.manageContextMenu')}
+              </h4>
+              <p class="text-base-content/70 text-sm">
+                {t('settings.trayApps.manageTrayAppsDescription')}
+              </p>
+            </div>
+            <button class="btn btn-outline btn-sm" onClick={() => setIsTrayAppsModalOpen(true)}>
+              <Settings size={16} />
+              {t('settings.trayApps.configure')}
+            </button>
+          </div>
+        ),
+      }}
     >
       <Modal
         isOpen={isTrayAppsModalOpen()}
@@ -233,92 +252,85 @@ function WindowBehaviorSettings() {
           </div>
 
           {/* Apps Management Section */}
-          <Show when={!isLoadingApps()} fallback={<div>{t('loading')}</div>}>
-            {/* Selected Apps */}
-            <div class="mb-6">
-              <h5 class="text-base-content mb-3 text-lg font-medium">
-                {t('settings.trayApps.selectedApps')}
-              </h5>
-              <div class="space-y-3">
-                <For each={selectedApps()}>
-                  {(app, index) => (
-                    <div class="bg-base-100 flex items-center gap-3 rounded-lg border p-3">
-                      <button
-                        class="btn btn-sm btn-square btn-ghost"
-                        onClick={() => moveAppUp(index())}
-                        disabled={index() === 0}
-                      >
-                        <ChevronUp size={18} />
-                      </button>
-                      <button
-                        class="btn btn-sm btn-square btn-ghost"
-                        onClick={() => moveAppDown(index())}
-                        disabled={index() === selectedApps().length - 1}
-                      >
-                        <ChevronDown size={18} />
-                      </button>
-                      <span class="flex-1 text-base font-medium">{app.display_name}</span>
-                      <button
-                        class="btn btn-sm btn-square btn-ghost text-error"
-                        onClick={() => removeApp(app.name)}
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-                  )}
-                </For>
-                <Show when={selectedApps().length === 0}>
-                  <p class="text-base-content/50 bg-base-100 rounded-lg border p-3 text-base italic">
-                    {t('settings.trayApps.noSelectedApps')}
-                  </p>
-                </Show>
-              </div>
-            </div>
+          <div
+            class={`overflow-hidden transition-all duration-300 ease-in-out ${
+              settings.window.trayAppsEnabled ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div class="divider my-4"></div>
+            <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">
+              <Show when={!isLoadingApps()} fallback={<div>{t('loading')}</div>}>
+                {/* Selected Apps */}
+                <div class="mb-6">
+                  <h5 class="text-base-content mb-3 text-lg font-medium">
+                    {t('settings.trayApps.selectedApps')}
+                  </h5>
+                  <div class="space-y-3">
+                    <For each={selectedApps()}>
+                      {(app, index) => (
+                        <div class="bg-base-100 flex items-center gap-3 rounded-lg border p-3">
+                          <button
+                            class="btn btn-sm btn-square btn-ghost"
+                            onClick={() => moveAppUp(index())}
+                            disabled={index() === 0}
+                          >
+                            <ChevronUp size={18} />
+                          </button>
+                          <button
+                            class="btn btn-sm btn-square btn-ghost"
+                            onClick={() => moveAppDown(index())}
+                            disabled={index() === selectedApps().length - 1}
+                          >
+                            <ChevronDown size={18} />
+                          </button>
+                          <span class="flex-1 text-base font-medium">{app.display_name}</span>
+                          <button
+                            class="btn btn-sm btn-square btn-ghost text-error"
+                            onClick={() => removeApp(app.name)}
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </For>
+                    <Show when={selectedApps().length === 0}>
+                      <p class="text-base-content/50 bg-base-100 rounded-lg border p-3 text-base italic">
+                        {t('settings.trayApps.noSelectedApps')}
+                      </p>
+                    </Show>
+                  </div>
+                </div>
 
-            {/* Available Apps */}
-            <div>
-              <h5 class="text-base-content mb-3 text-lg font-medium">
-                {t('settings.trayApps.availableApps')}
-              </h5>
-              <div class="flex flex-wrap gap-3">
-                <For each={getAvailableApps()}>
-                  {(app) => (
-                    <button
-                      class="btn btn-outline h-auto w-auto min-w-fit justify-start px-3 py-2 text-left"
-                      onClick={() => addApp(app)}
-                    >
-                      <span class="text-sm whitespace-nowrap">{app.display_name}</span>
-                    </button>
-                  )}
-                </For>
-              </div>
-              <Show when={getAvailableApps().length === 0}>
-                <p class="text-base-content/50 bg-base-100 rounded-lg border p-3 text-base italic">
-                  {t('settings.trayApps.noAvailableApps')}
-                </p>
+                {/* Available Apps */}
+                <div>
+                  <h5 class="text-base-content mb-3 text-lg font-medium">
+                    {t('settings.trayApps.availableApps')}
+                  </h5>
+                  <div class="flex flex-wrap gap-3">
+                    <For each={getAvailableApps()}>
+                      {(app) => (
+                        <button
+                          class="btn btn-outline h-auto w-auto min-w-fit justify-start px-3 py-2 text-left"
+                          onClick={() => addApp(app)}
+                        >
+                          <span class="text-sm whitespace-nowrap">{app.display_name}</span>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                  <Show when={getAvailableApps().length === 0}>
+                    <p class="text-base-content/50 bg-base-100 rounded-lg border p-3 text-base italic">
+                      {t('settings.trayApps.noAvailableApps')}
+                    </p>
+                  </Show>
+                </div>
               </Show>
             </div>
-          </Show>
+          </div>
         </div>
       </Modal>
-      <div class="mt-4 space-y-6">
-        <div class="flex items-center justify-between">
-          <div class="flex-1">
-            <h4 class="text-base-content font-medium">
-              {t('settings.trayApps.manageContextMenu')}
-            </h4>
-            <p class="text-base-content/70 text-sm">
-              {t('settings.trayApps.manageTrayAppsDescription')}
-            </p>
-          </div>
-          <button class="btn btn-outline btn-sm" onClick={() => setIsTrayAppsModalOpen(true)}>
-            <Settings size={16} />
-            {t('settings.trayApps.configure')}
-          </button>
-        </div>
-      </div>
     </Card>
   );
 }
 
-export default WindowBehaviorSettings;
+export default TraySettings;

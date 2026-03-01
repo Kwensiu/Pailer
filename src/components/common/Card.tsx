@@ -1,4 +1,4 @@
-import { Component, JSX, Show } from 'solid-js';
+import { Component, JSX, Show, createSignal, createEffect } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw } from 'lucide-solid';
 
@@ -16,10 +16,14 @@ interface CardProps {
   onRefresh?: () => void;
   refreshTooltip?: string;
   children?: JSX.Element | JSX.Element[];
+  conditionalContent?: { condition: boolean; children: JSX.Element };
   class?: string;
 }
 
 export default function Card(props: CardProps) {
+  const [contentHeight, setContentHeight] = createSignal(0);
+  let contentRef: HTMLDivElement | undefined;
+
   const descriptionId =
     typeof props.title === 'string' && props.description
       ? `card-desc-${props.title.replace(/\s+/g, '-').toLowerCase()}`
@@ -29,6 +33,21 @@ export default function Card(props: CardProps) {
     typeof props.title === 'string' && props.additionalContent
       ? `card-additional-${props.title.replace(/\s+/g, '-').toLowerCase()}`
       : undefined;
+
+  createEffect(() => {
+    if (props.conditionalContent?.condition) {
+      // Wait for content to render before measuring
+      setTimeout(() => {
+        if (contentRef) {
+          // Include the margin height from my-2 (0.5rem top + 0.5rem bottom = 16px)
+          setContentHeight(contentRef.scrollHeight + 16);
+        }
+      }, 10);
+    } else {
+      setContentHeight(0);
+    }
+  });
+
   return (
     <section
       class={`card bg-base-100 shadow-sm ${props.class ?? ''}`}
@@ -94,6 +113,27 @@ export default function Card(props: CardProps) {
         </Show>
 
         {props.children}
+
+        <Show when={props.conditionalContent}>
+          <div
+            role="region"
+            aria-expanded={props.conditionalContent!.condition}
+            style={{
+              'max-height': `${contentHeight()}px`,
+              opacity: props.conditionalContent!.condition ? '1' : '0',
+              overflow: 'hidden',
+              transition: 'max-height 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s',
+            }}
+          >
+            <div class="my-2"></div>
+            <div
+              ref={contentRef}
+              class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm"
+            >
+              {props.conditionalContent!.children}
+            </div>
+          </div>
+        </Show>
       </div>
     </section>
   );

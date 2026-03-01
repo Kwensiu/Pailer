@@ -164,15 +164,24 @@
       "description": "此工具检查您的 Scoop 设置中的常见问题。",
       "install": "安装",
       "installing": "正在安装...",
+      "issuesFound": "发现问题",
       "items": {
         "gitInstalled": "Git 已安装",
+        "gitSuggestion": "Scoop 依赖 Git。请安装它，例如运行：scoop install git",
         "helperInstalled": "软件包 '{{name}}' 已安装",
+        "helperNotInstalled": "软件包 '{{name}}' 未安装",
+        "helperSuggestion": "请安装软件包 '{{name}}' 以获得最佳体验。",
         "longPathsEnabled": "长路径已启用",
+        "longPathsSuggestion": "通过在管理员 PowerShell 中运行此命令启用长路径：Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' -Name 'LongPathsEnabled' -Value 1",
         "mainBucketInstalled": "Main 仓库已安装",
+        "mainBucketSuggestion": "Main 仓库对于许多软件包至关重要。要添加它，请运行：scoop bucket add main",
         "scoopOnNtfs": "Scoop 位于 {{filesystem}} 文件系统上（找到：{{filesystem}}）",
-        "windowsDeveloperModeEnabled": "Windows 开发者模式已启用"
+        "scoopOnNtfsSuggestion": "Scoop 需要 NTFS 卷才能正常工作。请确保 Scoop 目录位于 NTFS 分区上。",
+        "windowsDeveloperModeEnabled": "Windows 开发者模式已启用",
+        "windowsDeveloperModeSuggestion": "Windows 开发者模式未启用。相关到符号链接的操作可能因权限不足而失败。请在 Windows 设置中启用它。"
       },
-      "suggestion": "建议：",
+      "noIssues": "检查完成，没有发现问题。",
+      "scrollToIssues": "滚动到问题",
       "title": "Scoop 健康检查"
     },
     "cleanup": {
@@ -367,7 +376,22 @@
     "bar": {
       "clearSearch": "清除搜索",
       "exactMatchTooltip": "使用\"引号\"进行精确匹配",
-      "placeholder": "搜索本地仓库中的应用程序"
+      "placeholder": "搜索本地仓库中的应用程序",
+      "searchHelp": "搜索帮助"
+    },
+    "emptyState": {
+      "title": "搜索应用程序",
+      "description": "搜索您本地 Scoop 仓库中的软件包"
+    },
+    "help": {
+      "title": "搜索格式帮助",
+      "description": "您可以使用特殊的搜索格式来更精确地查找软件包：",
+      "examples": "示例：",
+      "normalSearch": "在任意仓库中搜索包含 '7zip' 的软件包",
+      "bucketSearch": "仅在名称包含 'main' 的仓库中搜索包含 '7zip' 的软件包",
+      "allBuckets": "在所有仓库中搜索包含 '7zip' 的软件包（与普通搜索相同）",
+      "exactMatch": "仅在名称为 'main' 的仓库中搜索名称为 '7zip' 的软件包",
+      "note": "提示：您也可以在页面上直接输入字母或数字来进行快速搜索。"
     },
     "filter": {
       "allBuckets": "所有仓库"
@@ -505,10 +529,15 @@
       "buckets": "仓库",
       "description": "选择应用程序启动时显示的页面。",
       "doctor": "诊断",
-      "installed": "软件",
+      "installed": "已安装",
       "search": "搜索",
       "settings": "设置",
       "title": "默认启动页面"
+    },
+    "hotkey": {
+      "description": "启用或禁用软件内键盘快捷键",
+      "note": "启用后，您可以在软件包页面直接输入字母或数字快速搜索。",
+      "title": "快捷键"
     },
     "heldPackages": {
       "description": "使用 scoop hold 命令保留的软件包，无法通过 Pailer 或 Scoop 更新。",

@@ -8,7 +8,8 @@ export interface CheckupItem {
   status: boolean;
   key: string;
   params: any;
-  suggestion: string | null;
+  suggestion_key: string | null;
+  suggestion_params: any;
 }
 
 interface CheckupProps {
@@ -42,6 +43,12 @@ function Checkup(props: CheckupProps) {
         </div>
       </Show>
 
+      <Show when={!props.isLoading && !props.error && props.checkupResult.length === 0}>
+        <div class="alert alert-success text-sm">
+          <CircleCheckBig class="h-5 w-5" />
+          <span>{t('doctor.checkup.noIssues')}</span>
+        </div>
+      </Show>
       <Show when={!props.isLoading && !props.error && props.checkupResult.length > 0}>
         <ul class="space-y-3">
           <For each={props.checkupResult}>
@@ -52,12 +59,18 @@ function Checkup(props: CheckupProps) {
                     <CircleCheckBig class="text-success mr-3 h-5 w-5" />
                   </Show>
                   <span class="grow">
-                    {t(`doctor.checkup.items.${item.key}`, item.params || {})}
+                    {(() => {
+                      const displayKey =
+                        item.key === 'helperInstalled' && !item.status
+                          ? 'helperNotInstalled'
+                          : item.key;
+                      return t(`doctor.checkup.items.${displayKey}`, item.params || {});
+                    })()}
                   </span>
                   <Show when={item.id && !item.status}>
                     <button
                       class="btn btn-xs btn-outline btn-primary"
-                      onClick={() => props.onInstallHelper(item.id!)}
+                      onClick={() => item.id && props.onInstallHelper(item.id)}
                       disabled={!!props.installingHelper}
                     >
                       <Show
@@ -75,10 +88,17 @@ function Checkup(props: CheckupProps) {
                     </button>
                   </Show>
                 </div>
-                <Show when={item.suggestion}>
+                <Show when={item.suggestion_key}>
                   <div class="bg-base-300 mt-2 ml-8 rounded-md p-2 text-sm">
                     <p class="mb-1 font-semibold">{t('doctor.checkup.suggestion')}</p>
-                    <code class="font-mono">{item.suggestion}</code>
+                    <code class="font-mono">
+                      {item.suggestion_key
+                        ? t(
+                            `doctor.checkup.items.${item.suggestion_key}`,
+                            item.suggestion_params || {}
+                          )
+                        : ''}
+                    </code>
                   </div>
                 </Show>
               </li>

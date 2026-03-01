@@ -1,17 +1,19 @@
 import { Terminal } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
-import { createSignal, createEffect, onMount, createResource, Show } from 'solid-js';
+import { createSignal, createEffect, onMount } from 'solid-js';
 import { t } from '../../../i18n';
-import { invoke } from '@tauri-apps/api/core';
+import { createPowerShellCache } from '../../../hooks/useSessionStorage';
 
 function PowerShellSettings() {
   const { settings, setPowershellSettings } = settingsStore;
-  const [options] = createResource(() => invoke<string[]>('get_available_powershell_executables'));
+  const { data: executables, error, initialize } = createPowerShellCache();
   const [selected, setSelected] = createSignal(settings.powershell.executable);
 
   onMount(() => {
     setPowershellSettings({ executable: settings.powershell.executable });
+    // Initialize PowerShell detection cache
+    initialize();
   });
 
   const getLabel = (exe: string) => {
@@ -32,27 +34,44 @@ function PowerShellSettings() {
     setSelected(settings.powershell.executable);
   });
 
+  // Get current available options, provide default options during loading
+  const currentOptions = () => {
+    // If there's an error, return default options
+    if (error()) {
+      return ['auto', 'pwsh', 'powershell'];
+    }
+
+    const currentExecutables = executables();
+    if (currentExecutables && currentExecutables.length > 0) {
+      return currentExecutables;
+    }
+    // Provide default options during loading to prevent selector from disappearing
+    return ['auto', 'pwsh', 'powershell'];
+  };
+
   return (
     <Card
       title={t('settings.powershell.title')}
       icon={Terminal}
       description={t('settings.powershell.description')}
       headerAction={
-        <Show when={options()}>
-          <select
-            class="select select-bordered select-sm min-w-35"
-            value={selected()}
-            onChange={async (e) => {
-              const newExe = e.target.value as 'auto' | 'pwsh' | 'powershell';
-              setSelected(newExe);
-              setPowershellSettings({ executable: newExe });
-            }}
-          >
-            {options()!.map((exe: string) => (
-              <option value={exe}>{getLabel(exe)}</option>
-            ))}
-          </select>
-        </Show>
+        <select
+          class="select select-bordered select-sm min-w-35"
+          value={selected()}
+          onChange={async (e) => {
+            const newExe = e.target.value;
+            // Validate input value is a valid option
+            const validOptions = ['auto', 'pwsh', 'powershell'];
+            if (validOptions.includes(newExe)) {
+              setSelected(newExe as 'auto' | 'pwsh' | 'powershell');
+              setPowershellSettings({ executable: newExe as 'auto' | 'pwsh' | 'powershell' });
+            }
+          }}
+        >
+          {currentOptions().map((exe: string) => (
+            <option value={exe}>{getLabel(exe)}</option>
+          ))}
+        </select>
       }
     ></Card>
   );

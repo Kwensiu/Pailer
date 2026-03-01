@@ -11,6 +11,7 @@
   --light-base-50: oklch(98.291% 0.003 53.838);
   --light-base-100: oklch(97.388% 0.004 56.375);
   --light-base-150: oklch(95.485% 0.006 58.912);
+  --light-base-175: oklch(94.233% 0.006 63.195);
   --light-base-200: oklch(93.982% 0.007 68.449);
   --light-base-250: oklch(92.384% 0.007 57.445);
   --light-base-300: oklch(91.186% 0.006 53.44);
@@ -35,9 +36,9 @@
   --light-info-content: oklch(29% 0.066 243.157);
   --light-success: oklch(69% 0.17 162.48);
   --light-success-content: oklch(26% 0.051 172.552);
-  --light-warning: oklch(79% 0.184 86.047);
+  --light-warning: oklch(0.8 0.15 68.72);
   --light-warning-content: oklch(28% 0.066 53.813);
-  --light-error: oklch(63% 0.237 25.331);
+  --light-error: oklch(0.67 0.21 24.67);
   --light-error-content: oklch(27% 0.105 12.094);
 
   --light-icon: oklch(70% 0.12 232.661);
@@ -45,6 +46,7 @@
   --dark-base-50: oklch(0.35 0.02 254.72);
   --dark-base-100: oklch(0.325 0.018 253.82);
   --dark-base-150: oklch(0.311 0.015 252.92);
+  --dark-base-175: oklch(0.293 0.014 252.55);
   --dark-base-200: oklch(0.276 0.013 252.02);
   --dark-base-250: oklch(0.251 0.011 251.12);
   --dark-base-300: oklch(0.227 0.009 250.22);
@@ -59,19 +61,19 @@
   --dark-primary: oklch(0.61 0.18 280.47);
   --dark-primary-content: oklch(96% 0.018 272.314);
   --dark-secondary: oklch(0.69 0.16 348.8);
-  --dark-secondary-content: oklch(94% 0.028 342.258);
+  --dark-secondary-content: oklch(0.97 0.02 342.02);
   --dark-accent: oklch(0.69 0.15 283.55);
   --dark-accent-content: oklch(0.2 0.08 279.4);
   --dark-neutral: oklch(37% 0.044 257.287);
   --dark-neutral-content: oklch(92% 0.004 286.32);
 
-  --dark-info: oklch(0.79 0.1 224.23);
+  --dark-info: oklch(0.73 0.12 225.57);
   --dark-info-content: oklch(29% 0.066 243.157);
   --dark-success: oklch(76% 0.177 163.223);
   --dark-success-content: oklch(37% 0.077 168.94);
   --dark-warning: oklch(82% 0.189 84.429);
   --dark-warning-content: oklch(41% 0.112 45.904);
-  --dark-error: oklch(0.68 0.16 12.37);
+  --dark-error: oklch(0.67 0.19 13.98);
   --dark-error-content: oklch(27% 0.105 12.094);
 
   --dark-icon: oklch(80% 0.12 232.661);
@@ -90,6 +92,7 @@
   --color-base-50: var(--light-base-50);
   --color-base-100: var(--light-base-100);
   --color-base-150: var(--light-base-150);
+  --color-base-175: var(--light-base-175);
   --color-base-200: var(--light-base-200);
   --color-base-250: var(--light-base-250);
   --color-base-300: var(--light-base-300);
@@ -147,6 +150,7 @@
   /* Base surfaces */
   --color-base-50: var(--dark-base-50);
   --color-base-100: var(--dark-base-100);
+  --color-base-175: var(--dark-base-175);
   --color-base-150: var(--dark-base-150);
   --color-base-200: var(--dark-base-200);
   --color-base-250: var(--dark-base-250);
@@ -221,6 +225,11 @@ input[class*='focus:'] {
   color: inherit !important;
 }
 
+/* Menu border styling */
+.dropdown-content {
+  border: 1px solid var(--color-base-175);
+}
+
 /* Bucket card variants */
 .card-bucket.light {
   @apply border-base-300 border hover:shadow-md;
@@ -231,6 +240,14 @@ input[class*='focus:'] {
 }
 
 /* Custom background colors using theme variables */
+.bg-base-175 {
+  background-color: var(--color-base-175);
+}
+
+.bg-base-150 {
+  background-color: var(--color-base-150);
+}
+
 .bg-base-content-bg {
   background-color: var(--color-base-content-bg);
 }
@@ -326,7 +343,7 @@ html {
    ============================================ */
 /* Close button with outline style */
 .btn-close-outline {
-  @apply btn btn-outline border-base-content/30 text-base-content hover:border-base-content/50 hover:text-base-content hover:bg-transparent;
+  @apply btn btn-outline border-base-content/30 text-base-content hover:border-base-content/50 hover:text-base-content rounded-2xl hover:bg-transparent;
 }
 
 /* Manifest button with info accent */

@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createMemo, onMount } from 'solid-js';
+import { Show, createSignal, createMemo, onMount, createEffect } from 'solid-js';
 import PackageInfoModal from '../components/PackageInfoModal';
 import ScoopStatusModal from '../components/ScoopStatusModal';
 import OperationModal from '../components/OperationModal';
@@ -7,8 +7,7 @@ import InstalledPageHeader from '../components/page/installed/InstalledPageHeade
 import PackageListView from '../components/page/installed/PackageListView';
 import PackageGridView from '../components/page/installed/PackageGridView';
 import { View } from '../types/scoop';
-import { createTauriSignal } from '../hooks/createTauriSignal';
-import FloatingConfirmationPanel from '../components/ChangeBucketModal';
+import ChangeBucketModal from '../components/ChangeBucketModal';
 import { t } from '../i18n';
 
 interface InstalledPageProps {
@@ -69,8 +68,20 @@ function InstalledPage(props: InstalledPageProps) {
     buckets,
   } = useInstalledPackages();
 
-  const [searchQuery, setSearchQuery] = createTauriSignal<string>('installedSearchQuery', '');
+  const [searchQuery, setSearchQuery] = createSignal<string>(
+    sessionStorage.getItem('installedSearchQuery') || ''
+  );
   const [showStatusModal, setShowStatusModal] = createSignal(false);
+
+  // 同步搜索内容到 sessionStorage
+  createEffect(() => {
+    const query = searchQuery();
+    if (query) {
+      sessionStorage.setItem('installedSearchQuery', query);
+    } else {
+      sessionStorage.removeItem('installedSearchQuery');
+    }
+  });
 
   // Execute a silent refresh when the component mounts
   onMount(() => {
@@ -83,10 +94,21 @@ function InstalledPage(props: InstalledPageProps) {
   };
 
   const filteredPackages = createMemo(() => {
-    const query = searchQuery().toLowerCase();
+    const query = searchQuery().toLowerCase().trim();
     if (!query) return processedPackages();
 
-    return processedPackages().filter((p) => p.name.toLowerCase().includes(query));
+    return processedPackages().filter((p) => {
+      // 支持包名匹配
+      if (p.name.toLowerCase().includes(query)) return true;
+
+      // 支持源（bucket）匹配
+      if (p.source.toLowerCase().includes(query)) return true;
+
+      // 支持版本匹配
+      if (p.version.toLowerCase().includes(query)) return true;
+
+      return false;
+    });
   });
 
   return (
@@ -138,7 +160,7 @@ function InstalledPage(props: InstalledPageProps) {
       </Show>
 
       <Show when={!loading() && !error() && filteredPackages().length === 0}>
-        <div class="flex flex-col items-center justify-center py-16 text-center">
+        <div class="flex flex-col items-center justify-center pt-20 text-center">
           <div class="bg-base-300 mb-6 rounded-full p-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -221,44 +243,17 @@ function InstalledPage(props: InstalledPageProps) {
         </Show>
       </Show>
 
-      <Show when={changeBucketModalOpen()}>
-        <FloatingConfirmationPanel
-          isOpen={changeBucketModalOpen()}
-          title={t('packageInfo.changeBucketFor', { name: currentPackageForBucketChange()?.name })}
-          onConfirm={async () => {
-            await handleChangeBucketConfirm();
-          }}
-          onCancel={handleChangeBucketCancel}
-        >
-          <div class="space-y-4">
-            <div>
-              <select
-                value={newBucketName()}
-                onInput={(e) => setNewBucketName(e.currentTarget.value)}
-                class="select select-bordered w-full max-w-xs"
-              >
-                <option value="" disabled>
-                  {t('packageInfo.bucket')}
-                </option>
-                <For each={buckets()}>
-                  {(bucket) => <option value={bucket.name}>{bucket.name}</option>}
-                </For>
-              </select>
-              <div class="text-base-content/70 mt-2 text-sm">
-                {t('packageInfo.current')}: {currentPackageForBucketChange()?.source}
-              </div>
-            </div>
-            <div class="bg-info/10 border-info/20 rounded-lg border p-3">
-              <p class="text-info-content/85 text-xs">
-                <strong class="text-yellow-800 dark:text-yellow-200">
-                  {t('packageInfo.warning')}:
-                </strong>{' '}
-                {t('packageInfo.ensureSoftwarePresent')}
-              </p>
-            </div>
-          </div>
-        </FloatingConfirmationPanel>
-      </Show>
+      <ChangeBucketModal
+        isOpen={changeBucketModalOpen()}
+        package={currentPackageForBucketChange()}
+        buckets={buckets()}
+        newBucketName={newBucketName()}
+        onNewBucketNameChange={setNewBucketName}
+        onConfirm={async () => {
+          await handleChangeBucketConfirm();
+        }}
+        onCancel={handleChangeBucketCancel}
+      />
 
       <PackageInfoModal
         pkg={selectedPackage()}
