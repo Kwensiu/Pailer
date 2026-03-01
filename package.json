@@ -12,6 +12,7 @@
     "i18n": "make i18n",
     "bump-version": "make bump",
     "format": "make format",
+    "format:all": "npx prettier --write .",
     "format:pr": "make format-pr",
     "format:check": "make check"
   },
