@@ -95,11 +95,6 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
-### 环境要求
-
-- **Windows**: 建议安装 `make` (通过 `choco install make` 或 Git Bash 自带)。
-- **工具**: 格式化依赖 `Prettier` (已包含在 devDependencies)。
-
 ## 🤝 贡献
 
 欢迎提交 Issue 或 Pull Request！

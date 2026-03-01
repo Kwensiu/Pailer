@@ -99,11 +99,6 @@ pnpm tauri build
 
 ```
 
-### Environment Requirements
-
-* **Windows**: `make` is recommended (install via `choco install make` or use the version bundled with Git Bash).
-* **Tooling**: `Prettier` for formatting (included in `devDependencies`).
-
 ## 🤝 Contributing
 
 Contributions, issues, and feature requests are welcome!
