@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Pailer"
-version = "0.0.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -5094,7 +5094,6 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

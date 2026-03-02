@@ -51,9 +51,6 @@ jobs:
           workspaces: |
             src-tauri -> target
 
-      - name: Install system dependencies (UPX)
-        run: choco install upx -y
-
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
 
@@ -70,15 +67,25 @@ jobs:
 
       - name: Build Tauri app
         run: pnpm run tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Compress executable with UPX
+      - name: Create portable executable
         shell: pwsh
         run: |
-          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $product = $cfg.productName
+          $version = "${{ inputs.version }}"
+          $beta = "${{ inputs.beta }}"
+          $product = "Pailer"
           $exePath = "src-tauri/target/release/$product.exe"
+
+          $portableName = "Pailer-${version}-beta.${beta}-Portable-x64.exe"
+          
           if (Test-Path $exePath) {
-            upx --best --lzma $exePath
+            Copy-Item $exePath $portableName
+            $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $portableName" | Out-File -FilePath "$portableName.sha256" -Encoding UTF8
+            Write-Host "Beta Portable Hash: $hash"
           }
 
       - name: Upload artifacts
@@ -86,4 +93,8 @@ jobs:
         with:
           name: Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}
           path: |
-            ./src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe
+            Pailer-*-Portable-x64.exe
+            Pailer-*-Portable-x64.exe.sha256
+          retention-days: 7
+          if-no-files-found: error

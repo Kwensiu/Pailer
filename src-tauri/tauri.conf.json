@@ -60,6 +60,11 @@
           "SimpChinese"
         ],
         "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": [
+          "en-US"
+        ]
       }
     }
   }
