@@ -9,19 +9,12 @@ use tauri::State;
 
 // Application identifiers
 const TAURI_APP_ID: &str = "com.pailer.ks";
-const OLD_APP_DIR: &str = "pailer";
 
 // Store data file names (new unified format)
 const FRONTEND_STORE_FILE: &str = "settings.json";
-const BACKEND_STORE_FILE: &str = "core.json";
 const VERSION_FILE: &str = "version.txt";
 const FACTORY_RESET_MARKER: &str = ".factory_reset";
 const WEBVIEW_CLEANUP_MARKER: &str = ".cleanup_webview_on_startup";
-
-// Legacy store file names (for cleanup)
-const LEGACY_SETTINGS_FILE: &str = "settings.dat";
-const LEGACY_SIGNALS_FILE: &str = "signals.dat";
-const LEGACY_STORE_FILE: &str = "store.json";
 
 // Backup file extension
 const BACKUP_EXT: &str = ".bak";
@@ -44,20 +37,13 @@ const WEBVIEW_LOCKED_DIRS: &[&str] = &[
 /// Gets the application data directory
 #[tauri::command]
 pub fn get_app_data_dir() -> Result<String, String> {
-    // First try to get the Tauri app data directory
+    // Only use the new Tauri app data directory
     if let Some(app_data_dir) = dirs::data_dir() {
         let app_data_dir = app_data_dir.join(TAURI_APP_ID);
-        if app_data_dir.exists() {
-            return Ok(app_data_dir.to_string_lossy().to_string());
-        }
+        return Ok(app_data_dir.to_string_lossy().to_string());
     }
 
-    // Fallback to the old pailer directory for backward compatibility
-    let data_dir = dirs::data_local_dir()
-        .and_then(|d| Some(d.join(OLD_APP_DIR)))
-        .ok_or("Could not determine data directory")?;
-
-    Ok(data_dir.to_string_lossy().to_string())
+    Err("Could not determine data directory".to_string())
 }
 
 /// Gets the log directory
@@ -207,28 +193,82 @@ pub fn clear_application_data() -> Result<(), String> {
 #[tauri::command]
 pub fn factory_reset(app: tauri::AppHandle) -> Result<(), String> {
     log::info!("Starting factory reset process");
-    
-    // Clear all application data
-    clear_application_data()?;
-    
-    // Clear store data and create factory reset marker
-    clear_store_data()?;
-    
-    // Reset tray notification setting to show it again on next startup
-    let _ = crate::commands::settings::set_config_value(
+
+    // Track cleanup results
+    let mut cleanup_results = Vec::new();
+
+    // 1. First, clear non-critical data and prepare for logging cleanup
+    log::info!("Step 1: Clearing store data and creating reset marker");
+    match clear_store_data() {
+        Ok(_) => cleanup_results.push("store_data: success".to_string()),
+        Err(e) => {
+            log::warn!("Store data cleanup failed: {}", e);
+            cleanup_results.push(format!("store_data: failed - {}", e));
+        }
+    }
+
+    // 2. Reset tray notification setting
+    log::info!("Step 2: Resetting application settings");
+    let settings_result = crate::commands::settings::set_config_value(
         app.clone(),
         crate::config_keys::WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN.to_string(),
         serde_json::json!(false),
     );
-    
-    // Schedule WebView cleanup for next startup
-    schedule_webview_cleanup()?;
-    
-    // Clear Windows registry data
+    match settings_result {
+        Ok(_) => cleanup_results.push("settings: success".to_string()),
+        Err(e) => {
+            log::warn!("Settings reset failed: {}", e);
+            cleanup_results.push(format!("settings: failed - {}", e));
+        }
+    }
+
+    // 3. Schedule WebView cleanup for next startup
+    log::info!("Step 3: Scheduling WebView cache cleanup");
+    match schedule_webview_cleanup() {
+        Ok(_) => cleanup_results.push("webview_schedule: success".to_string()),
+        Err(e) => {
+            log::warn!("WebView cleanup scheduling failed: {}", e);
+            cleanup_results.push(format!("webview_schedule: failed - {}", e));
+        }
+    }
+
+    // 4. Clear Windows registry data (before removing app data)
     #[cfg(windows)]
-    clear_registry_data()?;
-    
-    log::info!("Factory reset completed successfully");
+    {
+        log::info!("Step 4: Clearing registry data");
+        match clear_registry_data() {
+            Ok(_) => cleanup_results.push("registry: success".to_string()),
+            Err(e) => {
+                log::warn!("Registry cleanup failed: {}", e);
+                cleanup_results.push(format!("registry: failed - {}", e));
+            }
+        }
+    }
+
+    // 5. Finally, clear application data directory (including logs)
+    log::info!("Step 5: Clearing application data directory");
+    match clear_application_data() {
+        Ok(_) => cleanup_results.push("app_data: success".to_string()),
+        Err(e) => {
+            log::warn!("Application data cleanup failed: {}", e);
+            cleanup_results.push(format!("app_data: failed - {}", e));
+        }
+    }
+
+    // Log final cleanup summary
+    log::info!("Factory reset process completed. Results:");
+    for result in &cleanup_results {
+        log::info!("  - {}", result);
+    }
+
+    // Check for any failures
+    let has_failures = cleanup_results.iter().any(|r| r.contains("failed"));
+    if has_failures {
+        log::warn!("Factory reset completed with some failures. Check logs for details.");
+    } else {
+        log::info!("Factory reset completed successfully");
+    }
+
     Ok(())
 }
 
@@ -457,26 +497,13 @@ pub fn check_factory_reset_marker() -> Result<bool, String> {
 pub fn clear_store_data() -> Result<(), String> {
     log::info!("Starting store data cleanup");
     
-    // Create list of files to clear using defined constants
+    // Create list of files to clear using defined constants (only new location)
     let store_files = vec![
         // New unified store files
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(FRONTEND_STORE_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(BACKEND_STORE_FILE)),
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(VERSION_FILE)),
         // Backup files in new directory
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", FRONTEND_STORE_FILE, BACKUP_EXT))),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(format!("{}{}", BACKEND_STORE_FILE, BACKUP_EXT))),
-        // Legacy files for migration cleanup
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SETTINGS_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_SIGNALS_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(LEGACY_STORE_FILE)),
-        // Old directory - main files
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SETTINGS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SIGNALS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(VERSION_FILE)),
-        // Backup files in old directory
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", LEGACY_SETTINGS_FILE, BACKUP_EXT))),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(format!("{}{}", LEGACY_SIGNALS_FILE, BACKUP_EXT))),
     ];
     
     let mut cleared_count = 0;
@@ -550,6 +577,7 @@ pub fn clear_registry_data() -> Result<(), String> {
         r"HKEY_CURRENT_USER\Software\Pailer",
         r"HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\Pailer",
         r"HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Pailer",
+        r"HKEY_CURRENT_USER\Software\Microsoft\EdgeWebView\PreferenceMACs\Default\extensions.settings",
     ];
     
     for key in registry_keys {
@@ -586,30 +614,34 @@ pub fn clear_registry_data() -> Result<(), String> {
 pub fn clear_webview_cache() -> Result<(), String> {
     log::info!("Attempting to clear WebView cache");
     
-    // Try to clear cache from both new and old locations
-    let cache_dirs = vec![
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR)),
-    ];
-    
-    let mut cleared_dirs = 0;
-    for cache_dir_option in cache_dirs {
-        if let Some(cache_dir) = cache_dir_option {
-            if cache_dir.exists() {
-                for locked_dir_name in WEBVIEW_LOCKED_DIRS {
-                    let locked_dir = cache_dir.join(locked_dir_name);
-                    if locked_dir.exists() && locked_dir.is_dir() {
-                        log::info!("Attempting to remove WebView cache dir: {}", locked_dir.display());
-                        if safe_remove_dir(&locked_dir) {
-                            cleared_dirs += 1;
-                        }
+    // Only clear cache from the new location
+    if let Some(cache_dir) = dirs::data_dir().map(|d| d.join(TAURI_APP_ID)) {
+        if cache_dir.exists() {
+            let mut cleared_dirs = 0;
+            for locked_dir_name in WEBVIEW_LOCKED_DIRS {
+                let locked_dir = cache_dir.join(locked_dir_name);
+                if locked_dir.exists() && locked_dir.is_dir() {
+                    log::info!("Attempting to remove WebView cache dir: {}", locked_dir.display());
+                    if safe_remove_dir(&locked_dir) {
+                        cleared_dirs += 1;
                     }
                 }
             }
+            
+            // Also clear logs directory
+            let logs_dir = cache_dir.join("logs");
+            if logs_dir.exists() && logs_dir.is_dir() {
+                log::info!("Attempting to remove logs directory: {}", logs_dir.display());
+                if safe_remove_dir(&logs_dir) {
+                    cleared_dirs += 1;
+                    log::info!("Logs directory cleared successfully");
+                }
+            }
+            
+            log::info!("WebView cache cleanup completed. Removed {} directories.", cleared_dirs);
         }
     }
     
-    log::info!("WebView cache cleanup completed. Removed {} directories.", cleared_dirs);
     Ok(())
 }
 
@@ -679,12 +711,9 @@ pub fn final_cleanup_on_exit() -> Result<(), String> {
     // Give WebView processes a moment to release files
     std::thread::sleep(std::time::Duration::from_millis(1000));
     
-    // Try to remove any remaining configuration files
+    // Try to remove any remaining configuration files (only new location)
     let final_cleanup_files = vec![
         dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(FRONTEND_STORE_FILE)),
-        dirs::data_dir().map(|d| d.join(TAURI_APP_ID).join(BACKEND_STORE_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SETTINGS_FILE)),
-        dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join(LEGACY_SIGNALS_FILE)),
     ];
     
     for file_option in final_cleanup_files {
@@ -704,7 +733,7 @@ pub fn final_cleanup_on_exit() -> Result<(), String> {
 }
 
 fn get_log_dir() -> Option<PathBuf> {
-    // First try to get the Tauri app data directory
+    // Only check the new Tauri app data directory
     if let Some(app_data_dir) = dirs::data_dir() {
         let app_data_dir = app_data_dir.join(TAURI_APP_ID);
         if app_data_dir.exists() {
@@ -712,6 +741,5 @@ fn get_log_dir() -> Option<PathBuf> {
         }
     }
     
-    // Fallback to the old pailer directory
-    dirs::data_local_dir().map(|d| d.join(OLD_APP_DIR).join("logs"))
+    None
 }

@@ -2,6 +2,7 @@ import { createSignal, Show, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { message } from '@tauri-apps/plugin-dialog';
 import { HardDrive, Folder, FileText, Trash2 } from 'lucide-solid';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
@@ -163,12 +164,23 @@ export default function AppDataManagement() {
         await invoke('clear_webview_cache');
 
         console.log('Cache cleared successfully');
-        setIsClearingCache(false); // 退出loading状态
-        // Could show success message here if needed
+        setIsClearingCache(false); // Exit loading state
+
+        // TEMP: Show success dialog - standalone code block for easy removal
+        await message('Cache cleared successfully!', {
+          title: 'Clear Complete',
+          kind: 'info',
+        });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         setClearCacheError(t('settings.appData.clearCacheError') + ': ' + errorMessage);
         setIsClearingCache(false);
+
+        // TEMP: Show error dialog - standalone code block for easy removal
+        await message(`Cache clear failed: ${errorMessage}`, {
+          title: 'Clear Failed',
+          kind: 'error',
+        });
       }
     } else {
       setClearCacheConfirm(true);
@@ -193,68 +205,67 @@ export default function AppDataManagement() {
           </div>
         </Show>
         <div class="card-body p-2">
-          <div class="bg-base-content-bg border-base-content/5 rounded-lg border p-4 shadow-sm">
-            <div class="space-y-3">
-              {/* Data Directory */}
-              <ActionButton
-                title={t('settings.appData.dataDirectory')}
-                description={appDataDirPath()}
-                buttonText={t('settings.appData.openDirectory')}
-                confirmText={''}
-                loadingText={''}
-                icon={Folder}
-                color="primary"
-                isLoading={() => false}
-                isConfirming={() => false}
-                onClick={openAppDataDir}
-                requiresConfirmation={false}
-              />
+          <div class="space-y-3">
+            {/* Data Directory */}
+            <ActionButton
+              title={t('settings.appData.dataDirectory')}
+              description={appDataDirPath()}
+              buttonText={t('settings.appData.openDirectory')}
+              confirmText={''}
+              loadingText={''}
+              icon={Folder}
+              color="primary"
+              isLoading={() => false}
+              isConfirming={() => false}
+              onClick={openAppDataDir}
+              requiresConfirmation={false}
+            />
 
-              {/* Log Directory */}
-              <ActionButton
-                title={t('settings.appData.logDirectory')}
-                description={logDir()}
-                buttonText={t('settings.appData.openDirectory')}
-                confirmText={''}
-                loadingText={''}
-                icon={FileText}
-                color="primary"
-                isLoading={() => false}
-                isConfirming={() => false}
-                onClick={openLogDir}
-                requiresConfirmation={false}
-              />
+            {/* Log Directory */}
+            <ActionButton
+              title={t('settings.appData.logDirectory')}
+              description={logDir()}
+              buttonText={t('settings.appData.openDirectory')}
+              confirmText={''}
+              loadingText={''}
+              icon={FileText}
+              color="primary"
+              isLoading={() => false}
+              isConfirming={() => false}
+              onClick={openLogDir}
+              requiresConfirmation={false}
+            />
 
-              {/* Clear Cache */}
-              <ActionButton
-                title={t('settings.appData.clearCache')}
-                description={t('settings.appData.clearCacheDescription')}
-                buttonText={t('settings.appData.clearCacheButton')}
-                confirmText={t('settings.appData.sure')}
-                loadingText={t('settings.appData.clearingCache')}
-                icon={Trash2}
-                color="warning"
-                isLoading={isClearingCache}
-                isConfirming={clearCacheConfirm}
-                onClick={clearCacheData}
-              />
+            {/* Clear Cache */}
+            <ActionButton
+              title={t('settings.appData.clearCache')}
+              description={t('settings.appData.clearCacheDescription')}
+              buttonText={t('settings.appData.clearCacheButton')}
+              confirmText={t('settings.appData.sure')}
+              loadingText={t('settings.appData.clearingCache')}
+              icon={Trash2}
+              color="warning"
+              isLoading={isClearingCache}
+              isConfirming={clearCacheConfirm}
+              onClick={clearCacheData}
+            />
 
-              {/* Factory Reset */}
-              <ActionButton
-                title={t('settings.appData.factoryReset')}
-                description={t('settings.appData.factoryResetDescription')}
-                buttonText={t('settings.appData.factoryResetButton')}
-                confirmText={t('settings.appData.sure')}
-                loadingText={t('settings.appData.resetting')}
-                icon={Trash2}
-                color="error"
-                isLoading={isClearing}
-                isConfirming={clearConfirm}
-                onClick={clearApplicationData}
-              />
-            </div>
+            {/* Factory Reset */}
+            <ActionButton
+              title={t('settings.appData.factoryReset')}
+              description={t('settings.appData.factoryResetDescription')}
+              buttonText={t('settings.appData.factoryResetButton')}
+              confirmText={t('settings.appData.sure')}
+              loadingText={t('settings.appData.resetting')}
+              icon={Trash2}
+              color="error"
+              isLoading={isClearing}
+              isConfirming={clearConfirm}
+              onClick={clearApplicationData}
+            />
           </div>
         </div>
+
         <Show when={clearError()}>
           <div class="alert alert-error mt-2">
             <span>{clearError()}</span>
