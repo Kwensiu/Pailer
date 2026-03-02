@@ -80,7 +80,7 @@ jobs:
           $exePath = "src-tauri/target/release/$product.exe"
 
           $portableName = "Pailer-${version}-beta.${beta}-Portable-x64.exe"
-          
+
           if (Test-Path $exePath) {
             Copy-Item $exePath $portableName
             $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()

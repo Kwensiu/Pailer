@@ -5,11 +5,12 @@ else
     PLATFORM := linux
 endif
 
-.PHONY: help i18n bump format format-pr check
+.PHONY: help i18n bump format format-pr check all
 
 # Default target
 help:
 	@echo "Pailer Project Development Commands:"
+	@echo "  make all          - Run i18n, format-pr, and check (full workflow)"
 	@echo "  make i18n         - Sync locales and generate dict types"
 	@echo "  make bump v=x.y.z [pre=pre-id] [commit=1] [tag=1] [push=1] [dry_run=1] - Bump project version (updates package.json, Cargo.toml, tauri.conf.json)"
 	@echo "  make format       - Format (un)staged files only"
@@ -46,7 +47,10 @@ else
 	@npx prettier --write .
 endif
 
-# 5. Full Check
+# 5. Full Workflow (i18n + format-pr + check)
+all: i18n format-pr check
+
+# 6. Full Check
 check:
 ifeq ($(PLATFORM),windows)
 	@powershell -Command "Write-Host 'Start TypeScript and Prettier check...' -ForegroundColor Cyan"

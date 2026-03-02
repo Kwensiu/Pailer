@@ -40,7 +40,7 @@ jobs:
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "src-tauri -> target"
+          workspaces: 'src-tauri -> target'
 
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
@@ -62,11 +62,11 @@ jobs:
 
           $version = "${{ github.event.inputs.version }}"
           if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
-          
+
           $exePath = "src-tauri/target/release/Pailer.exe"
 
           $portableName = "Pailer-Portable-x64.exe"
-          
+
           if (Test-Path $exePath) {
             Copy-Item $exePath $portableName
             
