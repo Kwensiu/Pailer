@@ -1,4 +1,4 @@
-import { Download, RefreshCw, Github, BookOpen } from 'lucide-solid';
+import { Download, RefreshCw, Github, MessagesSquare, CircleDot } from 'lucide-solid';
 import { createSignal, Show } from 'solid-js';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -191,16 +191,15 @@ export default function AboutSection(props: AboutSectionProps) {
   props.ref({ checkForUpdates });
 
   return (
-    <div class="card bg-base-200 overflow-hidden shadow-xl">
+    <div class="card bg-base-200 border-base-300 overflow-hidden border shadow-xs">
       {/* Hero Section */}
-      <div class="bg-base-300 flex flex-col items-center space-y-4 p-8 text-center">
+      <div class="bg-base-300 flex flex-col items-center space-y-2 p-8 text-center">
         <div>
           <h2 class="text-3xl font-bold tracking-tight">Pailer</h2>
           <p class="text-base-content/60 font-medium">v{pkgJson.version}</p>
         </div>
-        <p class="max-w-md leading-relaxed">{t('settings.about.description')}</p>
-        <p class="text-base-content/60 mt-2 text-sm">{t('settings.about.customizedVersion')}</p>
-        <p class="text-base-content/60 text-sm">{t('settings.about.pleaseReportIssues')}</p>
+        <p class="mt-2 max-w-md leading-relaxed">{t('settings.about.description')}</p>
+        <p class="text-base-content/60 text-sm">{t('settings.about.customizedVersion')}</p>
       </div>
 
       <div class="card-body bg-base-100 space-y-4 p-6">
@@ -309,26 +308,28 @@ export default function AboutSection(props: AboutSectionProps) {
         {/* Links */}
         <div class="grid grid-cols-1 gap-4 p-1 sm:grid-cols-3">
           <button
-            class="btn btn-outline hover:bg-base-content hover:text-base-100 transition-all"
-            onClick={() => openUrl('https://github.com/Kwensiu/Pailer/').catch(console.error)}
+            class="btn btn-outline btn-primary hover:bg-primary hover:text-base-100 transition-all"
+            onClick={() => openUrl('https://github.com/Kwensiu/Pailer').catch(console.error)}
           >
             <Github class="h-5 w-5" />
-            {t('settings.about.myFork')}
+            {t('settings.about.goToProject')}
           </button>
           <button
             class="btn btn-outline hover:bg-base-content hover:text-base-100 transition-all"
-            onClick={() => openUrl('https://github.com/AmarBego/Rscoop').catch(console.error)}
+            onClick={() => openUrl('https://github.com/Kwensiu/Pailer/issues').catch(console.error)}
           >
-            <Github class="h-5 w-5" />
-            {t('settings.about.upstream')}
+            <CircleDot class="h-5 w-5" />
+            {t('settings.about.submitIssue')}
           </button>
 
           <button
             class="btn btn-outline btn-info hover:text-info-content transition-all"
-            onClick={() => openUrl('https://amarbego.github.io/Rscoop/').catch(console.error)}
+            onClick={() =>
+              openUrl('https://github.com/Kwensiu/Pailer/discussions').catch(console.error)
+            }
           >
-            <BookOpen class="h-5 w-5" />
-            {t('settings.about.docs')}
+            <MessagesSquare class="h-5 w-5" />
+            {t('settings.about.joinDiscussion')}
           </button>
         </div>
 

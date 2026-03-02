@@ -380,21 +380,21 @@
       "searchHelp": "搜索帮助"
     },
     "emptyState": {
-      "title": "搜索应用程序",
-      "description": "搜索您本地 Scoop 仓库中的软件包"
-    },
-    "help": {
-      "title": "搜索格式帮助",
-      "description": "您可以使用特殊的搜索格式来更精确地查找软件包：",
-      "examples": "示例：",
-      "normalSearch": "在任意仓库中搜索包含 '7zip' 的软件包",
-      "bucketSearch": "仅在名称包含 'main' 的仓库中搜索包含 '7zip' 的软件包",
-      "allBuckets": "在所有仓库中搜索包含 '7zip' 的软件包（与普通搜索相同）",
-      "exactMatch": "仅在名称为 'main' 的仓库中搜索名称为 '7zip' 的软件包",
-      "note": "提示：您也可以在页面上直接输入字母或数字来进行快速搜索。"
+      "description": "搜索您本地 Scoop 仓库中的软件包",
+      "title": "搜索应用程序"
     },
     "filter": {
       "allBuckets": "所有仓库"
+    },
+    "help": {
+      "allBuckets": "在所有仓库中搜索包含 '7zip' 的软件包（与普通搜索相同）",
+      "bucketSearch": "仅在名称包含 'main' 的仓库中搜索包含 '7zip' 的软件包",
+      "description": "您可以使用特殊的搜索格式来更精确地查找软件包：",
+      "exactMatch": "仅在名称为 'main' 的仓库中搜索名称为 '7zip' 的软件包",
+      "examples": "示例：",
+      "normalSearch": "在任意仓库中搜索包含 '7zip' 的软件包",
+      "note": "提示：您也可以在页面上直接输入字母或数字来进行快速搜索。",
+      "title": "搜索格式帮助"
     },
     "refreshResults": "刷新",
     "results": {
@@ -411,22 +411,24 @@
     "about": {
       "checkNow": "立即检查",
       "checkingForUpdates": "正在检查更新...",
-      "customizedVersion": "由 Kwensiu 定制的 Pailer 分支版本",
-      "description": "一个现代化的 Scoop 图形界面客户端，旨在简化 Windows 上的 Scoop 管理。",
+      "customizedVersion": "基于 Rscoop 重构",
+      "description": "为 Scoop 打造的现代化 GUI 管理器",
       "docs": "文档",
       "downloadingNoSize": "正在下载...",
       "downloadingUpdate": "正在下载更新...",
+      "goToProject": "前往项目",
       "installingUpdate": "正在安装更新...",
+      "joinDiscussion": "参与讨论",
       "latestVersion": "您已经在使用最新版本 (v{{version}})！",
       "managedByScoop": "由 Scoop 管理",
       "myFork": "Fork/Kwensiu",
       "noReleaseNotes": "无发行说明。",
       "noUpdatesAvailable": "无可用更新",
-      "pleaseReportIssues": "请将任何问题报告到 Kwensiu 的 Fork 仓库。",
       "releaseNotes": "发行说明：",
       "restartNow": "立即重启",
       "retry": "重试",
       "scoopUpdateInstruction": "在您的终端中使用 {{code}} 进行更新。",
+      "submitIssue": "提交问题",
       "updateAvailable": "有可用更新！",
       "updateAvailableDialog": "有 v{{version}} 更新可用！\n\n发行说明：{{body}}",
       "updateComplete": "更新已成功安装。应用程序需要重启以应用更改。",
@@ -534,16 +536,16 @@
       "settings": "设置",
       "title": "默认启动页面"
     },
-    "hotkey": {
-      "description": "启用或禁用软件内键盘快捷键",
-      "note": "启用后，您可以在软件包页面直接输入字母或数字快速搜索。",
-      "title": "快捷键"
-    },
     "heldPackages": {
       "description": "使用 scoop hold 命令保留的软件包，无法通过 Pailer 或 Scoop 更新。",
       "noPackagesHeld": "当前没有保留的软件包。",
       "title": "保留软件包管理",
       "unhold": "取消保留"
+    },
+    "hotkey": {
+      "description": "启用或禁用软件内键盘快捷键",
+      "note": "启用后，您可以在软件包页面直接输入字母或数字快速搜索。",
+      "title": "快捷键"
     },
     "powershell": {
       "autoDetect": "自动检测",

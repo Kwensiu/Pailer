@@ -378,21 +378,21 @@ export interface Dict {
       searchHelp: string;
     };
     emptyState: {
-      title: string;
       description: string;
-    };
-    help: {
       title: string;
-      description: string;
-      examples: string;
-      normalSearch: string;
-      bucketSearch: string;
-      allBuckets: string;
-      exactMatch: string;
-      note: string;
     };
     filter: {
       allBuckets: string;
+    };
+    help: {
+      allBuckets: string;
+      bucketSearch: string;
+      description: string;
+      exactMatch: string;
+      examples: string;
+      normalSearch: string;
+      note: string;
+      title: string;
     };
     refreshResults: string;
     results: {
@@ -414,17 +414,19 @@ export interface Dict {
       docs: string;
       downloadingNoSize: string;
       downloadingUpdate: string;
+      goToProject: string;
       installingUpdate: string;
+      joinDiscussion: string;
       latestVersion: string;
       managedByScoop: string;
       myFork: string;
       noReleaseNotes: string;
       noUpdatesAvailable: string;
-      pleaseReportIssues: string;
       releaseNotes: string;
       restartNow: string;
       retry: string;
       scoopUpdateInstruction: string;
+      submitIssue: string;
       updateAvailable: string;
       updateAvailableDialog: string;
       updateComplete: string;
@@ -532,16 +534,16 @@ export interface Dict {
       settings: string;
       title: string;
     };
-    hotkey: {
-      description: string;
-      note: string;
-      title: string;
-    };
     heldPackages: {
       description: string;
       noPackagesHeld: string;
       title: string;
       unhold: string;
+    };
+    hotkey: {
+      description: string;
+      note: string;
+      title: string;
     };
     powershell: {
       autoDetect: string;
