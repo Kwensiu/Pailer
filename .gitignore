@@ -1,7 +1,7 @@
 node_modules
 dist
-rscoop.json
 .codebuddy
 keys/
 .windsurf
 .qoder
+.env

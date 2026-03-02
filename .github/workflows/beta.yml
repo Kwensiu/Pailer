@@ -81,9 +81,37 @@ jobs:
             upx --best --lzma $exePath
           }
 
+      - name: Create portable executable
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version }}"
+          $beta = "${{ inputs.beta }}"
+          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $product = $cfg.productName
+          $exePath = "src-tauri/target/release/$product.exe"
+          
+          # 创建便携版，命名包含 beta 信息
+          $portableName = "Pailer-${version}-beta.${beta}-Portable-x64.exe"
+          
+          if (Test-Path $exePath) {
+            Copy-Item $exePath $portableName
+            
+            # 计算哈希值
+            $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()
+            Write-Host "----------------------------------------------"
+            Write-Host "PORTABLE EXE HASH: $hash"
+            Write-Host "----------------------------------------------"
+            
+            # 创建哈希文件
+            "$hash  $portableName" | Out-File -FilePath "$portableName.sha256" -Encoding UTF8
+          }
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}
           path: |
             ./src-tauri/target/release/bundle/nsis/*.exe
+            Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}-Portable-x64.exe
+            Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}-Portable-x64.exe.sha256
+          retention-days: 30

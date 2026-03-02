@@ -7,14 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 0.2.1)'
+        description: 'Version number (e.g. 1.0.0)'
         required: true
         type: string
-      prerelease:
-        description: 'Pre-release'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -22,16 +17,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      NODE_VERSION: '20'
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -41,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20
           cache: 'pnpm'
 
       - name: Install Rust toolchain
@@ -52,47 +40,42 @@ jobs:
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            src-tauri -> target
-
-      - name: Install system dependencies (UPX)
-        run: choco install upx -y
+          workspaces: "src-tauri -> target"
 
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Update Tauri config version (manual dispatch only)
-        if: github.event_name == 'workflow_dispatch'
-        shell: pwsh
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $cfg.version = $env:INPUT_VERSION
-          $cfg.bundle.createUpdaterArtifacts = $true
-          $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
-
-      - name: Build frontend
-        run: pnpm run build
-
-      - name: Build Tauri app
-        run: pnpm run tauri build
-
-      - name: Compress executable with UPX (optional, if you still need it)
-        shell: pwsh
-        run: |
-          $cfg = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
-          $product = $cfg.productName
-          $exePath = "src-tauri/target/release/$product.exe"
-          if (Test-Path $exePath) {
-            upx --best --lzma $exePath
-          }
-
-      - name: Build & Upload Artifacts (including latest.json) to Existing Release
+      - name: Build & Upload Setup
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+          includeRelease: true
+
+          tagName: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
+
+      - name: Distribute Portable EXE (No-Zip)
+        shell: pwsh
+        run: |
+
+          $version = "${{ github.event.inputs.version }}"
+          if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
+          
+          $exePath = "src-tauri/target/release/Pailer.exe"
+
+          $portableName = "Pailer-Portable-x64.exe"
+          
+          if (Test-Path $exePath) {
+            Copy-Item $exePath $portableName
+            
+            gh release upload "v$version" "$portableName#Portable Executable (Direct EXE)" --clobber
+
+            $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()
+            Write-Host "----------------------------------------------"
+            Write-Host "PORTABLE EXE HASH: $hash"
+            Write-Host "----------------------------------------------"
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
