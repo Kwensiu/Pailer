@@ -471,6 +471,7 @@ export interface Dict {
       autoUpdatePackagesDescription: string;
       customInterval: string;
       customIntervalDescription: string;
+      customIntervalSaved: string;
       dayDisplay: string;
       dayFormat: string;
       days: string;

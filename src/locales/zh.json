@@ -473,6 +473,7 @@
       "autoUpdatePackagesDescription": "仓库更新后将尝试更新已安装的软件包",
       "customInterval": "自定义间隔",
       "customIntervalDescription": "自定义计划（分钟、小时、天、周）。",
+      "customIntervalSaved": "自定义间隔已保存",
       "dayDisplay": "{{count}} 天",
       "dayFormat": "{{count}} 天",
       "days": "天",

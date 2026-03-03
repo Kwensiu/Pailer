@@ -6,6 +6,7 @@ import { message } from '@tauri-apps/plugin-dialog';
 import { HardDrive, Folder, FileText, Trash2 } from 'lucide-solid';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
+import { toast } from '../../common/ToastAlert';
 
 // Reusable action button component
 function ActionButton(props: {
@@ -59,14 +60,12 @@ export default function AppDataManagement() {
   const [isLoading, setIsLoading] = createSignal<boolean>(true);
   const [isClearing, setIsClearing] = createSignal<boolean>(false);
   // const [clearSuccess, setClearSuccess] = createSignal<boolean>(false);
-  const [clearError, setClearError] = createSignal<string | null>(null);
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [clearConfirm, setClearConfirm] = createSignal<boolean>(false);
   const [clearTimer, setClearTimer] = createSignal<number | null>(null);
 
   // Cache clearing states
   const [isClearingCache, setIsClearingCache] = createSignal<boolean>(false);
-  const [clearCacheError, setClearCacheError] = createSignal<string | null>(null);
   const [clearCacheConfirm, setClearCacheConfirm] = createSignal<boolean>(false);
   const [clearCacheTimer, setClearCacheTimer] = createSignal<number | null>(null);
 
@@ -119,7 +118,6 @@ export default function AppDataManagement() {
       }
       setClearConfirm(false);
       // setClearSuccess(false);
-      setClearError(null);
       setIsClearing(true);
 
       try {
@@ -132,7 +130,7 @@ export default function AppDataManagement() {
         }, 1000);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        setClearError(t('settings.appData.clearError') + ': ' + errorMessage);
+        toast.error(t('settings.appData.clearError') + ': ' + errorMessage);
         setIsClearing(false);
       }
     } else {
@@ -156,7 +154,6 @@ export default function AppDataManagement() {
         setClearCacheTimer(null);
       }
       setClearCacheConfirm(false);
-      setClearCacheError(null);
       setIsClearingCache(true);
 
       try {
@@ -173,7 +170,7 @@ export default function AppDataManagement() {
         });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        setClearCacheError(t('settings.appData.clearCacheError') + ': ' + errorMessage);
+        toast.error(t('settings.appData.clearCacheError') + ': ' + errorMessage);
         setIsClearingCache(false);
 
         // TEMP: Show error dialog - standalone code block for easy removal
@@ -265,18 +262,6 @@ export default function AppDataManagement() {
             />
           </div>
         </div>
-
-        <Show when={clearError()}>
-          <div class="alert alert-error mt-2">
-            <span>{clearError()}</span>
-          </div>
-        </Show>
-
-        <Show when={clearCacheError()}>
-          <div class="alert alert-error mt-2">
-            <span>{clearCacheError()}</span>
-          </div>
-        </Show>
       </Show>
     </Card>
   );

@@ -32,51 +32,52 @@ function AutoCleanupSettings() {
           className="gap-3"
         />
       }
-    >
-      <Show when={settings.cleanup.autoCleanupEnabled}>
-        <div class="space-y-6">
-          {/* Old Versions Section */}
-          <div class="bg-base-300/60 border-base-content/50 rounded-lg border p-4">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <h3 class="flex items-center text-sm font-medium">
-                  <Sparkles class="text-primary mr-2 h-4 w-4" />
-                  {t('settings.autoCleanup.cleanOldVersions')}
-                </h3>
-                <p class="text-base-content/60 mt-1 text-xs">
-                  {t('settings.autoCleanup.cleanOldVersionsDescription')}
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={settings.cleanup.cleanupOldVersions}
-                onChange={async (e) =>
-                  await setCleanupSettings({ cleanupOldVersions: e.currentTarget.checked })
-                }
-              />
-            </div>
-
-            <Show when={settings.cleanup.cleanupOldVersions}>
-              <div class="mt-4">
-                <label for="preserveVersionCount" class="mb-2 block text-xs font-semibold">
-                  {t('settings.autoCleanup.versionsToKeep', { count: localVersionCount() })}
-                </label>
+      conditionalContent={{
+        condition: settings.cleanup.autoCleanupEnabled,
+        children: (
+          <div class="space-y-6">
+            {/* Old Versions Section */}
+            <div class="bg-base-150 border-base-content/20 rounded-lg border p-4">
+              <div class="flex items-start justify-between">
+                <div class="flex-1">
+                  <h3 class="flex items-center text-sm font-medium">
+                    <Sparkles class="text-primary mr-2 h-4 w-4" />
+                    {t('settings.autoCleanup.cleanOldVersions')}
+                  </h3>
+                  <p class="text-base-content/60 mt-1 text-xs">
+                    {t('settings.autoCleanup.cleanOldVersionsDescription')}
+                  </p>
+                </div>
                 <input
-                  type="range"
-                  id="preserveVersionCount"
-                  min="1"
-                  max="10"
-                  value={localVersionCount()}
-                  onInput={handleVersionCountChange}
-                  class="range range-primary"
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={settings.cleanup.cleanupOldVersions}
+                  onChange={async (e) =>
+                    await setCleanupSettings({ cleanupOldVersions: e.currentTarget.checked })
+                  }
                 />
               </div>
-            </Show>
-          </div>
 
-          {/* Cache Section */}
-          <div class="bg-base-300/60 border-base-content/50 rounded-lg border p-4">
+              <Show when={settings.cleanup.cleanupOldVersions}>
+                <div class="mt-4">
+                  <label for="preserveVersionCount" class="mb-2 block text-xs font-semibold">
+                    {t('settings.autoCleanup.versionsToKeep', { count: localVersionCount() })}
+                  </label>
+                  <input
+                    type="range"
+                    id="preserveVersionCount"
+                    min="1"
+                    max="10"
+                    value={localVersionCount()}
+                    onInput={handleVersionCountChange}
+                    class="range range-primary"
+                  />
+                </div>
+              </Show>
+            </div>
+
+            {/* Cache Section */}
+
             <div class="flex items-start justify-between">
               <div class="flex-1">
                 <h3 class="text-sm font-medium">{t('settings.autoCleanup.cleanOutdatedCache')}</h3>
@@ -94,9 +95,9 @@ function AutoCleanupSettings() {
               />
             </div>
           </div>
-        </div>
-      </Show>
-    </Card>
+        ),
+      }}
+    ></Card>
   );
 }
 

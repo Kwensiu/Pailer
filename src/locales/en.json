@@ -471,6 +471,7 @@
       "autoUpdatePackagesDescription": "Run full package update after bucket refresh",
       "customInterval": "Custom Interval",
       "customIntervalDescription": "Define a custom schedule (minutes, hours, days, weeks).",
+      "customIntervalSaved": "Custom interval saved",
       "dayDisplay": "{{count}} Day",
       "dayFormat": "{{count}} day",
       "days": "Days",

@@ -1,9 +1,10 @@
 import { createSignal, onMount, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { RefreshCcw } from 'lucide-solid';
+import { RefreshCcw, Clock } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
+import { toast } from '../../common/ToastAlert';
 
 // Predefined new intervals per requirement plus backward compatibility display
 const INTERVAL_OPTIONS: { label: string; value: string; description: string }[] = [
@@ -143,7 +144,7 @@ export default function BucketAutoUpdateSettings() {
     >
       <div class="flex flex-col gap-2">
         {INTERVAL_OPTIONS.map((opt) => (
-          <label class="bg-base-300/60 border-base-content/50 hover:border-base-content/20 flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 transition-colors">
+          <label class="bg-base-200 border-base-300 hover:border-base-content/70 flex cursor-pointer items-center justify-between rounded-md border px-3 py-2 transition-colors">
             <div class="flex flex-col">
               <span class="text-sm font-medium">{t(opt.label)}</span>
               <span class="text-[10px] opacity-70">{t(opt.description)}</span>
@@ -162,7 +163,7 @@ export default function BucketAutoUpdateSettings() {
       </div>
 
       {/* Custom interval */}
-      <div class="bg-base-300/60 border-base-content/50 rounded-md border p-3">
+      <div class="bg-base-200 border-base-300 hover:border-base-content/60 rounded-md border p-3 transition-colors">
         <label class="mb-3 flex cursor-pointer items-center justify-between">
           <div>
             <span class="text-xs font-semibold tracking-wide uppercase opacity-90">
@@ -245,7 +246,6 @@ function CustomIntervalEditor(props: CustomIntervalEditorProps) {
   const [preview, setPreview] = createSignal<string>('');
   const [error, setError] = createSignal<string | null>(null);
   const [saving, setSaving] = createSignal(false);
-  const [justSaved, setJustSaved] = createSignal(false);
 
   onMount(() => {
     const secs = parseSeconds(currentValue);
@@ -321,8 +321,9 @@ function CustomIntervalEditor(props: CustomIntervalEditorProps) {
     setSaving(true);
     try {
       await onPersist(`custom:${secs}`);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 2500);
+      toast.success(t('settings.bucketAutoUpdate.customIntervalSaved'), {
+        icon: <Clock class="h-5 w-5 shrink-0" />,
+      });
     } finally {
       setSaving(false);
     }
@@ -372,11 +373,7 @@ function CustomIntervalEditor(props: CustomIntervalEditorProps) {
           disabled={props.disabled || saving() || !!error()}
           onClick={handlePersist}
         >
-          {saving()
-            ? t('settings.bucketAutoUpdate.saving')
-            : justSaved()
-              ? t('settings.bucketAutoUpdate.saved')
-              : t('settings.bucketAutoUpdate.save')}
+          {saving() ? t('settings.bucketAutoUpdate.saving') : t('settings.bucketAutoUpdate.save')}
         </button>
       </div>
       <div class="text-[11px] opacity-70">{preview()}</div>

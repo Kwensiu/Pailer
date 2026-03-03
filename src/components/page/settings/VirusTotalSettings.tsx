@@ -5,17 +5,15 @@ import settingsStore from '../../../stores/settings';
 import SettingsToggle from '../../common/SettingsToggle';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
+import { toast } from '../../common/ToastAlert';
 
 export default function VirusTotalSettings() {
   const { settings, setVirusTotalSettings } = settingsStore;
   const [apiKey, setApiKey] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(true);
-  const [error, setError] = createSignal<string | null>(null);
-  const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
 
   const fetchApiKey = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const key = await invoke<string | null>('get_virustotal_api_key');
       setApiKey(key ?? '');
@@ -28,7 +26,7 @@ export default function VirusTotalSettings() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch API key:', errorMsg);
-      setError(t('settings.virustotal.loadError'));
+      toast.error(t('settings.virustotal.loadError'));
     } finally {
       setIsLoading(false);
     }
@@ -43,11 +41,8 @@ export default function VirusTotalSettings() {
   };
 
   const handleSave = async () => {
-    setError(null);
-    setSuccessMessage(null);
-
     if (!validateApiKey(apiKey())) {
-      setError(t('settings.virustotal.invalidApiKey'));
+      toast.error(t('settings.virustotal.invalidApiKey'));
       return;
     }
 
@@ -57,12 +52,11 @@ export default function VirusTotalSettings() {
       if (apiKey() && !settings.virustotal.enabled) {
         await setVirusTotalSettings({ enabled: true });
       }
-      setSuccessMessage(t('settings.virustotal.saveSuccess'));
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast.success(t('settings.virustotal.saveSuccess'));
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to save API key:', errorMsg);
-      setError(t('settings.virustotal.saveError'));
+      toast.error(t('settings.virustotal.saveError'));
     }
   };
 
@@ -137,9 +131,6 @@ export default function VirusTotalSettings() {
           </div>
         </div>
       </Show>
-
-      {error() && <div class="alert alert-error mt-4 text-sm">{error()}</div>}
-      {successMessage() && <div class="alert alert-success mt-4 text-sm">{successMessage()}</div>}
     </Card>
   );
 }

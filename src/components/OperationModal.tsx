@@ -489,7 +489,7 @@ function OperationModal(props: OperationModalProps) {
       {/* Output content */}
       <div
         ref={scrollRef}
-        class="mx-4 my-3 overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
+        class="my-3 overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
         style="white-space: pre-wrap; word-break: break-word;"
       >
         <For each={currentOperation?.output || []}>
@@ -512,9 +512,9 @@ function OperationModal(props: OperationModalProps) {
       </div>
 
       {/* Status alerts */}
-      <div class="mx-4 my-2">
+      <div class="my-2">
         <Show when={currentOperation?.status === 'error'}>
-          <div class="alert alert-error rounded-lg">
+          <div class="status-alert status-alert-error rounded-lg">
             <Show when={currentOperation.result?.message} fallback={<span>Operation failed</span>}>
               <FormattedErrorMessage message={currentOperation.result?.message || ''} />
             </Show>
@@ -522,7 +522,7 @@ function OperationModal(props: OperationModalProps) {
         </Show>
 
         <Show when={currentOperation?.status === 'success'}>
-          <div class="alert alert-success rounded-lg">
+          <div class="status-alert status-alert-success rounded-lg">
             <span>{currentOperation.result?.message || 'Operation completed successfully'}</span>
           </div>
         </Show>

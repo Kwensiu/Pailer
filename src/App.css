@@ -8,20 +8,20 @@
    CSS Custom Properties
    ============================================ */
 :root {
-  --light-base-50: oklch(98.291% 0.003 53.838);
-  --light-base-100: oklch(97.388% 0.004 56.375);
-  --light-base-150: oklch(95.485% 0.006 58.912);
-  --light-base-175: oklch(94.233% 0.006 63.195);
-  --light-base-200: oklch(93.982% 0.007 68.449);
-  --light-base-250: oklch(92.384% 0.007 57.445);
-  --light-base-300: oklch(91.186% 0.006 53.44);
-  --light-base-350: oklch(89.988% 0.006 49.436);
-  --light-base-400: oklch(88.79% 0.005 45.431);
+  --light-base-50: oklch(98.291% 0.003 23.838);
+  --light-base-100: oklch(97.388% 0.004 26.375);
+  --light-base-150: oklch(95.485% 0.006 28.912);
+  --light-base-175: oklch(94.233% 0.006 33.195);
+  --light-base-200: oklch(93.982% 0.007 38.449);
+  --light-base-250: oklch(92.384% 0.007 27.445);
+  --light-base-300: oklch(91.186% 0.006 23.44);
+  --light-base-350: oklch(89.988% 0.006 19.436);
+  --light-base-400: oklch(88.79% 0.005 15.431);
 
-  --light-base-list: oklch(0.937 0.006 60);
-  --light-base-card: oklch(98.291% 0.003 53.838);
+  --light-base-list: oklch(0.937 0.006 30);
+  --light-base-card: oklch(98.291% 0.003 23.838);
   --light-base-content-bg: oklch(0.918 0 17.18);
-  --light-base-content: oklch(23.574% 0.066 313.189);
+  --light-base-content: oklch(23.574% 0.066 283.189);
 
   --light-primary: oklch(67% 0.182 276.935);
   --light-primary-content: oklch(96% 0.018 272.314);
@@ -545,4 +545,29 @@ html {
 /* Modal 内按钮圆角统一设置 */
 .modal .btn {
   border-radius: 0.85rem !important;
+}
+
+/* ============================================
+   Status Alert Components
+   ============================================ */
+.status-alert {
+  @apply flex items-center gap-2 rounded-full border p-3 text-sm;
+  transition: all 0.3s ease-in-out;
+  backdrop-filter: blur(12px);
+}
+
+.status-alert-success {
+  @apply bg-success/10 text-success border-success/20;
+}
+
+.status-alert-error {
+  @apply bg-error/20 text-error border-error/40;
+}
+
+.status-alert-warning {
+  @apply bg-warning/10 text-warning border-warning/20;
+}
+
+.status-alert-info {
+  @apply bg-info/10 text-info border-info/20;
 }

@@ -14,6 +14,7 @@ import DebugModal from './components/DebugModal.tsx';
 import MinimizedIndicatorManager from './components/MinimizedIndicatorManager.tsx';
 import MultiInstanceWarning from './components/MultiInstanceWarning.tsx';
 import OperationModal from './components/OperationModal.tsx';
+import ToastContainer from './components/common/ToastAlert.tsx';
 import { listen } from '@tauri-apps/api/event';
 import { info, error as logError } from '@tauri-apps/plugin-log';
 import { check, Update } from '@tauri-apps/plugin-updater';
@@ -412,6 +413,7 @@ function App() {
           </Show>
         )}
       </For>
+      <ToastContainer />
     </>
   );
 }
