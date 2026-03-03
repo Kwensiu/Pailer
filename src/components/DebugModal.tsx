@@ -3,6 +3,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { info, warn, error } from '@tauri-apps/plugin-log';
 import settingsStore from '../stores/settings';
 import Modal from './common/Modal';
+import OperationModal from './OperationModal';
+import { useOperations } from '../stores/operations';
+import { toast } from './common/ToastAlert';
 
 interface DebugInfo {
   timestamp: string;
@@ -20,12 +23,17 @@ const DebugModal = () => {
   const [debugInfo, setDebugInfo] = createSignal<DebugInfo | null>(null);
   const [appLogs, setAppLogs] = createSignal<string>('');
   const [logFileContent, setLogFileContent] = createSignal<string>('');
-  const [activeTab, setActiveTab] = createSignal<'info' | 'logs'>('info');
+  const [activeTab, setActiveTab] = createSignal<'info' | 'logs' | 'tool'>('info');
   const [isLoading, setIsLoading] = createSignal(false);
+
+  // Development-only state for tool tab
+  const [operationId, setOperationId] = createSignal<string | undefined>(undefined);
+  const { addOperation, generateOperationId } = useOperations();
 
   // Memoized tab checks for performance
   const isInfoTab = createMemo(() => activeTab() === 'info');
   const isLogsTab = createMemo(() => activeTab() === 'logs');
+  const isToolTab = createMemo(() => activeTab() === 'tool');
 
   const refreshDebugInfo = async () => {
     setIsLoading(true);
@@ -110,7 +118,7 @@ const DebugModal = () => {
         animation="scale"
         footer={
           <div class="flex w-full justify-end gap-2">
-            <button class="btn btn-sm" onClick={refreshDebugInfo} disabled={isLoading()}>
+            <button class="btn btn-accent btn-sm" onClick={refreshDebugInfo} disabled={isLoading()}>
               {isLoading() ? 'Loading...' : 'Refresh'}
             </button>
             <button
@@ -147,6 +155,16 @@ const DebugModal = () => {
           >
             Logs
           </button>
+          {/* Tool tab only in development */}
+          <Show when={import.meta.env.DEV}>
+            <button
+              class="tab"
+              classList={{ 'tab-active': isToolTab() }}
+              onClick={() => setActiveTab('tool')}
+            >
+              Tool
+            </button>
+          </Show>
         </div>
 
         {/* Tab Content */}
@@ -211,8 +229,98 @@ const DebugModal = () => {
               {logFileContent() || (appLogs() ? 'Loading log file...' : 'No logs available')}
             </pre>
           </Show>
+
+          {/* Tool Tab - Development Only */}
+          <Show when={import.meta.env.DEV && activeTab() === 'tool'}>
+            <div class="space-y-4">
+              <div class="space-y-2">
+                <h4 class="font-medium">Operation Modal Test</h4>
+                <button
+                  class="btn btn-primary"
+                  onClick={() => {
+                    const id = generateOperationId('test');
+                    setOperationId(id);
+                    addOperation({
+                      id: id,
+                      title: 'Test Operation',
+                      status: 'in-progress',
+                      isMinimized: false,
+                      output: [],
+                    });
+                  }}
+                >
+                  Open Operation Modal
+                </button>
+              </div>
+
+              <div class="space-y-2">
+                <h4 class="font-medium">Toast Notifications Test</h4>
+                <div class="grid grid-cols-4 gap-2">
+                  <button
+                    class="btn btn-success"
+                    onClick={() => {
+                      toast.success('This is a success message!', {
+                        duration: 3000,
+                      });
+                    }}
+                  >
+                    Success
+                  </button>
+                  <button
+                    class="btn btn-error"
+                    onClick={() => {
+                      toast.error('This is an error message!', {
+                        persistent: true,
+                      });
+                    }}
+                  >
+                    Error
+                  </button>
+                  <button
+                    class="btn btn-warning"
+                    onClick={() => {
+                      toast.warning('This is a warning message!', {
+                        duration: 4000,
+                      });
+                    }}
+                  >
+                    Warning
+                  </button>
+                  <button
+                    class="btn btn-info"
+                    onClick={() => {
+                      toast.info('This is an info message!', {
+                        duration: 2000,
+                      });
+                    }}
+                  >
+                    Info
+                  </button>
+                </div>
+                <button
+                  class="btn btn-outline btn-sm"
+                  onClick={() => {
+                    toast.clear();
+                  }}
+                >
+                  Clear All Toasts
+                </button>
+              </div>
+            </div>
+          </Show>
         </div>
       </Modal>
+
+      {/* Operation Modal for testing - Development Only */}
+      <Show when={import.meta.env.DEV && operationId()}>
+        <OperationModal
+          operationId={operationId()}
+          title="Test Operation"
+          onClose={() => {
+            setOperationId(undefined);
+          }}
+        />
+      </Show>
     </>
   );
 };

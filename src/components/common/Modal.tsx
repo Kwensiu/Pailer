@@ -14,10 +14,11 @@ interface ModalProps {
   preventBackdropClose?: boolean;
   zIndex?: string;
 
-  editButton?: boolean; // Add: Edit botton
-  initialContent?: string; // Test
+  editButton?: boolean;
+  initialContent?: string;
   animation?: 'none' | 'scale';
   animationDuration?: number;
+  isMinimizing?: boolean;
 }
 
 export default function Modal(props: ModalProps) {
@@ -126,6 +127,12 @@ export default function Modal(props: ModalProps) {
 
   // Get animation classes
   const getAnimationClasses = () => {
+    if (props.isMinimizing) {
+      return {
+        modalBox: 'transition-all duration-300 ease-in-out opacity-0',
+        backdrop: 'transition-all duration-300 ease-in-out !opacity-0',
+      };
+    }
     if (props.animation === 'scale') {
       return {
         modalBox: `transition-all duration-300 ease-in-out ${
