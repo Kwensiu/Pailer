@@ -119,10 +119,10 @@ export default function ToastContainer() {
   };
 
   return (
-    <div class="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2">
+    <div class="pointer-events-none fixed bottom-4 left-1/2 z-999 flex -translate-x-1/2 flex-col gap-2">
       <For each={toasts()}>
         {(toast) => (
-          <div class="pointer-events-auto">
+          <div class="pointer-events-auto font-medium">
             <ToastItem message={toast} onClose={removeToast} />
           </div>
         )}
