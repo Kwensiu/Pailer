@@ -5,11 +5,19 @@ import { getSettingsStore } from '../stores/settings';
 // All frontend data is stored in settings.json with namespaced keys
 // Signals use the 'signals.' prefix for their keys
 
+// Cache for signals to ensure same key returns same signal instance
+const signalCache = new Map<string, Signal<any>>();
+
 export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
-  // Namespace the key to avoid conflicts with settings
-  const namespacedKey = `signals.${key}`;
+  // Check cache first
+  if (signalCache.has(key)) {
+    return signalCache.get(key) as Signal<T>;
+  }
 
   return createRoot(() => {
+    // Namespace the key to avoid conflicts with settings
+    const namespacedKey = `signals.${key}`;
+
     // Try to get initial value synchronously from localStorage first (for migration)
     let syncInitialValue = initialValue;
     try {
@@ -45,9 +53,17 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
           const storedValue = await store.get(namespacedKey);
           console.log(`createTauriSignal: Loaded value for "${namespacedKey}":`, storedValue);
           if (storedValue !== undefined && storedValue !== null) {
-            isLoaded = true;
-            setValue(() => storedValue as T);
-            console.log(`createTauriSignal: Set loaded value for "${namespacedKey}"`);
+            // Only set if value hasn't been changed from initial (prevent overriding user changes)
+            if (value() === syncInitialValue) {
+              isLoaded = true;
+              setValue(() => storedValue as T);
+              console.log(`createTauriSignal: Set loaded value for "${namespacedKey}"`);
+            } else {
+              isLoaded = true;
+              console.log(
+                `createTauriSignal: User has changed value, not overriding with loaded value`
+              );
+            }
           }
         } else {
           // Try legacy key (without 'signals.' prefix) for migration
@@ -55,8 +71,13 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
           if (legacyValue !== undefined && legacyValue !== null) {
             console.log(`createTauriSignal: Migrating legacy key "${key}" to "${namespacedKey}"`);
             await store.set(namespacedKey, legacyValue);
-            isLoaded = true;
-            setValue(() => legacyValue as T);
+            // Only set if value hasn't been changed from initial
+            if (value() === syncInitialValue) {
+              isLoaded = true;
+              setValue(() => legacyValue as T);
+            } else {
+              isLoaded = true;
+            }
           } else {
             console.log(
               `createTauriSignal: No stored value for "${namespacedKey}", using initial value`
@@ -85,7 +106,7 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
     createEffect(() => {
       const currentValue = value();
       // Only save after loading is complete, avoid saving initial default value
-      if (!isLoading && (isLoaded || currentValue !== initialValue)) {
+      if (!isLoading && (isLoaded || currentValue !== syncInitialValue)) {
         console.log(`createTauriSignal: Saving value for "${namespacedKey}":`, currentValue);
         (async () => {
           try {
@@ -104,14 +125,19 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
           isLoaded,
           'currentValue:',
           currentValue,
-          'initialValue:',
-          initialValue
+          'syncInitialValue:',
+          syncInitialValue
         );
       }
     });
 
-    // Return the original signal and setter
-    // The createEffect will handle persistence automatically
-    return [value, setValue];
+    // Create the signal
+    const signal: Signal<T> = [value, setValue];
+
+    // Cache it
+    signalCache.set(key, signal);
+
+    // Return the signal
+    return signal;
   });
 }
