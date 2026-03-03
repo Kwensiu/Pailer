@@ -131,6 +131,7 @@ function OperationModal(props: OperationModalProps) {
 
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
+  const [isMinimizing, setIsMinimizing] = createSignal(false);
 
   // Generate or use provided operation ID
   const operationId = createMemo(() => {
@@ -374,7 +375,21 @@ function OperationModal(props: OperationModalProps) {
               : 'in-progress',
       });
 
-      toggleMinimize(operationId());
+      // Start minimize animation with proper timing
+      setIsMinimizing(true);
+
+      // Use a more robust approach to prevent race conditions
+      const minimizeTimer = setTimeout(() => {
+        // Double-check that we're still in a valid state before proceeding
+        const op = operation();
+        if (op && !op.isMinimized && isMinimizing()) {
+          setIsMinimizing(false);
+          toggleMinimize(operationId());
+        }
+      }, 300);
+
+      // Store timer ID for potential cleanup
+      onCleanup(() => clearTimeout(minimizeTimer));
     } else if (currentOperation) {
       console.log('Restoring operation:', currentOperation.title);
       // Send restore state event to backend
@@ -449,11 +464,13 @@ function OperationModal(props: OperationModalProps) {
       preventBackdropClose={true}
       animation="scale"
       zIndex="80"
+      isMinimizing={isMinimizing()}
       headerAction={
-        <div class="flex space-x-2">
+        <div class="flex justify-end gap-2">
           <button
             class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
             onClick={handleMinimize}
+            title="Minimize"
           >
             <Minimize2 class="h-6 w-6 sm:h-5 sm:w-5" />
           </button>

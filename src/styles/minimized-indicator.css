@@ -1,118 +1,65 @@
-/* 最小化指示器容器 */
+@reference "tailwindcss";
+@reference "../App.css";
+
+/* Minimized indicators container */
 .minimized-indicators-container {
-  position: fixed;
-  bottom: 1rem;
-  left: 1rem;
-  display: flex;
-  flex-direction: column; /* 从下往上排列，不重叠 */
-  gap: 0.5rem;
-  z-index: 50;
-  pointer-events: none; /* 容器不拦截事件 */
-  max-height: 80vh; /* 限制最大高度 */
-  overflow-y: auto;
-  scrollbar-width: none; /* 隐藏滚动条 */
+  @apply pointer-events-none fixed bottom-4 left-4 z-50 flex max-h-[80vh] flex-col gap-2 overflow-y-auto;
+  scrollbar-width: none;
 }
 
 .minimized-indicators-container::-webkit-scrollbar {
   display: none;
 }
 
-/* 单个最小化指示器 */
+/* Single minimized indicator */
 .minimized-indicator {
-  pointer-events: auto; /* 恢复事件拦截 */
-  background: var(--fallback-b2, oklch(var(--b2) / 0.9)) !important; /* 更深的背景色 */
-  /* 强制回退背景色方案 - 灰色调 */
-  background-color: #404040 !important; /* fallback for dark theme - 深灰色 */
-  border: 2px solid var(--fallback-bc, oklch(var(--bc) / 0.4)) !important;
-  border-color: rgba(156, 163, 175, 0.3) !important; /* fallback border - 灰色边框 */
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  box-shadow:
-    0 4px 6px -1px rgb(0 0 0 / 0.15),
-    0 2px 4px -2px rgb(0 0 0 / 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  /* 减小固定宽度 - 从300px减少到240px */
+  @apply bg-base-200 border-base-300 pointer-events-auto cursor-pointer rounded-xl border-2 p-3 transition-all duration-300 ease-in-out;
   width: 240px;
   min-width: 240px;
   max-width: 240px;
   height: auto;
   position: relative;
-  /* 移除 transform，让 flex 布局自动排列 */
-  will-change: opacity; /* 优化动画性能 */
+  will-change: opacity;
 }
 
-/* 亮色主题下的背景 */
+/* Light theme background */
 [data-theme='light'] .minimized-indicator {
-  background-color: rgba(64, 64, 64, 0.9) !important; /* 更深的背景色 - 深灰色 */
-  border-color: rgba(0, 0, 0, 0.3) !important; /* 浅灰色边框 */
+  @apply bg-base-100 border-base-300;
 }
 
-/* 指示器悬停效果 */
+/* Indicator hover effect */
 .minimized-indicator:hover {
-  box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.2),
-    0 4px 6px -4px rgb(0 0 0 / 0.15);
-  border-color: var(--fallback-b3, oklch(var(--b3)));
-  background-color: var(--fallback-b2, oklch(var(--b2) / 1)); /* 悬停时背景稍微变亮 */
+  @apply border-base-300 bg-base-200;
 }
 
-/* 指示器焦点效果 */
-.minimized-indicator:focus {
-  outline: 2px solid var(--fallback-p, oklch(var(--p)));
-  outline-offset: 2px;
-}
-
-/* 指示器内容 */
+/* Indicator content */
 .minimized-indicator__content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.125rem; /* 进一步减少间隙到 0.125rem (约2px) */
+  @apply flex items-center justify-between gap-0.5;
 }
 
 .minimized-indicator__title {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--fallback-bc, oklch(var(--bc)));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
+  @apply text-base-content min-w-0 flex-1 overflow-hidden text-sm font-medium text-ellipsis whitespace-nowrap;
 }
 
 .minimized-indicator__status {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
+  @apply flex shrink-0 items-center;
 }
 
-/* 特殊状态指示器 */
+/* Special status indicators */
 .minimized-indicator--more,
 .minimized-indicator--collapse {
-  background: var(--fallback-b3, oklch(var(--b3) / 0.85)) !important; /* 更深的背景色 */
-  /* 强制回退背景色方案 - 灰色调 */
-  background-color: #2d3748 !important; /* fallback for dark theme - 更深的灰色 */
-  border-style: dashed;
-  border-width: 2px;
-  border-color: rgba(156, 163, 175, 0.3) !important; /* fallback border - 灰色边框 */
-  /* 保持相同的减小宽度 */
+  @apply bg-base-300 border-base-300 justify-center border-2 border-dashed text-center;
   width: 240px;
   min-width: 240px;
   max-width: 240px;
-  text-align: center;
-  justify-content: center;
 }
 
 .minimized-indicator--more:hover,
 .minimized-indicator--collapse:hover {
-  background: var(--fallback-b4, oklch(var(--b4) / 0.95)) !important; /* 悬停时背景 */
-  /* 强制回退背景色方案 - 灰色调 */
-  background-color: #4a5568 !important; /* fallback for dark theme - 更深的灰色 */
+  @apply bg-base-300;
 }
 
-/* 进入动画 */
+/* Enter animation */
 @keyframes minimized-indicator-enter {
   from {
     opacity: 0;
@@ -124,7 +71,7 @@
   }
 }
 
-/* 退出动画 */
+/* Exit animation */
 @keyframes minimized-indicator-exit {
   from {
     opacity: 1;
@@ -136,53 +83,49 @@
   }
 }
 
-/* 应用动画 */
+/* Apply animations */
 .minimized-indicator {
-  animation: minimized-indicator-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  @apply animate-pulse;
+  animation: minimized-indicator-enter 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .minimized-indicator.exiting {
-  animation: minimized-indicator-exit 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: minimized-indicator-exit 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 响应式设计 - 移除尺寸变化，只调整位置 */
+/* Minimize animation */
+.minimizing .modal {
+  @apply opacity-0;
+  transform: translate(-50%, 300px) !important;
+  transition: all 300ms ease-out !important;
+  animation: none !important;
+}
+
+/* Responsive design - position only */
 @media (max-width: 640px) {
   .minimized-indicators-container {
-    bottom: 0.5rem;
-    left: 0.5rem;
-    right: 0.5rem;
-    gap: 0.25rem;
+    @apply right-2 bottom-2 left-2 gap-1;
   }
 
-  /* 保持指示器大小不变，只调整位置 */
   .minimized-indicator {
-    /* 保持减小的固定大小 */
     width: 240px;
     min-width: 240px;
     max-width: 240px;
-    padding: 0.75rem; /* 保持原内边距 */
+    @apply p-3;
   }
 
   .minimized-indicator__title {
-    font-size: 0.875rem; /* 保持原字体大小 */
+    @apply text-sm;
   }
 }
 
 @media (max-height: 400px) {
   .minimized-indicators-container {
-    flex-direction: row;
-    bottom: auto;
-    top: 1rem;
-    left: 1rem;
-    right: 1rem;
-    max-height: none;
-    overflow-x: auto;
+    @apply top-4 right-4 bottom-auto left-4 max-h-none flex-row overflow-x-auto;
   }
 
-  /* 保持指示器大小不变，只调整排列方式 */
   .minimized-indicator {
-    transform: translateX(calc(var(--index) * 250px)); /* 水平排列，保持减小宽度 + 间距 */
-    /* 保持减小的固定大小 */
+    transform: translateX(calc(var(--index) * 250px));
     width: 240px;
     min-width: 240px;
     max-width: 240px;
@@ -215,46 +158,17 @@
   }
 }
 
-/* 深色主题适配 */
+/* Dark theme */
 @media (prefers-color-scheme: dark) {
   .minimized-indicator {
-    background: var(--fallback-b2, oklch(var(--b2)));
-    border-color: var(--fallback-bc, oklch(var(--bc) / 0.2));
+    @apply bg-base-200 border-base-300;
   }
 
   .minimized-indicator:hover {
-    border-color: var(--fallback-b3, oklch(var(--b3)));
+    @apply border-base-300;
   }
 
   .minimized-indicator__close {
-    background: var(--fallback-b1, oklch(var(--b1)));
-  }
-}
-
-/* 高对比度模式 */
-@media (prefers-contrast: high) {
-  .minimized-indicator {
-    border-width: 2px;
-    border-color: var(--fallback-bc, oklch(var(--bc)));
-  }
-
-  .minimized-indicator:focus {
-    outline-width: 3px;
-  }
-}
-
-/* 减少动画模式 */
-@media (prefers-reduced-motion: reduce) {
-  .minimized-indicator {
-    transition: none;
-    animation: none;
-  }
-
-  .minimized-indicator:hover {
-    transform: none;
-  }
-
-  .minimized-indicator__close {
-    transition: none;
+    @apply bg-base-100;
   }
 }

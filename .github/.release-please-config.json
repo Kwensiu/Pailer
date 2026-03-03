@@ -19,10 +19,7 @@
       ],
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
-      "extra-files": [
-        "src-tauri/Cargo.toml",
-        "src-tauri/tauri.conf.json"
-      ]
+      "extra-files": ["src-tauri/Cargo.toml", "src-tauri/tauri.conf.json"]
     }
   }
 }

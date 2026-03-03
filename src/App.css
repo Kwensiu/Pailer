@@ -571,3 +571,32 @@ html {
 .status-alert-info {
   @apply bg-info/10 text-info border-info/20;
 }
+
+/* ============================================
+   Accessibility: Reduced Motion Mode
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable transitions globally */
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Disable specific animations */
+  .loading {
+    animation: none !important;
+  }
+
+  .btn {
+    transition: none !important;
+  }
+
+  .modal {
+    animation: none !important;
+  }
+
+  /* Disable hover transforms */
+  .minimized-indicator:hover {
+    transform: none !important;
+  }
+}
