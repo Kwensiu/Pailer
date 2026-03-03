@@ -78,13 +78,10 @@ jobs:
           $beta = "${{ inputs.beta }}"
           $product = "Pailer"
           $exePath = "src-tauri/target/release/$product.exe"
-
-          $portableName = "Pailer-${version}-beta.${beta}-Portable-x64.exe"
-
+          $portableName = "Pailer.exe"
           if (Test-Path $exePath) {
             Copy-Item $exePath $portableName
             $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()
-            "$hash  $portableName" | Out-File -FilePath "$portableName.sha256" -Encoding UTF8
             Write-Host "Beta Portable Hash: $hash"
           }
 
@@ -94,7 +91,6 @@ jobs:
           name: Pailer-${{ inputs.version }}-beta.${{ inputs.beta }}
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
-            Pailer-*-Portable-x64.exe
-            Pailer-*-Portable-x64.exe.sha256
+            Pailer.exe
           retention-days: 7
           if-no-files-found: error
