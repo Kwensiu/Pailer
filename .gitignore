@@ -2,6 +2,6 @@ node_modules
 dist
 .codebuddy
 keys/
-.windsurf
 .qoder
 .env
+.windsurf/workflows/review.md

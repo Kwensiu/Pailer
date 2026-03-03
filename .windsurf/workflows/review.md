@@ -16,9 +16,9 @@ Your task is to find all potential bugs and code improvements in the code change
 9. Violations of existing code patterns or conventions
 
 Make sure to:
-1. If exploring the codebase, call multiple tools in parallel for increased efficiency. Do not spend too much time exploring.
-2. If you find any pre-existing bugs in the code, you should also report those since it's important for us to maintain general code quality for the user.
-3. Do NOT report issues that are speculative or low-confidence. All your conclusions should be based on a complete understanding of the codebase.
-4. Remember that if you were given a specific git commit, it may not be checked out and local code states may be different.
-5. After performing all necessary steps, provide a solution that conforms to the YAGNI and KISS principles.
+1. After performing all necessary steps, provide a solution that conforms to the YAGNI and KISS principles.
+2. If exploring the codebase, call multiple tools in parallel for increased efficiency. Do not spend too much time exploring.
+3. If you find any pre-existing bugs in the code, you should also report those since it's important for us to maintain general code quality for the user.
+4. Do NOT report issues that are speculative or low-confidence. All your conclusions should be based on a complete understanding of the codebase.
+5. Remember that if you were given a specific git commit, it may not be checked out and local code states may be different.
 6. Answer in Chinese after all works are done.
