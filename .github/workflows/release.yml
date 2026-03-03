@@ -59,20 +59,15 @@ jobs:
       - name: Distribute Portable EXE (No-Zip)
         shell: pwsh
         run: |
-
           $version = "${{ github.event.inputs.version }}"
           if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
 
           $exePath = "src-tauri/target/release/Pailer.exe"
 
-          $portableName = "Pailer-Portable-x64.exe"
-
           if (Test-Path $exePath) {
-            Copy-Item $exePath $portableName
-            
-            gh release upload "v$version" "$portableName#Portable Executable (Direct EXE)" --clobber
+            gh release upload "v$version" "$exePath" --clobber
 
-            $hash = (Get-FileHash $portableName -Algorithm SHA256).Hash.ToLower()
+            $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash.ToLower()
             Write-Host "----------------------------------------------"
             Write-Host "PORTABLE EXE HASH: $hash"
             Write-Host "----------------------------------------------"
