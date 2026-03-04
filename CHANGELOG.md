@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2](https://github.com/Kwensiu/Pailer/compare/v1.1.1...v1.1.2) (2026-03-04)
+
+
+### Bug Fixes
+
+* enhance session storage caching and update modal UI ([25ca893](https://github.com/Kwensiu/Pailer/commit/25ca893129383f5bb030d565aed3772eafec2e21))
+
 ## [1.1.1](https://github.com/Kwensiu/Pailer/compare/v1.1.0...v1.1.1) (2026-03-03)
 
 
