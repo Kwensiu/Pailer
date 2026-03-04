@@ -410,7 +410,7 @@
   "settings": {
     "about": {
       "autoCheck": "Auto Check",
-      "autoCheckTooltip": "Check for updates when Pailer starts",
+      "autoCheckTooltip": "Check for updates after startup",
       "checkNow": "Check Now",
       "checkingForUpdates": "Checking for updates...",
       "customizedVersion": "Refectored from Rscoop",
@@ -419,7 +419,7 @@
       "downloadingNoSize": "Downloading...",
       "downloadingUpdate": "Downloading update...",
       "goToProject": "Github",
-      "installWarning": "The application will restart after installation. Make sure to save your data.",
+      "installWarning": "The application will restart after download is complete, please make sure your data is saved!",
       "installingUpdate": "Installing update...",
       "joinDiscussion": "Discussion",
       "latestVersion": "You're already using the latest version (v{{version}})!",

@@ -410,7 +410,7 @@
   "settings": {
     "about": {
       "autoCheck": "自动检查",
-      "autoCheckTooltip": "启动Pailer时检查更新",
+      "autoCheckTooltip": "启动时检查更新",
       "checkNow": "立即检查",
       "checkingForUpdates": "正在检查更新...",
       "customizedVersion": "基于 Rscoop 重构",
@@ -419,7 +419,7 @@
       "downloadingNoSize": "正在下载...",
       "downloadingUpdate": "正在下载更新...",
       "goToProject": "前往项目",
-      "installWarning": "应用程序将在安装后重启。请确保保存您的数据。",
+      "installWarning": "应用程序将在下载完成后重启，请确保您的数据已保存！",
       "installingUpdate": "正在安装更新...",
       "joinDiscussion": "参与讨论",
       "latestVersion": "您已经在使用最新版本 (v{{version}})！",

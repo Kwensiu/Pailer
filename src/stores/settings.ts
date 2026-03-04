@@ -50,6 +50,7 @@ interface Settings {
   };
   update: {
     channel: 'stable';
+    autoCheckEnabled: boolean;
   };
   defaultLaunchPage: View;
   scoopPath?: string;
@@ -90,6 +91,7 @@ const defaultSettings: Settings = {
   },
   update: {
     channel: 'stable',
+    autoCheckEnabled: true,
   },
   defaultLaunchPage: 'installed',
   language: 'en',

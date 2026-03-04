@@ -40,7 +40,7 @@ export default function UpdateModal(props: UpdateModalProps) {
       preventBackdropClose={props.isDownloading}
       footer={
         <div class="flex w-full justify-between">
-          <button class="btn btn-circle" onClick={handleGoToRelease}>
+          <button class="btn btn-circle btn-ghost" onClick={handleGoToRelease}>
             <Github class="h-6 w-6" />
           </button>
           <div class="flex gap-2">

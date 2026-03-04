@@ -17,8 +17,6 @@ import OperationModal from './components/OperationModal.tsx';
 import ToastContainer from './components/common/ToastAlert.tsx';
 import { listen } from '@tauri-apps/api/event';
 import { info, error as logError } from '@tauri-apps/plugin-log';
-import { check, Update } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import installedPackagesStore from './stores/installedPackagesStore';
@@ -26,6 +24,7 @@ import settingsStore from './stores/settings';
 import { BucketInfo, updateBucketsCache } from './hooks/useBuckets';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
+import { updateStore } from './stores/updateStore';
 
 function App() {
   const { settings } = settingsStore;
@@ -43,15 +42,53 @@ function App() {
 
   const isReady = createMemo(() => readyFlag() === 'true');
 
+  // Track if we have already performed update check to avoid duplicates
+  const [updateCheckPerformed, setUpdateCheckPerformed] = createSignal(false);
+
   const [error, setError] = createSignal<string | null>(null);
-  const [update, setUpdate] = createSignal<Update | null>(null);
-  const [isInstalling, setIsInstalling] = createSignal(false);
 
   // Track initialization timeout
   const [initTimedOut, setInitTimedOut] = createSignal(false);
 
   // Auto-update modal state
   const [autoUpdateTitle, setAutoUpdateTitle] = createSignal<string | null>(null);
+
+  // Deferred / concurrent update check logic (network) with timeout; triggered after ready event
+  const triggerUpdateCheck = async () => {
+    console.log('🔍 [App] triggerUpdateCheck called', {
+      isScoopInstalled: isScoopInstalled(),
+      autoCheckEnabled: settings.update.autoCheckEnabled,
+    });
+
+    if (isScoopInstalled()) {
+      console.log('🔍 [App] Skipping update check - installed via Scoop');
+      return;
+    }
+
+    // Check if auto-check is enabled in settings
+    if (!settings.update.autoCheckEnabled) {
+      console.log('🔍 [App] Skipping update check - auto-check disabled by user settings');
+      return;
+    }
+
+    console.log('🔍 [App] Starting automatic update check...');
+    try {
+      info('Checking for application updates...');
+      await updateStore.checkForUpdates(false); // false = automatic check
+      console.log('🔍 [App] Automatic update check completed');
+    } catch (e) {
+      console.error('Failed to check for updates', e);
+    }
+  };
+
+  // Perform update check when app becomes ready
+  createEffect(() => {
+    if (isReady() && !updateCheckPerformed()) {
+      console.log('🔍 [App] App became ready, performing update check');
+      setUpdateCheckPerformed(true);
+      triggerUpdateCheck();
+    }
+  });
 
   createEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
@@ -70,19 +107,6 @@ function App() {
     });
   }
 
-  const handleInstallUpdate = async () => {
-    if (!update()) return;
-    setIsInstalling(true);
-    try {
-      await update()!.downloadAndInstall();
-      await relaunch();
-    } catch (e) {
-      console.error('Failed to install update', e);
-      setError('Failed to install the update. Please try restarting the application.');
-      setIsInstalling(false);
-    }
-  };
-
   const handleCloseAutoUpdateModal = (wasSuccess: boolean) => {
     setAutoUpdateTitle(null);
     if (wasSuccess) {
@@ -92,8 +116,11 @@ function App() {
   };
 
   onMount(async () => {
+    console.log('🔍 [App] onMount called - starting app initialization');
+
     // Setup event listeners FIRST so early backend emits are captured
     const setupColdStartListeners = async () => {
+      console.log('🔍 [App] Setting up cold start listeners');
       const webview = getCurrentWebviewWindow();
       const unlistenFunctions: (() => void)[] = [];
 
@@ -114,6 +141,10 @@ function App() {
       // Listen for window-specific cold-start-finished event
       try {
         const unlisten1 = await webview.listen<boolean>('cold-start-finished', (event) => {
+          console.log(
+            '🔍 [App] Received window-specific cold-start-finished event:',
+            event.payload
+          );
           info(`Received window-specific cold-start-finished event with payload: ${event.payload}`);
           handleColdStartEvent(event.payload);
         });
@@ -125,6 +156,7 @@ function App() {
       // Listen for global cold-start-finished event as fallback
       try {
         const unlisten2 = await listen<boolean>('cold-start-finished', (event) => {
+          console.log('🔍 [App] Received global cold-start-finished event:', event.payload);
           info(`Received global cold-start-finished event with payload: ${event.payload}`);
           handleColdStartEvent(event.payload);
         });
@@ -136,6 +168,7 @@ function App() {
       // Listen for window-specific scoop-ready event
       try {
         const unlisten3 = await webview.listen<boolean>('scoop-ready', (event) => {
+          console.log('🔍 [App] Received window-specific scoop-ready event:', event.payload);
           info(`Received window-specific scoop-ready event with payload: ${event.payload}`);
           handleColdStartEvent(event.payload);
         });
@@ -147,6 +180,7 @@ function App() {
       // Listen for global scoop-ready event as fallback
       try {
         const unlisten4 = await listen<boolean>('scoop-ready', (event) => {
+          console.log('🔍 [App] Received global scoop-ready event:', event.payload);
           info(`Received global scoop-ready event with payload: ${event.payload}`);
           handleColdStartEvent(event.payload);
         });
@@ -184,33 +218,7 @@ function App() {
     }
 
     // Deferred / concurrent update check logic (network) with timeout; triggered after ready event
-    const triggerUpdateCheck = async () => {
-      if (isScoopInstalled() || update()) return;
-      const TIMEOUT_MS = 4000;
-      let timedOut = false;
-      const timeoutPromise = new Promise<null>((resolve) =>
-        setTimeout(() => {
-          timedOut = true;
-          resolve(null);
-        }, TIMEOUT_MS)
-      );
-      try {
-        info('Checking for application updates...');
-        const result = await Promise.race([check(), timeoutPromise]);
-        if (timedOut) {
-          info('Update check timed out; continuing without update info.');
-          return;
-        }
-        if (result) {
-          info(`Update ${result.version} is available.`);
-          setUpdate(result);
-        } else {
-          info('Application is up to date.');
-        }
-      } catch (e) {
-        console.error('Failed to check for updates', e);
-      }
-    };
+    // Note: triggerUpdateCheck is now defined at component level above
 
     // Handle cold start event payload
     const handleColdStartEvent = (payload: boolean) => {
@@ -253,9 +261,7 @@ function App() {
               });
           }, 100);
           // Kick off update check shortly after readiness if applicable
-          setTimeout(() => {
-            triggerUpdateCheck();
-          }, 150);
+          // Note: update check is now handled by createEffect after ready event
         } else {
           const errorMsg =
             'Scoop initialization failed. Please make sure Scoop is installed correctly and restart.';
@@ -278,7 +284,7 @@ function App() {
         setInitTimedOut(true);
         setReadyFlag('true');
         // Ensure update check still runs even if events were missed
-        triggerUpdateCheck();
+        // Note: update check is now handled by createEffect when readyFlag changes
       }
     }, 3000); // Further reduce timeout to 3 seconds for immediate display
 
@@ -298,26 +304,6 @@ function App() {
 
   return (
     <>
-      <Show when={update() && !error() && !isScoopInstalled()}>
-        <div class="flex items-center justify-center gap-4 bg-sky-600 p-2 text-center text-sm text-white">
-          <span>{t('appUpdate.available', { version: update()!.version })}</span>
-          <button
-            class="rounded bg-sky-800 px-3 py-1 text-xs font-bold text-white hover:bg-sky-900 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isInstalling()}
-            onClick={handleInstallUpdate}
-          >
-            {isInstalling() ? t('appUpdate.installing') : t('appUpdate.installNow')}
-          </button>
-          <button
-            class="rounded px-3 py-1 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50"
-            disabled={isInstalling()}
-            onClick={() => setUpdate(null)}
-          >
-            {t('appUpdate.later')}
-          </button>
-        </div>
-      </Show>
-
       <Show when={!isReady() && !error()}>
         <div class="bg-base-100 flex h-screen flex-col items-center justify-center">
           <h1 class="mb-4 text-2xl font-bold">{t('app.title')}</h1>
