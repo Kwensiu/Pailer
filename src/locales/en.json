@@ -127,12 +127,14 @@
     "copyToClipboard": "Copy to clipboard",
     "goToBuckets": "Go to bucket",
     "install": "Install",
+    "later": "Later",
     "removeAll": "Remove All",
     "removeSelected": "Remove Selected",
     "showLess": "Show Less",
     "showMore": "Show More",
     "uninstall": "Uninstall",
-    "updateAll": "Update All"
+    "updateAll": "Update All",
+    "view": "View"
   },
   "doctor": {
     "addShimModal": {
@@ -415,6 +417,7 @@
       "downloadingNoSize": "Downloading...",
       "downloadingUpdate": "Downloading update...",
       "goToProject": "Github",
+      "installWarning": "The application will restart after installation. Make sure to save your data.",
       "installingUpdate": "Installing update...",
       "joinDiscussion": "Discussion",
       "latestVersion": "You're already using the latest version (v{{version}})!",
@@ -423,6 +426,7 @@
       "noReleaseNotes": "No release notes available.",
       "noUpdatesAvailable": "No Updates Available",
       "releaseNotes": "Release Notes:",
+      "releasedOn": "Released on {{date}}",
       "restartNow": "Restart Now",
       "retry": "Retry",
       "scoopUpdateInstruction": "Use {{code}} in your terminal to update.",

@@ -127,12 +127,14 @@ export interface Dict {
     copyToClipboard: string;
     goToBuckets: string;
     install: string;
+    later: string;
     removeAll: string;
     removeSelected: string;
     showLess: string;
     showMore: string;
     uninstall: string;
     updateAll: string;
+    view: string;
   };
   doctor: {
     addShimModal: {
@@ -415,6 +417,7 @@ export interface Dict {
       downloadingNoSize: string;
       downloadingUpdate: string;
       goToProject: string;
+      installWarning: string;
       installingUpdate: string;
       joinDiscussion: string;
       latestVersion: string;
@@ -423,6 +426,7 @@ export interface Dict {
       noReleaseNotes: string;
       noUpdatesAvailable: string;
       releaseNotes: string;
+      releasedOn: string;
       restartNow: string;
       retry: string;
       scoopUpdateInstruction: string;

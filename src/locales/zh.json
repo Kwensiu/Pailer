@@ -127,12 +127,14 @@
     "copyToClipboard": "复制到剪贴板",
     "goToBuckets": "前往仓库",
     "install": "安装",
+    "later": "稍后",
     "removeAll": "移除全部",
     "removeSelected": "选择",
     "showLess": "收起",
     "showMore": "显示更多",
     "uninstall": "卸载",
-    "updateAll": "全部更新"
+    "updateAll": "全部更新",
+    "view": "查看"
   },
   "doctor": {
     "addShimModal": {
@@ -417,6 +419,7 @@
       "downloadingNoSize": "正在下载...",
       "downloadingUpdate": "正在下载更新...",
       "goToProject": "前往项目",
+      "installWarning": "应用程序将在安装后重启。请确保保存您的数据。",
       "installingUpdate": "正在安装更新...",
       "joinDiscussion": "参与讨论",
       "latestVersion": "您已经在使用最新版本 (v{{version}})！",
@@ -425,6 +428,7 @@
       "noReleaseNotes": "无发行说明。",
       "noUpdatesAvailable": "无可用更新",
       "releaseNotes": "发行说明：",
+      "releasedOn": "发布于 {{date}}",
       "restartNow": "立即重启",
       "retry": "重试",
       "scoopUpdateInstruction": "在您的终端中使用 {{code}} 进行更新。",
