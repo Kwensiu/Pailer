@@ -27,17 +27,17 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.4", features = [] }
 
 [dependencies]
-tauri = { version = "2.9", features = ["tray-icon"] }
+tauri = { version = "2.10", features = ["tray-icon"] }
 tauri-plugin-shell = "2.3.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4.21"
 tauri-plugin-log = { version = "2.7" }
-reqwest = { version = "0.12", features = ["json", "blocking"] }
+reqwest = { version = "0.13", features = ["json", "blocking"] }
 csv = "1.4"
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
-tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros", "process", "fs", "time", "io-util"] }
-chrono = { version = "0.4.41", features = ["serde"] }
+tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros", "process", "fs", "time", "io-util"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 dirs = "6.0"
 regex = "1.12"
 rayon = "1.10"
@@ -51,7 +51,7 @@ tauri-plugin-opener = "2"
 git2 = "0.20"
 url = "2.5"
 lazy_static = "1.4.0"
-tempfile = "3.19"
+tempfile = "3.26"
 
 [target."cfg(windows)".dependencies]
 windows-dpapi = "0.1.0"
