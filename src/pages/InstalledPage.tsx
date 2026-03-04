@@ -73,7 +73,7 @@ function InstalledPage(props: InstalledPageProps) {
   );
   const [showStatusModal, setShowStatusModal] = createSignal(false);
 
-  // 同步搜索内容到 sessionStorage
+  // Sync search content to sessionStorage
   createEffect(() => {
     const query = searchQuery();
     if (query) {
@@ -98,13 +98,13 @@ function InstalledPage(props: InstalledPageProps) {
     if (!query) return processedPackages();
 
     return processedPackages().filter((p) => {
-      // 支持包名匹配
+      // Support package name matching
       if (p.name.toLowerCase().includes(query)) return true;
 
-      // 支持源（bucket）匹配
+      // Support source (bucket) matching
       if (p.source.toLowerCase().includes(query)) return true;
 
-      // 支持版本匹配
+      // Support version matching
       if (p.version.toLowerCase().includes(query)) return true;
 
       return false;

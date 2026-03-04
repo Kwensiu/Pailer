@@ -67,7 +67,7 @@ export default function UpdateModal(props: UpdateModalProps) {
         {/* Release Notes */}
         <Show when={props.releaseNotesHtml}>
           <div class="bg-base-200 rounded-lg p-4">
-            <h4 class="font-semibold mt-1">{t('settings.about.releaseNotes')}</h4>
+            <h4 class="mt-1 font-semibold">{t('settings.about.releaseNotes')}</h4>
             <div class="divider my-2"></div>
             <div class="max-h-64 overflow-y-auto">
               <div
@@ -81,7 +81,7 @@ export default function UpdateModal(props: UpdateModalProps) {
         {/* No Release Notes */}
         <Show when={!props.releaseNotesHtml}>
           <div class="bg-base-200 rounded-lg p-4">
-            <h4 class="font-semibold mt-1">{t('settings.about.releaseNotes')}</h4>
+            <h4 class="mt-1 font-semibold">{t('settings.about.releaseNotes')}</h4>
             <div class="text-base-content/70 text-sm">
               <p>No release notes available for this version.</p>
             </div>

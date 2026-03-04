@@ -3,31 +3,31 @@ import { TriangleAlert, X } from 'lucide-solid';
 import { useOperations } from '../stores/operations';
 import { t } from '../i18n';
 
-// 多实例警告组件
+// Multi-instance warning component
 const MultiInstanceWarning = () => {
   const { dismissMultiInstanceWarning, checkMultiInstanceWarning } = useOperations();
 
   const [isVisible, setIsVisible] = createSignal(false);
 
-  // 检查是否应该显示警告
+  // Check if warning should be displayed
   const shouldShowWarning = () => {
     return checkMultiInstanceWarning() && !isVisible();
   };
 
-  // 关闭警告
+  // Close warning
   const handleClose = () => {
     setIsVisible(false);
     dismissMultiInstanceWarning();
   };
 
-  // 键盘事件处理
+  // Keyboard event handling
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       handleClose();
     }
   };
 
-  // 正确的事件监听器管理
+  // Proper event listener management
   onMount(() => {
     document.addEventListener('keydown', handleKeyDown);
   });

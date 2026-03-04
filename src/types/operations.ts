@@ -18,7 +18,7 @@ export interface PackageInfoModalState {
   error: string | null;
 }
 
-// 操作输出接口
+// Operation output interface
 export interface OperationOutput {
   operationId?: string;
   operation_id?: string; // Support both camelCase and snake_case for compatibility
@@ -28,7 +28,7 @@ export interface OperationOutput {
   timestamp: number;
 }
 
-// 操作结果接口
+// Operation result interface
 export interface OperationResult {
   operationId?: string;
   operation_id?: string; // Support both camelCase and snake_case for compatibility
@@ -37,10 +37,10 @@ export interface OperationResult {
   timestamp: number;
 }
 
-// 操作状态
+// Operation status
 export type OperationStatus = 'in-progress' | 'success' | 'error' | 'cancelled';
 
-// 最小化状态接口
+// Minimized state interface
 export interface MinimizedState {
   operationId: string;
   isMinimized: boolean;
@@ -50,7 +50,7 @@ export interface MinimizedState {
   timestamp: number;
 }
 
-// 操作状态接口
+// Operation state interface
 export interface OperationState {
   id: string;
   title: string;
@@ -65,7 +65,7 @@ export interface OperationState {
   onInstallConfirm?: () => void;
 }
 
-// 最小化指示器属性接口
+// Minimized indicator props interface
 export interface MinimizedIndicatorProps {
   operationId: string;
   title: string;
@@ -74,10 +74,10 @@ export interface MinimizedIndicatorProps {
   visible: boolean;
   onClick: () => void;
   onClose?: () => void;
-  index?: number; // 用于布局计算
+  index?: number; // For layout calculation
 }
 
-// 操作模态框属性接口
+// Operation modal props interface
 export interface OperationModalProps {
   operationId?: string;
   title: string | null;
@@ -87,16 +87,16 @@ export interface OperationModalProps {
   onInstallConfirm?: () => void;
 }
 
-// 操作队列管理接口
+// Operation queue management interface
 export interface OperationQueue {
   active: OperationState[];
   completed: OperationState[];
   maxConcurrent: number;
 }
 
-// 多实例警告配置
+// Multi-instance warning configuration
 export interface MultiInstanceWarning {
   enabled: boolean;
-  threshold: number; // 触发警告的操作数量
+  threshold: number; // Operation count to trigger warning
   dismissed: boolean;
 }

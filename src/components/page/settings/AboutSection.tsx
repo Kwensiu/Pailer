@@ -44,7 +44,7 @@ export default function AboutSection(props: AboutSectionProps) {
   // Enhanced session cache that includes release notes
   const updateCache = createSessionCache<Update | null>('pailer-update-cache', async () => {
     // Delay check to ensure autoCheckEnabled state is fully loaded
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     if (autoCheckEnabled[0]()) {
       return await check();
     }
@@ -95,7 +95,7 @@ export default function AboutSection(props: AboutSectionProps) {
                 },
               }
             );
-            
+
             // Ensure timeout cleanup in all paths
             if (timeoutId) {
               clearTimeout(timeoutId);
@@ -126,7 +126,7 @@ export default function AboutSection(props: AboutSectionProps) {
               clearTimeout(timeoutId);
               timeoutId = null;
             }
-            
+
             if (fetchError instanceof Error) {
               if (fetchError.name === 'AbortError') {
                 console.warn(`Request timeout for tag ${tag}`);

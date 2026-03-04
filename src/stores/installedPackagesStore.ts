@@ -94,25 +94,25 @@ function createInstalledPackagesStore() {
   const silentRefetch = async () => {
     setError(null);
     try {
-      // 并行获取包数据和更新信息
+      // Parallel fetch package data and update info
       const [installedPackages, updateInfo] = await Promise.all([
         invoke<ScoopPackage[]>('refresh_installed_packages'),
         invoke<UpdatablePackage[]>('check_for_updates').catch(() => []),
       ]);
 
-      // 一次性合并数据
+      // One-time merge data
       const packagesWithUpdates = installedPackages.map((pkg) => ({
         ...pkg,
         available_version: updateInfo.find((u) => u.name === pkg.name)?.available,
       }));
 
-      // 一次性设置完整数据
+      // One-time set complete data
       setPackages(packagesWithUpdates);
       const buckets = new Set<string>(installedPackages.map((p) => p.source));
       setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
       setIsLoaded(true);
 
-      // 静默更新其他状态
+      // Silently update other states
       await Promise.all([heldStore.refetch(), fetchVersionedPackages()]);
     } catch (err) {
       console.error('Failed to silently refresh installed packages:', err);

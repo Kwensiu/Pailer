@@ -219,7 +219,7 @@ export function useSearch(): UseSearchReturn {
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error('Search error:', error);
-        setError('搜索失败，请检查网络或稍后重试');
+        setError('Search failed, please check network or try again later');
       }
     } finally {
       setLoading(false);

@@ -254,7 +254,7 @@ export function useInstalledPackages() {
     const direction = sortDirection();
     const sortedPkgs = [...pkgs];
     sortedPkgs.sort((a, b) => {
-      // 可更新应用始终优先显示，无论什么排序字段
+      // Updatable apps always show first, regardless of sort field
       const aHasUpdate =
         !!a.available_version && !heldStore.isHeld(a.name) && !a.is_versioned_install;
       const bHasUpdate =
@@ -262,7 +262,7 @@ export function useInstalledPackages() {
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
-      // 可更新应用排序完成后，按正常逻辑排序
+      // After updatable apps sorting completed, sort by normal logic
       const valA = a[key].toLowerCase();
       const valB = b[key].toLowerCase();
       if (valA < valB) return direction === 'asc' ? -1 : 1;

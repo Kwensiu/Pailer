@@ -30,7 +30,7 @@ interface PackageInfoModalProps {
   onPackageStateChanged?: () => void;
   setOperationTitle?: (title: string) => void;
   showBackButton?: boolean;
-  context?: 'installed' | 'search'; // 新增 context 属性以区分页面来源
+  context?: 'installed' | 'search'; // Add context property to distinguish page source
 }
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
@@ -128,16 +128,16 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const isDark = () => settings.theme === 'dark';
   const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
-  // 格式化日期显示
+  // Format date display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
 
     try {
       const date = new Date(dateString);
-      // 检查日期是否有效
+      // Check if date is valid
       if (isNaN(date.getTime())) return dateString;
 
-      // 使用更简洁的日期格式
+      // Use more concise date format
       return date.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
@@ -160,7 +160,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       { key: 'Installed Version', label: t('packageInfo.installedVersion') },
       { key: 'Latest Version', label: t('packageInfo.latestVersion') },
       { key: 'Version', label: t('packageInfo.version') },
-      // 根据 context 决定是否添加日期信息
+      // Add date info based on context
       ...(props.pkg && props.context === 'installed'
         ? [{ key: 'Install Date', label: t('packageInfo.installDate') }]
         : []),
@@ -180,10 +180,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       if (detailsMap.has(key)) {
         result.push([label, detailsMap.get(key)!, key]);
       } else if (key === 'Install Date' && props.pkg) {
-        // 添加安装日期信息并格式化
+        // Add install date info and format
         result.push([label, formatDate(props.pkg.updated), 'Install Date']);
       } else if (key === 'Update Date' && props.pkg) {
-        // 添加更新日期信息并格式化
+        // Add update date info and format
         result.push([label, formatDate(props.pkg.updated), 'Update Date']);
       }
     }

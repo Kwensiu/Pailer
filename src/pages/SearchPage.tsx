@@ -49,13 +49,13 @@ function SearchPage() {
     restoreSearchResults();
   });
 
-  // 监听搜索结果变化来更新 buckets 列表
+  // Listen to search result changes to update buckets list
   createEffect(() => {
     const buckets = [...new Set([...packageResults(), ...binaryResults()].map((p) => p.source))];
     setUniqueBuckets(buckets);
   });
 
-  // 重置分页到第一页当结果或标签变化时
+  // Reset pagination to first page when results or tabs change
   createEffect(() => {
     resultsToShow();
     activeTab();

@@ -4,7 +4,7 @@ import { useOperations } from '../stores/operations';
 import type { MinimizedIndicatorProps } from '../types/operations';
 import { t } from '../i18n';
 
-// 最小化指示器组件
+// Minimized indicator component
 const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
   const getStatusIcon = () => {
     switch (props.status) {
@@ -64,43 +64,43 @@ const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
   );
 };
 
-// 最小化指示器管理器
+// Minimized indicator manager
 const MinimizedIndicatorManager = () => {
   const { getActiveOperations, removeOperation, toggleMinimize } = useOperations();
 
   const [showMore, setShowMore] = createSignal(false);
 
-  // 获取最小化的操作列表
+  // Get minimized operations list
   const getMinimizedOperations = () => {
     return getActiveOperations()
       .filter((op) => op.isMinimized)
-      .sort((a, b) => b.updatedAt - a.updatedAt); // 按更新时间倒序
+      .sort((a, b) => b.updatedAt - a.updatedAt); // Sort by update time in descending order
   };
 
-  // 获取可见的操作列表
+  // Get visible operations list
   const getVisibleOperations = () => {
     const minimized = getMinimizedOperations();
-    const count = 5; // 固定显示5个
+    const count = 5; // Fixed display 5 items
     return showMore() ? minimized : minimized.slice(0, count);
   };
 
-  // 处理指示器点击
+  // Handle indicator click
   const handleIndicatorClick = (operationId: string) => {
     toggleMinimize(operationId);
   };
 
-  // 处理指示器关闭
+  // Handle indicator close
   const handleIndicatorClose = (operationId: string) => {
     removeOperation(operationId);
   };
 
-  // 计算是否有更多操作
+  // Calculate if there are more operations
   const hasMoreOperations = () => {
     const minimized = getMinimizedOperations();
     return minimized.length > 5;
   };
 
-  // 键盘导航
+  // Keyboard navigation
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       setShowMore(false);
@@ -133,7 +133,7 @@ const MinimizedIndicatorManager = () => {
           )}
         </For>
 
-        {/* 显示更多按钮 */}
+        {/* Show more button */}
         <Show when={hasMoreOperations() && !showMore()}>
           <button
             class="minimized-indicator minimized-indicator--more"
@@ -146,7 +146,7 @@ const MinimizedIndicatorManager = () => {
           </button>
         </Show>
 
-        {/* 收起按钮 */}
+        {/* Collapse button */}
         <Show when={showMore() && hasMoreOperations()}>
           <button
             class="minimized-indicator minimized-indicator--collapse"

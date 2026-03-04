@@ -173,7 +173,7 @@ const handleUpdateAll = () => {
     output: [],
   });
 
-  // 调用后端命令
+  // Call backend command
   invoke('update_all_packages').catch((err) => {
     console.error('Update all invocation failed:', err);
   });

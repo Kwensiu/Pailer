@@ -86,7 +86,7 @@ const defaultSettings: Settings = {
     autoUpdateInterval: 'off',
     autoUpdatePackagesEnabled: false,
     silentUpdateEnabled: false,
-    updateHistoryEnabled: true, // 默认启用
+    updateHistoryEnabled: true, // Enable by default
   },
   update: {
     channel: 'stable',

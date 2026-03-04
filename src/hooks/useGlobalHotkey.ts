@@ -47,7 +47,7 @@ export function parseSearchFormat(input: string): ParsedSearch {
 
     return {
       appName: appPart,
-      bucketName: bucketPart || undefined, // 空bucketPart表示所有仓库
+      bucketName: bucketPart || undefined, // Empty bucketPart means all repositories
       forceAppMatch: false,
       forceBucketMatch: false,
     };

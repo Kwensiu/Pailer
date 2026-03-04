@@ -2,7 +2,7 @@ import { createSignal, createEffect, Signal, createRoot } from 'solid-js';
 
 export function createLocalStorageSignal<T>(key: string, initialValue: T): Signal<T> {
   return createRoot(() => {
-    // 同步读取 localStorage
+    // Synchronously read localStorage
     let storedValue: T | undefined;
     try {
       const item = localStorage.getItem(key);
@@ -15,7 +15,7 @@ export function createLocalStorageSignal<T>(key: string, initialValue: T): Signa
 
     const [value, setValue] = createSignal<T>(storedValue ?? initialValue);
 
-    // 同步保存到 localStorage
+    // Synchronously save to localStorage
     createEffect(() => {
       try {
         localStorage.setItem(key, JSON.stringify(value()));

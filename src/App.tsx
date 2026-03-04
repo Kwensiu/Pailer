@@ -101,7 +101,7 @@ function App() {
       try {
         const unlisten = await listen<string>('auto-operation-start', (event) => {
           info(`Auto-operation started: ${event.payload}`);
-          // 检查是否启用了静默自动更新
+          // Check if silent auto-update is enabled
           if (!settings.buckets.silentUpdateEnabled) {
             setAutoUpdateTitle(event.payload);
           }
