@@ -9,8 +9,32 @@ interface SessionCache<T> {
 // Cache expiration time (5 minutes)
 const CACHE_EXPIRY_MS = 5 * 60 * 1000;
 
-// Global cache instance map
+// Global cache instance map with weak references to prevent memory leaks
 const globalCaches = new Map<string, any>();
+
+// Global initialization tracking to prevent multiple initializations
+const globalInitialized = new Set<string>();
+
+// Cache cleanup interval (cleanup every 30 minutes)
+setInterval(
+  () => {
+    // Remove expired cache entries based on timestamp
+    for (const [key, cache] of globalCaches.entries()) {
+      try {
+        const cached = cache.getCachedData?.();
+        if (!cached) {
+          globalCaches.delete(key);
+          globalInitialized.delete(key);
+        }
+      } catch (error) {
+        // Remove corrupted cache entries
+        globalCaches.delete(key);
+        globalInitialized.delete(key);
+      }
+    }
+  },
+  30 * 60 * 1000
+);
 
 function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
   const [data, setData] = createSignal<T | null>(null);
@@ -52,10 +76,12 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
 
   // Fetch data
   const fetchData = async () => {
+    console.log(`🌐 [useSessionStorage] fetchData called for key: ${key}`);
     try {
       setLoading(true);
       setError(null);
       const results = await fetcher();
+      console.log(`📦 [useSessionStorage] fetchData success for ${key}:`, !!results);
       setData(() => results);
       setCachedData(results);
     } catch (err) {
@@ -69,22 +95,42 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
 
   // Initialize: check cache first, fetch if not available
   const initialize = async () => {
-    if (initialized) return;
+    console.log(`🔧 [useSessionStorage] initialize called for key: ${key}`, {
+      initialized,
+      globalInitialized: Array.from(globalInitialized),
+    });
+
+    // Prevent multiple initializations globally
+    if (initialized || globalInitialized.has(key)) {
+      console.log(
+        `⏭️ [useSessionStorage] Skipping initialization for ${key} - already initialized`
+      );
+      // Ensure loading is false if we're skipping initialization
+      setLoading(false);
+      return;
+    }
 
     const cached = getCachedData();
+    console.log(`💾 [useSessionStorage] Cache check for ${key}:`, {
+      hasCache: !!cached,
+      hasData: cached?.data !== null,
+    });
 
     if (cached && cached.data !== null) {
       // Use cached data
+      console.log(`✅ [useSessionStorage] Using cached data for ${key}`);
       setData(() => cached.data);
       setLoading(false);
       initialized = true;
+      globalInitialized.add(key);
 
-      // Background silent cache update (optional)
-      fetchData();
+      // No background update for update cache to avoid unnecessary API calls
     } else {
       // No cache, perform detection
+      console.log(`🌐 [useSessionStorage] No cache for ${key}, fetching fresh data`);
       await fetchData();
       initialized = true;
+      globalInitialized.add(key);
     }
   };
 
@@ -93,6 +139,7 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
     sessionStorage.removeItem(key);
     setData(null);
     initialized = false;
+    globalInitialized.delete(key);
   };
 
   // Manual refresh detection

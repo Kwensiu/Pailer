@@ -1,19 +1,22 @@
 import { Download, RefreshCw, Github, MessagesSquare, CircleDot } from 'lucide-solid';
-import { createSignal, Show } from 'solid-js';
-import { check, type Update } from '@tauri-apps/plugin-updater';
+import { createSignal, createEffect } from 'solid-js';
+import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import pkgJson from '../../../../package.json';
 import { t } from '../../../i18n';
 import { invoke } from '@tauri-apps/api/core';
+import UpdateModal from './UpdateModal';
+import { createSessionCache } from '../../../hooks/useSessionStorage';
+import { processMarkdown } from '../../../utils/markdown';
 
 export interface AboutSectionRef {
   checkForUpdates: (manual: boolean) => Promise<void>;
 }
 
 export interface AboutSectionProps {
-  ref: (ref: AboutSectionRef) => void;
+  ref?: (ref: AboutSectionRef) => void;
   isScoopInstalled?: boolean;
 }
 
@@ -21,69 +24,178 @@ export default function AboutSection(props: AboutSectionProps) {
   const [updateStatus, setUpdateStatus] = createSignal<
     'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error'
   >('idle');
-  const [updateInfo, setUpdateInfo] = createSignal<Update | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
   const [downloadProgress, setDownloadProgress] = createSignal<{
     downloaded: number;
     total: number | null;
   }>({ downloaded: 0, total: null });
 
-  const checkForUpdates = async (manual: boolean) => {
-    try {
-      // Don't check for updates if installed via Scoop
-      if (props.isScoopInstalled) {
-        if (manual) {
-          await message(t('settings.about.updateViaScoop'), {
-            title: t('settings.about.updatesViaScoop'),
-            kind: 'info',
-          });
+  // Processed release notes HTML
+  const [releaseNotesHtml, setReleaseNotesHtml] = createSignal<string>('');
+  const [hasFetchedReleaseNotes, setHasFetchedReleaseNotes] = createSignal(false);
+
+  // UpdateModal state
+  const [showUpdateModal, setShowUpdateModal] = createSignal(false);
+
+  // Enhanced session cache that includes release notes
+  const updateCache = createSessionCache('pailer-update-cache', async () => {
+    const update = await check();
+    if (update?.available && update.body) {
+      // If update has body, process it immediately
+      const processedHtml = await processMarkdown(update.body);
+      setReleaseNotesHtml(processedHtml);
+    }
+    return update;
+  });
+
+  // Sync cache data with local state - simplified approach
+  const updateInfo = () => {
+    const cachedData = updateCache.data();
+    return cachedData;
+  };
+
+  // Watch for update info changes and fetch release notes if body is empty (only after manual check)
+  createEffect(async () => {
+    const currentUpdateInfo = updateInfo();
+    // Only fetch release notes if:
+    // 1. We have update info
+    // 2. The body is empty
+    // 3. We haven't fetched release notes before for this update
+    // 4. The update status is 'available' (meaning user just checked)
+    if (
+      currentUpdateInfo &&
+      !currentUpdateInfo.body &&
+      !hasFetchedReleaseNotes() &&
+      updateStatus() === 'available'
+    ) {
+      setHasFetchedReleaseNotes(true); // Mark as attempted immediately to prevent race conditions
+
+      try {
+        // Try both with and without 'v' prefix
+        const version = currentUpdateInfo.version;
+        const possibleTags = [`v${version}`, version];
+
+        let releaseData = null;
+        for (const tag of possibleTags) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            const response = await fetch(
+              `https://api.github.com/repos/Kwensiu/Pailer/releases/tags/${tag}`,
+              {
+                signal: controller.signal,
+                headers: {
+                  Accept: 'application/vnd.github.v3+json',
+                  'User-Agent': 'Pailer-Update-Checker',
+                },
+              }
+            );
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+              const data = await response.json();
+              // Validate response structure
+              if (data && typeof data === 'object' && 'body' in data) {
+                releaseData = data;
+                break;
+              } else {
+                console.warn(`Invalid response structure for tag ${tag}`);
+              }
+            } else if (response.status === 404) {
+              // Tag not found, continue to next
+              continue;
+            } else if (response.status === 403) {
+              console.warn(`GitHub API rate limited for tag ${tag}`);
+              break; // Stop trying other tags if rate limited
+            } else {
+              console.warn(`GitHub API error ${response.status} for tag ${tag}`);
+            }
+          } catch (fetchError) {
+            if (fetchError instanceof Error) {
+              if (fetchError.name === 'AbortError') {
+                console.warn(`Request timeout for tag ${tag}`);
+              } else {
+                console.warn(
+                  `Network error fetching release notes for tag ${tag}:`,
+                  fetchError.message
+                );
+              }
+            } else {
+              console.warn(`Unknown error fetching release notes for tag ${tag}:`, fetchError);
+            }
+            continue;
+          }
         }
+
+        if (releaseData && releaseData.body) {
+          const releaseNotes = releaseData.body;
+
+          // Update the cached data with release notes
+          const updatedInfo = { ...currentUpdateInfo, body: releaseNotes };
+
+          // Update session storage
+          try {
+            sessionStorage.setItem('pailer-update-info', JSON.stringify(updatedInfo));
+            // Process markdown to HTML and store
+            const processedHtml = await processMarkdown(releaseNotes);
+            setReleaseNotesHtml(processedHtml);
+          } catch (storageError) {
+            console.error('Failed to save updated release notes to session storage:', storageError);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch release notes:', error);
+        // Don't reset hasFetchedReleaseNotes on error to prevent infinite retries
+      }
+    } else if (currentUpdateInfo?.body) {
+      // If we already have release notes, process them
+      const processedHtml = await processMarkdown(currentUpdateInfo.body);
+      setReleaseNotesHtml(processedHtml);
+    }
+  });
+
+  // Monitor updateStatus changes and sync with cache data
+  createEffect(() => {
+    const currentStatus = updateStatus();
+    const cachedData = updateCache.data();
+
+    // If we have cached update data but status is not 'available', sync it
+    if (cachedData?.available && currentStatus !== 'available') {
+      setUpdateStatus('available');
+    }
+  });
+
+  const checkForUpdates = async (manual: boolean) => {
+    console.log('🔍 [AboutSection] checkForUpdates called', {
+      manual,
+      isScoopInstalled: props.isScoopInstalled,
+    });
+
+    // Reset release notes fetch flag for manual checks to get latest notes
+    if (manual) {
+      setHasFetchedReleaseNotes(false);
+    }
+    try {
+      setUpdateStatus('checking');
+
+      if (props.isScoopInstalled) {
+        // For Scoop-managed installations, just show that updates are handled by Scoop
+        setUpdateStatus('idle');
         return;
       }
 
-      setUpdateStatus('checking');
-      setUpdateError(null);
-
-      console.log('Checking for updates...');
-
-      // Try to check for updates using Tauri updater
       const update = await check();
-      console.log('Update check completed', {
-        updateAvailable: !!update?.available,
-        version: update?.version,
-      });
 
       if (update?.available) {
         setUpdateStatus('available');
-        setUpdateInfo(update);
-        console.log('Update found', {
-          version: update.version,
-          body: update.body,
-        });
 
-        // Only show dialog if user manually clicked "Check for updates"
+        // 只有在手动检查时才显示对话框
         if (manual) {
-          const versionText = update.version;
-          const bodyText = update.body || t('settings.about.noReleaseNotes');
-
-          const messageContent = t('settings.about.updateAvailableDialog', {
-            version: versionText,
-            body: bodyText,
-          });
-
-          const shouldInstall = await ask(messageContent, {
-            title: t('settings.about.updateAvailable'),
-            kind: 'info',
-            okLabel: t('buttons.install'),
-            cancelLabel: t('buttons.cancel'),
-          });
-
-          if (shouldInstall) {
-            await installAvailableUpdate();
-          }
+          // 这里应该显示更新可用消息，不应该显示已是最新版本
+          // 移除错误的 "已是最新版本" 消息显示
         }
       } else {
-        setUpdateStatus('idle');
         if (manual) {
           const currentVersion = await invoke<string>('get_current_version');
           await message(t('settings.about.latestVersion', { version: currentVersion }), {
@@ -91,7 +203,6 @@ export default function AboutSection(props: AboutSectionProps) {
             kind: 'info',
           });
         }
-        console.log('No updates available');
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
@@ -121,13 +232,9 @@ export default function AboutSection(props: AboutSectionProps) {
 
       setUpdateStatus('downloading');
       setDownloadProgress({ downloaded: 0, total: null });
-      console.log('Starting update download...', { version: currentUpdateInfo.version });
 
       await currentUpdateInfo.downloadAndInstall((progress) => {
-        console.log('Update progress event:', progress.event, progress);
-
         if (progress.event === 'Started') {
-          console.log('Download started', { contentLength: progress.data.contentLength });
           setDownloadProgress({
             downloaded: 0,
             total: progress.data.contentLength || null,
@@ -142,26 +249,10 @@ export default function AboutSection(props: AboutSectionProps) {
               total: prev.total,
             };
           });
-
-          const currentProgress = downloadProgress();
-          const percent = currentProgress.total
-            ? Math.round(
-                ((currentProgress.downloaded + newDownloaded) / currentProgress.total) * 100
-              )
-            : undefined;
-
-          if (percent !== undefined) {
-            console.log(
-              `Download progress: ${percent}% (${currentProgress.downloaded + newDownloaded} bytes)`
-            );
-          }
         } else if (progress.event === 'Finished') {
-          console.log('Download finished, starting installation...');
           setUpdateStatus('installing');
         }
       });
-
-      console.log('Update installation completed successfully');
 
       const confirmed = await ask(t('settings.about.updateComplete'), {
         title: t('buttons.confirm'),
@@ -171,10 +262,8 @@ export default function AboutSection(props: AboutSectionProps) {
       });
 
       if (confirmed) {
-        console.log('User confirmed restart, relaunching application...');
         await relaunch();
       } else {
-        console.log('User postponed restart');
         setUpdateStatus('idle');
       }
     } catch (error) {
@@ -184,11 +273,30 @@ export default function AboutSection(props: AboutSectionProps) {
       const errorMessage =
         error instanceof Error ? error.message.substring(0, 200) : String(error).substring(0, 200);
       setUpdateError(errorMessage);
-      console.error('Update installation error details:', errorMessage);
     }
   };
 
-  props.ref({ checkForUpdates });
+  // UpdateModal handlers
+  const handleUpdateInstall = async () => {
+    setShowUpdateModal(false);
+    await installAvailableUpdate();
+  };
+
+  const handleCloseModal = () => {
+    setShowUpdateModal(false);
+    // Don't reset update status - keep the update notification visible
+  };
+
+  // This will be called by Modal when animation completes (X button or ESC)
+  const handleModalClosed = () => {
+    // Ensure modal state is closed (fixes the bug where X button doesn't properly close modal)
+    setShowUpdateModal(false);
+  };
+
+  // Expose ref if provided
+  if (props.ref) {
+    props.ref({ checkForUpdates });
+  }
 
   return (
     <div class="card bg-base-200 border-base-300 overflow-hidden border shadow-xs">
@@ -216,16 +324,18 @@ export default function AboutSection(props: AboutSectionProps) {
                   {t('settings.about.managedByScoop')}
                 </span>
               )}
-              {updateStatus() === 'idle' && !props.isScoopInstalled && (
-                <button class="btn btn-sm btn-primary" onClick={() => checkForUpdates(true)}>
-                  {t('settings.about.checkNow')}
+              {!props.isScoopInstalled && (
+                <button
+                  class="btn btn-sm btn-primary"
+                  onClick={() => checkForUpdates(true)}
+                  disabled={updateStatus() === 'checking' || updateCache.loading()}
+                >
+                  {updateStatus() === 'checking' || updateCache.loading() ? (
+                    <span class="loading loading-spinner loading-sm"></span>
+                  ) : (
+                    t('settings.about.checkNow')
+                  )}
                 </button>
-              )}
-              {updateStatus() === 'checking' && (
-                <div class="text-base-content/70 flex min-h-[36px] items-center justify-center py-1">
-                  <span class="loading loading-spinner loading-sm mr-2"></span>
-                  {t('settings.about.checkingForUpdates')}
-                </div>
               )}
             </div>
           </div>
@@ -239,7 +349,7 @@ export default function AboutSection(props: AboutSectionProps) {
           ) : (
             <div class="space-y-4">
               {updateStatus() === 'available' && (
-                <div class="animate-in fade-in slide-in-from-top-2 space-y-3">
+                <div class="animate-in fade-in slide-in-from-top-2 space-y-3 pt-2">
                   <div class="alert alert-success shadow-sm">
                     <Download class="h-5 w-5" />
                     <div>
@@ -250,18 +360,13 @@ export default function AboutSection(props: AboutSectionProps) {
                         })}
                       </div>
                     </div>
-                    <button class="btn btn-sm" onClick={installAvailableUpdate}>
-                      {t('buttons.install')}
+                    <button
+                      class="btn btn-sm btn-soft bg-base-100"
+                      onClick={() => setShowUpdateModal(true)}
+                    >
+                      {t('buttons.view')}
                     </button>
                   </div>
-                  <Show when={updateInfo()?.body}>
-                    <div class="bg-base-200 border-base-content/5 max-h-32 overflow-y-auto rounded-lg border p-3 text-xs">
-                      <div class="mb-1 font-bold opacity-70">
-                        {t('settings.about.releaseNotes')}
-                      </div>
-                      <div class="whitespace-pre-wrap opacity-80">{updateInfo()?.body || ''}</div>
-                    </div>
-                  </Show>
                 </div>
               )}
 
@@ -338,6 +443,18 @@ export default function AboutSection(props: AboutSectionProps) {
           <p>Copyright © {new Date().getFullYear()} Kwensiu. MIT License.</p>
         </div>
       </div>
+
+      {/* Update Modal */}
+      <UpdateModal
+        isOpen={showUpdateModal()}
+        onClose={handleModalClosed}
+        onCancel={handleCloseModal}
+        updateInfo={updateInfo()!}
+        onInstall={handleUpdateInstall}
+        isDownloading={updateStatus() === 'downloading'}
+        downloadProgress={downloadProgress()}
+        releaseNotesHtml={releaseNotesHtml()}
+      />
     </div>
   );
 }

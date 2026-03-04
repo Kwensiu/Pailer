@@ -4,6 +4,9 @@
 @import 'tailwindcss';
 @plugin 'daisyui';
 
+/* GitHub-like markdown styling */
+@import './styles/github-markdown.css';
+
 /* ============================================
    CSS Custom Properties
    ============================================ */

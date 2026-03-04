@@ -6,7 +6,7 @@ import StartupSettings from '../components/page/settings/StartupSettings';
 import HotkeySettings from '../components/page/settings/HotkeySettings';
 import VirusTotalSettings from '../components/page/settings/VirusTotalSettings';
 import HeldPackagesManagement from '../components/page/settings/HeldPackagesManagement';
-import AboutSection, { AboutSectionRef } from '../components/page/settings/AboutSection';
+import AboutSection from '../components/page/settings/AboutSection';
 import DebugSettings from '../components/page/settings/DebugSettings';
 import AutoCleanupSettings from '../components/page/settings/AutoCleanupSettings';
 import BucketAutoUpdateSettings from '../components/page/settings/BucketAutoUpdateSettings';
@@ -30,7 +30,6 @@ function SettingsPage(props: SettingsPageProps) {
   const { refetch: refetchHeldPackages } = heldStore;
   const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
   const [isUnholding, setIsUnholding] = createSignal(false);
-  let aboutSectionRef: AboutSectionRef | undefined;
 
   const TABS = [
     { key: 'automation', labelkey: 'settings.category.automation' },
@@ -45,8 +44,7 @@ function SettingsPage(props: SettingsPageProps) {
   );
 
   onMount(() => {
-    // Preload update info silently
-    aboutSectionRef?.checkForUpdates(false);
+    // No automatic update checking - only manual checks allowed
   });
 
   const handleUnhold = (packageName: string) => {
@@ -127,10 +125,7 @@ function SettingsPage(props: SettingsPageProps) {
 
           {/* About Tab */}
           <Show when={activeTab() === 'about'}>
-            <AboutSection
-              ref={(r) => (aboutSectionRef = r)}
-              isScoopInstalled={props.isScoopInstalled}
-            />
+            <AboutSection isScoopInstalled={props.isScoopInstalled} />
             <AppDataManagement />
           </Show>
         </div>
