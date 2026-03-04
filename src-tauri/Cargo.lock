@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Pailer"
-version = "1.0.0"
+version = "1.1.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -21,6 +21,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
