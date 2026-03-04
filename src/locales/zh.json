@@ -274,9 +274,6 @@
       "title": "软件",
       "updateAll": "全部更新"
     },
-    "installed": {
-      "refresh": "刷新"
-    },
     "list": {
       "bucket": "仓库",
       "cannotUnhold": "无法取消保留（版本化安装）",
@@ -292,10 +289,11 @@
       "updated": "更新",
       "version": "版本",
       "versionedTooltip": "版本化安装 - 无法更新"
-    }
+    },
+    "refresh": "刷新"
   },
   "language": {
-    "description": "选择您偏好的应用程序界面语言。",
+    "description": "选择您偏好的应用程序界面语言 | Language",
     "title": "语言"
   },
   "manifestModal": {
@@ -411,6 +409,8 @@
   },
   "settings": {
     "about": {
+      "autoCheck": "自动检查",
+      "autoCheckTooltip": "启动Pailer时检查更新",
       "checkNow": "立即检查",
       "checkingForUpdates": "正在检查更新...",
       "customizedVersion": "基于 Rscoop 重构",
@@ -433,7 +433,7 @@
       "retry": "重试",
       "scoopUpdateInstruction": "在您的终端中使用 {{code}} 进行更新。",
       "submitIssue": "提交问题",
-      "updateAvailable": "有可用更新！",
+      "updateAvailable": "Pailer 有可用更新！",
       "updateAvailableDialog": "有 v{{version}} 更新可用！\n\n发行说明：{{body}}",
       "updateComplete": "更新已成功安装。应用程序需要重启以应用更改。",
       "updateFailed": "更新失败",

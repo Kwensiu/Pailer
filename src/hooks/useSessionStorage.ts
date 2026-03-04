@@ -38,7 +38,7 @@ setInterval(
 
 function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
   const [data, setData] = createSignal<T | null>(null);
-  const [loading, setLoading] = createSignal(true);
+  const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   let initialized = false;
 
@@ -139,7 +139,8 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
     sessionStorage.removeItem(key);
     setData(null);
     initialized = false;
-    globalInitialized.delete(key);
+    // Don't delete from globalInitialized, allow re-initialization
+    // globalInitialized.delete(key);
   };
 
   // Manual refresh detection
@@ -147,11 +148,26 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
     fetchData();
   };
 
+  // Direct update cache data (for update check results)
+  const updateData = (newData: T) => {
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        data: newData,
+        timestamp: Date.now(),
+      })
+    );
+    setData(() => newData);
+    initialized = true;
+    globalInitialized.add(key);
+  };
+
   return {
     data,
     loading,
     error,
     refresh,
+    updateData,
     clearCache,
     initialize,
   };
@@ -159,7 +175,10 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
 
 export function createSessionCache<T>(key: string, fetcher: () => Promise<T>) {
   if (!globalCaches.has(key)) {
-    globalCaches.set(key, createSessionCacheInstance(key, fetcher));
+    const cache = createSessionCacheInstance(key, fetcher);
+    globalCaches.set(key, cache);
+    // Auto-initialize the cache
+    cache.initialize();
   }
   return globalCaches.get(key) as ReturnType<typeof createSessionCacheInstance<T>>;
 }

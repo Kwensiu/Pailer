@@ -409,6 +409,8 @@
   },
   "settings": {
     "about": {
+      "autoCheck": "Auto Check",
+      "autoCheckTooltip": "Check for updates when Pailer starts",
       "checkNow": "Check Now",
       "checkingForUpdates": "Checking for updates...",
       "customizedVersion": "Refectored from Rscoop",
@@ -431,7 +433,7 @@
       "retry": "Retry",
       "scoopUpdateInstruction": "Use {{code}} in your terminal to update.",
       "submitIssue": "Issue",
-      "updateAvailable": "Update Available!",
+      "updateAvailable": "Pailer Update is Available!",
       "updateAvailableDialog": "Update to v{{version}} is available!\n\nRelease notes: {{body}}",
       "updateComplete": "Update has been installed successfully. The application needs to restart to apply the changes.",
       "updateFailed": "Update Failed",

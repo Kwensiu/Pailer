@@ -409,6 +409,8 @@ export interface Dict {
   };
   settings: {
     about: {
+      autoCheck: string;
+      autoCheckTooltip: string;
       checkNow: string;
       checkingForUpdates: string;
       customizedVersion: string;

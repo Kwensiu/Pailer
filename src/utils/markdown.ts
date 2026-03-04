@@ -63,7 +63,7 @@ export async function processMarkdown(content: string): Promise<string> {
     );
     html = html.replace(
       /^## (.*$)/gm,
-      '<h2 class="text-xl font-bold mb-3 mt-5 text-base-content">$1</h2>'
+      '<h2 class="text-xl font-bold mb-3 mt-2 text-base-content">$1</h2>'
     );
     html = html.replace(
       /^# (.*$)/gm,
@@ -74,7 +74,7 @@ export async function processMarkdown(content: string): Promise<string> {
     html = html.replace(/^[-*+] (.+)$/gm, '<li class="leading-relaxed">• $1</li>');
     html = html.replace(
       /(<li class="leading-relaxed">• .*<\/li>\n?)+/g,
-      '<ul class="list-disc space-y-2 ml-6 text-sm text-base-content/90">$&</ul>'
+      '<ul class="space-y-2 ml-4 text-sm text-base-content/90">$&</ul>'
     );
 
     // Lists (ordered)

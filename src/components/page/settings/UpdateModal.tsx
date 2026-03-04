@@ -1,8 +1,10 @@
 import { Show } from 'solid-js';
 import { Update } from '@tauri-apps/plugin-updater';
+import { Github } from 'lucide-solid';
 import Modal from '../../common/Modal';
 import { t } from '../../../i18n';
 import '../../../styles/github-markdown.css';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import DOMPurify from 'dompurify';
 
 interface UpdateModalProps {
@@ -24,6 +26,10 @@ export default function UpdateModal(props: UpdateModalProps) {
 
   // Remove automatic fetching - fetch should happen when update is detected, not when modal opens
 
+  const handleGoToRelease = async () => {
+    await openUrl('https://github.com/Kwensiu/Pailer/releases');
+  };
+
   return (
     <Modal
       isOpen={props.isOpen}
@@ -33,13 +39,22 @@ export default function UpdateModal(props: UpdateModalProps) {
       animation="scale"
       preventBackdropClose={props.isDownloading}
       footer={
-        <div class="flex justify-end gap-2">
-          <button class="btn btn-outline" onClick={props.onCancel} disabled={props.isDownloading}>
-            {props.isDownloading ? t('buttons.cancel') : t('buttons.later')}
+        <div class="flex w-full justify-between">
+          <button class="btn btn-circle" onClick={handleGoToRelease}>
+            <Github class="h-6 w-6" />
           </button>
-          <button class="btn btn-primary" onClick={props.onInstall} disabled={props.isDownloading}>
-            {props.isDownloading ? t('settings.about.downloadingUpdate') : t('buttons.install')}
-          </button>
+          <div class="flex gap-2">
+            <button class="btn btn-soft" onClick={props.onCancel} disabled={props.isDownloading}>
+              {props.isDownloading ? t('buttons.cancel') : t('buttons.later')}
+            </button>
+            <button
+              class="btn btn-primary"
+              onClick={props.onInstall}
+              disabled={props.isDownloading}
+            >
+              {props.isDownloading ? t('settings.about.downloadingUpdate') : t('buttons.install')}
+            </button>
+          </div>
         </div>
       }
     >
@@ -48,26 +63,12 @@ export default function UpdateModal(props: UpdateModalProps) {
         <div class="alert alert-warning">
           <span>{t('settings.about.installWarning')}</span>
         </div>
-        {/* Version Info */}
-        <div class="bg-base-200 rounded-lg p-4">
-          <h3 class="mb-2 text-lg font-semibold">
-            {t('settings.about.updateReady', { version: props.updateInfo?.version })}
-          </h3>
-          <Show when={props.updateInfo?.date}>
-            <p class="text-base-content/70 text-sm">
-              {t('settings.about.releasedOn', {
-                date: props.updateInfo?.date
-                  ? new Date(props.updateInfo.date).toLocaleDateString()
-                  : '',
-              })}
-            </p>
-          </Show>
-        </div>
 
         {/* Release Notes */}
         <Show when={props.releaseNotesHtml}>
           <div class="bg-base-200 rounded-lg p-4">
-            <h4 class="mb-3 font-semibold">{t('settings.about.releaseNotes')}</h4>
+            <h4 class="font-semibold mt-1">{t('settings.about.releaseNotes')}</h4>
+            <div class="divider my-2"></div>
             <div class="max-h-64 overflow-y-auto">
               <div
                 class="prose prose-sm prose-headings:text-base-content prose-p:text-base-content prose-a:text-primary prose-strong:text-base-content prose-code:text-base-content prose-pre:bg-base-300 prose-pre:border prose-pre:border-base-content/10 max-w-none"
@@ -80,7 +81,7 @@ export default function UpdateModal(props: UpdateModalProps) {
         {/* No Release Notes */}
         <Show when={!props.releaseNotesHtml}>
           <div class="bg-base-200 rounded-lg p-4">
-            <h4 class="mb-3 font-semibold">{t('settings.about.releaseNotes')}</h4>
+            <h4 class="font-semibold mt-1">{t('settings.about.releaseNotes')}</h4>
             <div class="text-base-content/70 text-sm">
               <p>No release notes available for this version.</p>
             </div>

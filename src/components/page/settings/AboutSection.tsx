@@ -1,6 +1,6 @@
 import { Download, RefreshCw, Github, MessagesSquare, CircleDot } from 'lucide-solid';
 import { createSignal, createEffect } from 'solid-js';
-import { check } from '@tauri-apps/plugin-updater';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -10,6 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import UpdateModal from './UpdateModal';
 import { createSessionCache } from '../../../hooks/useSessionStorage';
 import { processMarkdown } from '../../../utils/markdown';
+import { createTauriSignal } from '../../../hooks/createTauriSignal';
 
 export interface AboutSectionRef {
   checkForUpdates: (manual: boolean) => Promise<void>;
@@ -37,15 +38,17 @@ export default function AboutSection(props: AboutSectionProps) {
   // UpdateModal state
   const [showUpdateModal, setShowUpdateModal] = createSignal(false);
 
+  // Auto check setting (default: enabled)
+  const autoCheckEnabled = createTauriSignal('auto-check-updates', true);
+
   // Enhanced session cache that includes release notes
-  const updateCache = createSessionCache('pailer-update-cache', async () => {
-    const update = await check();
-    if (update?.available && update.body) {
-      // If update has body, process it immediately
-      const processedHtml = await processMarkdown(update.body);
-      setReleaseNotesHtml(processedHtml);
+  const updateCache = createSessionCache<Update | null>('pailer-update-cache', async () => {
+    // Delay check to ensure autoCheckEnabled state is fully loaded
+    await new Promise(resolve => setTimeout(resolve, 100));
+    if (autoCheckEnabled[0]()) {
+      return await check();
     }
-    return update;
+    return null;
   });
 
   // Sync cache data with local state - simplified approach
@@ -77,9 +80,10 @@ export default function AboutSection(props: AboutSectionProps) {
 
         let releaseData = null;
         for (const tag of possibleTags) {
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
             const response = await fetch(
               `https://api.github.com/repos/Kwensiu/Pailer/releases/tags/${tag}`,
@@ -91,7 +95,12 @@ export default function AboutSection(props: AboutSectionProps) {
                 },
               }
             );
-            clearTimeout(timeoutId);
+            
+            // Ensure timeout cleanup in all paths
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
 
             if (response.ok) {
               const data = await response.json();
@@ -112,6 +121,12 @@ export default function AboutSection(props: AboutSectionProps) {
               console.warn(`GitHub API error ${response.status} for tag ${tag}`);
             }
           } catch (fetchError) {
+            // Ensure timeout cleanup in exception cases
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            
             if (fetchError instanceof Error) {
               if (fetchError.name === 'AbortError') {
                 console.warn(`Request timeout for tag ${tag}`);
@@ -164,6 +179,11 @@ export default function AboutSection(props: AboutSectionProps) {
     if (cachedData?.available && currentStatus !== 'available') {
       setUpdateStatus('available');
     }
+
+    // If status is 'available' but no cached data, reset to idle
+    if (currentStatus === 'available' && !cachedData) {
+      setUpdateStatus('idle');
+    }
   });
 
   const checkForUpdates = async (manual: boolean) => {
@@ -175,6 +195,9 @@ export default function AboutSection(props: AboutSectionProps) {
     // Reset release notes fetch flag for manual checks to get latest notes
     if (manual) {
       setHasFetchedReleaseNotes(false);
+      setReleaseNotesHtml(''); // Clear release notes
+      // Clear update cache to ensure re-detection
+      updateCache.clearCache();
     }
     try {
       setUpdateStatus('checking');
@@ -190,10 +213,13 @@ export default function AboutSection(props: AboutSectionProps) {
       if (update?.available) {
         setUpdateStatus('available');
 
-        // 只有在手动检查时才显示对话框
+        // Use updateData to update cache
+        updateCache.updateData(update);
+
+        // Only show dialog for manual checks
         if (manual) {
-          // 这里应该显示更新可用消息，不应该显示已是最新版本
-          // 移除错误的 "已是最新版本" 消息显示
+          // This should show update available message, not "already latest version"
+          // Remove incorrect "already latest version" message display
         }
       } else {
         if (manual) {
@@ -233,7 +259,7 @@ export default function AboutSection(props: AboutSectionProps) {
       setUpdateStatus('downloading');
       setDownloadProgress({ downloaded: 0, total: null });
 
-      await currentUpdateInfo.downloadAndInstall((progress) => {
+      await currentUpdateInfo.downloadAndInstall((progress: any) => {
         if (progress.event === 'Started') {
           setDownloadProgress({
             downloaded: 0,
@@ -325,17 +351,32 @@ export default function AboutSection(props: AboutSectionProps) {
                 </span>
               )}
               {!props.isScoopInstalled && (
-                <button
-                  class="btn btn-sm btn-primary"
-                  onClick={() => checkForUpdates(true)}
-                  disabled={updateStatus() === 'checking' || updateCache.loading()}
-                >
-                  {updateStatus() === 'checking' || updateCache.loading() ? (
-                    <span class="loading loading-spinner loading-sm"></span>
-                  ) : (
-                    t('settings.about.checkNow')
-                  )}
-                </button>
+                <>
+                  <div class="tooltip tooltip-right" data-tip={t('settings.about.checkNow')}>
+                    <button
+                      class="btn btn-circle btn-xs mr-2"
+                      onClick={() => checkForUpdates(true)}
+                      disabled={updateStatus() === 'checking' || updateCache.loading()}
+                    >
+                      {updateStatus() === 'checking' || updateCache.loading() ? (
+                        <span class="loading loading-spinner loading-xs"></span>
+                      ) : (
+                        <RefreshCw class="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <div
+                    class="tooltip tooltip-right"
+                    data-tip={t('settings.about.autoCheckTooltip')}
+                  >
+                    <button
+                      class={`btn btn-xs btn-ghost ${autoCheckEnabled[0]() ? 'bg-base-100 dark:bg-green-400/50' : 'btn-soft text-black/40 dark:bg-black/30 dark:text-white/30'}`}
+                      onClick={() => autoCheckEnabled[1]((prev) => !prev)}
+                    >
+                      {t('settings.about.autoCheck')}
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>
