@@ -7,9 +7,18 @@ import readline from 'readline';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Base locale file path (en.json)
-const baseLocalePath = path.join(__dirname, '..', '..', 'src', 'locales', 'en.json');
-const zhLocalePath = path.join(__dirname, '..', '..', 'src', 'locales', 'zh.json');
+// Base locale directory
+const localesDir = path.join(__dirname, '..', '..', 'src', 'locales');
+
+// Get all locale files (.json)
+function getLocaleFiles() {
+  const files = fs.readdirSync(localesDir);
+  return files.filter((file) => file.endsWith('.json')).map((file) => path.join(localesDir, file));
+}
+
+// Base locale file (assume en.json as base)
+const baseLocalePath = path.join(localesDir, 'en.json');
+const allLocalePaths = getLocaleFiles();
 
 // Source root directory
 const srcRoot = path.join(__dirname, '..', '..', 'src');
@@ -68,21 +77,22 @@ function getSourceFiles(dirs, extensions = ['.ts', '.tsx', '.js', '.jsx']) {
 function isKeyUsed(key, filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const isRust = filePath.endsWith('.rs');
-  const patterns = [];
   if (isRust) {
     // For Rust files, search for JSON property access like get("key") or ["key"]
-    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    patterns.push(`get\\("${escapedKey}"\\)`, `\\["${escapedKey}"\\]`);
+    return content.includes(`get("${key}")`) || content.includes(`["${key}"]`);
   } else {
-    // For TypeScript/JavaScript files
-    patterns.push(
-      `t\\('${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'\\)`,
-      `dict\\.${key.replace(/\./g, '\\.').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-      `'${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`,
-      `"${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`
+    // For TypeScript/JavaScript files, check for common usage patterns
+    const prefix = key.split('.').slice(0, -1).join('.');
+    return (
+      content.includes(`t('${key}')`) ||
+      content.includes(`t("${key}")`) ||
+      content.includes(`dict.${key}`) ||
+      content.includes(`'${key}'`) ||
+      content.includes(`"${key}"`) ||
+      content.includes(key) || // literal key
+      (prefix && content.includes(prefix)) // prefix for dynamic usages
     );
   }
-  return patterns.some((pattern) => new RegExp(pattern, 'g').test(content));
 }
 
 // Create readline interface
@@ -95,7 +105,6 @@ const rl = readline.createInterface({
 async function findUnusedKeys() {
   try {
     const baseData = JSON.parse(fs.readFileSync(baseLocalePath, 'utf-8'));
-    const zhData = JSON.parse(fs.readFileSync(zhLocalePath, 'utf-8'));
     const flattened = flatten(baseData);
     const allKeys = Object.keys(flattened);
 
@@ -133,23 +142,33 @@ async function findUnusedKeys() {
     });
 
     if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
-      // Deep copy objects
-      const newBaseData = JSON.parse(JSON.stringify(baseData));
-      const newZhData = JSON.parse(JSON.stringify(zhData));
+      // Load all locale data
+      const localeDataMap = {};
+      for (const localePath of allLocalePaths) {
+        const lang = path.basename(localePath, '.json');
+        localeDataMap[lang] = JSON.parse(fs.readFileSync(localePath, 'utf-8'));
+      }
 
       let deletedCount = 0;
       for (const key of unusedKeys) {
-        if (deleteNestedKey(newBaseData, key)) {
-          deleteNestedKey(newZhData, key); // Assuming zh.json has same structure
+        let keyDeleted = false;
+        for (const lang in localeDataMap) {
+          if (deleteNestedKey(localeDataMap[lang], key)) {
+            keyDeleted = true;
+          }
+        }
+        if (keyDeleted) {
           deletedCount++;
         }
       }
 
-      // Write back to files
-      fs.writeFileSync(baseLocalePath, JSON.stringify(newBaseData, null, 2), 'utf-8');
-      fs.writeFileSync(zhLocalePath, JSON.stringify(newZhData, null, 2), 'utf-8');
+      // Write back all locale files
+      for (const localePath of allLocalePaths) {
+        const lang = path.basename(localePath, '.json');
+        fs.writeFileSync(localePath, JSON.stringify(localeDataMap[lang], null, 2), 'utf-8');
+      }
 
-      console.log(`${deletedCount} keys deleted.`);
+      console.log(`${deletedCount} keys deleted from all locale files.`);
     } else {
       console.log('No keys deleted.');
     }
