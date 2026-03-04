@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use std::str;
+use base64::{Engine as _, engine::general_purpose};
+use sha2::{Sha256, Digest};
+use std::fs::File;
+use std::io::{BufReader, Read};
 use tauri::AppHandle;
 
 // Repository constants
@@ -130,7 +135,34 @@ async fn get_signature_for_version(_version: &str) -> Result<String, String> {
         if let Some(windows_platform) = platforms.get("windows-x86_64") {
             if let Some(signature) = windows_platform.get("signature") {
                 if let Some(sig_str) = signature.as_str() {
-                    return Ok(sig_str.to_string());
+                    // Validate signature format before processing
+                    if sig_str.is_empty() || sig_str.len() > 128 {
+                        log::warn!("Invalid signature format: length {}", sig_str.len());
+                        return Err("Invalid signature format".to_string());
+                    }
+
+                    // Only allow hex characters and base64 characters
+                    if !sig_str.chars().all(|c| c.is_ascii_hexdigit() || c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=') {
+                        log::warn!("Invalid signature characters detected");
+                        return Err("Invalid signature characters".to_string());
+                    }
+
+                    // Try to decode as Base64 first (Tauri Action format)
+                    match general_purpose::STANDARD.decode(sig_str) {
+                        Ok(decoded_bytes) => {
+                            // Convert decoded bytes to hex string
+                            let hex_string = decoded_bytes.iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect::<String>();
+                            log::info!("Successfully decoded signature from Base64: {}...", &hex_string[..32]); // Show first 32 chars
+                            return Ok(hex_string);
+                        }
+                        Err(_) => {
+                            // If Base64 decode fails, assume it's already a hex string
+                            log::info!("Signature is not Base64, using as hex string");
+                            return Ok(sig_str.to_string());
+                        }
+                    }
                 }
             }
         }
@@ -138,6 +170,48 @@ async fn get_signature_for_version(_version: &str) -> Result<String, String> {
     
     log::warn!("Signature not found in update.json");
     Ok("signature-not-found".to_string())
+}
+
+/// Calculate SHA256 hash of a file
+fn calculate_file_hash(file_path: &std::path::Path) -> Result<String, String> {
+    let file = File::open(file_path)
+        .map_err(|e| format!("Failed to open file for hashing: {}", e))?;
+    
+    let mut reader = BufReader::new(file);
+    let mut hasher = Sha256::new();
+    let mut buffer = [0; 8192];
+    
+    loop {
+        let bytes_read = reader.read(&mut buffer)
+            .map_err(|e| format!("Failed to read file for hashing: {}", e))?;
+        
+        if bytes_read == 0 {
+            break;
+        }
+        
+        hasher.update(&buffer[..bytes_read]);
+    }
+    
+    let hash = hasher.finalize();
+    Ok(format!("{:x}", hash))
+}
+
+/// Verify downloaded file integrity against expected signature
+fn verify_download_integrity(
+    installer_path: &std::path::Path, 
+    expected_signature: &str
+) -> Result<(), String> {
+    let calculated_hash = calculate_file_hash(installer_path)?;
+    
+    if calculated_hash.eq_ignore_ascii_case(expected_signature) {
+        log::info!("✅ File integrity verification successful");
+        log::debug!("Expected: {}, Calculated: {}", expected_signature, calculated_hash);
+        Ok(())
+    } else {
+        log::error!("❌ File integrity verification failed!");
+        log::error!("Expected: {}, Calculated: {}", expected_signature, calculated_hash);
+        Err("File integrity check failed - possible tampering detected".to_string())
+    }
 }
 
 /// Download and install the fallback update
@@ -176,6 +250,11 @@ pub async fn download_and_install_fallback_update(
     
     log::info!("Installer downloaded to: {}", installer_path.display());
     
+    // 🔐 Verify file integrity against signature from update.json
+    verify_download_integrity(&installer_path, &update_info.signature)?;
+    
+    log::info!("✅ File integrity verified, proceeding with installation");
+    
     // Execute the installer with the same arguments as in tauri.conf.json
     let args = vec!["/CURRENTUSER", "/MERGETASKS=!desktopicon,!quicklaunchicon"];
     
@@ -198,9 +277,12 @@ pub async fn download_and_install_fallback_update(
     std::thread::spawn(move || {
         // Wait a bit for the installer to start properly
         std::thread::sleep(std::time::Duration::from_secs(5));
+        // Only remove if file still exists and is not locked
         if installer_path_clone.exists() {
-            let _ = std::fs::remove_file(&installer_path_clone);
-            log::info!("Cleaned up temporary installer file");
+            match std::fs::remove_file(&installer_path_clone) {
+                Ok(_) => log::info!("Cleaned up temporary installer file"),
+                Err(e) => log::warn!("Failed to clean up temporary installer file: {}", e),
+            }
         }
     });
     

@@ -53,8 +53,50 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           includeRelease: true
-
           tagName: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
+
+      - name: Generate update.json
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
+
+          $exePath = "src-tauri/target/release/Pailer.exe"
+
+          if (Test-Path $exePath) {
+            # Calculate SHA256 hash
+            $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash.ToLower()
+            
+            # Create update.json with signature
+            $updateJson = @{
+              version = $version
+              pub_date = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
+              platforms = @{
+                "windows-x86_64" = @{
+                  signature = $hash
+                }
+              }
+            } | ConvertTo-Json -Depth 10
+            
+            Write-Host "Generated update.json:"
+            Write-Host $updateJson
+            
+            # Save update.json for upload
+            $updateJson | Out-File -FilePath "update.json" -Encoding utf8
+          }
+
+      - name: Upload update.json
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}"
+          if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
+
+          if (Test-Path "update.json") {
+            gh release upload "v$version" "update.json#latest.json" --clobber
+            Write-Host "Uploaded latest.json to release v$version"
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Distribute Portable EXE (No-Zip)
         shell: pwsh
