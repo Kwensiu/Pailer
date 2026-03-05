@@ -51,7 +51,7 @@ jobs:
                   page++;
                 } catch (error) {
                   console.log(`❌ Failed to fetch runs for ${name}: ${error.message}`);
-                  break; // 退出循环而不是无限继续
+                  break;
                 }
               }
 
@@ -145,7 +145,6 @@ jobs:
                     } catch (e) {
                       console.log(`❌ Failed to delete #${run.id}: ${e.message}`);
 
-                      // 简单的速率限制处理，最多重试3次
                       if (e.status === 403 || e.message.includes('rate limit') || e.message.includes('API rate limit exceeded')) {
                         let retryCount = 0;
                         const maxRetries = 3;
@@ -153,12 +152,12 @@ jobs:
                         while (retryCount < maxRetries) {
                           retryCount++;
                           console.log(`⏳ Rate limit hit, waiting 2 minutes (retry ${retryCount}/${maxRetries})...`);
-                          await sleep(120000); // 等待2分钟
+                          await sleep(120000);
                           
                           try {
                             await github.rest.actions.deleteWorkflowRun({ owner, repo, run_id: run.id });
                             console.log(`✅ Retry successful: #${run.id}`);
-                            break; // 成功则退出重试循环
+                            break;
                           } catch (retryError) {
                             console.log(`❌ Retry ${retryCount} failed for #${run.id}: ${retryError.message}`);
                             if (retryCount >= maxRetries) {
@@ -167,7 +166,6 @@ jobs:
                           }
                         }
                       } else {
-                        // 其他类型的错误，记录但继续
                         console.log(`⚠️ Skipping #${run.id} due to error: ${e.message}`);
                       }
                     }
