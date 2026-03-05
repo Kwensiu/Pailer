@@ -545,9 +545,41 @@ html {
   background-color: transparent !important;
 }
 
-/* Modal 内按钮圆角统一设置 */
+/* Uniform border radius for buttons inside modals */
 .modal .btn {
   border-radius: 0.85rem !important;
+}
+
+/* Minimum width for modal footer buttons */
+.modal-action button {
+  min-width: 5rem;
+}
+
+/* ============================================
+   Tooltip Enhancements
+   ============================================ */
+.tooltip::before,
+.tooltip::after {
+  @apply rounded-2xl border-none backdrop-blur-[16px];
+  opacity: 0;
+  transition: opacity;
+}
+
+.tooltip:hover::before,
+.tooltip:hover::after {
+  opacity: 1;
+  transition: opacity 0.1s 0.25s;
+}
+
+[data-theme='dark'] .tooltip::before,
+[data-theme='dark'] .tooltip::after {
+  @apply bg-black/20;
+}
+
+[data-theme='light'] .tooltip::before,
+[data-theme='light'] .tooltip::after {
+  @apply bg-white/10 text-black/60;
+  color: var(--color-base-content);
 }
 
 /* ============================================

@@ -1,6 +1,6 @@
 import { Component, JSX, Show, createSignal, createEffect } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { RefreshCw } from 'lucide-solid';
+import { RefreshCw, Folder } from 'lucide-solid';
 
 interface CardProps {
   title: string | JSX.Element;
@@ -15,6 +15,8 @@ interface CardProps {
   };
   onRefresh?: () => void;
   refreshTooltip?: string;
+  onOpenPath?: () => void;
+  openPathTooltip?: string;
   children?: JSX.Element | JSX.Element[];
   conditionalContent?: { condition: boolean; children: JSX.Element };
   class?: string;
@@ -74,11 +76,14 @@ export default function Card(props: CardProps) {
                   {props.headerSelect!.options.map((option) => (
                     <li>
                       <a
-                        onClick={() =>
-                          props.headerSelect!.onChange({
-                            currentTarget: { value: option.value },
-                          } as any)
-                        }
+                        onClick={() => {
+                          const event = new Event('change', { bubbles: true });
+                          Object.defineProperty(event, 'currentTarget', {
+                            value: { value: option.value },
+                            writable: false,
+                          });
+                          props.headerSelect!.onChange(event);
+                        }}
                       >
                         {option.label}
                       </a>
@@ -97,6 +102,15 @@ export default function Card(props: CardProps) {
                 onClick={props.onRefresh}
               >
                 <RefreshCw class="h-5 w-5" />
+              </button>
+            </Show>
+            <Show when={props.onOpenPath}>
+              <button
+                class="btn btn-ghost btn-circle btn-sm tooltip tooltip-bottom"
+                data-tip={props.openPathTooltip || 'Open Path'}
+                onClick={props.onOpenPath}
+              >
+                <Folder class="h-5 w-5" />
               </button>
             </Show>
           </div>
