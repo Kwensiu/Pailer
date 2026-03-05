@@ -225,10 +225,15 @@
     },
     "scoopInfo": {
       "cancel": "Cancel",
+      "configuredPathDoesNotExist": "Configured Scoop path does not exist: {{path}}",
+      "directoryNotFound": "Directory not found: {{path}}",
       "editConfiguration": "Edit Configuration",
       "editScoopConfiguration": "Edit Scoop Configuration",
+      "failedToOpenDirectory": "Failed to open directory: {{path}} ({{error}})",
       "noConfigurationFound": "No configuration found",
       "openScoopDirectory": "Open Scoop Directory",
+      "pathNotFound": "Scoop path not found",
+      "permissionDenied": "Permission denied to access directory: {{path}}",
       "save": "Save",
       "saving": "Saving...",
       "title": "Scoop Configuration"

@@ -225,10 +225,15 @@
     },
     "scoopInfo": {
       "cancel": "取消",
+      "configuredPathDoesNotExist": "配置的 Scoop 路径不存在：{{path}}",
+      "directoryNotFound": "找不到目录：{{path}}",
       "editConfiguration": "编辑配置",
       "editScoopConfiguration": "编辑 Scoop 配置",
+      "failedToOpenDirectory": "无法打开目录：{{path}}（{{error}}）",
       "noConfigurationFound": "未找到配置",
       "openScoopDirectory": "打开 Scoop 目录",
+      "pathNotFound": "未找到 Scoop 路径",
+      "permissionDenied": "没有权限访问目录：{{path}}",
       "save": "保存",
       "saving": "正在保存...",
       "title": "Scoop 配置"
