@@ -203,6 +203,7 @@ class UpdateStore {
           const currentVersion = await invoke<string>('get_current_version');
           toast.info(t('settings.about.latestVersion', { version: currentVersion }));
         }
+        this.updateStatus[1]('idle');
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
