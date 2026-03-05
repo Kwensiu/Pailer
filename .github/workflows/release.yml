@@ -34,8 +34,26 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install sccache
+        shell: pwsh
+        run: |
+          $url = "https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-x86_64-pc-windows-msvc.tar.gz"
+          Invoke-WebRequest -Uri $url -OutFile sccache.tar.gz
+          tar -xzf sccache.tar.gz
+          $sccacheExe = Get-ChildItem -Path . -Filter sccache.exe -Recurse | Select-Object -First 1
+          $destPath = "C:\sccache_bin"
+          if (!(Test-Path $destPath)) { New-Item -ItemType Directory -Path $destPath }
+          Move-Item $sccacheExe.FullName "$destPath\sccache.exe"
+          echo "$destPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Cache sccache
+        uses: actions/cache@v4
         with:
-          toolchain: stable
+          path: C:\sccache
+          key: sccache-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            sccache-${{ runner.os }}-
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -51,25 +69,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RUSTC_WRAPPER: sccache
+          SCCACHE_DIR: C:\sccache
+          SCCACHE_CACHE_SIZE: 2G
+          SCCACHE_IDLE_TIMEOUT: 0
         with:
           includeRelease: true
           tagName: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
 
+      - name: Stop sccache server
+        run: sccache --stop-server || true
+        shell: pwsh
+
       - name: Distribute Portable EXE
         shell: pwsh
-        run: |
-          $version = "${{ github.event.inputs.version }}"
-          if (!$version) { $version = "${{ github.ref_name }}".TrimStart('v') }
-
-          $exePath = "src-tauri/target/release/Pailer.exe"
-
-          if (Test-Path $exePath) {
-            gh release upload "v$version" "$exePath" --clobber
-
-            $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash.ToLower()
-            Write-Host "----------------------------------------------"
-            Write-Host "PORTABLE EXE HASH: $hash"
-            Write-Host "----------------------------------------------"
-          }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.event.inputs.version }}"
+          if ($tag) { $tag = "v$tag" } else { $tag = "${{ github.ref_name }}" }
+          
+          Write-Host "Target Tag: $tag"
+          
+          $exePath = "src-tauri/target/release/Pailer.exe"
+          if (Test-Path $exePath) {
+            gh release upload "$tag" "$exePath" --clobber
+            $hash = (Get-FileHash $exePath -Algorithm SHA256).Hash.ToLower()
+            Write-Host "PORTABLE EXE HASH: $hash"
+          } else {
+            Write-Warning "Portable EXE not found at $exePath. Skipping upload."
+          }
