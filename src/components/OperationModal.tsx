@@ -531,7 +531,7 @@ function OperationModal(props: OperationModalProps) {
       {/* Status alerts */}
       <div class="my-2">
         <Show when={currentOperation?.status === 'error'}>
-          <div class="status-alert status-alert-error rounded-lg">
+          <div class="status-alert status-alert-error rounded-lg!">
             <Show when={currentOperation.result?.message} fallback={<span>Operation failed</span>}>
               <FormattedErrorMessage message={currentOperation.result?.message || ''} />
             </Show>
@@ -539,7 +539,7 @@ function OperationModal(props: OperationModalProps) {
         </Show>
 
         <Show when={currentOperation?.status === 'success'}>
-          <div class="status-alert status-alert-success rounded-lg">
+          <div class="status-alert status-alert-success rounded-lg!">
             <span>{currentOperation.result?.message || 'Operation completed successfully'}</span>
           </div>
         </Show>

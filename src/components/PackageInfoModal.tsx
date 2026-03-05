@@ -468,7 +468,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           <Show when={!props.pkg?.is_installed && props.onInstall}>
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-primary mr-2"
               onClick={() => {
                 if (props.pkg) {
                   props.onInstall!(props.pkg);
