@@ -307,7 +307,8 @@ fn select_best_scoop_root(
 /// user's Scoop data.
 ///
 /// # Errors
-/// Returns Err when no plausible Scoop installation directory could be found.
+/// Returns Err when no Scoop path is configured.
+/// This function no longer auto-detects paths - it only uses the configured path.
 pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, String> {
     log::info!("Resolving Scoop root directory");
     
@@ -316,74 +317,13 @@ pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, Stri
         .flatten()
         .map(PathBuf::from);
 
-    // Check if path was manually configured
-    let manually_configured = settings::get_scoop_path_manually_configured(app.clone())
-        .ok()
-        .flatten()
-        .unwrap_or(false);
-
     if let Some(path) = stored_path.as_ref() {
-        log::info!("Found stored Scoop path: {}", path.display());
-        if evaluate_scoop_candidate(path.clone()).is_none() {
-            if manually_configured {
-                log::warn!(
-                    "Stored manually configured scoop path is invalid or inaccessible: {}, but will use it as requested",
-                    path.display()
-                );
-            } else {
-                log::warn!(
-                    "Stored scoop path is invalid or inaccessible: {}",
-                    path.display()
-                );
-            }
-        }
+        log::info!("Using configured Scoop path: {}", path.display());
+        return Ok(path.clone());
     } else {
-        log::info!("No stored Scoop path found");
+        log::warn!("No Scoop path configured in settings");
+        return Err("No Scoop path configured. Please configure it in settings.".to_string());
     }
-
-    // If manually configured, don't auto-detect, use stored path even if invalid
-    if manually_configured {
-        if let Some(path) = stored_path {
-            log::info!("Using manually configured Scoop path: {}", path.display());
-            return Ok(path);
-        } else {
-            // Should not happen, but fallback
-            log::warn!("Manually configured flag set but no path stored, falling back to auto-detection");
-        }
-    }
-
-    let candidates = build_candidate_list(stored_path.clone().into_iter());
-    log::info!("Built {} candidates for Scoop root", candidates.len());
-
-    if let Some(best) = select_best_scoop_root(candidates, stored_path.as_ref()) {
-        let best_path = best.path.clone();
-        let stored_matches = stored_path
-            .as_ref()
-            .map(|p| p == &best_path)
-            .unwrap_or(false);
-
-        if stored_matches {
-            log::info!("Using user-defined scoop path: {}", best_path.display());
-        } else {
-            log::info!(
-                "Auto-detected Scoop root: {} (apps_dir={}, buckets_dir={}, installs={})",
-                best_path.display(),
-                best.has_apps_dir,
-                best.has_buckets_dir,
-                best.installed_count
-            );
-
-            // Don't save auto-detected paths for manually configured setups
-            // (though this shouldn't be reached due to the check above)
-        }
-
-        log::info!("Resolved Scoop root to: {}", best_path.display());
-        return Ok(best_path);
-    }
-
-    let error_msg = "Unable to determine Scoop root directory. Please configure it explicitly in Settings.";
-    log::error!("{}", error_msg);
-    Err(error_msg.to_string())
 }
 
 // -----------------------------------------------------------------------------

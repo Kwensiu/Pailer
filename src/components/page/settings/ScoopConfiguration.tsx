@@ -23,7 +23,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
   onMount(async () => {
     if (!currentPath().trim() && !settings.scoopPath && !settings.scoopPathManuallyConfigured) {
       try {
-        const detectedPath = await invoke<string>('detect_scoop_path');
+        const detectedPath = await invoke<string>('auto_detect_scoop_path');
         if (detectedPath && detectedPath.trim()) {
           setCurrentPath(detectedPath);
           setIsValidPath(validatePath(detectedPath));
@@ -55,7 +55,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
   const detectScoopPath = async () => {
     setIsDetecting(true);
     try {
-      const detectedPath = await invoke<string>('detect_scoop_path');
+      const detectedPath = await invoke<string>('auto_detect_scoop_path');
       setCurrentPath(detectedPath);
       setIsValidPath(validatePath(detectedPath));
 
