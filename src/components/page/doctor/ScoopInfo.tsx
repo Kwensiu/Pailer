@@ -1,9 +1,9 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Settings, Folder, Edit } from 'lucide-solid';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { Settings, Edit } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
+import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
 import { createLocalStorageSignal } from '../../../hooks/createLocalStorageSignal';
 import settingsStore from '../../../stores/settings';
@@ -20,12 +20,12 @@ export interface ScoopInfoProps {
 }
 
 function ScoopInfo() {
-  const [scoopPath, setScoopPath] = createSignal<string | null>(null);
   // Use localStorage to persist config data
   const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>(
     'scoopConfig',
     null
   );
+  const [configDirectory, setConfigDirectory] = createSignal<string | null>(null);
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
@@ -51,7 +51,6 @@ function ScoopInfo() {
     try {
       // Get configured Scoop path first
       const configuredPath = await invoke<string | null>('get_scoop_path');
-      setScoopPath(configuredPath);
 
       if (!configuredPath) {
         setError('No Scoop path configured. Please configure it in settings.');
@@ -62,7 +61,7 @@ function ScoopInfo() {
       const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
       if (!pathExists) {
         setError(t('doctor.scoopInfo.configuredPathDoesNotExist', { path: configuredPath }));
-        setScoopConfig(null); // 确保重置配置状态
+        setScoopConfig(null);
         return;
       }
 
@@ -71,6 +70,19 @@ function ScoopInfo() {
 
       // Update config
       setScoopConfig(config);
+
+      // Get config directory path for the open button
+      if (config) {
+        try {
+          const configDir = await invoke<string>('get_scoop_config_directory');
+          setConfigDirectory(configDir);
+        } catch (err) {
+          console.warn('Failed to get config directory:', err);
+          setConfigDirectory(null);
+        }
+      } else {
+        setConfigDirectory(null);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch scoop info:', errorMsg);
@@ -140,19 +152,14 @@ function ScoopInfo() {
                 <Edit class="h-5 w-5" />
               </button>
             </Show>
-            <Show when={scoopPath()}>
-              <button
-                class="btn btn-ghost btn-sm"
-                onClick={async () => {
-                  const path = scoopPath();
-                  if (path) {
-                    await openPath(path);
-                  }
-                }}
-                title={t('doctor.scoopInfo.openScoopDirectory')}
-              >
-                <Folder class="h-5 w-5" />
-              </button>
+            <Show when={configDirectory()}>
+              <OpenPathButton
+                path={configDirectory()!}
+                validatePath={true}
+                showErrorToast={true}
+                tooltip={t('doctor.scoopInfo.openConfigDirectory')}
+                size="sm"
+              />
             </Show>
           </div>
         }
