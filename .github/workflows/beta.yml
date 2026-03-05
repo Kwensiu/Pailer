@@ -82,6 +82,33 @@ jobs:
           $cfg | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
           Write-Host "Version updated to: $fullVersion"
 
+      - name: Update package.json version
+        shell: pwsh
+        run: |
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $pkg.version = "${{ inputs.version }}-beta.${{ inputs.beta }}"
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+          Write-Host "package.json version updated"
+
+      - name: Update Cargo.toml version
+        shell: pwsh
+        run: |
+          $lines = Get-Content src-tauri/Cargo.toml
+          $inPackage = $false
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match '^\[package\]') {
+                  $inPackage = $true
+              } elseif ($lines[$i] -match '^\[') {
+                  $inPackage = $false
+              }
+              if ($inPackage -and $lines[$i] -match '^version = ') {
+                  $lines[$i] = 'version = "${{ inputs.version }}-beta.${{ inputs.beta }}"'
+                  break
+              }
+          }
+          $lines | Set-Content src-tauri/Cargo.toml
+          Write-Host "Cargo.toml version updated"
+
       - name: Build Tauri app
         run: pnpm tauri build
         env:
