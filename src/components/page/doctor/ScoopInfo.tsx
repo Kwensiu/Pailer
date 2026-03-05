@@ -1,6 +1,7 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { Settings, Folder, Edit } from 'lucide-solid';
+import { openPath } from '@tauri-apps/plugin-opener';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
 import { t } from '../../../i18n';
@@ -18,7 +19,7 @@ export interface ScoopInfoProps {
   onOpenDirectory?: () => void;
 }
 
-function ScoopInfo(props: ScoopInfoProps) {
+function ScoopInfo() {
   const [scoopPath, setScoopPath] = createSignal<string | null>(null);
   // Use localStorage to persist config data
   const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>(
@@ -48,11 +49,24 @@ function ScoopInfo(props: ScoopInfoProps) {
     setError(null);
 
     try {
-      // Get Scoop path
-      const path = await invoke<string | null>('get_scoop_path');
-      setScoopPath(path);
+      // Get configured Scoop path first
+      const configuredPath = await invoke<string | null>('get_scoop_path');
+      setScoopPath(configuredPath);
 
-      // Get Scoop configuration
+      if (!configuredPath) {
+        setError('No Scoop path configured. Please configure it in settings.');
+        return;
+      }
+
+      // Check if the configured path exists
+      const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
+      if (!pathExists) {
+        setError(t('doctor.scoopInfo.configuredPathDoesNotExist', { path: configuredPath }));
+        setScoopConfig(null); // 确保重置配置状态
+        return;
+      }
+
+      // Get Scoop configuration from user config directory (not scoop root)
       const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
 
       // Update config
@@ -60,7 +74,7 @@ function ScoopInfo(props: ScoopInfoProps) {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch scoop info:', errorMsg);
-      setError('Could not load Scoop information.');
+      setError('Could not load Scoop information: ' + errorMsg);
     } finally {
       if (!silent) {
         setIsLoading(false);
@@ -126,10 +140,15 @@ function ScoopInfo(props: ScoopInfoProps) {
                 <Edit class="h-5 w-5" />
               </button>
             </Show>
-            <Show when={props.onOpenDirectory && scoopPath()}>
+            <Show when={scoopPath()}>
               <button
                 class="btn btn-ghost btn-sm"
-                onClick={props.onOpenDirectory}
+                onClick={async () => {
+                  const path = scoopPath();
+                  if (path) {
+                    await openPath(path);
+                  }
+                }}
                 title={t('doctor.scoopInfo.openScoopDirectory')}
               >
                 <Folder class="h-5 w-5" />
@@ -143,7 +162,7 @@ function ScoopInfo(props: ScoopInfoProps) {
             <div class="loading loading-spinner loading-md"></div>
           </div>
         ) : error() ? (
-          <div class="alert alert-error">
+          <div class="status-alert status-alert-error">
             <span>{error()}</span>
           </div>
         ) : (

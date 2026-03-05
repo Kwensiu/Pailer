@@ -1,10 +1,13 @@
 import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Trash2, Archive, TriangleAlert, Inbox, Folder, Database } from 'lucide-solid';
+import { Trash2, Archive, TriangleAlert, Inbox, Database } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
 import ConfirmationModal from '../../ConfirmationModal';
 import Card from '../../common/Card';
+import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
+
+const CACHE_DIR = 'cache';
 
 interface CacheEntry {
   name: string;
@@ -16,23 +19,18 @@ interface CacheEntry {
 // A unique identifier for a cache entry
 type CacheIdentifier = string;
 
-export interface CacheManagerProps {
-  onOpenDirectory?: () => void;
-  onCleanupApps?: () => void;
-  onCleanupCache?: () => void;
-}
-
 function getCacheIdentifier(entry: CacheEntry): CacheIdentifier {
   // Using the full filename for uniqueness
   return entry.fileName;
 }
 
-function CacheManager(props: CacheManagerProps) {
+function CacheManager() {
   const [cacheContents, setCacheContents] = createSignal<CacheEntry[]>([]);
   const [selectedItems, setSelectedItems] = createSignal<Set<CacheIdentifier>>(new Set());
   const [filter, setFilter] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
+  const [cacheDirectory, setCacheDirectory] = createSignal<string>('');
 
   // State for the confirmation modal
   const [isConfirmModalOpen, setIsConfirmModalOpen] = createSignal(false);
@@ -56,18 +54,64 @@ function CacheManager(props: CacheManagerProps) {
     return contents.every((item) => selectedItems().has(getCacheIdentifier(item)));
   });
 
+  const getScoopSubPath = (subPath: string) => {
+    return async () => {
+      try {
+        const scoopPath = await invoke<string>('get_scoop_path');
+        if (!scoopPath) {
+          throw new Error('Scoop path not configured');
+        }
+        return `${scoopPath}\\${subPath}`;
+      } catch (error) {
+        console.error(`Failed to get scoop ${subPath} path:`, error);
+        throw error;
+      }
+    };
+  };
+
+  const fetchCacheDirectory = async () => {
+    try {
+      const getPath = getScoopSubPath(CACHE_DIR);
+      const path = await getPath();
+      setCacheDirectory(path);
+    } catch (error) {
+      console.error('Failed to fetch cache directory:', error);
+    }
+  };
+
   const fetchCacheContents = async () => {
     setIsLoading(true);
     setError(null);
     setSelectedItems(new Set<CacheIdentifier>());
+
     try {
+      // 检查Scoop路径是否存在
+      const scoopPath = await invoke<string | null>('get_scoop_path');
+      if (!scoopPath) {
+        setError('No Scoop path configured. Please configure it in settings.');
+        setCacheDirectory('');
+        return;
+      }
+
+      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+      if (!pathExists) {
+        setError(`Configured Scoop path does not exist: ${scoopPath}`);
+        setCacheDirectory('');
+        return;
+      }
+
+      // 获取缓存内容
       const result = await invoke<CacheEntry[]>('list_cache_contents');
       setCacheContents(result);
+
+      // 获取缓存目录路径
+      await fetchCacheDirectory();
     } catch (err) {
       console.error('Failed to fetch cache contents:', err);
       setError(
         typeof err === 'string' ? err : 'An unknown error occurred while fetching cache contents.'
       );
+      setCacheDirectory('');
     } finally {
       setIsLoading(false);
     }
@@ -196,14 +240,13 @@ function CacheManager(props: CacheManagerProps) {
               </button>
               <div class="divider divider-horizontal m-1" />
             </Show>
-            <Show when={props.onOpenDirectory}>
-              <button
-                class="btn btn-ghost btn-sm"
-                onClick={props.onOpenDirectory}
-                title={t('doctor.cacheManager.openCacheDirectory')}
-              >
-                <Folder class="h-5 w-5" />
-              </button>
+            <Show when={cacheDirectory()}>
+              <OpenPathButton
+                path={cacheDirectory()}
+                validatePath={true}
+                showErrorToast={true}
+                tooltip={t('doctor.cacheManager.openCacheDirectory')}
+              />
             </Show>
           </div>
         }

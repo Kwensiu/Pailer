@@ -225,10 +225,15 @@ export interface Dict {
     };
     scoopInfo: {
       cancel: string;
+      configuredPathDoesNotExist: string;
+      directoryNotFound: string;
       editConfiguration: string;
       editScoopConfiguration: string;
+      failedToOpenDirectory: string;
       noConfigurationFound: string;
       openScoopDirectory: string;
+      pathNotFound: string;
+      permissionDenied: string;
       save: string;
       saving: string;
       title: string;
