@@ -15,6 +15,8 @@ export interface Dict {
   };
   bucket: {
     card: {
+      local: string;
+      localRepository: string;
       packages: string;
       update: string;
       updated: string;
@@ -35,6 +37,17 @@ export interface Dict {
       updateAllGitShort: string;
       updateCompletionNote: string;
       updatingBuckets: string;
+      updateCompleted: string;
+      updatingBucketProgress: string;
+      bulkUpdateCompleted: string;
+      bulkUpdateCompletedSuccess: string;
+      bulkUpdateCompletedWithFailures: string;
+      cancellingUpdates: string;
+      updateCancelled: string;
+      showErrors: string;
+      hideErrors: string;
+      errorDetails: string;
+      noGitBuckets: string;
     };
     page: {
       description: string;
