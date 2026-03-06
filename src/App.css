@@ -344,6 +344,16 @@ html {
 /* ============================================
    Custom Button Styles
    ============================================ */
+
+/* AutoCheck buttonin AboutSection */
+.btn-autocheck {
+  @apply bg-base-200/50 text-base-content/70 hover:bg-base-300/50 hover:text-base-content;
+}
+
+[data-theme='dark'] .btn-autocheck {
+  @apply bg-base-200/30 text-base-content/60 hover:bg-base-300/30;
+}
+
 /* Close button with outline style */
 .btn-close-outline {
   @apply btn btn-outline border-base-content/30 text-base-content hover:border-base-content/50 hover:text-base-content rounded-2xl hover:bg-transparent;
@@ -560,7 +570,7 @@ html {
    ============================================ */
 .tooltip::before,
 .tooltip::after {
-  @apply rounded-2xl border-none backdrop-blur-[16px];
+  @apply border-base-content/30 rounded-2xl border backdrop-blur-[16px];
   opacity: 0;
   transition: opacity;
 }
@@ -578,7 +588,7 @@ html {
 
 [data-theme='light'] .tooltip::before,
 [data-theme='light'] .tooltip::after {
-  @apply bg-white/10 text-black/60;
+  @apply bg-black/10 text-black/60;
   color: var(--color-base-content);
 }
 

@@ -183,6 +183,16 @@ function OperationModal(props: OperationModalProps) {
               console.log('Operation no longer exists, ignoring output');
               return;
             }
+
+            // Deduplicate consecutive identical lines
+            const currentOutput = currentOp.output || [];
+            const lastLine =
+              currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
+            if (lastLine === event.payload.line) {
+              console.log('Skipping duplicate line:', event.payload.line);
+              return;
+            }
+
             console.log('Operation output matches current operationId:', operationId());
             addOperationOutput(operationId(), {
               operationId: operationId(),
