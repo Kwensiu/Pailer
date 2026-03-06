@@ -19,15 +19,15 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
 
   createEffect(() => setCurrentPath(settings.scoopPath || ''));
 
-  // Auto-detect path (if empty and not manually configured)
+  // Auto-detect path only on first launch when no path exists at all
   onMount(async () => {
-    if (!currentPath().trim() && !settings.scoopPathManuallyConfigured) {
+    if (!currentPath().trim() && !settings.scoopPath && !settings.scoopPathManuallyConfigured) {
       try {
-        const detectedPath = await invoke<string>('detect_scoop_path');
+        const detectedPath = await invoke<string>('auto_detect_scoop_path');
         if (detectedPath && detectedPath.trim()) {
           setCurrentPath(detectedPath);
           setIsValidPath(validatePath(detectedPath));
-          // Auto-save the detected path
+          // Auto-save the detected path for first-time setup
           await setScoopPath(detectedPath);
           toast.success(t('settings.scoopConfiguration.detectSuccess'));
         }
@@ -55,7 +55,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
   const detectScoopPath = async () => {
     setIsDetecting(true);
     try {
-      const detectedPath = await invoke<string>('detect_scoop_path');
+      const detectedPath = await invoke<string>('auto_detect_scoop_path');
       setCurrentPath(detectedPath);
       setIsValidPath(validatePath(detectedPath));
 

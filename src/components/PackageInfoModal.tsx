@@ -10,6 +10,7 @@ import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
 import settingsStore from '../stores/settings';
 import { t } from '../i18n';
+import { toast } from './common/ToastAlert';
 
 hljs.registerLanguage('json', json);
 
@@ -55,8 +56,11 @@ function DetailValue(props: { value: string }) {
 
     // Cleanup function to prevent memory leaks
     return () => {
-      if (codeRef) {
-        codeRef.innerHTML = '';
+      if (codeRef && codeRef.firstChild) {
+        // Remove all child nodes instead of setting innerHTML
+        while (codeRef.firstChild) {
+          codeRef.removeChild(codeRef.firstChild);
+        }
       }
     };
   });
@@ -216,8 +220,11 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
       // Clean up highlight on effect dispose
       return () => {
-        if (codeRef) {
-          codeRef.innerHTML = '';
+        if (codeRef && codeRef.firstChild) {
+          // Remove all child nodes instead of setting innerHTML
+          while (codeRef.firstChild) {
+            codeRef.removeChild(codeRef.firstChild);
+          }
         }
       };
     }
@@ -281,8 +288,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setManifestContent(result);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`Failed to fetch manifest for ${pkg.name}:`, errorMsg);
       setManifestError(t('packageInfo.errorLoadingManifest', { name: pkg.name, error: errorMsg }));
+      console.error(`Failed to fetch manifest for ${pkg.name}:`, errorMsg);
     } finally {
       setManifestLoading(false);
     }
@@ -307,9 +314,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setVersionInfo(result);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`Failed to fetch versions for ${pkg.name}:`, errorMsg);
       setVersionError(t('packageInfo.errorLoadingVersions', { name: pkg.name, error: errorMsg }));
       setVersionLoading(false);
+      console.error(`Failed to fetch versions for ${pkg.name}:`, errorMsg);
     }
   };
 
@@ -332,10 +339,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       props.onSwitchVersion?.(pkg, targetVersion);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
       setVersionError(
         t('packageInfo.errorSwitchingVersion', { version: targetVersion, error: errorMsg })
       );
+      console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
     } finally {
       setSwitchingVersion(null);
     }
@@ -375,7 +382,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                     console.log('Package structure debug:', debug);
                     alert(debug);
                   } catch (error) {
-                    console.error(t('packageInfo.debugFailed'), error);
+                    console.error('Failed to debug package info:', error);
                   }
                 }
               }}
@@ -397,7 +404,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                     });
                     await openPath(packagePath);
                   } catch (error) {
-                    console.error(t('packageInfo.failedToOpenPath'), error);
+                    console.error('Failed to open package path:', error);
                   }
                 }
               }}
@@ -419,7 +426,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         <Show when={props.pkg?.is_installed}>
           <button
             type="button"
-            class="btn btn-error w-20"
+            class="btn btn-error"
             classList={{ 'btn-warning': uninstallConfirm() }}
             onClick={() => {
               if (uninstallConfirm()) {
@@ -468,7 +475,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           <Show when={!props.pkg?.is_installed && props.onInstall}>
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-primary mr-2"
               onClick={() => {
                 if (props.pkg) {
                   props.onInstall!(props.pkg);
@@ -485,11 +492,11 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           <Show when={props.pkg?.is_installed}>
             <button
               type="button"
-              class="btn mr-2 w-20"
+              class="btn mr-2"
               classList={{
                 'btn-primary': !!props.pkg?.available_version && !updateConfirm(),
                 'btn-soft text-base-content/50': !props.pkg?.available_version && !updateConfirm(),
-                'btn-warning w-24': updateConfirm(),
+                'btn-warning min-w-24': updateConfirm(),
               }}
               onClick={() => {
                 if (updateConfirm()) {
@@ -511,7 +518,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                         packageName: props.pkg.name,
                         force: true,
                       }).catch((err) => {
-                        console.error('Force update invocation failed:', err);
+                        console.error('Failed to force update package:', err);
                       });
                     } else {
                       console.warn(
@@ -537,7 +544,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                       invoke('update_package', {
                         packageName: props.pkg.name,
                       }).catch((err) => {
-                        console.error('Update invocation failed:', err);
+                        console.error('Failed to update package:', err);
                       });
                       props.onPackageStateChanged?.();
                     }
@@ -556,7 +563,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               {updateConfirm() ? t('packageInfo.forceUpdate') : t('packageInfo.update')}
             </button>
           </Show>
-          <button class="btn btn-soft w-20" data-modal-close>
+          <button class="btn btn-soft" data-modal-close>
             {props.showBackButton ? t('packageInfo.backToBucket') : t('packageInfo.close')}
           </button>
         </form>
@@ -631,16 +638,17 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                           </Match>
                           <Match when={originalKey === 'Installed'}>
                             <div
-                              class="link-primary bg-primary/5 border-bg-primary inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              class="link-primary bg-primary/5 border-bg-primary tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              data-tip={t('packageInfo.openInExplorer')}
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 try {
                                   await openPath(value);
                                 } catch (error) {
-                                  console.error('Failed to open path:', error);
+                                  console.error('Failed to open installed path:', error);
+                                  toast.error(t('packageInfo.failedToOpenPath'));
                                 }
                               }}
-                              title={t('packageInfo.openInExplorer')}
                             >
                               {value}
                             </div>

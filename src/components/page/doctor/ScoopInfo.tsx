@@ -1,8 +1,9 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Settings, Folder, Edit } from 'lucide-solid';
+import { Settings, Edit } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
+import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
 import { createLocalStorageSignal } from '../../../hooks/createLocalStorageSignal';
 import settingsStore from '../../../stores/settings';
@@ -18,13 +19,13 @@ export interface ScoopInfoProps {
   onOpenDirectory?: () => void;
 }
 
-function ScoopInfo(props: ScoopInfoProps) {
-  const [scoopPath, setScoopPath] = createSignal<string | null>(null);
+function ScoopInfo() {
   // Use localStorage to persist config data
   const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>(
     'scoopConfig',
     null
   );
+  const [configDirectory, setConfigDirectory] = createSignal<string | null>(null);
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
@@ -48,19 +49,44 @@ function ScoopInfo(props: ScoopInfoProps) {
     setError(null);
 
     try {
-      // Get Scoop path
-      const path = await invoke<string | null>('get_scoop_path');
-      setScoopPath(path);
+      // Get configured Scoop path first
+      const configuredPath = await invoke<string | null>('get_scoop_path');
 
-      // Get Scoop configuration
+      if (!configuredPath) {
+        setError('No Scoop path configured. Please configure it in settings.');
+        return;
+      }
+
+      // Check if the configured path exists
+      const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
+      if (!pathExists) {
+        setError(t('doctor.scoopInfo.configuredPathDoesNotExist', { path: configuredPath }));
+        setScoopConfig(null);
+        return;
+      }
+
+      // Get Scoop configuration from user config directory (not scoop root)
       const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
 
       // Update config
       setScoopConfig(config);
+
+      // Get config directory path for the open button
+      if (config) {
+        try {
+          const configDir = await invoke<string>('get_scoop_config_directory');
+          setConfigDirectory(configDir);
+        } catch (err) {
+          console.warn('Failed to get config directory:', err);
+          setConfigDirectory(null);
+        }
+      } else {
+        setConfigDirectory(null);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch scoop info:', errorMsg);
-      setError('Could not load Scoop information.');
+      setError('Could not load Scoop information: ' + errorMsg);
     } finally {
       if (!silent) {
         setIsLoading(false);
@@ -126,14 +152,14 @@ function ScoopInfo(props: ScoopInfoProps) {
                 <Edit class="h-5 w-5" />
               </button>
             </Show>
-            <Show when={props.onOpenDirectory && scoopPath()}>
-              <button
-                class="btn btn-ghost btn-sm"
-                onClick={props.onOpenDirectory}
-                title={t('doctor.scoopInfo.openScoopDirectory')}
-              >
-                <Folder class="h-5 w-5" />
-              </button>
+            <Show when={configDirectory()}>
+              <OpenPathButton
+                path={configDirectory()!}
+                validatePath={true}
+                showErrorToast={true}
+                tooltip={t('doctor.scoopInfo.openConfigDirectory')}
+                size="sm"
+              />
             </Show>
           </div>
         }
@@ -143,7 +169,7 @@ function ScoopInfo(props: ScoopInfoProps) {
             <div class="loading loading-spinner loading-md"></div>
           </div>
         ) : error() ? (
-          <div class="alert alert-error">
+          <div class="status-alert status-alert-error">
             <span>{error()}</span>
           </div>
         ) : (

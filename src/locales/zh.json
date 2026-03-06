@@ -15,6 +15,8 @@
   },
   "bucket": {
     "card": {
+      "local": "本地",
+      "localRepository": "本地仓库",
       "packages": "个软件包",
       "update": "更新",
       "updated": "更新于 {{date}}",
@@ -34,7 +36,18 @@
       "updateAllGit": "更新所有Git仓库",
       "updateAllGitShort": "Git",
       "updateCompletionNote": "这可能需要几秒钟完成",
-      "updatingBuckets": "更新仓库中"
+      "updatingBuckets": "更新仓库中",
+      "updateCompleted": "更新已完成",
+      "updatingBucketProgress": "正在更新 {{name}} ({{current}}/{{total}})",
+      "bulkUpdateCompleted": "批量更新完成",
+      "bulkUpdateCompletedSuccess": "成功更新了 {{successful}}/{{total}} 个仓库",
+      "bulkUpdateCompletedWithFailures": "更新了 {{successful}}/{{total}} 个仓库。失败: {{failures}}",
+      "cancellingUpdates": "正在取消更新...",
+      "updateCancelled": "更新已取消",
+      "showErrors": "显示错误",
+      "hideErrors": "隐藏错误",
+      "errorDetails": "错误详情",
+      "noGitBuckets": "没有可更新的Git仓库"
     },
     "page": {
       "description": "管理 Scoop 仓库 - 包含软件包清单的仓库"
@@ -225,10 +238,15 @@
     },
     "scoopInfo": {
       "cancel": "取消",
+      "configuredPathDoesNotExist": "配置的 Scoop 路径不存在：{{path}}",
+      "directoryNotFound": "找不到目录：{{path}}",
       "editConfiguration": "编辑配置",
       "editScoopConfiguration": "编辑 Scoop 配置",
+      "failedToOpenDirectory": "无法打开目录：{{path}}（{{error}}）",
       "noConfigurationFound": "未找到配置",
       "openScoopDirectory": "打开 Scoop 目录",
+      "pathNotFound": "未找到 Scoop 路径",
+      "permissionDenied": "没有权限访问目录：{{path}}",
       "save": "保存",
       "saving": "正在保存...",
       "title": "Scoop 配置"

@@ -15,6 +15,8 @@
   },
   "bucket": {
     "card": {
+      "local": "Local",
+      "localRepository": "Local Repository",
       "packages": "packages",
       "update": "Update",
       "updated": "Updated {{date}}",
@@ -34,7 +36,18 @@
       "updateAllGit": "Update All Git Buckets",
       "updateAllGitShort": "Git",
       "updateCompletionNote": "This may take a few seconds to complete",
-      "updatingBuckets": "Updating Buckets"
+      "updatingBuckets": "Updating Buckets",
+      "updateCompleted": "Update Completed",
+      "updatingBucketProgress": "Updating {{name}} ({{current}}/{{total}})",
+      "bulkUpdateCompleted": "Bulk update completed",
+      "bulkUpdateCompletedSuccess": "Successfully updated {{successful}}/{{total}} buckets",
+      "bulkUpdateCompletedWithFailures": "Updated {{successful}}/{{total}} buckets. Failed: {{failures}}",
+      "cancellingUpdates": "Cancelling updates...",
+      "updateCancelled": "Update cancelled",
+      "showErrors": "Show errors",
+      "hideErrors": "Hide errors",
+      "errorDetails": "Error Details",
+      "noGitBuckets": "No git buckets to update"
     },
     "page": {
       "description": "Manage Scoop buckets - repositories containing package manifests"
@@ -225,10 +238,15 @@
     },
     "scoopInfo": {
       "cancel": "Cancel",
+      "configuredPathDoesNotExist": "Configured Scoop path does not exist: {{path}}",
+      "directoryNotFound": "Directory not found: {{path}}",
       "editConfiguration": "Edit Configuration",
       "editScoopConfiguration": "Edit Scoop Configuration",
+      "failedToOpenDirectory": "Failed to open directory: {{path}} ({{error}})",
       "noConfigurationFound": "No configuration found",
       "openScoopDirectory": "Open Scoop Directory",
+      "pathNotFound": "Scoop path not found",
+      "permissionDenied": "Permission denied to access directory: {{path}}",
       "save": "Save",
       "saving": "Saving...",
       "title": "Scoop Configuration"

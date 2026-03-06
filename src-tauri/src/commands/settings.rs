@@ -116,17 +116,14 @@ fn write_scoop_config(config: &Map<String, Value>) -> Result<(), String> {
 #[tauri::command]
 pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, String> {
     with_store_get(app, |store| {
-        // Try to get from settings.scoopPath first (new unified format)
+        // Get from settings.scoopPath (new unified format)
         if let Some(settings) = store.get("settings") {
             if let Some(scoop_path) = settings.get("scoopPath") {
                 return scoop_path.as_str().map(String::from);
             }
         }
         
-        // Fallback to legacy format (direct scoop_path)
-        store
-            .get("scoop_path")
-            .and_then(|v| v.as_str().map(String::from))
+        None
     })
 }
 
@@ -150,16 +147,25 @@ pub fn get_scoop_path_manually_configured<R: Runtime>(app: AppHandle<R>) -> Resu
 pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(), String> {
     let path_clone = path.clone();
     with_store_mut(app.clone(), move |store| {
-        // Try to update in settings.scoopPath (new unified format)
+        // Update in settings.scoopPath (new unified format)
         if let Some(settings) = store.get("settings") {
-            let mut settings_obj = settings.as_object().unwrap_or(&mut serde_json::Map::new()).clone();
+            // Check if settings is an object type
+            if settings.is_object() {
+                let mut settings_obj = settings.as_object().unwrap_or(&mut serde_json::Map::new()).clone();
+                settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
+                store.set("settings", serde_json::Value::Object(settings_obj));
+            } else {
+                log::warn!("Settings field exists but is not an object type, creating new settings object");
+                let mut settings_obj = serde_json::Map::new();
+                settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
+                store.set("settings", serde_json::Value::Object(settings_obj));
+            }
+        } else {
+            // Create settings object if it doesn't exist
+            let mut settings_obj = serde_json::Map::new();
             settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
             store.set("settings", serde_json::Value::Object(settings_obj));
-            return;
         }
-        
-        // Fallback to legacy format (direct scoop_path)
-        store.set("scoop_path", serde_json::json!(path_clone));
     })?;
     
     // Also update the in-memory app state if it exists
@@ -214,24 +220,165 @@ pub fn check_directory_exists(path: String) -> Result<bool, String> {
     Ok(path.exists() && path.is_dir())
 }
 
-/// Detects the Scoop path by checking environment variables and Scoop's own configuration
+/// Automatically detects Scoop installation by checking common locations in priority order
+/// Validates each candidate path to ensure it's a valid Scoop installation
+/// Returns the first valid path found, or error if none found
 #[tauri::command]
-pub fn detect_scoop_path() -> Result<String, String> {
-    // Use the comprehensive detection logic from utils.rs
-    let candidates = crate::utils::build_candidate_list(Vec::<PathBuf>::new());
-    
-    // Find the first valid candidate
-    for candidate in candidates {
-        if crate::utils::is_valid_scoop_candidate(&candidate) {
-            log::info!("Detected Scoop path: {}", candidate.display());
-            return Ok(candidate.to_string_lossy().to_string());
+pub fn auto_detect_scoop_path() -> Result<String, String> {
+    use std::env;
+
+    log::info!("Starting Scoop installation auto-detection...");
+
+    // Log environment variable status
+    match env::var("SCOOP") {
+        Ok(scoop_env) => {
+            log::info!("SCOOP environment variable found: '{}'", scoop_env);
+            let env_path = PathBuf::from(&scoop_env);
+            if env_path.exists() {
+                log::info!("SCOOP environment variable points to existing path");
+                log::debug!("Validating SCOOP environment variable path...");
+                match validate_scoop_directory(scoop_env.clone()) {
+                    Ok(is_valid) => {
+                        if is_valid {
+                            log::info!("✓ Auto-detected valid Scoop installation from SCOOP environment variable: {}", scoop_env);
+                            return Ok(scoop_env);
+                        } else {
+                            log::warn!("SCOOP environment variable points to '{}' but validation failed - missing required directories", scoop_env);
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to validate SCOOP environment variable path '{}': {}", scoop_env, e);
+                    }
+                }
+            } else {
+                log::warn!("SCOOP environment variable points to non-existent path");
+            }
+        }
+        Err(_) => log::info!("SCOOP environment variable not set"),
+    }
+
+    match env::var("USERPROFILE") {
+        Ok(user_profile) => log::debug!("USERPROFILE: '{}'", user_profile),
+        Err(_) => log::warn!("USERPROFILE environment variable not found"),
+    }
+
+    // Then, try to get root_path from Scoop config (fallback priority)
+    log::debug!("Checking Scoop config for root_path setting...");
+    match get_scoop_config() {
+        Ok(Some(config)) => {
+            log::debug!("Successfully loaded Scoop config");
+            if let Some(root_path) = config.get("root_path").and_then(|v| v.as_str()) {
+                let config_path = PathBuf::from(root_path);
+                let path_str = config_path.to_string_lossy().to_string();
+                log::info!("Found Scoop config root_path: '{}'", path_str);
+
+                if !config_path.exists() {
+                    log::warn!("Scoop config root_path '{}' does not exist", path_str);
+                } else if !config_path.is_dir() {
+                    log::warn!("Scoop config root_path '{}' is not a directory", path_str);
+                } else {
+                    log::debug!("Scoop config root_path exists and is a directory, validating...");
+                    match validate_scoop_directory(path_str.clone()) {
+                        Ok(is_valid) => {
+                            if is_valid {
+                                log::info!("✓ Auto-detected valid Scoop installation from config root_path: {}", path_str);
+                                return Ok(path_str);
+                            } else {
+                                log::warn!("Scoop config root_path '{}' exists but validation failed - missing required directories", path_str);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to validate Scoop config root_path '{}': {}", path_str, e);
+                        }
+                    }
+                }
+            } else {
+                log::debug!("No root_path setting found in Scoop config");
+            }
+        }
+        Ok(None) => log::debug!("Scoop config file not found"),
+        Err(e) => log::warn!("Failed to read Scoop config: {}", e),
+    }
+
+    // Priority-ordered candidate paths (SCOOP env already checked above)
+    log::debug!("Building candidate path list...");
+    let candidates = vec![
+        // 1. User profile scoop installation
+        env::var("USERPROFILE").ok().map(|p| PathBuf::from(p).join("scoop")),
+
+        // 2. Multi-drive common locations
+        Some(PathBuf::from("C:\\scoop")),
+        Some(PathBuf::from("D:\\scoop")),
+        Some(PathBuf::from("E:\\scoop")),
+        Some(PathBuf::from("F:\\scoop")),
+    ];
+
+    // Filter out None values and get valid PathBufs
+    let candidates: Vec<PathBuf> = candidates.into_iter().flatten().collect();
+    log::info!("Checking {} candidate paths for Scoop installation", candidates.len());
+
+    // Try each candidate path and validate it
+    for (index, candidate) in candidates.iter().enumerate() {
+        let path_str = candidate.to_string_lossy().to_string();
+        log::debug!("Candidate {}: checking path '{}'", index + 1, path_str);
+
+        // Check if path exists
+        if !candidate.exists() {
+            log::debug!("Path '{}' does not exist, skipping", path_str);
+            continue;
+        }
+
+        if !candidate.is_dir() {
+            log::debug!("Path '{}' exists but is not a directory, skipping", path_str);
+            continue;
+        }
+
+        log::debug!("Path '{}' exists and is a directory, validating Scoop installation...", path_str);
+
+        // Validate if this path is a valid Scoop installation
+        match validate_scoop_directory(path_str.clone()) {
+            Ok(is_valid) => {
+                if is_valid {
+                    log::info!("✓ Auto-detected valid Scoop installation at: {}", path_str);
+                    return Ok(path_str);
+                } else {
+                    log::debug!("✗ Path '{}' exists but validation failed - missing required Scoop directories (apps, buckets, cache)", path_str);
+                }
+            }
+            Err(e) => {
+                log::error!("✗ Failed to validate path '{}': {}", path_str, e);
+            }
         }
     }
 
-    Err("Could not detect Scoop installation directory. Please set the path manually.".to_string())
+    log::warn!("Could not auto-detect any valid Scoop installation in common locations");
+    Err("Unable to automatically detect Scoop installation. Please set the path manually in settings.".to_string())
 }
 
+/// Checks if a path exists on the filesystem
+#[tauri::command]
+pub fn path_exists(path: String) -> Result<bool, String> {
+    let path_buf = std::path::PathBuf::from(&path);
+    Ok(path_buf.exists())
+}
 
+/// Gets the Scoop configuration from the default global config location
+#[tauri::command]
+pub fn get_default_scoop_config() -> Result<Option<serde_json::Map<String, serde_json::Value>>, String> {
+    let config_path = get_scoop_config_path()?;
+    
+    if !config_path.exists() {
+        return Ok(None);
+    }
+    
+    let content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read Scoop config file: {}", e))?;
+    
+    let config: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse Scoop config: {}", e))?;
+    
+    Ok(Some(config))
+}
 
 /// Gets a generic configuration value from the store by its key.
 /// Supports dotted notation for accessing nested values (e.g., "cleanup.autoCleanupEnabled")

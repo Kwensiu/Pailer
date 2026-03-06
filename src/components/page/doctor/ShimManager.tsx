@@ -1,10 +1,13 @@
 import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { TriangleAlert, Inbox, Link, EyeOff, Plus, BookText, Folder, Layers2 } from 'lucide-solid';
+import { TriangleAlert, Inbox, Link, EyeOff, Plus, BookText, Layers2 } from 'lucide-solid';
 import ShimDetailsModal from './ShimDetailsModal';
 import AddShimModal from './AddShimModal';
 import Card from '../../common/Card';
+import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
+
+const SHIMS_DIR = 'shims';
 
 export interface Shim {
   name: string;
@@ -15,11 +18,7 @@ export interface Shim {
   isHidden: boolean;
 }
 
-export interface ShimManagerProps {
-  onOpenDirectory?: () => void;
-}
-
-function ShimManager(props: ShimManagerProps) {
+function ShimManager() {
   const [allShims, setAllShims] = createSignal<Shim[]>([]);
   const [filter, setFilter] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(true);
@@ -27,6 +26,7 @@ function ShimManager(props: ShimManagerProps) {
   const [error, setError] = createSignal<string | null>(null);
   const [selectedShim, setSelectedShim] = createSignal<Shim | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = createSignal(false);
+  const [shimsDirectory, setShimsDirectory] = createSignal<string>('');
 
   const filteredShims = createMemo(() => {
     const f = filter().toLowerCase();
@@ -36,15 +36,60 @@ function ShimManager(props: ShimManagerProps) {
     );
   });
 
+  const getScoopSubPath = (subPath: string) => {
+    return async () => {
+      try {
+        const scoopPath = await invoke<string>('get_scoop_path');
+        if (!scoopPath) {
+          throw new Error('Scoop path not configured');
+        }
+        return `${scoopPath}\\${subPath}`;
+      } catch (error) {
+        console.error(`Failed to get scoop ${subPath} path:`, error);
+        throw error;
+      }
+    };
+  };
+
+  const fetchShimsDirectory = async () => {
+    try {
+      const getPath = getScoopSubPath(SHIMS_DIR);
+      const path = await getPath();
+      setShimsDirectory(path);
+    } catch (error) {
+      console.error('Failed to fetch shims directory:', error);
+    }
+  };
+
   const fetchShims = async () => {
     setIsLoading(true);
     setError(null);
     try {
+      // 检查Scoop路径是否存在
+      const scoopPath = await invoke<string | null>('get_scoop_path');
+      if (!scoopPath) {
+        setError('No Scoop path configured. Please configure it in settings.');
+        setShimsDirectory('');
+        return;
+      }
+
+      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+      if (!pathExists) {
+        setError(`Configured Scoop path does not exist: ${scoopPath}`);
+        setShimsDirectory('');
+        return;
+      }
+
+      // 获取shim列表
       const result = await invoke<Shim[]>('list_shims');
       setAllShims(result.sort((a, b) => a.name.localeCompare(b.name)));
+
+      // 获取shim目录路径
+      await fetchShimsDirectory();
     } catch (err) {
       console.error('Failed to fetch shims:', err);
       setError(typeof err === 'string' ? err : 'An unknown error occurred while fetching shims.');
+      setShimsDirectory('');
     } finally {
       setIsLoading(false);
     }
@@ -117,14 +162,13 @@ function ShimManager(props: ShimManagerProps) {
             </button>
             <div class="divider divider-horizontal m-1" />
           </Show>
-          <Show when={props.onOpenDirectory}>
-            <button
-              class="btn btn-ghost btn-sm"
-              onClick={props.onOpenDirectory}
-              title={t('doctor.shimManager.openShimDirectory')}
-            >
-              <Folder class="h-5 w-5" />
-            </button>
+          <Show when={shimsDirectory()}>
+            <OpenPathButton
+              path={shimsDirectory()}
+              validatePath={true}
+              showErrorToast={true}
+              tooltip={t('doctor.shimManager.openShimDirectory')}
+            />
           </Show>
         </div>
       }

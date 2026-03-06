@@ -1,7 +1,6 @@
 import { createSignal, onMount, createMemo, Show, onCleanup } from 'solid-js';
 import { TriangleAlert } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
-import { openPath } from '@tauri-apps/plugin-opener';
 import Checkup, { CheckupItem } from '../components/page/doctor/Checkup';
 import Cleanup from '../components/page/doctor/Cleanup';
 import CacheManager from '../components/page/doctor/CacheManager';
@@ -13,9 +12,6 @@ import OperationModal from '../components/OperationModal';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
 import { t } from '../i18n';
-
-const CACHE_DIR = 'cache';
-const SHIMS_DIR = 'shims';
 
 function DoctorPage() {
   const { addOperation, operations } = useOperations();
@@ -165,51 +161,6 @@ function DoctorPage() {
     }
   };
 
-  const getScoopSubPath = (subPath: string) => {
-    return async () => {
-      try {
-        const scoopPath = await invoke<string>('get_scoop_path');
-        return `${scoopPath}\\${subPath}`;
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        console.error(`Failed to get scoop path for ${subPath}:`, errorMsg);
-        throw err;
-      }
-    };
-  };
-
-  const handleOpenCacheDirectory = async () => {
-    try {
-      const getPath = getScoopSubPath(CACHE_DIR);
-      const cachePath = await getPath();
-      console.log('Attempting to open cache directory:', cachePath);
-      await openPath(cachePath);
-    } catch (err) {
-      console.error('Failed to open cache directory:', err);
-    }
-  };
-
-  const handleOpenShimDirectory = async () => {
-    try {
-      const getPath = getScoopSubPath(SHIMS_DIR);
-      const shimPath = await getPath();
-      console.log('Attempting to open shim directory:', shimPath);
-      await openPath(shimPath);
-    } catch (err) {
-      console.error('Failed to open shim directory:', err);
-    }
-  };
-
-  const handleOpenScoopDirectory = async () => {
-    try {
-      const configDirectory = await invoke<string>('get_scoop_config_directory');
-      console.log('Attempting to open Scoop config directory:', configDirectory);
-      await openPath(configDirectory);
-    } catch (err) {
-      console.error('Failed to open Scoop config directory:', err);
-    }
-  };
-
   onCleanup(() => {
     // Cleanup is handled by the global store
   });
@@ -244,16 +195,12 @@ function DoctorPage() {
         </div>
 
         <div class="space-y-8">
-          <ScoopInfo onOpenDirectory={handleOpenScoopDirectory} />
+          <ScoopInfo />
           <CommandInputField />
           <ScoopProxySettings />
           <Cleanup onCleanupApps={handleCleanupApps} onCleanupCache={handleCleanupCache} />
-          <CacheManager
-            onOpenDirectory={handleOpenCacheDirectory}
-            onCleanupApps={handleCleanupApps}
-            onCleanupCache={handleCleanupCache}
-          />
-          <ShimManager onOpenDirectory={handleOpenShimDirectory} />
+          <CacheManager />
+          <ShimManager />
           <div ref={checkupRef}>{checkupComponent}</div>
         </div>
       </div>
