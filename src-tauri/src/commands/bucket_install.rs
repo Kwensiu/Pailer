@@ -257,12 +257,13 @@ pub async fn validate_bucket_install(
     let already_exists = bucket_exists(&bucket_name).unwrap_or(false);
 
     let bucket_path = if already_exists {
-        Some(
-            get_bucket_path(&bucket_name)
-                .unwrap()
-                .to_string_lossy()
-                .to_string(),
-        )
+        match get_bucket_path(&bucket_name) {
+            Ok(path) => Some(path.to_string_lossy().to_string()),
+            Err(e) => {
+                log::error!("Failed to get bucket path: {}", e);
+                None
+            }
+        }
     } else {
         None
     };
@@ -392,8 +393,10 @@ fn update_bucket_sync(
                         let remote_branch_name = format!("origin/{}", branch_name);
                         match repo.find_branch(&remote_branch_name, git2::BranchType::Remote) {
                             Ok(remote_branch) => {
-                                let remote_commit = remote_branch.get().peel_to_commit().unwrap();
-                                let local_commit = head.peel_to_commit().unwrap();
+                                let remote_commit = remote_branch.get().peel_to_commit()
+                                    .map_err(|e| format!("Failed to get remote commit for bucket '{}': {}", bucket_name, e))?;
+                                let local_commit = head.peel_to_commit()
+                                    .map_err(|e| format!("Failed to get local commit for bucket '{}': {}", bucket_name, e))?;
 
                                 // Check if update is needed
                                 if remote_commit.id() == local_commit.id() {
@@ -601,3 +604,4 @@ pub async fn remove_bucket(bucket_name: String) -> Result<BucketInstallResult, S
         }
     }
 }
+
