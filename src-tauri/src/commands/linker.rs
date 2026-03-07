@@ -45,11 +45,6 @@ pub async fn get_package_versions(
                 if installed_cache.fingerprint == cache.fingerprint {
                     // Cache is still valid, use it
                     if let Some(version_dirs) = cache.versions_map.get(&package_name) {
-                        log::debug!(
-                            "Using cached versions for {}: {} versions",
-                            package_name,
-                            version_dirs.len()
-                        );
                         // Rebuild package version info from cached data
                         return build_versioned_package_info(
                             &scoop_path,
@@ -57,17 +52,15 @@ pub async fn get_package_versions(
                             version_dirs.clone(),
                         )
                         .await;
+                    } else {
                     }
+                } else {
                 }
             }
         }
     }
 
     // Cache miss or invalid - perform fresh scan
-    log::debug!(
-        "Cache miss or invalid for package versions, performing fresh scan for {}",
-        package_name
-    );
 
     let apps_dir = scoop_path.join("apps");
     let package_dir = apps_dir.join(&package_name);
@@ -273,10 +266,6 @@ async fn remove_junction(junction_path: &Path) -> Result<(), String> {
         match cmd.output() {
             Ok(output) => {
                 if output.status.success() {
-                    log::info!(
-                        "Successfully removed junction with rmdir /s: {}",
-                        junction_str
-                    );
                     return Ok(());
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -306,10 +295,6 @@ async fn remove_junction(junction_path: &Path) -> Result<(), String> {
         match cmd.output() {
             Ok(output) => {
                 if output.status.success() {
-                    log::info!(
-                        "Successfully removed junction with PowerShell: {}",
-                        junction_str
-                    );
                     return Ok(());
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -329,7 +314,6 @@ async fn remove_junction(junction_path: &Path) -> Result<(), String> {
         match cmd.output() {
             Ok(output) => {
                 if output.status.success() {
-                    log::info!("Successfully removed junction with rmdir: {}", junction_str);
                     return Ok(());
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -344,10 +328,6 @@ async fn remove_junction(junction_path: &Path) -> Result<(), String> {
         // Method 4: Final fallback with Rust's fs::remove_dir
         match fs::remove_dir(junction_path) {
             Ok(()) => {
-                log::info!(
-                    "Successfully removed junction with fs::remove_dir: {}",
-                    junction_str
-                );
                 Ok(())
             }
             Err(e) => {
@@ -379,13 +359,6 @@ async fn create_junction(junction_path: &Path, target_path: &Path) -> Result<(),
         match cmd.output() {
             Ok(output) => {
                 if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    log::info!(
-                        "Successfully created junction: {} -> {} (output: {})",
-                        junction_str,
-                        target_str,
-                        stdout.trim()
-                    );
                     Ok(())
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -433,10 +406,7 @@ pub async fn get_versioned_packages(
                         .map(|(name, _)| name.clone())
                         .collect();
 
-                    log::debug!(
-                        "Using cached versions to find versioned packages: {} found",
-                        versioned.len()
-                    );
+                    log::info!("Versioned packages from cache: {:?}", versioned);
                     return Ok(versioned);
                 }
             }
@@ -444,7 +414,6 @@ pub async fn get_versioned_packages(
     }
 
     // Cache miss - scan directories to find versioned packages
-    log::debug!("Cache miss for versioned packages, performing fresh scan");
     let mut versioned_packages = Vec::new();
 
     if let Ok(entries) = fs::read_dir(&apps_dir) {
@@ -463,17 +432,22 @@ pub async fn get_versioned_packages(
                                     let path = package_entry.path();
                                     if path.is_dir() {
                                         let dir_name = path.file_name().unwrap().to_string_lossy();
-                                        if dir_name != "current" && is_version_directory(&path) {
+                                        let is_current = dir_name == "current";
+                                        let is_version_dir = is_version_directory(&path);
+                                        
+                                        if !is_current && is_version_dir {
                                             version_dirs.push(dir_name.to_string());
                                         }
                                     }
                                 }
                             }
                         }
+                        
 
                         // If more than one version is installed, it's a versioned package
                         if version_dirs.len() > 1 {
                             versioned_packages.push(package_name_str.clone());
+                            log::info!("Found versioned package: {} with {} versions: {:?}", package_name_str, version_dirs.len(), version_dirs);
 
                             // Update the cache with this package's versions
                             let mut versions_guard = state.package_versions.lock().await;
@@ -495,6 +469,7 @@ pub async fn get_versioned_packages(
                                     }
                                 }
                             }
+                        } else {
                         }
                     }
                 }
