@@ -21,7 +21,6 @@ interface PackageGridViewProps {
   onUpdate: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
-  onSwitchVersion: (pkgName: string, version: string) => void;
   onUninstall: (pkg: ScoopPackage) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: Accessor<string | null>;
@@ -36,7 +35,6 @@ const PackageCard = (props: {
   onUpdate: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
-  onSwitchVersion: (pkgName: string, version: string) => void;
   onUninstall: (pkg: ScoopPackage) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: string | null;
@@ -111,10 +109,7 @@ const PackageCard = (props: {
             <label tabindex="0" class="btn btn-ghost btn-xs btn-circle bg-base-content-bg">
               <Ellipsis class="h-4 w-4" />
             </label>
-            <ul
-              tabindex="0"
-              class="dropdown-content menu bg-base-content-bg rounded-box z-1 w-44 p-2 shadow"
-            >
+            <ul tabindex="0" class="dropdown-content menu z-1 w-44 p-2">
               <li>
                 <HoldToggleButton
                   pkgName={pkg.name}
@@ -237,7 +232,6 @@ function PackageGridView(props: PackageGridViewProps) {
             onUpdate={props.onUpdate}
             onHold={props.onHold}
             onUnhold={props.onUnhold}
-            onSwitchVersion={props.onSwitchVersion}
             onUninstall={props.onUninstall}
             onChangeBucket={props.onChangeBucket}
             operatingOn={props.operatingOn()}

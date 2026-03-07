@@ -121,13 +121,14 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
           <input
             type="text"
             placeholder={t('settings.scoopConfiguration.pathPlaceholder')}
-            class={`input input-bordered join-item w-full ${!isValidPath() ? 'input-warning' : ''}`}
+            class={`input join-item w-full rounded-l-3xl ${!isValidPath() ? 'input-warning' : ''}`}
             value={currentPath()}
             onInput={(e) => handlePathChange(e.currentTarget.value)}
             disabled={isDetecting() || isSaving()}
           />
           <button
-            class="btn btn-primary join-item"
+            class="btn btn-save"
+            style="border: none !important; border-width: 0 !important; box-shadow: none !important; outline: none !important;"
             onClick={handleSavePath}
             disabled={isDetecting() || isSaving() || !isValidPath()}
           >
@@ -135,7 +136,7 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
             {t('settings.scoopConfiguration.save')}
           </button>
           <button
-            class={`btn join-item ${isDetecting() ? 'btn-info' : 'btn-info'}`}
+            class="btn btn-accent join-item rounded-r-3xl pr-4.5"
             onClick={detectScoopPath}
             disabled={isDetecting() || isSaving()}
           >
