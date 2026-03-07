@@ -1,8 +1,8 @@
 import { Show, For } from 'solid-js';
 import { CircleCheckBig, TriangleAlert, WifiOff, FolderOpen } from 'lucide-solid';
-import { View } from '../types/scoop';
-import Modal from './common/Modal';
-import { t } from '../i18n';
+import { View } from '../../../types/scoop';
+import Modal from '../../common/Modal';
+import { t } from '../../../i18n';
 
 interface AppWithIssue {
   name: string;

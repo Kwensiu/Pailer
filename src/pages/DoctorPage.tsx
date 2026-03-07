@@ -8,7 +8,7 @@ import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
 import CommandInputField from '../components/page/doctor/CommandInputField';
-import OperationModal from '../components/OperationModal';
+import OperationModal from '../components/modals/OperationModal';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
 import { t } from '../i18n';

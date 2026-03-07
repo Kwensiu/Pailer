@@ -1,5 +1,5 @@
-import PackageInfoModal from '../components/PackageInfoModal';
-import OperationModal from '../components/OperationModal';
+import PackageInfoModal from '../components/modals/PackageInfoModal';
+import OperationModal from '../components/modals/OperationModal';
 
 import { useSearch } from '../hooks/useSearch';
 import SearchBar from '../components/page/search/SearchBar';

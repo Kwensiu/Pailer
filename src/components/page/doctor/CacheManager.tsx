@@ -2,7 +2,7 @@ import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { Trash2, Archive, TriangleAlert, Inbox, Database } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
-import ConfirmationModal from '../../ConfirmationModal';
+import ConfirmationModal from '../../modals/ConfirmationModal';
 import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';

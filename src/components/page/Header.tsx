@@ -1,10 +1,10 @@
 import { Component, For, onMount, onCleanup, Show, createSignal } from 'solid-js';
-import { View } from '../types/scoop.ts';
+import { View } from '../../types/scoop.ts';
 import { Package, Search, Settings, Stethoscope, FolderOpen, ArrowUpCircle } from 'lucide-solid';
-import installedPackagesStore from '../stores/installedPackagesStore';
-import { t } from '../i18n';
-import { updateStore } from '../stores/updateStore';
-import UpdateModal from './page/settings/UpdateModal';
+import installedPackagesStore from '../../stores/installedPackagesStore.ts';
+import { t } from '../../i18n.ts';
+import { updateStore } from '../../stores/updateStore.ts';
+import UpdateModal from './settings/UpdateModal.tsx';
 
 interface HeaderProps {
   currentView: View;
