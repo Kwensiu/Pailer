@@ -202,7 +202,7 @@ export default function AboutSection(props: AboutSectionProps) {
 
         {/* Footer */}
         <div class="text-base-content/30 text-center text-xs">
-          <p>Copyright © {new Date().getFullYear()} Kwensiu. MIT License.</p>
+          <p>Copyright © {new Date().getFullYear()} Kwensiu / AmarBego. MIT License.</p>
         </div>
       </div>
 
