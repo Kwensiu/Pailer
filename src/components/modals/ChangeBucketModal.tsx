@@ -1,8 +1,8 @@
-import Modal from './common/Modal';
-import { t } from '../i18n';
+import Modal from '../common/Modal';
+import { t } from '../../i18n';
 import { For } from 'solid-js';
-import { ScoopPackage } from '../types/scoop';
-import { BucketInfo } from '../hooks/useBuckets';
+import { ScoopPackage } from '../../types/scoop';
+import { BucketInfo } from '../../hooks/useBuckets';
 
 interface ChangeBucketModalProps {
   isOpen: boolean;

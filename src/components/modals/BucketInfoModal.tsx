@@ -1,7 +1,8 @@
-import { For, Show, createMemo, Switch, Match } from 'solid-js';
-import { BucketInfo } from '../hooks/useBuckets';
-import { SearchableBucket } from '../hooks/useBucketSearch';
-import { useBucketInstall } from '../hooks/useBucketInstall';
+import { For, Show, createMemo, createSignal, Switch, Match } from 'solid-js';
+import { BucketInfo } from '../../hooks/useBuckets';
+import { SearchableBucket } from '../../hooks/useBucketSearch';
+import { useBucketInstall } from '../../hooks/useBucketInstall';
+import { clearManifestCache } from '../../hooks/useBuckets';
 import hljs from 'highlight.js/lib/core';
 
 import bash from 'highlight.js/lib/languages/bash';
@@ -12,15 +13,15 @@ import {
   ExternalLink,
   Download,
   Trash2,
-  LoaderCircle,
   FolderOpen,
   RefreshCw,
+  LoaderCircle,
 } from 'lucide-solid';
-import Modal from './common/Modal';
+import Modal from '../common/Modal';
 import { openUrl, openPath } from '@tauri-apps/plugin-opener';
-import settingsStore from '../stores/settings';
-import { t } from '../i18n';
-import { formatBucketDate } from '../utils/date';
+import settingsStore from '../../stores/settings';
+import { t } from '../../i18n';
+import { formatBucketDate } from '../../utils/date';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -55,7 +56,12 @@ function ManifestsList(props: {
   manifests: string[];
   loading: boolean;
   onPackageClick?: (packageName: string) => void;
+  showAll?: boolean;
+  onLoadAll?: () => void;
 }) {
+  const isLargeList = () => props.manifests.length > 1500;
+  const shouldShowAll = () => props.showAll || !isLargeList();
+
   return (
     <Show
       when={!props.loading}
@@ -74,25 +80,42 @@ function ManifestsList(props: {
           </div>
         }
       >
-        <div class="max-h-60 overflow-y-auto">
-          <div class="grid grid-cols-2 gap-1 text-xs">
-            <For each={props.manifests}>
-              {(manifest) => {
-                // Clean up manifest name (remove (root) suffix if present)
-                const cleanName = manifest.replace(/ \(root\)$/, '');
-                return (
-                  <div
-                    class="hover:text-primary hover:bg-base-300 cursor-pointer rounded px-1 py-0.5 transition-colors"
-                    onClick={() => props.onPackageClick?.(cleanName)}
-                    title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
-                  >
-                    {manifest}
-                  </div>
-                );
-              }}
-            </For>
+        <Show
+          when={isLargeList() && !shouldShowAll()}
+          fallback={
+            <div class="max-h-60 overflow-y-auto">
+              <div class="grid grid-cols-2 gap-1 text-xs">
+                <For each={props.manifests}>
+                  {(manifest) => {
+                    // Clean up manifest name (remove (root) suffix if present)
+                    const cleanName = manifest.replace(/ \(root\)$/, '');
+                    return (
+                      <div
+                        class="hover:text-primary hover:bg-base-300 cursor-pointer rounded px-1 py-0.5 transition-colors"
+                        onClick={() => props.onPackageClick?.(cleanName)}
+                        title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
+                      >
+                        {manifest}
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </div>
+          }
+        >
+          <div class="py-8 text-center">
+            <div class="mb-4">
+              <p class="text-base-content/70 mb-2 text-sm">
+                {t('bucketInfo.tooManyPackages', { count: props.manifests.length })}
+              </p>
+              <p class="text-base-content/50 text-xs">{t('bucketInfo.loadAllWarning')}</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onClick={() => props.onLoadAll?.()}>
+              {t('bucketInfo.loadAllPackages')}
+            </button>
           </div>
-        </div>
+        </Show>
       </Show>
     </Show>
   );
@@ -107,6 +130,9 @@ function BucketInfoModal(props: BucketInfoModalProps) {
 
   const bucketName = () => props.bucket?.name || props.searchBucket?.name || '';
   const isExternalBucket = () => !props.bucket && !!props.searchBucket;
+
+  // State for handling large manifest lists
+  const [showAllManifests, setShowAllManifests] = createSignal(false);
 
   // Properly check if bucket is installed
   const isInstalled = () => {
@@ -203,6 +229,25 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       }
     } catch (error) {
       console.error('Failed to refresh bucket:', error);
+    }
+  };
+
+  // Handle loading all manifests for large buckets
+  const handleLoadAllManifests = () => {
+    setShowAllManifests(true);
+  };
+
+  // Handle refreshing manifests with cache clear
+  const handleRefreshManifests = async () => {
+    const name = bucketName();
+    if (!name) return;
+
+    // Clear cache for this bucket
+    clearManifestCache(name);
+
+    // Fetch fresh manifests
+    if (props.onFetchManifests) {
+      await props.onFetchManifests(name);
     }
   };
   const orderedDetails = createMemo(() => {
@@ -537,13 +582,26 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                   </Show>
                 }
               >
-                <h4 class="mb-3 flex items-center gap-2 border-b pb-2 text-lg font-medium">
-                  {t('bucketInfo.availablePackages')} ({props.manifests.length})
+                <h4 class="mb-3 flex items-center justify-between border-b pb-2 text-lg font-medium">
+                  <span class="flex items-center gap-2">
+                    {t('bucketInfo.availablePackages')} ({props.manifests.length})
+                  </span>
+                  <Show when={isInstalled()}>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      onClick={handleRefreshManifests}
+                      title={t('bucketInfo.refreshManifests')}
+                    >
+                      <RefreshCw class="h-4 w-4" />
+                    </button>
+                  </Show>
                 </h4>
                 <div class="bg-base-content-bg rounded-lg p-3">
                   <ManifestsList
                     manifests={props.manifests}
                     loading={props.manifestsLoading}
+                    showAll={showAllManifests()}
+                    onLoadAll={handleLoadAllManifests}
                     onPackageClick={(packageName) =>
                       props.onPackageClick?.(packageName, props.bucket?.name ?? bucketName())
                     }

@@ -1,5 +1,5 @@
-import Modal from './common/Modal';
-import { t } from '../i18n';
+import Modal from '../../components/common/Modal';
+import { t } from '../../i18n';
 
 interface ConfirmationModalProps {
   isOpen: boolean;

@@ -1,16 +1,16 @@
 import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from 'solid-js';
 import { listen, UnlistenFn, emit } from '@tauri-apps/api/event';
-import { useOperations } from '../stores/operations';
+import { useOperations } from '../../stores/operations';
 import {
   OperationOutput as StoreOperationOutput,
   OperationResult as StoreOperationResult,
   OperationModalProps,
-} from '../types/operations';
+} from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
-import { t } from '../i18n';
-import { isErrorLineWithContext } from '../utils/errorDetection';
-import { stripAnsi } from '../utils/ansiUtils';
-import Modal from './common/Modal';
+import { t } from '../../i18n';
+import { isErrorLineWithContext } from '../../utils/errorDetection';
+import { stripAnsi } from '../../utils/ansiUtils';
+import Modal from '../common/Modal';
 
 // Define VirustotalResult locally since it's not exported from types
 interface VirustotalResult {
@@ -516,7 +516,7 @@ function OperationModal(props: OperationModalProps) {
       {/* Output content */}
       <div
         ref={scrollRef}
-        class="my-3 overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
+        class="overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
         style="white-space: pre-wrap; word-break: break-word;"
       >
         <For each={currentOperation?.output || []}>

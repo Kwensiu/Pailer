@@ -1,13 +1,17 @@
 import { Show, createSignal, createMemo, onMount, createEffect } from 'solid-js';
-import PackageInfoModal from '../components/PackageInfoModal';
-import ScoopStatusModal from '../components/ScoopStatusModal';
-import OperationModal from '../components/OperationModal';
+import { invoke } from '@tauri-apps/api/core';
+import PackageInfoModal from '../components/modals/PackageInfoModal';
+import BucketInfoModal from '../components/modals/BucketInfoModal';
+import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
+import OperationModal from '../components/modals/OperationModal';
 import { useInstalledPackages } from '../hooks/useInstalledPackages';
+import { usePackageOperations } from '../hooks/usePackageOperations';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
 import PackageListView from '../components/page/installed/PackageListView';
 import PackageGridView from '../components/page/installed/PackageGridView';
 import { View } from '../types/scoop';
-import ChangeBucketModal from '../components/ChangeBucketModal';
+import ChangeBucketModal from '../components/modals/ChangeBucketModal';
+import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
 import { t } from '../i18n';
 
 interface InstalledPageProps {

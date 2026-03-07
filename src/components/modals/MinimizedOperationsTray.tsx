@@ -1,21 +1,21 @@
-import { createSignal, For, Show, onMount, onCleanup } from 'solid-js';
-import { CircleCheckBig, XCircle, Loader2 } from 'lucide-solid';
-import { useOperations } from '../stores/operations';
-import type { MinimizedIndicatorProps } from '../types/operations';
-import { t } from '../i18n';
+import { createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
+import { CircleCheckBig, CircleX, LoaderCircle } from 'lucide-solid';
+import { useOperations } from '../../stores/operations';
+import type { MinimizedIndicatorProps } from '../../types/operations';
+import { t } from '../../i18n';
 
-// Minimized indicator component
-const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
+// Single minimized operation indicator
+const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
   const getStatusIcon = () => {
     switch (props.status) {
       case 'in-progress':
-        return <Loader2 class="h-4 w-4 animate-spin text-blue-500" />;
+        return <LoaderCircle class="h-4 w-4 animate-spin text-blue-500" />;
       case 'success':
         return <CircleCheckBig class="text-success h-4 w-4" />;
       case 'error':
-        return <XCircle class="text-error h-4 w-4" />;
+        return <CircleX class="text-error h-4 w-4" />;
       case 'cancelled':
-        return <XCircle class="text-warning h-4 w-4" />;
+        return <CircleX class="text-warning h-4 w-4" />;
       default:
         return null;
     }
@@ -64,8 +64,8 @@ const MinimizedIndicator = (props: MinimizedIndicatorProps) => {
   );
 };
 
-// Minimized indicator manager
-const MinimizedIndicatorManager = () => {
+// Global minimized operations tray - manages and displays minimized OperationModal processes
+const MinimizedOperationsTray = () => {
   const { getActiveOperations, removeOperation, toggleMinimize } = useOperations();
 
   const [showMore, setShowMore] = createSignal(false);
@@ -120,7 +120,7 @@ const MinimizedIndicatorManager = () => {
       <div class="minimized-indicators-container">
         <For each={getVisibleOperations()}>
           {(operation, index) => (
-            <MinimizedIndicator
+            <MinimizedOperation
               operationId={operation.id}
               title={operation.title}
               status={operation.status}
@@ -163,4 +163,4 @@ const MinimizedIndicatorManager = () => {
   );
 };
 
-export default MinimizedIndicatorManager;
+export default MinimizedOperationsTray;

@@ -1,16 +1,14 @@
 import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from 'solid-js';
-import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../types/scoop';
-import Modal from './common/Modal';
+import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../types/scoop';
+import Modal from '../common/Modal';
 import hljs from 'highlight.js/lib/core';
 
 import json from 'highlight.js/lib/languages/json';
-import { Download, Ellipsis, FileText, ExternalLink, RefreshCw } from 'lucide-solid';
+import { Download, Ellipsis, FileText, ExternalLink } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
-import settingsStore from '../stores/settings';
-import { t } from '../i18n';
-import { toast } from './common/ToastAlert';
+import { t } from '../../i18n';
 
 hljs.registerLanguage('json', json);
 
@@ -26,12 +24,12 @@ interface PackageInfoModalProps {
   onUninstall?: (pkg: ScoopPackage) => void;
   onUpdate?: (pkg: ScoopPackage) => void;
   onForceUpdate?: (pkg: ScoopPackage) => void;
-  onSwitchVersion?: (pkg: ScoopPackage, version: string) => void;
   onChangeBucket?: (pkg: ScoopPackage) => void;
   onPackageStateChanged?: () => void;
   setOperationTitle?: (title: string) => void;
   showBackButton?: boolean;
   context?: 'installed' | 'search'; // Add context property to distinguish page source
+  onBucketClick?: (bucketName: string) => void; // Add callback for bucket name clicks
 }
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
@@ -127,11 +125,6 @@ function LicenseValue(props: { value: string }) {
 
 function PackageInfoModal(props: PackageInfoModalProps) {
   let codeRef: HTMLElement | undefined;
-  const { settings } = settingsStore;
-  // Theme-specific colors
-  const isDark = () => settings.theme === 'dark';
-  const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
-
   // Format date display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -195,16 +188,46 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     return result;
   });
 
-  // State for manifest modal
-  const [manifestContent, setManifestContent] = createSignal<string | null>(null);
-  const [manifestLoading, setManifestLoading] = createSignal(false);
-  const [manifestError, setManifestError] = createSignal<string | null>(null);
-
   // State for version switching
   const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
   const [versionLoading, setVersionLoading] = createSignal(false);
   const [versionError, setVersionError] = createSignal<string | null>(null);
   const [switchingVersion, setSwitchingVersion] = createSignal<string | null>(null);
+
+  // State for manifest modal
+  const [manifestContent, setManifestContent] = createSignal<string | null>(null);
+  const [manifestLoading, setManifestLoading] = createSignal(false);
+  const [manifestError, setManifestError] = createSignal<string | null>(null);
+
+  // State for version switcher sidebar
+  const [showVersionSwitcher, setShowVersionSwitcher] = createSignal(false);
+  const [animatingOut, setAnimatingOut] = createSignal(false);
+  const [animatingIn, setAnimatingIn] = createSignal(false);
+
+  // Handle version switcher close with animation
+  const closeVersionSwitcher = () => {
+    setAnimatingOut(true);
+    setAnimatingIn(false);
+    // Wait for animation to complete before hiding
+    setTimeout(() => {
+      setShowVersionSwitcher(false);
+      setAnimatingOut(false);
+    }, 300); // Match the transition duration
+  };
+
+  // Handle version switcher open with animation
+  const openVersionSwitcher = () => {
+    setShowVersionSwitcher(true);
+    // Start animation in the next render cycle
+    setTimeout(() => {
+      setAnimatingIn(true);
+    }, 10); // Small delay to ensure the element is rendered first
+  };
+
+  // Check if a detail key is version-related
+  const isVersionRelated = (key: string) => {
+    return ['Version', 'Installed Version'].includes(key);
+  };
 
   // State for uninstall confirmation
   const [uninstallConfirm, setUninstallConfirm] = createSignal(false);
@@ -230,13 +253,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   });
 
-  // Auto-fetch version info if autoShowVersions is true and package is versioned
+  // Auto-fetch version info for versioned packages
   createEffect(() => {
-    if (
-      props.autoShowVersions &&
-      props.pkg?.is_installed &&
-      props.isPackageVersioned?.(props.pkg.name)
-    ) {
+    if (props.pkg?.is_installed) {
       fetchVersionInfo(props.pkg);
     }
   });
@@ -312,6 +331,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         global: false, // TODO: Add support for global packages
       });
       setVersionInfo(result);
+      setVersionLoading(false);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setVersionError(t('packageInfo.errorLoadingVersions', { name: pkg.name, error: errorMsg }));
@@ -334,9 +354,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
       // Notify parent that package state may have changed
       props.onPackageStateChanged?.();
-
-      // Call the onSwitchVersion callback if provided
-      props.onSwitchVersion?.(pkg, targetVersion);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setVersionError(
@@ -354,21 +371,13 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
         <Ellipsis class="h-5 w-5" />
       </label>
-      <ul tabindex="0" class="dropdown-content menu bg-base-content-bg rounded-box w-52 p-2 shadow">
+      <ul tabindex="0" class="dropdown-content menu w-52 p-2">
         <li>
           <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
             <FileText class="mr-2 h-4 w-4" />
             {t('packageInfo.viewManifest')}
           </a>
         </li>
-        <Show when={props.pkg?.is_installed && props.isPackageVersioned?.(props.pkg.name)}>
-          <li>
-            <a onClick={() => props.pkg && fetchVersionInfo(props.pkg)}>
-              <RefreshCw class="mr-2 h-4 w-4" />
-              {t('packageInfo.switchVersion')}
-            </a>
-          </li>
-        </Show>
         <Show when={props.pkg?.is_installed}>
           <li>
             <a
@@ -608,8 +617,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           </div>
         </Show>
         <Show when={props.info}>
-          <div class="flex flex-col gap-6 md:flex-row">
-            <div class="flex-1">
+          <div class="flex gap-6">
+            {/* Package details - always full width */}
+            <div class="min-w-0 flex-1">
               <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.details')}</h4>
               <div class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm">
                 <For each={orderedDetails()}>
@@ -630,15 +640,43 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                               {value}
                             </a>
                           </Match>
+                          <Match when={originalKey === 'Bucket'}>
+                            <div
+                              class="link-primary bg-primary/5 tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              data-tip={t('packageInfo.viewBucketInfo')}
+                              onClick={() => props.onBucketClick?.(value)}
+                            >
+                              {value}
+                            </div>
+                          </Match>
                           <Match when={originalKey === 'License'}>
                             <LicenseValue value={value} />
                           </Match>
                           <Match when={originalKey === 'Includes'}>
                             <IncludesValue value={value} />
                           </Match>
+                          <Match when={isVersionRelated(originalKey)}>
+                            <div class="flex items-center gap-2">
+                              <DetailValue value={value} />
+                              <Show
+                                when={
+                                  props.pkg?.is_installed &&
+                                  (props.isPackageVersioned?.(props.pkg.name) ||
+                                    (versionInfo() && versionInfo()!.available_versions.length > 1))
+                                }
+                              >
+                                <button
+                                  class="btn btn-xs btn-primary"
+                                  onClick={openVersionSwitcher}
+                                >
+                                  {t('packageInfo.switch')}
+                                </button>
+                              </Show>
+                            </div>
+                          </Match>
                           <Match when={originalKey === 'Installed'}>
                             <div
-                              class="link-primary bg-primary/5 border-bg-primary tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              class="link-primary bg-primary/5 tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
                               data-tip={t('packageInfo.openInExplorer')}
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -646,7 +684,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                                   await openPath(value);
                                 } catch (error) {
                                   console.error('Failed to open installed path:', error);
-                                  toast.error(t('packageInfo.failedToOpenPath'));
                                 }
                               }}
                             >
@@ -660,94 +697,90 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 </For>
               </div>
             </div>
-            <Show when={props.info?.notes}>
-              <div class="flex-1">
-                <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.notes')}</h4>
-                <div
-                  class="border-base-content/10 overflow-hidden rounded-xl border shadow-inner"
-                  style={{ 'background-color': codeBgColor() }}
-                >
-                  <pre class="m-0 p-4">
-                    <code
-                      ref={codeRef}
-                      class="nohighlight bg-transparent! font-mono text-sm leading-relaxed whitespace-pre-wrap"
-                    >
-                      {props.info?.notes}
-                    </code>
-                  </pre>
-                </div>
-              </div>
-            </Show>
-          </div>
-        </Show>
 
-        {/* Version Switcher Section */}
-        <Show when={versionInfo() || versionLoading()}>
-          <div class="divider">{t('packageInfo.versionManager')}</div>
-          <Show
-            when={versionLoading()}
-            fallback={
-              <div class="bg-base-300 rounded-lg p-4">
-                <h4 class="mb-3 text-lg font-medium">{t('packageInfo.availableVersions')}</h4>
-                <Show when={versionError()}>
-                  <div role="alert" class="alert alert-error mb-3">
-                    <span>{versionError()}</span>
+            {/* Floating Version Switcher */}
+            <Show when={showVersionSwitcher() || animatingOut()}>
+              <div
+                class="bg-base-100 border-base-300 absolute top-18 right-0 bottom-20 z-10 max-w-[400px] min-w-[300px] overflow-y-auto rounded-2xl border p-4 shadow-lg transition-transform duration-300 ease-in-out"
+                classList={{
+                  'translate-x-[-1.5rem]':
+                    showVersionSwitcher() && !animatingOut() && animatingIn(),
+                  'translate-x-[calc(100%+1.5rem)]': animatingOut() || !animatingIn(),
+                }}
+              >
+                <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-lg font-semibold">{t('packageInfo.versionSwitch')}</h3>
+                  <button class="btn btn-sm btn-ghost" onClick={closeVersionSwitcher}>
+                    ✕
+                  </button>
+                </div>
+
+                <Show
+                  when={versionLoading()}
+                  fallback={
+                    <div class="space-y-3">
+                      <Show when={versionError()}>
+                        <div role="alert" class="alert alert-error mb-3">
+                          <span>{versionError()}</span>
+                        </div>
+                      </Show>
+                      <For each={versionInfo()?.available_versions || []}>
+                        {(version) => (
+                          <div
+                            class="card bg-base-100 border-base-content/10 border p-4 transition-all hover:shadow-md"
+                            classList={{
+                              'border-primary bg-primary/5': version.is_current,
+                            }}
+                          >
+                            <div class="flex items-center justify-between">
+                              <div>
+                                <div class="font-semibold">{version.version}</div>
+                                <Show when={version.is_current}>
+                                  <div class="text-primary text-sm font-medium">
+                                    {t('packageInfo.current')}
+                                  </div>
+                                </Show>
+                              </div>
+                              <Show when={!version.is_current}>
+                                <button
+                                  class="btn btn-sm btn-primary"
+                                  disabled={switchingVersion() === version.version}
+                                  onClick={() =>
+                                    props.pkg && switchVersion(props.pkg, version.version)
+                                  }
+                                >
+                                  <Show
+                                    when={switchingVersion() === version.version}
+                                    fallback={t('packageInfo.switch')}
+                                  >
+                                    <span class="loading loading-spinner loading-xs"></span>
+                                  </Show>
+                                </button>
+                              </Show>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  }
+                >
+                  <div class="flex items-center justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
                   </div>
                 </Show>
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  <For each={versionInfo()?.available_versions || []}>
-                    {(version) => (
-                      <div
-                        class="card bg-base-100 p-3 shadow-sm transition-all hover:shadow-md"
-                        classList={{
-                          'ring-2 ring-primary': version.is_current,
-                        }}
-                      >
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <div class="text-sm font-semibold">{version.version}</div>
-                            <Show when={version.is_current}>
-                              <div class="text-primary text-xs font-medium">
-                                {t('packageInfo.current')}
-                              </div>
-                            </Show>
-                          </div>
-                          <Show when={!version.is_current}>
-                            <button
-                              class="btn btn-xs btn-primary"
-                              disabled={switchingVersion() === version.version}
-                              onClick={() => props.pkg && switchVersion(props.pkg, version.version)}
-                            >
-                              <Show
-                                when={switchingVersion() === version.version}
-                                fallback={t('packageInfo.switch')}
-                              >
-                                <span class="loading loading-spinner loading-xs"></span>
-                              </Show>
-                            </button>
-                          </Show>
-                        </div>
-                      </div>
-                    )}
-                  </For>
-                </div>
               </div>
-            }
-          >
-            <div class="bg-base-300 flex items-center justify-center rounded-lg p-4">
-              <span class="loading loading-spinner"></span>
-            </div>
-          </Show>
+            </Show>
+
+            <ManifestModal
+              packageName={props.pkg?.name ?? ''}
+              manifestContent={manifestContent()}
+              loading={manifestLoading()}
+              error={manifestError()}
+              onClose={closeManifestModal}
+            />
+          </div>
         </Show>
       </Modal>
-
-      <ManifestModal
-        packageName={props.pkg?.name ?? ''}
-        manifestContent={manifestContent()}
-        loading={manifestLoading()}
-        error={manifestError()}
-        onClose={closeManifestModal}
-      />
     </>
   );
 }
