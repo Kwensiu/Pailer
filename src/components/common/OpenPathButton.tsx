@@ -28,10 +28,18 @@ interface OpenPathButtonProps {
    * Button size variant
    */
   size?: 'sm' | 'md' | 'lg';
+  /**
+   * Whether the button is disabled
+   */
+  disabled?: boolean;
 }
 
 export default function OpenPathButton(props: OpenPathButtonProps) {
   const handleClick = async () => {
+    if (props.disabled) {
+      return;
+    }
+    
     try {
       if (props.validatePath) {
         const pathExists = await invoke<boolean>('path_exists', { path: props.path });
@@ -65,9 +73,10 @@ export default function OpenPathButton(props: OpenPathButtonProps) {
 
   return (
     <button
-      class={`btn btn-ghost ${sizeClass()} tooltip tooltip-bottom ${props.class || ''}`}
+      class={`btn btn-ghost ${sizeClass()} tooltip tooltip-bottom ${props.class || ''} ${props.disabled ? 'btn-disabled opacity-50' : ''}`}
       data-tip={props.tooltip || 'Open Path'}
       onClick={handleClick}
+      disabled={props.disabled}
     >
       <Folder class="h-5 w-5" />
     </button>

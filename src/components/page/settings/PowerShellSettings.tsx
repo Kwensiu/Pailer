@@ -3,7 +3,7 @@ import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { createSignal, createEffect, onMount } from 'solid-js';
 import { t } from '../../../i18n';
-import { createPowerShellCache } from '../../../hooks/useSessionStorage';
+import { createPowerShellCache } from '../../../hooks/createSessionStorage';
 
 function PowerShellSettings() {
   const { settings, setPowershellSettings } = settingsStore;
