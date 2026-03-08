@@ -16,7 +16,7 @@ interface ModalProps {
 
   editButton?: boolean;
   initialContent?: string;
-  animation?: 'none' | 'scale';
+  animation: 'none' | 'scale';
   animationDuration?: number;
   isMinimizing?: boolean;
 }

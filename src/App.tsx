@@ -25,6 +25,7 @@ import { BucketInfo, updateBucketsCache } from './hooks/useBuckets';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
+import { localStorageUtils } from './hooks/useSearchCache';
 
 function App() {
   const { settings } = settingsStore;
@@ -187,6 +188,34 @@ function App() {
         unlistenFunctions.push(unlisten4);
       } catch (e) {
         logError(`Failed to register global scoop-ready listener: ${e}`);
+      }
+
+      // Listen for window close event to perform cleanup
+      try {
+        const unlistenClose = await webview.onCloseRequested(async (_event) => {
+          console.log('🧹 [App] Window close requested, performing cache cleanup...');
+          info('Performing cache cleanup before app close');
+
+          try {
+            // Perform cache cleanup asynchronously (don't block close)
+            setTimeout(() => {
+              try {
+                // Clean up expired cache entries
+                localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
+                // Ensure cache size is reasonable
+                localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
+                console.log('🧹 Cache cleanup completed successfully');
+              } catch (error) {
+                console.warn('⚠️ Cache cleanup failed:', error);
+              }
+            }, 0);
+          } catch (error) {
+            console.warn('⚠️ Failed to initiate cache cleanup:', error);
+          }
+        });
+        unlistenFunctions.push(unlistenClose);
+      } catch (e) {
+        logError(`Failed to register window close listener: ${e}`);
       }
 
       return () => {

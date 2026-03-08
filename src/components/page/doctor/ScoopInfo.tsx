@@ -21,26 +21,29 @@ export interface ScoopInfoProps {
 
 function ScoopInfo() {
   // Combined cache for both config and directory - simple and single source of truth
-  const { data: scoopData, loading, error, refresh, updateData } = createSessionCache<{
+  const {
+    data: scoopData,
+    loading,
+    error,
+    refresh,
+    updateData,
+  } = createSessionCache<{
     config: ScoopConfig | null;
     directory: string | null;
-  }>(
-    'scoopData',
-    async () => {
-      const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
-      let directory = null;
-      
-      if (config) {
-        try {
-          directory = await invoke<string>('get_scoop_config_directory');
-        } catch (err) {
-          console.warn('Failed to get config directory:', err);
-        }
+  }>('scoopData', async () => {
+    const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
+    let directory = null;
+
+    if (config) {
+      try {
+        directory = await invoke<string>('get_scoop_config_directory');
+      } catch (err) {
+        console.warn('Failed to get config directory:', err);
       }
-      
-      return { config, directory };
     }
-  );
+
+    return { config, directory };
+  });
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
   const [editConfig, setEditConfig] = createSignal<string>('');
   const [isSaving, setIsSaving] = createSignal(false);
@@ -145,7 +148,11 @@ function ScoopInfo() {
               path={scoopData()?.directory || ''}
               validatePath={true}
               showErrorToast={true}
-              tooltip={scoopData()?.directory ? t('doctor.scoopInfo.openConfigDirectory') : 'Loading configuration directory...'}
+              tooltip={
+                scoopData()?.directory
+                  ? t('doctor.scoopInfo.openConfigDirectory')
+                  : 'Loading configuration directory...'
+              }
               size="sm"
               disabled={!scoopData()?.directory}
             />

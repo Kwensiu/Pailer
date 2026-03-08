@@ -4,6 +4,7 @@ import { useBuckets, type BucketInfo } from '../hooks/useBuckets';
 import { usePackageInfo } from '../hooks/usePackageInfo';
 import { usePackageOperations } from '../hooks/usePackageOperations';
 import { createTauriSignal } from '../hooks/createTauriSignal';
+import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
 import { ScoopPackage } from '../types/scoop';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
@@ -162,19 +163,28 @@ function BucketPage() {
   };
 
   const handlePackageClick = async (packageName: string, bucketName: string) => {
-    // Create a ScoopPackage object for the package info modal
-    const pkg: ScoopPackage = {
-      name: packageName,
-      version: '', // Will be fetched by package info
-      source: bucketName,
-      updated: '',
-      is_installed: false, // Will be determined by package info
-      info: '',
-      match_source: 'name',
-    };
+    // Use the shared hook for consistent behavior
+    await handleBucketPackageClick(
+      packageName,
+      bucketName,
+      packageInfo.fetchPackageInfo
+      // Don't close bucket modal for BucketPage behavior
+    );
+  };
 
-    // Simply open package info modal - bucket modal stays open underneath
-    await packageInfo.fetchPackageInfo(pkg);
+  // Handle bucket name click from PackageInfoModal
+  const handleBucketClick = async (bucketName: string) => {
+    // Find the bucket in the current buckets list
+    const bucket = buckets().find((b) => b.name === bucketName);
+    if (bucket) {
+      // Close package info modal first
+      packageInfo.closeModal();
+      // Open bucket info modal
+      setSelectedBucket(bucket);
+      await handleFetchManifests(bucket.name);
+    } else {
+      console.warn(`Bucket ${bucketName} not found in installed buckets`);
+    }
   };
 
   // Handle bucket installation/removal - refresh bucket list
@@ -500,6 +510,7 @@ function BucketPage() {
         onClose={packageInfo.closeModal}
         onInstall={packageOperations.handleInstall}
         onUninstall={packageOperations.handleUninstall}
+        onBucketClick={handleBucketClick}
         showBackButton={true}
         onPackageStateChanged={() => {
           // Refresh bucket manifests to reflect installation changes

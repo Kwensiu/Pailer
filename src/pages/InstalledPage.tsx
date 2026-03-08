@@ -59,7 +59,6 @@ function InstalledPage(props: InstalledPageProps) {
     checkForUpdates,
     handleHold,
     handleUnhold,
-    handleSwitchVersion,
     // Change bucket states
     changeBucketModalOpen,
     currentPackageForBucketChange,
@@ -72,10 +71,34 @@ function InstalledPage(props: InstalledPageProps) {
     buckets,
   } = useInstalledPackages();
 
+  const { handleInstall } = usePackageOperations();
+
   const [searchQuery, setSearchQuery] = createSignal<string>(
     sessionStorage.getItem('installedSearchQuery') || ''
   );
   const [showStatusModal, setShowStatusModal] = createSignal(false);
+  const [selectedBucketForInfo, setSelectedBucketForInfo] = createSignal<string | null>(null);
+
+  // Bucket manifests state
+  const [bucketManifests, setBucketManifests] = createSignal<string[]>([]);
+  const [bucketManifestsLoading, setBucketManifestsLoading] = createSignal(false);
+  const [bucketManifestsError, setBucketManifestsError] = createSignal<string | null>(null);
+
+  // Fetch bucket manifests
+  const fetchBucketManifests = async (bucketName: string) => {
+    setBucketManifestsLoading(true);
+    setBucketManifestsError(null);
+    try {
+      const manifests = await invoke<string[]>('get_bucket_manifests', { bucketName });
+      setBucketManifests(manifests);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setBucketManifestsError(errorMsg);
+      console.error(`Failed to fetch manifests for bucket ${bucketName}:`, errorMsg);
+    } finally {
+      setBucketManifestsLoading(false);
+    }
+  };
 
   // Sync search content to sessionStorage
   createEffect(() => {
@@ -92,9 +115,31 @@ function InstalledPage(props: InstalledPageProps) {
     fetchInstalledPackages(true);
   });
 
+  // Fetch bucket manifests when a bucket is selected for info
+  createEffect(() => {
+    const bucketName = selectedBucketForInfo();
+    if (bucketName) {
+      fetchBucketManifests(bucketName);
+    }
+  });
+
   const handleCheckStatus = async () => {
     await checkScoopStatus();
     setShowStatusModal(true);
+  };
+
+  // Handle bucket name click from PackageInfoModal
+  const handleBucketClick = async (bucketName: string) => {
+    // Find the bucket in the buckets list
+    const bucket = buckets().find((b: any) => b.name === bucketName);
+    if (bucket) {
+      // Close package info modal first
+      handleCloseInfoModalWithVersions();
+      // Set selected bucket and fetch manifests
+      setSelectedBucketForInfo(bucketName);
+    } else {
+      console.warn(`Bucket ${bucketName} not found in installed buckets`);
+    }
   };
 
   const filteredPackages = createMemo(() => {
@@ -215,12 +260,12 @@ function InstalledPage(props: InstalledPageProps) {
           fallback={
             <PackageGridView
               packages={filteredPackages}
+              searchQuery={searchQuery}
               onViewInfo={handleFetchPackageInfo}
               onViewInfoForVersions={handleFetchPackageInfoForVersions}
               onUpdate={handleUpdate}
               onHold={handleHold}
               onUnhold={handleUnhold}
-              onSwitchVersion={handleSwitchVersion}
               onUninstall={handleUninstall}
               onChangeBucket={handleOpenChangeBucket}
               operatingOn={operatingOn}
@@ -234,15 +279,16 @@ function InstalledPage(props: InstalledPageProps) {
             sortKey={sortKey}
             sortDirection={sortDirection}
             onViewInfo={handleFetchPackageInfo}
+            onViewBucketInfo={(bucketName) => setSelectedBucketForInfo(bucketName)}
             onViewInfoForVersions={handleFetchPackageInfoForVersions}
             onUpdate={handleUpdate}
             onHold={handleHold}
             onUnhold={handleUnhold}
-            onSwitchVersion={handleSwitchVersion}
             onUninstall={handleUninstall}
             onChangeBucket={handleOpenChangeBucket}
             operatingOn={operatingOn}
             isPackageVersioned={isPackageVersioned}
+            searchQuery={searchQuery}
           />
         </Show>
       </Show>
@@ -266,18 +312,17 @@ function InstalledPage(props: InstalledPageProps) {
         loading={infoLoading()}
         error={infoError()}
         onClose={handleCloseInfoModalWithVersions}
+        onInstall={handleInstall}
         onUninstall={handleUninstall}
         onUpdate={handleUpdate}
         onForceUpdate={handleForceUpdate}
-        onSwitchVersion={(pkg, version) => {
-          console.log(`Switched ${pkg.name} to version ${version}`);
-          // The PackageInfoModal already calls onPackageStateChanged which triggers a refresh
-        }}
+        onBucketClick={handleBucketClick}
         autoShowVersions={autoShowVersions()}
         isPackageVersioned={isPackageVersioned}
         onPackageStateChanged={() => fetchInstalledPackages()}
         onChangeBucket={handleOpenChangeBucket}
         setOperationTitle={setOperationTitle}
+        showBackButton={true}
       />
       <OperationModal
         title={operationTitle()}
@@ -292,6 +337,30 @@ function InstalledPage(props: InstalledPageProps) {
         error={statusError()}
         onNavigate={props.onNavigate}
       />
+
+      <Show when={selectedBucketForInfo()}>
+        <BucketInfoModal
+          bucket={buckets().find((b) => b.name === selectedBucketForInfo()) || null}
+          manifests={bucketManifests()}
+          manifestsLoading={bucketManifestsLoading()}
+          error={bucketManifestsError()}
+          onClose={() => {
+            setSelectedBucketForInfo(null);
+            setBucketManifests([]);
+            setBucketManifestsError(null);
+          }}
+          onPackageClick={async (packageName: string) => {
+            // Use the shared hook for consistent behavior
+            await handleBucketPackageClick(
+              packageName,
+              selectedBucketForInfo()!,
+              async (pkg) => handleFetchPackageInfo(pkg),
+              undefined, // Don't close bucket modal
+              processedPackages() // Pass installed packages list
+            );
+          }}
+        />
+      </Show>
     </div>
   );
 }
