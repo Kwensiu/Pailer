@@ -13,9 +13,11 @@ import type { ScoopPackage } from '../../../types/scoop';
 import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
+import HighlightText from '../../common/HighlightText';
 
 interface PackageGridViewProps {
   packages: Accessor<DisplayPackage[]>;
+  searchQuery: Accessor<string>;
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
   onUpdate: (pkg: ScoopPackage) => void;
@@ -27,9 +29,10 @@ interface PackageGridViewProps {
   isPackageVersioned: (packageName: string) => boolean;
 }
 
-// 单个包卡片组件
+// Single package card component
 const PackageCard = (props: {
   pkg: DisplayPackage;
+  searchQuery: string;
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
   onUpdate: (pkg: ScoopPackage) => void;
@@ -42,7 +45,7 @@ const PackageCard = (props: {
 }) => {
   const { pkg } = props;
 
-  // 检测是否为 CI 版本（beta/alpha/rc 后有额外后缀）
+  // Detect if it's a CI version (beta/alpha/rc followed by additional suffix)
   const isCiVersion = (version: string): boolean => {
     return (
       /beta\.\d+\..+/.test(version) || /alpha\.\d+\..+/.test(version) || /rc\.\d+\..+/.test(version)
@@ -67,7 +70,7 @@ const PackageCard = (props: {
                 }}
               >
                 <div class="truncate" style="max-width: 10rem;">
-                  {pkg.name}
+                  <HighlightText text={pkg.name} query={props.searchQuery} />
                 </div>
               </button>
               <Show
@@ -227,6 +230,7 @@ function PackageGridView(props: PackageGridViewProps) {
         {(pkg) => (
           <PackageCard
             pkg={pkg}
+            searchQuery={props.searchQuery()}
             onViewInfo={props.onViewInfo}
             onViewInfoForVersions={props.onViewInfoForVersions}
             onUpdate={props.onUpdate}

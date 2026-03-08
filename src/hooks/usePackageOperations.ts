@@ -4,6 +4,7 @@ import { ScoopPackage } from '../types/scoop';
 import { OperationNextStep } from '../types/operations';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
+import { searchCacheManager } from './useSearchCache';
 
 interface UsePackageOperationsReturn {
   operationTitle: () => string | null;
@@ -188,6 +189,8 @@ const closeOperationModal = (wasSuccess: boolean) => {
 
   if (wasSuccess) {
     installedPackagesStore.fetch();
+    // 在操作成功后失效搜索缓存
+    searchCacheManager.invalidateCache();
   }
 
   closeHandlers.forEach((handler) => handler(wasSuccess));
