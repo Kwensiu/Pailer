@@ -176,6 +176,7 @@ function SearchPage() {
         onInstall={handleInstall}
         onUninstall={handleUninstall}
         context="search"
+        fromPackageModal={true}
         onPackageStateChanged={() => {
           // This will be called when install/uninstall buttons are clicked
           // The actual refresh will happen in closeOperationModal when the operation completes

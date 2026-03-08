@@ -172,22 +172,6 @@ function BucketPage() {
     );
   };
 
-  // Handle bucket name click from PackageInfoModal
-  const handleBucketClick = async (bucketName: string) => {
-    // Find the bucket in the current buckets list
-    const bucket = buckets().find((b) => b.name === bucketName);
-    if (bucket) {
-      // Close package info modal first
-      packageInfo.closeModal();
-      // Open bucket info modal
-      setSelectedBucket(bucket);
-      await handleFetchManifests(bucket.name);
-    } else {
-      console.warn(`Bucket ${bucketName} not found in installed buckets`);
-    }
-  };
-
-  // Handle bucket installation/removal - refresh bucket list
   const handleBucketInstalled = async () => {
     markForRefresh();
     await fetchBuckets(true);
@@ -510,8 +494,8 @@ function BucketPage() {
         onClose={packageInfo.closeModal}
         onInstall={packageOperations.handleInstall}
         onUninstall={packageOperations.handleUninstall}
-        onBucketClick={handleBucketClick}
         showBackButton={true}
+        fromPackageModal={true}
         onPackageStateChanged={() => {
           // Refresh bucket manifests to reflect installation changes
           const currentBucket = selectedBucket();

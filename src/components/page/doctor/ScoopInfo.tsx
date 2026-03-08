@@ -4,6 +4,7 @@ import { Settings, Edit } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
 import OpenPathButton from '../../common/OpenPathButton';
+import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
 import settingsStore from '../../../stores/settings';
 import { createSessionCache } from '../../../hooks/createSessionStorage';
@@ -117,6 +118,9 @@ function ScoopInfo() {
       const currentData = scoopData() || { config: null, directory: null };
       updateData({ ...currentData, config: newConfig });
 
+      // Show success toast
+      toast.success(t('doctor.scoopInfo.saveSuccess'));
+
       closeEditModal();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -226,7 +230,7 @@ function ScoopInfo() {
           />
         </div>
         <Show when={saveError()}>
-          <div class="alert alert-error mt-4">
+          <div class="status-alert status-alert-error mt-4">
             <span>{saveError()}</span>
           </div>
         </Show>

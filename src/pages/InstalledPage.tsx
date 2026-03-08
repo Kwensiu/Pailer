@@ -128,18 +128,6 @@ function InstalledPage(props: InstalledPageProps) {
     setShowStatusModal(true);
   };
 
-  // Handle bucket name click from PackageInfoModal
-  const handleBucketClick = async (bucketName: string) => {
-    // Find the bucket in the buckets list
-    const bucket = buckets().find((b: any) => b.name === bucketName);
-    if (bucket) {
-      // Set selected bucket and fetch manifests
-      setSelectedBucketForInfo(bucketName);
-    } else {
-      console.warn(`Bucket ${bucketName} not found in installed buckets`);
-    }
-  };
-
   const filteredPackages = createMemo(() => {
     const query = searchQuery().toLowerCase().trim();
     if (!query) return processedPackages();
@@ -306,7 +294,6 @@ function InstalledPage(props: InstalledPageProps) {
       <PackageInfoModal
         pkg={selectedPackage()}
         info={info()}
-        context="installed"
         loading={infoLoading()}
         error={infoError()}
         onClose={handleCloseInfoModalWithVersions}
@@ -314,13 +301,12 @@ function InstalledPage(props: InstalledPageProps) {
         onUninstall={handleUninstall}
         onUpdate={handleUpdate}
         onForceUpdate={handleForceUpdate}
-        onBucketClick={handleBucketClick}
         autoShowVersions={autoShowVersions()}
         isPackageVersioned={isPackageVersioned}
         onPackageStateChanged={() => fetchInstalledPackages()}
-        onChangeBucket={handleOpenChangeBucket}
+        context="installed"
+        fromPackageModal={true}
         setOperationTitle={setOperationTitle}
-        showBackButton={true}
       />
       <OperationModal
         title={operationTitle()}

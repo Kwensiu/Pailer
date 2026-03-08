@@ -106,7 +106,7 @@ function ManifestsList(props: {
             </div>
           }
         >
-          <div class="py-8 text-center">
+          <div class="py-19 text-center">
             <div class="mb-4">
               <p class="text-base-content/70 mb-2 text-sm">
                 {t('bucketInfo.tooManyPackages', { count: props.manifests.length })}
@@ -518,7 +518,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                             </Match>
                             <Match when={key === t('bucketInfo.path')}>
                               <div
-                                class="link-primary bg-primary/5 border-bg-primary inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                                class="link-primary border-bg-primary inline-block cursor-pointer break-all"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (props.bucket?.path) {
@@ -575,7 +575,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                 <h4 class="mb-3 border-b pb-2 text-lg font-medium">
                   {t('bucketInfo.availablePackages')}
                 </h4>
-                <div class="bg-base-content-bg rounded-lg px-6 py-16">
+                <div class="bg-base-content-bg rounded-lg px-6 py-18">
                   <div class="text-center">
                     <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
                       <svg
@@ -614,7 +614,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                     </Show>
                   }
                 >
-                  <h4 class="mb-3 flex items-center justify-between border-b pb-2 text-lg font-medium">
+                  <h4 class="mb-3 flex items-center justify-between border-b pb-1 text-lg font-medium">
                     <span class="flex items-center gap-2">
                       {t('bucketInfo.availablePackages')} ({props.manifests.length})
                     </span>
