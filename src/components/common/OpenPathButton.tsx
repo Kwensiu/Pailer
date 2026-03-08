@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { Folder } from 'lucide-solid';
 import { toast } from './ToastAlert';
+import { t } from '../../i18n';
 
 interface OpenPathButtonProps {
   /**
@@ -74,7 +75,7 @@ export default function OpenPathButton(props: OpenPathButtonProps) {
   return (
     <button
       class={`btn btn-ghost ${sizeClass()} tooltip tooltip-bottom ${props.class || ''} ${props.disabled ? 'btn-disabled opacity-50' : ''}`}
-      data-tip={props.tooltip || 'Open Path'}
+      data-tip={props.tooltip || t('buttons.openPath')}
       onClick={handleClick}
       disabled={props.disabled}
     >

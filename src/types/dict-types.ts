@@ -146,6 +146,8 @@ export interface Dict {
     goToBuckets: string;
     install: string;
     later: string;
+    openPath: string;
+    refresh: string;
     removeAll: string;
     removeSelected: string;
     showLess: string;
@@ -253,6 +255,8 @@ export interface Dict {
       pathNotFound: string;
       permissionDenied: string;
       save: string;
+      saveErrorPrefix: string;
+      saveSuccess: string;
       saving: string;
       title: string;
     };
@@ -358,6 +362,7 @@ export interface Dict {
     errorSwitchingVersion: string;
     failedToOpenPath: string;
     forceUpdate: string;
+    forceUpdating: string;
     homepage: string;
     includes: string;
     installDate: string;
@@ -374,6 +379,7 @@ export interface Dict {
     title: string;
     update: string;
     updateDate: string;
+    updating: string;
     version: string;
     versionSwitch: string;
     viewBucketInfo: string;

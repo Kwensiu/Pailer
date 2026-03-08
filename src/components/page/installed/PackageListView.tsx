@@ -156,8 +156,15 @@ function PackageListView(props: PackageListViewProps) {
                         }
                       >
                         <div
-                          class="tooltip"
-                          data-tip={`Update available: ${pkg.available_version}${isCiVersion(pkg.available_version || '') ? ' (CI 版本，Scoop 可能无法自动更新)' : ''}`}
+                          class="tooltip tooltip-right"
+                          data-tip={
+                            t('installed.list.updateAvailableTooltip', {
+                              version: pkg.available_version,
+                            }) +
+                            (isCiVersion(pkg.available_version || '')
+                              ? t('installed.list.ciVersionNote')
+                              : '')
+                          }
                         >
                           <CircleArrowUp
                             class="text-primary mr-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
@@ -166,12 +173,18 @@ function PackageListView(props: PackageListViewProps) {
                         </div>
                       </Show>
                       <Show when={pkg.is_versioned_install}>
-                        <div class="tooltip" data-tip="Versioned install - cannot be updated">
+                        <div
+                          class="tooltip tooltip-right"
+                          data-tip={t('installed.list.versionedTooltip')}
+                        >
                           <Lock class="h-4 w-4 text-cyan-400" />
                         </div>
                       </Show>
                       <Show when={heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
-                        <div class="tooltip" data-tip="This package is on hold.">
+                        <div
+                          class="tooltip tooltip-right"
+                          data-tip={t('installed.list.heldTooltip')}
+                        >
                           <Lock class="text-warning h-4 w-4" />
                         </div>
                       </Show>

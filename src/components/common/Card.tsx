@@ -1,6 +1,7 @@
 import { Component, JSX, Show, createSignal, createEffect } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw, Folder } from 'lucide-solid';
+import { t } from '../../i18n';
 
 interface CardProps {
   title: string | JSX.Element;
@@ -98,7 +99,7 @@ export default function Card(props: CardProps) {
             <Show when={props.onRefresh}>
               <button
                 class="btn btn-ghost btn-sm tooltip tooltip-bottom"
-                data-tip={props.refreshTooltip || 'Refresh'}
+                data-tip={props.refreshTooltip || t('buttons.refresh')}
                 onClick={props.onRefresh}
               >
                 <RefreshCw class="h-5 w-5" />
@@ -107,7 +108,7 @@ export default function Card(props: CardProps) {
             <Show when={props.onOpenPath}>
               <button
                 class="btn btn-ghost btn-circle btn-sm tooltip tooltip-bottom"
-                data-tip={props.openPathTooltip || 'Open Path'}
+                data-tip={props.openPathTooltip || t('buttons.openPath')}
                 onClick={props.onOpenPath}
               >
                 <Folder class="h-5 w-5" />

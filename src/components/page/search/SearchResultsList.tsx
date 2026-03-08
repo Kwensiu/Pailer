@@ -54,9 +54,8 @@ function SearchResultsList(props: SearchResultsListProps) {
                       <HighlightText text={pkg.name} query={props.searchTerm} />
                     </h3>
                     <p class="truncate">
-                      {t('search.results.fromBucket', {
-                        bucket: <HighlightText text={pkg.source} query={props.searchTerm} />,
-                      })}
+                      {t('search.results.fromBucket').replace('{{bucket}}', '')}
+                      <HighlightText text={pkg.source} query={props.searchTerm} />
                     </p>
                   </div>
                   <div class="ml-4 flex shrink-0 items-center gap-2 text-right">

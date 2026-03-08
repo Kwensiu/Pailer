@@ -79,7 +79,7 @@ const PackageCard = (props: {
                 }
               >
                 <div
-                  class="tooltip"
+                  class="tooltip tooltip-bottom"
                   data-tip={
                     t('installed.list.updateAvailableTooltip', { version: pkg.available_version }) +
                     (isCiVersion(pkg.available_version || '')
@@ -97,12 +97,12 @@ const PackageCard = (props: {
                 </div>
               </Show>
               <Show when={pkg.is_versioned_install}>
-                <div class="tooltip" data-tip={t('installed.list.versionedTooltip')}>
+                <div class="tooltip tooltip-bottom" data-tip={t('installed.list.versionedTooltip')}>
                   <Lock class="h-4 w-4 text-cyan-400" />
                 </div>
               </Show>
               <Show when={heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
-                <div class="tooltip" data-tip={t('installed.list.heldTooltip')}>
+                <div class="tooltip tooltip-bottom" data-tip={t('installed.list.heldTooltip')}>
                   <Lock class="text-warning h-4 w-4" />
                 </div>
               </Show>
