@@ -5,8 +5,8 @@ import Card from '../../common/Card';
 import Modal from '../../common/Modal';
 import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
-import { createLocalStorageSignal } from '../../../hooks/createLocalStorageSignal';
 import settingsStore from '../../../stores/settings';
+import { createSessionCache } from '../../../hooks/createSessionStorage';
 
 interface ScoopConfig {
   [key: string]: any;
@@ -20,14 +20,27 @@ export interface ScoopInfoProps {
 }
 
 function ScoopInfo() {
-  // Use localStorage to persist config data
-  const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>(
-    'scoopConfig',
-    null
+  // Combined cache for both config and directory - simple and single source of truth
+  const { data: scoopData, loading, error, refresh, updateData } = createSessionCache<{
+    config: ScoopConfig | null;
+    directory: string | null;
+  }>(
+    'scoopData',
+    async () => {
+      const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
+      let directory = null;
+      
+      if (config) {
+        try {
+          directory = await invoke<string>('get_scoop_config_directory');
+        } catch (err) {
+          console.warn('Failed to get config directory:', err);
+        }
+      }
+      
+      return { config, directory };
+    }
   );
-  const [configDirectory, setConfigDirectory] = createSignal<string | null>(null);
-  const [isLoading, setIsLoading] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
   const [editConfig, setEditConfig] = createSignal<string>('');
   const [isSaving, setIsSaving] = createSignal(false);
@@ -39,68 +52,43 @@ function ScoopInfo() {
 
   const fetchScoopInfo = async (silent: boolean = false) => {
     if (!silent) {
-      setIsLoading(true);
-    } else {
-      // For silent mode, if currently loading, set to false first
-      if (isLoading()) {
-        setIsLoading(false);
-      }
+      // Use hook's refresh for manual refresh
+      refresh();
     }
-    setError(null);
 
     try {
       // Get configured Scoop path first
       const configuredPath = await invoke<string | null>('get_scoop_path');
 
       if (!configuredPath) {
-        setError('No Scoop path configured. Please configure it in settings.');
+        console.error('No Scoop path configured. Please configure it in settings.');
         return;
       }
 
       // Check if the configured path exists
       const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
       if (!pathExists) {
-        setError(t('doctor.scoopInfo.configuredPathDoesNotExist', { path: configuredPath }));
-        setScoopConfig(null);
+        // Update hook's data to null when path doesn't exist
+        updateData({ config: null, directory: null });
         return;
       }
 
-      // Get Scoop configuration from user config directory (not scoop root)
-      const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
-
-      // Update config
-      setScoopConfig(config);
-
-      // Get config directory path for the open button
-      if (config) {
-        try {
-          const configDir = await invoke<string>('get_scoop_config_directory');
-          setConfigDirectory(configDir);
-        } catch (err) {
-          console.warn('Failed to get config directory:', err);
-          setConfigDirectory(null);
-        }
-      } else {
-        setConfigDirectory(null);
-      }
+      // Config directory is now handled by its own cache
+      console.log('Scoop config loaded via hook');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch scoop info:', errorMsg);
-      setError('Could not load Scoop information: ' + errorMsg);
-    } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      // Hook handles error state automatically
     }
   };
 
   onMount(() => {
-    // Enable automatic silent refresh to avoid flickering
-    fetchScoopInfo(true);
+    // Both scoopConfig and configDirectory are now handled by their respective caches
+    // No need to manually fetch anything
   });
 
   const openEditModal = () => {
-    const config = scoopConfig();
+    const config = scoopData()?.config;
     if (config) {
       setEditConfig(JSON.stringify(config, null, 2));
       setSaveError(null);
@@ -119,11 +107,12 @@ function ScoopInfo() {
     setSaveError(null);
 
     try {
-      const config = JSON.parse(editConfig());
-      await invoke('update_scoop_config', { config });
+      const newConfig = JSON.parse(editConfig());
+      await invoke('update_scoop_config', { config: newConfig });
 
-      // Refresh the config after saving
-      await fetchScoopInfo(true); // Silent refresh
+      // Update hook's data directly
+      const currentData = scoopData() || { config: null, directory: null };
+      updateData({ ...currentData, config: newConfig });
 
       closeEditModal();
     } catch (err) {
@@ -143,7 +132,7 @@ function ScoopInfo() {
         onRefresh={() => fetchScoopInfo()}
         headerAction={
           <div class="flex items-center gap-2">
-            <Show when={scoopConfig()}>
+            <Show when={scoopData()?.config}>
               <button
                 class="btn btn-ghost btn-sm"
                 onClick={openEditModal}
@@ -152,19 +141,18 @@ function ScoopInfo() {
                 <Edit class="h-5 w-5" />
               </button>
             </Show>
-            <Show when={configDirectory()}>
-              <OpenPathButton
-                path={configDirectory()!}
-                validatePath={true}
-                showErrorToast={true}
-                tooltip={t('doctor.scoopInfo.openConfigDirectory')}
-                size="sm"
-              />
-            </Show>
+            <OpenPathButton
+              path={scoopData()?.directory || ''}
+              validatePath={true}
+              showErrorToast={true}
+              tooltip={scoopData()?.directory ? t('doctor.scoopInfo.openConfigDirectory') : 'Loading configuration directory...'}
+              size="sm"
+              disabled={!scoopData()?.directory}
+            />
           </div>
         }
       >
-        {isLoading() ? (
+        {loading() ? (
           <div class="flex h-32 items-center justify-center">
             <div class="loading loading-spinner loading-md"></div>
           </div>
@@ -175,9 +163,9 @@ function ScoopInfo() {
         ) : (
           <div class="space-y-4">
             <div>
-              {scoopConfig() ? (
+              {scoopData()?.config ? (
                 <div class="bg-base-list overflow-x-auto rounded-lg p-4 text-sm">
-                  <For each={Object.entries(scoopConfig()!)}>
+                  <For each={Object.entries(scoopData()!.config!)}>
                     {([key, value]) => (
                       <div class="border-base-100 flex border-b py-1 last:border-0">
                         <span class="text-primary mr-2 min-w-[150px] font-mono font-bold">
