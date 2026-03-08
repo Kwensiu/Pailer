@@ -583,6 +583,7 @@ html {
 .tooltip::before,
 .tooltip::after {
   @apply border-base-content/30 rounded-2xl border backdrop-blur-[16px];
+  @apply text-sm font-normal;
   opacity: 0;
   transition: opacity;
   position: absolute;
@@ -597,12 +598,12 @@ html {
 
 [data-theme='dark'] .tooltip::before,
 [data-theme='dark'] .tooltip::after {
-  @apply bg-black/20;
+  @apply text-base-content/90 bg-black/20;
 }
 
 [data-theme='light'] .tooltip::before,
 [data-theme='light'] .tooltip::after {
-  @apply bg-black/10 text-black/60;
+  @apply text-base-content/80 bg-black/10;
   color: var(--color-base-content);
 }
 

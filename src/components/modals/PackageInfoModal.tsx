@@ -1,6 +1,8 @@
 import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from 'solid-js';
 import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../types/scoop';
 import Modal from '../common/Modal';
+import BucketInfoModal from './BucketInfoModal';
+import { useBuckets } from '../../hooks/useBuckets';
 import hljs from 'highlight.js/lib/core';
 
 import json from 'highlight.js/lib/languages/json';
@@ -30,6 +32,7 @@ interface PackageInfoModalProps {
   showBackButton?: boolean;
   context?: 'installed' | 'search'; // Add context property to distinguish page source
   onBucketClick?: (bucketName: string) => void; // Add callback for bucket name clicks
+  fromPackageModal?: boolean; // Whether this modal is opened from another PackageInfoModal
 }
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
@@ -124,6 +127,7 @@ function LicenseValue(props: { value: string }) {
 }
 
 function PackageInfoModal(props: PackageInfoModalProps) {
+  const { buckets } = useBuckets();
   let codeRef: HTMLElement | undefined;
   // Format date display
   const formatDate = (dateString: string) => {
@@ -204,6 +208,72 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const [showVersionSwitcher, setShowVersionSwitcher] = createSignal(false);
   const [animatingOut, setAnimatingOut] = createSignal(false);
   const [animatingIn, setAnimatingIn] = createSignal(false);
+
+  // State for bucket info modal
+  const [selectedBucket, setSelectedBucket] = createSignal<any>(null);
+  const [showBucketInfo, setShowBucketInfo] = createSignal(false);
+  const [bucketManifests, setBucketManifests] = createSignal<string[]>([]);
+  const [bucketManifestsLoading, setBucketManifestsLoading] = createSignal(false);
+  const [bucketError, setBucketError] = createSignal<string | null>(null);
+
+  // Default bucket click handler
+  const handleBucketClick = async (bucketName: string) => {
+    let isMounted = true;
+
+    try {
+      setBucketManifestsLoading(true);
+      setBucketError(null);
+
+      // For fromPackageModal, try to use existing buckets data first to avoid backend calls
+      if (props.fromPackageModal) {
+        const existingBucket = buckets().find((b) => b.name === bucketName);
+        if (existingBucket) {
+          // Use existing bucket data, no backend call needed
+          setSelectedBucket(existingBucket);
+          setBucketManifests([]); // Empty manifests since we won't show them
+          setShowBucketInfo(true);
+        } else {
+          // Fallback to backend call if bucket not found in existing data
+          const bucketInfo = await invoke<any>('get_bucket_info', { bucketName });
+          if (isMounted) {
+            setSelectedBucket(bucketInfo);
+            setBucketManifests([]);
+            setShowBucketInfo(true);
+          }
+        }
+      } else {
+        // For other cases, fetch both info and manifests
+        const bucketInfo = await invoke<any>('get_bucket_info', { bucketName });
+        const manifests = await invoke<string[]>('get_bucket_manifests', { bucketName });
+
+        if (isMounted) {
+          setSelectedBucket(bucketInfo);
+          setBucketManifests(manifests);
+          setShowBucketInfo(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch bucket info:', error);
+      if (isMounted) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setBucketError(errorMessage);
+        // Fallback to parent handler if available
+        props.onBucketClick?.(bucketName);
+      }
+    } finally {
+      if (isMounted) {
+        setBucketManifestsLoading(false);
+      }
+    }
+  };
+
+  // Close bucket info modal
+  const closeBucketInfo = () => {
+    setShowBucketInfo(false);
+    setSelectedBucket(null);
+    setBucketManifests([]);
+    setBucketError(null);
+  };
 
   // Handle version switcher close with animation
   const closeVersionSwitcher = () => {
@@ -784,6 +854,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
           </div>
         </Show>
       </Modal>
+
+      <Show when={showBucketInfo()}>
+        <BucketInfoModal
+          bucket={selectedBucket()}
+          manifests={bucketManifests()}
+          manifestsLoading={bucketManifestsLoading()}
+          error={bucketError()}
+          onClose={closeBucketInfo}
+          fromPackageModal={props.fromPackageModal}
+          zIndex="z-[60]"
+        />
+      </Show>
     </>
   );
 }
