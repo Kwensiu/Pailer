@@ -133,6 +133,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache Vite
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.vite
+            node_modules/.vite
+          key: ${{ runner.os }}-vite-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-vite-
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
