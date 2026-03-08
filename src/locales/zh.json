@@ -133,7 +133,8 @@
     "tooManyPackages": "此仓库包含 {{count}} 个软件包",
     "type": "类型",
     "unknown": "未知",
-    "viewOnGithub": "在 GitHub 上查看"
+    "viewOnGithub": "在 GitHub 上查看",
+    "viewPackagesOnRepository": "请前往\"仓库\"页面\n查看此 bucket 的软件包详情"
   },
   "buttons": {
     "cancel": "取消",

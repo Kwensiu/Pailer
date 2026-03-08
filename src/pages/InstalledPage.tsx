@@ -133,8 +133,6 @@ function InstalledPage(props: InstalledPageProps) {
     // Find the bucket in the buckets list
     const bucket = buckets().find((b: any) => b.name === bucketName);
     if (bucket) {
-      // Close package info modal first
-      handleCloseInfoModalWithVersions();
       // Set selected bucket and fetch manifests
       setSelectedBucketForInfo(bucketName);
     } else {
@@ -344,6 +342,8 @@ function InstalledPage(props: InstalledPageProps) {
           manifests={bucketManifests()}
           manifestsLoading={bucketManifestsLoading()}
           error={bucketManifestsError()}
+          zIndex="z-[70]"
+          fromPackageModal={true}
           onClose={() => {
             setSelectedBucketForInfo(null);
             setBucketManifests([]);

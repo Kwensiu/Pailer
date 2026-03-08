@@ -39,6 +39,8 @@ interface BucketInfoModalProps {
   onPackageClick?: (packageName: string, bucketName: string) => void;
   onBucketInstalled?: () => void; // Callback when bucket is installed/removed
   onFetchManifests?: (bucketName: string) => Promise<void>; // Callback to fetch manifests for newly installed bucket
+  zIndex?: string; // Z-index for modal layering
+  fromPackageModal?: boolean; // Whether opened from PackageInfoModal
 }
 
 // Component to render bucket detail values
@@ -418,6 +420,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
         headerAction={headerAction}
         footer={footer}
         preventBackdropClose={false}
+        zIndex={props.zIndex}
       >
         <Show when={props.error}>
           <div role="alert" class="alert alert-error mb-4">
@@ -568,45 +571,75 @@ function BucketInfoModal(props: BucketInfoModalProps) {
             </div>
 
             <div class="flex-1">
-              <Show
-                when={isInstalled() && (props.manifests.length > 0 || props.manifestsLoading)}
-                fallback={
-                  // Show description when bucket is not installed or no manifests available
-                  <Show when={props.description && !isInstalled()}>
-                    <h4 class="mb-3 border-b pb-2 text-lg font-medium">
-                      {t('bucketInfo.description')}
-                    </h4>
-                    <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
-                      <p class="text-sm leading-relaxed">{props.description}</p>
-                    </div>
-                  </Show>
-                }
-              >
-                <h4 class="mb-3 flex items-center justify-between border-b pb-2 text-lg font-medium">
-                  <span class="flex items-center gap-2">
-                    {t('bucketInfo.availablePackages')} ({props.manifests.length})
-                  </span>
-                  <Show when={isInstalled()}>
-                    <button
-                      class="btn btn-ghost btn-sm"
-                      onClick={handleRefreshManifests}
-                      title={t('bucketInfo.refreshManifests')}
-                    >
-                      <RefreshCw class="h-4 w-4" />
-                    </button>
-                  </Show>
+              <Show when={props.fromPackageModal}>
+                <h4 class="mb-3 border-b pb-2 text-lg font-medium">
+                  {t('bucketInfo.availablePackages')}
                 </h4>
-                <div class="bg-base-content-bg rounded-lg p-3">
-                  <ManifestsList
-                    manifests={props.manifests}
-                    loading={props.manifestsLoading}
-                    showAll={showAllManifests()}
-                    onLoadAll={handleLoadAllManifests}
-                    onPackageClick={(packageName) =>
-                      props.onPackageClick?.(packageName, props.bucket?.name ?? bucketName())
-                    }
-                  />
+                <div class="bg-base-content-bg rounded-lg px-6 py-16">
+                  <div class="text-center">
+                    <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="text-base-content/50 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                        />
+                      </svg>
+                    </div>
+                    <p class="text-base-content/70 mb-2 whitespace-pre-line">
+                      {t('bucketInfo.viewPackagesOnRepository')}
+                    </p>
+                  </div>
                 </div>
+              </Show>
+
+              <Show when={!props.fromPackageModal}>
+                <Show
+                  when={isInstalled() && (props.manifests.length > 0 || props.manifestsLoading)}
+                  fallback={
+                    <Show when={props.description && !isInstalled()}>
+                      <h4 class="mb-3 border-b pb-2 text-lg font-medium">
+                        {t('bucketInfo.description')}
+                      </h4>
+                      <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
+                        <p class="text-sm leading-relaxed">{props.description}</p>
+                      </div>
+                    </Show>
+                  }
+                >
+                  <h4 class="mb-3 flex items-center justify-between border-b pb-2 text-lg font-medium">
+                    <span class="flex items-center gap-2">
+                      {t('bucketInfo.availablePackages')} ({props.manifests.length})
+                    </span>
+                    <Show when={isInstalled()}>
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        onClick={handleRefreshManifests}
+                        title={t('bucketInfo.refreshManifests')}
+                      >
+                        <RefreshCw class="h-4 w-4" />
+                      </button>
+                    </Show>
+                  </h4>
+                  <div class="bg-base-content-bg rounded-lg p-3">
+                    <ManifestsList
+                      manifests={props.manifests}
+                      loading={props.manifestsLoading}
+                      showAll={showAllManifests()}
+                      onLoadAll={handleLoadAllManifests}
+                      onPackageClick={(packageName) =>
+                        props.onPackageClick?.(packageName, props.bucket?.name ?? bucketName())
+                      }
+                    />
+                  </div>
+                </Show>
               </Show>
             </div>
           </div>

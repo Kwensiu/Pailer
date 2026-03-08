@@ -134,6 +134,7 @@ export interface Dict {
     type: string;
     unknown: string;
     viewOnGithub: string;
+    viewPackagesOnRepository: string;
   };
   buttons: {
     cancel: string;

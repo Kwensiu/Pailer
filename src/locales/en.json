@@ -133,7 +133,8 @@
     "tooManyPackages": "This bucket contains {{count}} packages",
     "type": "Type",
     "unknown": "Unknown",
-    "viewOnGithub": "View on GitHub"
+    "viewOnGithub": "View on GitHub",
+    "viewPackagesOnRepository": "Go to \"Buckets\" page\nto view package details for this bucket"
   },
   "buttons": {
     "cancel": "Cancel",
