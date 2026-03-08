@@ -585,6 +585,8 @@ html {
   @apply border-base-content/30 rounded-2xl border backdrop-blur-[16px];
   opacity: 0;
   transition: opacity;
+  position: absolute;
+  z-index: 9999;
 }
 
 .tooltip:hover::before,
@@ -604,13 +606,39 @@ html {
   color: var(--color-base-content);
 }
 
+/* Fix for tooltips being clipped by table overflow */
+/* Simply remove all overflow constraints that could clip tooltips */
+.bg-base-card {
+  overflow: visible !important;
+}
+
+.bg-base-card > div {
+  overflow: visible !important;
+}
+
+.bg-base-card .overflow-x-auto {
+  overflow: visible !important;
+}
+
+/* Add horizontal scrolling back to the table itself */
+.table-compact {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Ensure tooltips have highest priority */
+.table-compact .tooltip::before,
+.table-compact .tooltip::after {
+  z-index: 9999 !important;
+}
+
 /* ============================================
    Status Alert Components
    ============================================ */
 
 /* Light mode overrides */
 [data-theme='light'] .status-alert {
-  @apply flex items-center gap-2 rounded-2xl border p-3 text-sm backdrop-blur-xs backdrop-brightness-150;
+  @apply flex items-center gap-2 rounded-2xl border p-3 text-sm backdrop-blur-xs backdrop-brightness-125;
 }
 
 [data-theme='light'] .status-alert-success {
@@ -626,7 +654,7 @@ html {
 }
 
 [data-theme='light'] .status-alert-info {
-  @apply bg-info/22 border-[hsl(from_var(--color-info)_h_s_86%/50%)] text-[hsl(from_var(--color-info)_h_s_38%)];
+  @apply bg-info/22 border-[hsl(from_var(--color-info)_h_s_80%/40%)] text-[hsl(from_var(--color-info)_h_s_38%)];
 }
 
 /* dark mode overrides */
