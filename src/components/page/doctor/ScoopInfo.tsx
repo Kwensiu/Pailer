@@ -121,7 +121,10 @@ function ScoopInfo() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to save scoop config:', errorMsg);
-      setSaveError('Failed to save configuration: ' + errorMsg);
+
+      // Only internationalize the user-friendly prefix, keep technical errors in English
+      const userFriendlyPrefix = t('doctor.scoopInfo.saveErrorPrefix');
+      setSaveError(`${userFriendlyPrefix}: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }
@@ -137,9 +140,9 @@ function ScoopInfo() {
           <div class="flex items-center gap-2">
             <Show when={scoopData()?.config}>
               <button
-                class="btn btn-ghost btn-sm"
+                class="btn btn-ghost btn-sm tooltip tooltip-bottom"
+                data-tip={t('doctor.scoopInfo.editConfiguration')}
                 onClick={openEditModal}
-                title={t('doctor.scoopInfo.editConfiguration')}
               >
                 <Edit class="h-5 w-5" />
               </button>

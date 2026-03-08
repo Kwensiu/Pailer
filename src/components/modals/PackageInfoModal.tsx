@@ -643,9 +643,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                           </Match>
                           <Match when={originalKey === 'Bucket'}>
                             <div
-                              class="link-primary bg-primary/5 tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              class="link-primary tooltip tooltip-top cursor-pointer rounded break-all"
                               data-tip={t('packageInfo.viewBucketInfo')}
-                              onClick={() => props.onBucketClick?.(value)}
+                              onClick={() => handleBucketClick(value)}
                             >
                               {value}
                             </div>
@@ -677,7 +677,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                           </Match>
                           <Match when={originalKey === 'Installed'}>
                             <div
-                              class="link-primary bg-primary/5 tooltip inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                              class="link-primary tooltip tooltip-top inline-block cursor-pointer break-all"
                               data-tip={t('packageInfo.openInExplorer')}
                               onClick={async (e) => {
                                 e.stopPropagation();

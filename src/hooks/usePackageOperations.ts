@@ -5,6 +5,7 @@ import { OperationNextStep } from '../types/operations';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
 import { searchCacheManager } from './useSearchCache';
+import { t } from '../i18n';
 
 interface UsePackageOperationsReturn {
   operationTitle: () => string | null;
@@ -115,7 +116,7 @@ const handleUpdate = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const title = `Updating ${pkg.name}`;
+  const title = t('packageInfo.updating', { name: pkg.name });
   setOperationTitle(title);
 
   const operationId = `update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
@@ -139,7 +140,7 @@ const handleForceUpdate = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const title = `Force Updating ${pkg.name}`;
+  const title = t('packageInfo.forceUpdating', { name: pkg.name });
   setOperationTitle(title);
 
   addOperation({
@@ -161,7 +162,7 @@ const handleUpdateAll = () => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const title = 'Updating all packages';
+  const title = t('buttons.updateAll');
   setOperationTitle(title);
 
   const operationId = `update-all-${Math.floor(Date.now() / 1000)}`;
