@@ -8,7 +8,7 @@ import { Download, Ellipsis, FileText, ExternalLink } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { t } from '../../i18n';
+import { t, locale } from '../../i18n';
 
 hljs.registerLanguage('json', json);
 
@@ -134,8 +134,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       // Check if date is valid
       if (isNaN(date.getTime())) return dateString;
 
-      // Use more concise date format
-      return date.toLocaleDateString(undefined, {
+      // Use locale-specific date format
+      const localeString = locale() === 'zh' ? 'zh-CN' : 'en-US';
+      return date.toLocaleDateString(localeString, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -700,77 +701,79 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
             {/* Floating Version Switcher */}
             <Show when={showVersionSwitcher() || animatingOut()}>
-              <div
-                class="bg-base-100 border-base-300 absolute top-18 right-0 bottom-20 z-10 max-w-[400px] min-w-[300px] overflow-y-auto rounded-2xl border p-4 shadow-lg transition-transform duration-300 ease-in-out"
-                classList={{
-                  'translate-x-[-1.5rem]':
-                    showVersionSwitcher() && !animatingOut() && animatingIn(),
-                  'translate-x-[calc(100%+1.5rem)]': animatingOut() || !animatingIn(),
-                }}
-              >
-                <div class="mb-4 flex items-center justify-between">
-                  <h3 class="text-lg font-semibold">{t('packageInfo.versionSwitch')}</h3>
-                  <button class="btn btn-sm btn-ghost" onClick={closeVersionSwitcher}>
-                    ✕
-                  </button>
-                </div>
+              <div class="fixed inset-0 z-70" onClick={closeVersionSwitcher}>
+                <div
+                  class="bg-base-175 border-base-300 absolute top-18 right-0 bottom-20 max-w-[400px] min-w-[300px] overflow-y-auto rounded-2xl border p-4 shadow-lg transition-transform duration-300 ease-in-out"
+                  classList={{
+                    'translate-x-[-1.5rem]':
+                      showVersionSwitcher() && !animatingOut() && animatingIn(),
+                    'translate-x-[calc(100%+1.5rem)]': animatingOut() || !animatingIn(),
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold">{t('packageInfo.versionSwitch')}</h3>
+                    <button class="btn btn-sm btn-ghost" onClick={closeVersionSwitcher}>
+                      ✕
+                    </button>
+                  </div>
 
-                <Show
-                  when={versionLoading()}
-                  fallback={
-                    <div class="space-y-3">
-                      <Show when={versionError()}>
-                        <div role="alert" class="alert alert-error mb-3">
-                          <span>{versionError()}</span>
-                        </div>
-                      </Show>
-                      <For each={versionInfo()?.available_versions || []}>
-                        {(version) => (
-                          <div
-                            class="card bg-base-100 border-base-content/10 border p-4 transition-all hover:shadow-md"
-                            classList={{
-                              'border-primary bg-primary/5': version.is_current,
-                            }}
-                          >
-                            <div class="flex items-center justify-between">
-                              <div>
-                                <div class="font-semibold">{version.version}</div>
-                                <Show when={version.is_current}>
-                                  <div class="text-primary text-sm font-medium">
-                                    {t('packageInfo.current')}
-                                  </div>
+                  <Show
+                    when={versionLoading()}
+                    fallback={
+                      <div class="space-y-3">
+                        <Show when={versionError()}>
+                          <div role="alert" class="alert alert-error mb-3">
+                            <span>{versionError()}</span>
+                          </div>
+                        </Show>
+                        <For each={versionInfo()?.available_versions || []}>
+                          {(version) => (
+                            <div
+                              class="card bg-base-100 border-base-content/10 border p-4 transition-all hover:shadow-md"
+                              classList={{
+                                'border-primary bg-primary/5': version.is_current,
+                              }}
+                            >
+                              <div class="flex items-center justify-between">
+                                <div>
+                                  <div class="font-semibold">{version.version}</div>
+                                  <Show when={version.is_current}>
+                                    <div class="text-primary text-sm font-medium">
+                                      {t('packageInfo.current')}
+                                    </div>
+                                  </Show>
+                                </div>
+                                <Show when={!version.is_current}>
+                                  <button
+                                    class="btn btn-sm btn-primary"
+                                    disabled={switchingVersion() === version.version}
+                                    onClick={() =>
+                                      props.pkg && switchVersion(props.pkg, version.version)
+                                    }
+                                  >
+                                    <Show
+                                      when={switchingVersion() === version.version}
+                                      fallback={t('packageInfo.switch')}
+                                    >
+                                      <span class="loading loading-spinner loading-xs"></span>
+                                    </Show>
+                                  </button>
                                 </Show>
                               </div>
-                              <Show when={!version.is_current}>
-                                <button
-                                  class="btn btn-sm btn-primary"
-                                  disabled={switchingVersion() === version.version}
-                                  onClick={() =>
-                                    props.pkg && switchVersion(props.pkg, version.version)
-                                  }
-                                >
-                                  <Show
-                                    when={switchingVersion() === version.version}
-                                    fallback={t('packageInfo.switch')}
-                                  >
-                                    <span class="loading loading-spinner loading-xs"></span>
-                                  </Show>
-                                </button>
-                              </Show>
                             </div>
-                          </div>
-                        )}
-                      </For>
+                          )}
+                        </For>
+                      </div>
+                    }
+                  >
+                    <div class="flex items-center justify-center py-8">
+                      <span class="loading loading-spinner loading-lg"></span>
                     </div>
-                  }
-                >
-                  <div class="flex items-center justify-center py-8">
-                    <span class="loading loading-spinner loading-lg"></span>
-                  </div>
-                </Show>
+                  </Show>
+                </div>
               </div>
             </Show>
-
             <ManifestModal
               packageName={props.pkg?.name ?? ''}
               manifestContent={manifestContent()}
