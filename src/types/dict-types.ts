@@ -24,30 +24,30 @@ export interface Dict {
       view: string;
     };
     grid: {
-      cancel: string;
-      cancelling: string;
-      loading: string;
-      noBucketsDescription: string;
-      noBucketsFound: string;
-      refresh: string;
-      reloadLocal: string;
-      reloadLocalShort: string;
-      title: string;
-      updateAllGit: string;
-      updateAllGitShort: string;
-      updateCompletionNote: string;
-      updatingBuckets: string;
-      updateCompleted: string;
-      updatingBucketProgress: string;
       bulkUpdateCompleted: string;
       bulkUpdateCompletedSuccess: string;
       bulkUpdateCompletedWithFailures: string;
+      cancel: string;
+      cancelling: string;
       cancellingUpdates: string;
-      updateCancelled: string;
-      showErrors: string;
-      hideErrors: string;
       errorDetails: string;
+      hideErrors: string;
+      loading: string;
+      noBucketsDescription: string;
+      noBucketsFound: string;
       noGitBuckets: string;
+      refresh: string;
+      reloadLocal: string;
+      reloadLocalShort: string;
+      showErrors: string;
+      title: string;
+      updateAllGit: string;
+      updateAllGitShort: string;
+      updateCancelled: string;
+      updateCompleted: string;
+      updateCompletionNote: string;
+      updatingBucketProgress: string;
+      updatingBuckets: string;
     };
     page: {
       description: string;
@@ -115,6 +115,8 @@ export interface Dict {
     install: string;
     installing: string;
     lastUpdated: string;
+    loadAllPackages: string;
+    loadAllWarning: string;
     loadingPackages: string;
     localDirectory: string;
     name: string;
@@ -124,9 +126,11 @@ export interface Dict {
     packagesCount: string;
     path: string;
     refreshBucket: string;
+    refreshManifests: string;
     remove: string;
     removing: string;
     repository: string;
+    tooManyPackages: string;
     type: string;
     unknown: string;
     viewOnGithub: string;
@@ -327,8 +331,12 @@ export interface Dict {
   noPackagesFound: {
     browsePackages: string;
     clearFilters: string;
+    loadAllPackages: string;
+    loadAllWarning: string;
+    loadingPackages: string;
     noInstalledYet: string;
     noMatchCriteria: string;
+    noPackagesFound: string;
     title: string;
   };
   packageInfo: {
@@ -366,11 +374,11 @@ export interface Dict {
     update: string;
     updateDate: string;
     version: string;
-    versionManager: string;
+    versionSwitch: string;
+    viewBucketInfo: string;
     viewManifest: string;
     warning: string;
   };
-  scan: {};
   scoopStatus: {
     allGoodMessage: string;
     appsWithIssues: string;
@@ -442,7 +450,6 @@ export interface Dict {
       joinDiscussion: string;
       latestVersion: string;
       managedByScoop: string;
-      myFork: string;
       noReleaseNotes: string;
       noUpdatesAvailable: string;
       releaseNotes: string;
@@ -462,6 +469,14 @@ export interface Dict {
       upstream: string;
     };
     appData: {
+      activeTab: string;
+      cacheEntries: string;
+      cacheOverview: string;
+      cachePolicy: string;
+      cacheSize: string;
+      cacheStats: string;
+      cacheStatsDescription: string;
+      cleanupPolicy: string;
       clearCache: string;
       clearCacheButton: string;
       clearCacheDescription: string;
@@ -473,12 +488,32 @@ export interface Dict {
       factoryReset: string;
       factoryResetButton: string;
       factoryResetDescription: string;
+      installed: string;
+      language: string;
       loadError: string;
       logDirectory: string;
+      manifestCache: string;
+      manifestCachePolicy: string;
+      newestEntry: string;
+      oldestEntry: string;
       openDirectory: string;
+      otherData: string;
+      refreshStats: string;
       resetting: string;
+      search: string;
+      searchCache: string;
+      searchCachePolicy: string;
+      searchResults: string;
+      searchTerm: string;
+      sessionData: string;
+      sessionStorage: string;
+      settings: string;
       sure: string;
+      theme: string;
       title: string;
+      totalCacheEntries: string;
+      totalCacheSize: string;
+      viewCacheStats: string;
     };
     autoCleanup: {
       cleanOldVersions: string;
@@ -662,14 +697,11 @@ export interface Dict {
     inProgress: string;
     loading: string;
   };
-  tray: {};
-  trayNotification: {};
   update: {
     allTooltip: string;
     loading: string;
     success: string;
   };
-  updateChannel: {};
   warnings: {
     multiInstance: {
       dontShowAgain: string;
