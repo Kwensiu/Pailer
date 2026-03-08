@@ -21,6 +21,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache Vite
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.vite
+            node_modules/.vite
+          key: ${{ runner.os }}-vite-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-vite-
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -43,14 +53,14 @@ jobs:
             ${{ runner.os }}-rust-toolchain-stable-
             ${{ runner.os }}-rust-toolchain-
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Cache sccache binary
         uses: actions/cache@v4
         with:
           path: C:\sccache_bin
           key: sccache-bin-${{ runner.os }}-v0.14.0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install sccache
         shell: pwsh

@@ -27,6 +27,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Vite
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.vite
+            node_modules/.vite
+          key: ${{ runner.os }}-vite-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-vite-
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -38,16 +48,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust toolchain
+        uses: actions/cache@v4
         with:
-          toolchain: stable
+          path: |
+            C:\Users\runneradmin\.cargo\bin
+            C:\Users\runneradmin\.cargo\env
+          key: ${{ runner.os }}-rust-toolchain-stable-1.94.0
+          restore-keys: |
+            ${{ runner.os }}-rust-toolchain-stable-
+            ${{ runner.os }}-rust-toolchain-
 
       - name: Cache sccache binary
         uses: actions/cache@v4
         with:
           path: C:\sccache_bin
           key: sccache-bin-${{ runner.os }}-v0.14.0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
 
       - name: Install sccache
         shell: pwsh
