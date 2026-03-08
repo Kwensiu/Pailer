@@ -1,11 +1,11 @@
 import { createSignal, createEffect, on, Setter, onMount, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { ScoopPackage, ScoopInfo } from '../types/scoop';
 import { usePackageOperations } from './usePackageOperations';
 import { usePackageInfo } from './usePackageInfo';
 import { OperationNextStep } from '../types/operations';
 import { parseSearchFormat, type ParsedSearch } from './useGlobalHotkey';
+import { useSearchCache, searchCacheManager } from './useSearchCache';
 
 interface UseSearchReturn {
   searchTerm: () => string;
@@ -48,12 +48,17 @@ interface UseSearchReturn {
   // Bucket filter
   bucketFilter: () => string;
   setBucketFilter: Setter<string>;
+
+  // Manual cache invalidation
+  invalidateSearchCache: () => void;
 }
 
 let searchResultsCache: ScoopPackage[] | null = null;
 let currentSearchTermCache: string | null = null;
 
 export function useSearch(): UseSearchReturn {
+  const { getCachedSearch, cacheSearch, clearCache } = useSearchCache();
+
   const [searchTerm, setSearchTerm] = createSignal<string>(
     sessionStorage.getItem('searchTerm') || ''
   );
@@ -114,14 +119,17 @@ export function useSearch(): UseSearchReturn {
 
   onMount(async () => {
     restoreSearchResults();
-    const unlistenBuckets = await listen('buckets-changed', () => setCacheVersion((v) => v + 1));
-    const unlistenPackages = await listen('packages-refreshed', () =>
-      setCacheVersion((v) => v + 1)
-    );
-    return () => {
-      unlistenBuckets();
-      unlistenPackages();
-    };
+    // Subscribe to global cache invalidation events
+    const unsubscribe = searchCacheManager.subscribe(() => {
+      console.log('🔄 Received global cache invalidation event');
+      // Clear local cache when global invalidation happens
+      searchResultsCache = null;
+      currentSearchTermCache = null;
+      setCacheVersion((v) => v + 1);
+    });
+
+    // Return cleanup function
+    return unsubscribe;
   });
 
   // Memoized check for cached results
@@ -162,8 +170,18 @@ export function useSearch(): UseSearchReturn {
       setResults([]);
       searchResultsCache = [];
       currentSearchTermCache = searchTerm();
-      currentCacheVersion = cacheVersion();
       return;
+    }
+
+    // Try to get from cache first (for bucket-limited searches)
+    if (!force && parsedSearch.bucketName) {
+      const cachedResults = getCachedSearch(parsedSearch.bucketName, parsedSearch.appName);
+      if (cachedResults) {
+        setResults(cachedResults);
+        setLoading(false);
+        setError(null);
+        return;
+      }
     }
 
     currentSearchController = new AbortController();
@@ -197,6 +215,9 @@ export function useSearch(): UseSearchReturn {
               return pkg.source.toLowerCase().includes(parsedSearch.bucketName!.toLowerCase());
             }
           });
+
+          // Cache the filtered results
+          cacheSearch(parsedSearch.bucketName, parsedSearch.appName, filteredResults);
         }
 
         // Apply app name exact match filtering (if force match is specified)
@@ -230,6 +251,11 @@ export function useSearch(): UseSearchReturn {
   // Function to refresh search results after package operations
   const refreshSearchResults = async (force: boolean = false) => {
     if (searchTerm().trim() !== '' || force) {
+      // Clear cache for bucket-limited searches to ensure fresh results
+      const parsedSearch: ParsedSearch = parseSearchFormat(searchTerm());
+      if (parsedSearch.bucketName) {
+        clearCache(parsedSearch.bucketName);
+      }
       await handleSearch(force);
     }
   };
@@ -329,12 +355,19 @@ export function useSearch(): UseSearchReturn {
     }
   };
 
-  // Enhanced close operation modal that refreshes search results
+  // Enhanced close operation modal that intelligently refreshes search results
   const closeOperationModal = async (_operationId: string, wasSuccess: boolean) => {
     packageOperations.closeOperationModal(wasSuccess);
     if (wasSuccess) {
-      // Refresh search results to reflect installation state changes
-      await refreshSearchResults();
+      // Only refresh search results if they might be affected by the package operation
+      const currentSearch = searchTerm().trim();
+      if (currentSearch && results().length > 0) {
+        // For bucket-specific searches, only refresh if we're actually showing results
+        // that might be affected by package operations (since package operations affect
+        // installed packages, and search results show available packages)
+        // For now, we refresh when there are search results to be conservative
+        await refreshSearchResults();
+      }
 
       // Update selectedPackage if it exists
       const currentSelected = packageInfo.selectedPackage();
@@ -363,6 +396,11 @@ export function useSearch(): UseSearchReturn {
     }
 
     return filteredResults;
+  };
+
+  // 手动失效搜索缓存的简单函数
+  const invalidateSearchCache = () => {
+    searchCacheManager.invalidateCache();
   };
 
   return {
@@ -405,5 +443,7 @@ export function useSearch(): UseSearchReturn {
     // Bucket filter
     bucketFilter,
     setBucketFilter,
+    // Manual cache invalidation
+    invalidateSearchCache,
   };
 }
