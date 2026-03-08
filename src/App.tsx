@@ -191,34 +191,46 @@ function App() {
       }
 
       // Listen for window close event to perform cleanup
+      // Moved to onCleanup to avoid blocking app close
+      /*
       try {
         const unlistenClose = await webview.onCloseRequested(async (_event) => {
           console.log('🧹 [App] Window close requested, performing cache cleanup...');
           info('Performing cache cleanup before app close');
 
-          try {
-            // Perform cache cleanup asynchronously (don't block close)
-            setTimeout(() => {
-              try {
-                // Clean up expired cache entries
-                localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
-                // Ensure cache size is reasonable
-                localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
-                console.log('🧹 Cache cleanup completed successfully');
-              } catch (error) {
-                console.warn('⚠️ Cache cleanup failed:', error);
-              }
-            }, 0);
-          } catch (error) {
-            console.warn('⚠️ Failed to initiate cache cleanup:', error);
-          }
+          // Perform cache cleanup asynchronously (don't block close)
+          setTimeout(() => {
+            try {
+              // Clean up expired cache entries
+              localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
+              // Ensure cache size is reasonable
+              localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
+              console.log('🧹 Cache cleanup completed successfully');
+            } catch (error) {
+              console.warn('⚠️ Cache cleanup failed:', error);
+            }
+          }, 0);
         });
         unlistenFunctions.push(unlistenClose);
       } catch (e) {
         logError(`Failed to register window close listener: ${e}`);
       }
+      */
 
       return () => {
+        console.log('🧹 [App] Component unmounting, performing cache cleanup...');
+        info('Performing cache cleanup on component unmount');
+
+        try {
+          // Clean up expired cache entries
+          localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
+          // Ensure cache size is reasonable
+          localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
+          console.log('🧹 Cache cleanup completed successfully');
+        } catch (error) {
+          console.warn('⚠️ Cache cleanup failed:', error);
+        }
+
         // Cleanup all listeners on unmount
         unlistenFunctions.forEach((unlisten) => unlisten());
       };
