@@ -348,7 +348,7 @@
     "update": "更新",
     "updateDate": "更新日期",
     "version": "版本",
-    "versionManager": "版本管理器",
+    "versionSwitch": "版本管理器",
     "viewManifest": "查看清单",
     "warning": "警告"
   },
@@ -419,7 +419,6 @@
       "installingUpdate": "正在安装更新...",
       "latestVersion": "您已经在使用最新版本 (v{{version}})！",
       "managedByScoop": "由 Scoop 管理",
-      "myFork": "Fork/Kwensiu",
       "noReleaseNotes": "无发行说明。",
       "noUpdatesAvailable": "无可用更新",
       "pleaseReportIssues": "请将任何问题报告到 Kwensiu 的 Fork 仓库。",
