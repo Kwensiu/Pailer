@@ -1,6 +1,75 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 
+// Cache for bucket manifests
+interface ManifestCache {
+  manifests: string[];
+  timestamp: number;
+  bucketName: string;
+}
+
+const MANIFEST_CACHE_PREFIX = 'bucket_manifests_';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+// Helper function to create safe cache keys
+const getCacheKey = (bucketName: string): string => {
+  const safeName = bucketName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
+  return `${MANIFEST_CACHE_PREFIX}${safeName}`;
+};
+
+// Helper functions for manifest cache
+const getManifestCache = (bucketName: string): ManifestCache | null => {
+  try {
+    const cacheKey = getCacheKey(bucketName);
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed: ManifestCache = JSON.parse(cached);
+      // Check if cache is still valid
+      if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+        return parsed;
+      }
+      // Remove expired cache
+      localStorage.removeItem(cacheKey);
+    }
+  } catch (error) {
+    console.error('Failed to read manifest cache:', error);
+  }
+  return null;
+};
+
+const setManifestCache = (bucketName: string, manifests: string[]): void => {
+  try {
+    const cache: ManifestCache = {
+      manifests,
+      timestamp: Date.now(),
+      bucketName,
+    };
+    const cacheKey = getCacheKey(bucketName);
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+  } catch (error) {
+    console.error('Failed to set manifest cache:', error);
+  }
+};
+
+const clearManifestCache = (bucketName?: string): void => {
+  try {
+    if (bucketName) {
+      const cacheKey = getCacheKey(bucketName);
+      localStorage.removeItem(cacheKey);
+    } else {
+      // Clear all manifest caches
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith(MANIFEST_CACHE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Failed to clear manifest cache:', error);
+  }
+};
+
 export interface BucketInfo {
   name: string;
   path: string;
@@ -18,7 +87,8 @@ interface UseBucketsReturn {
   fetchBuckets: (forceRefresh?: boolean, quiet?: boolean) => Promise<void>;
   markForRefresh: () => void;
   getBucketInfo: (bucketName: string) => Promise<BucketInfo | null>;
-  getBucketManifests: (bucketName: string) => Promise<string[]>;
+  getBucketManifests: (bucketName: string, forceRefresh?: boolean) => Promise<string[]>;
+  clearManifestCache: (bucketName?: string) => void;
   cleanup: () => void;
 }
 
@@ -33,6 +103,9 @@ export function updateBucketsCache(buckets: BucketInfo[] | null) {
   // Notify all listeners of the cache update
   listeners.forEach((listener) => listener(buckets || []));
 }
+
+// Export cache functions for external use
+export { clearManifestCache, getManifestCache, setManifestCache };
 
 export function useBuckets(): UseBucketsReturn {
   // Initialize with cached data if available to avoid unnecessary loading state on page switches
@@ -94,6 +167,8 @@ export function useBuckets(): UseBucketsReturn {
 
   const markForRefresh = () => {
     shouldRefreshCache = true;
+    // Clear all manifest caches when buckets need refresh
+    clearManifestCache();
   };
 
   const unsubscribe = subscribe((newBuckets) => {
@@ -118,9 +193,27 @@ export function useBuckets(): UseBucketsReturn {
     }
   };
 
-  const getBucketManifests = async (bucketName: string): Promise<string[]> => {
+  const getBucketManifests = async (
+    bucketName: string,
+    forceRefresh = false
+  ): Promise<string[]> => {
+    // Try to get from cache first (unless force refresh is requested)
+    if (!forceRefresh) {
+      const cached = getManifestCache(bucketName);
+      if (cached) {
+        console.log(`Using cached manifests for bucket: ${bucketName}`);
+        return cached.manifests;
+      }
+    }
+
     try {
-      return await invoke<string[]>('get_bucket_manifests', { bucketName });
+      console.log(`Fetching manifests from backend for bucket: ${bucketName}`);
+      const manifests = await invoke<string[]>('get_bucket_manifests', { bucketName });
+
+      // Cache the results
+      setManifestCache(bucketName, manifests);
+
+      return manifests;
     } catch (err) {
       console.error(`Failed to get manifests for bucket ${bucketName}:`, err);
       return [];
@@ -135,6 +228,7 @@ export function useBuckets(): UseBucketsReturn {
     markForRefresh,
     getBucketInfo,
     getBucketManifests,
+    clearManifestCache,
     cleanup,
   };
 }

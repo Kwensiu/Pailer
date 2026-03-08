@@ -39,7 +39,7 @@ export default function OpenPathButton(props: OpenPathButtonProps) {
     if (props.disabled) {
       return;
     }
-    
+
     try {
       if (props.validatePath) {
         const pathExists = await invoke<boolean>('path_exists', { path: props.path });
