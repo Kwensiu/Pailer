@@ -379,109 +379,25 @@ fn is_version_directory(path: &Path) -> bool {
     manifest_file.exists() || install_json.exists()
 }
 
-/// Get packages that have multiple versions installed
+/// Get packages that are versioned or custom installations
 #[tauri::command]
 pub async fn get_versioned_packages(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     global: Option<bool>,
 ) -> Result<Vec<String>, String> {
-    let scoop_path = state.scoop_path();
     let _is_global = global.unwrap_or(false);
+    
+    // Get installed packages and filter by installation type
+    let installed_packages = crate::commands::installed::get_installed_packages_full(app, state).await?;
+    
+    let versioned_packages: Vec<String> = installed_packages
+        .iter()
+        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+        .map(|pkg| pkg.name.clone())
+        .collect();
 
-    let apps_dir = scoop_path.join("apps");
-
-    // Try to use cached versions if available
-    {
-        let versions_guard = state.package_versions.lock().await;
-        if let Some(cache) = versions_guard.as_ref() {
-            // Check if the installed packages cache fingerprint matches
-            let installed_guard = state.installed_packages.lock().await;
-            if let Some(installed_cache) = installed_guard.as_ref() {
-                if installed_cache.fingerprint == cache.fingerprint {
-                    // Cache is valid, use it to find versioned packages
-                    let versioned: Vec<String> = cache
-                        .versions_map
-                        .iter()
-                        .filter(|(_, versions)| versions.len() > 1)
-                        .map(|(name, _)| name.clone())
-                        .collect();
-
-                    log::info!("Versioned packages from cache: {:?}", versioned);
-                    return Ok(versioned);
-                }
-            }
-        }
-    }
-
-    // Cache miss - scan directories to find versioned packages
-    let mut versioned_packages = Vec::new();
-
-    if let Ok(entries) = fs::read_dir(&apps_dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let package_path = entry.path();
-                if package_path.is_dir() {
-                    if let Some(package_name) = package_path.file_name() {
-                        let package_name_str = package_name.to_string_lossy().to_string();
-
-                        // Count version directories (excluding "current")
-                        let mut version_dirs = Vec::new();
-                        if let Ok(package_entries) = fs::read_dir(&package_path) {
-                            for package_entry in package_entries {
-                                if let Ok(package_entry) = package_entry {
-                                    let path = package_entry.path();
-                                    if path.is_dir() {
-                                        let dir_name = path.file_name().unwrap().to_string_lossy();
-                                        let is_current = dir_name == "current";
-                                        let is_version_dir = is_version_directory(&path);
-                                        
-                                        if !is_current && is_version_dir {
-                                            version_dirs.push(dir_name.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-
-                        // If more than one version is installed, it's a versioned package
-                        if version_dirs.len() > 1 {
-                            versioned_packages.push(package_name_str.clone());
-                            log::info!("Found versioned package: {} with {} versions: {:?}", package_name_str, version_dirs.len(), version_dirs);
-
-                            // Update the cache with this package's versions
-                            let mut versions_guard = state.package_versions.lock().await;
-                            if let Ok(installed_guard) = tokio::task::block_in_place(|| {
-                                tokio::runtime::Handle::current().block_on(async {
-                                    Ok::<_, ()>(state.installed_packages.lock().await)
-                                })
-                            }) {
-                                if let Some(installed_cache) = installed_guard.as_ref() {
-                                    if versions_guard.is_none() {
-                                        *versions_guard =
-                                            Some(crate::state::PackageVersionsCache {
-                                                fingerprint: installed_cache.fingerprint.clone(),
-                                                versions_map: std::collections::HashMap::new(),
-                                            });
-                                    }
-                                    if let Some(cache) = versions_guard.as_mut() {
-                                        cache.versions_map.insert(package_name_str, version_dirs);
-                                    }
-                                }
-                            }
-                        } else {
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    versioned_packages.sort();
-    log::info!(
-        "Programs detected with multiple versions: {}",
-        versioned_packages.len()
-    );
+    log::info!("Found {} versioned/custom packages: {:?}", versioned_packages.len(), versioned_packages);
     Ok(versioned_packages)
 }
 

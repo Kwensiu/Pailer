@@ -243,9 +243,9 @@ export function useInstalledPackages() {
     sortedPkgs.sort((a, b) => {
       // Updatable apps always show first, regardless of sort field
       const aHasUpdate =
-        !!a.available_version && !heldStore.isHeld(a.name) && !a.is_versioned_install;
+        !!a.available_version && !heldStore.isHeld(a.name) && a.installation_type === 'standard';
       const bHasUpdate =
-        !!b.available_version && !heldStore.isHeld(b.name) && !b.is_versioned_install;
+        !!b.available_version && !heldStore.isHeld(b.name) && b.installation_type === 'standard';
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
@@ -261,7 +261,8 @@ export function useInstalledPackages() {
 
   const updatableCount = () =>
     packages().filter(
-      (p) => !!p.available_version && !heldStore.isHeld(p.name) && !p.is_versioned_install
+      (p) =>
+        !!p.available_version && !heldStore.isHeld(p.name) && p.installation_type === 'standard'
     ).length;
 
   return {

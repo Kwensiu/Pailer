@@ -501,7 +501,7 @@ function OperationModal(props: OperationModalProps) {
           </Show>
           <button
             classList={{
-              'btn btn-sm': true,
+              btn: true,
               'btn-error': currentOperation?.status === 'in-progress',
               'btn-primary': currentOperation?.status === 'success',
               'btn-warning': currentOperation?.status === 'error',

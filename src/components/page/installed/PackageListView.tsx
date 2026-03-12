@@ -152,7 +152,7 @@ function PackageListView(props: PackageListViewProps) {
                         when={
                           pkg.available_version &&
                           !heldStore.isHeld(pkg.name) &&
-                          !pkg.is_versioned_install
+                          pkg.installation_type !== 'custom'
                         }
                       >
                         <div
@@ -172,15 +172,15 @@ function PackageListView(props: PackageListViewProps) {
                           />
                         </div>
                       </Show>
-                      <Show when={pkg.is_versioned_install}>
+                      <Show when={pkg.installation_type === 'custom'}>
                         <div
                           class="tooltip tooltip-right"
-                          data-tip={t('installed.list.versionedTooltip')}
+                          data-tip={t('installed.list.customInstallTooltip')}
                         >
                           <Lock class="h-4 w-4 text-cyan-400" />
                         </div>
                       </Show>
-                      <Show when={heldStore.isHeld(pkg.name) && !pkg.is_versioned_install}>
+                      <Show when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}>
                         <div
                           class="tooltip tooltip-right"
                           data-tip={t('installed.list.heldTooltip')}
@@ -226,14 +226,14 @@ function PackageListView(props: PackageListViewProps) {
             when={
               contextMenuPackage() &&
               !heldStore.isHeld(contextMenuPackage()!.name) &&
-              !contextMenuPackage()!.is_versioned_install
+              contextMenuPackage()!.installation_type !== 'custom'
             }
             fallback={
               <Show
                 when={
                   contextMenuPackage() &&
                   heldStore.isHeld(contextMenuPackage()!.name) &&
-                  !contextMenuPackage()!.is_versioned_install
+                  contextMenuPackage()!.installation_type !== 'custom'
                 }
               >
                 <div class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">

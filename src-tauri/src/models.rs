@@ -22,6 +22,26 @@ impl Default for MatchSource {
 }
 
 // -----------------------------------------------------------------------------
+// Installation Types
+// -----------------------------------------------------------------------------
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallationType {
+    /// Standard installation from main/extras buckets
+    Standard,
+    /// Versioned installation from 'versions' bucket
+    Versioned,
+    /// Custom installation from 'Custom' bucket
+    Custom,
+}
+
+impl Default for InstallationType {
+    fn default() -> Self {
+        InstallationType::Standard
+    }
+}
+
+// -----------------------------------------------------------------------------
 // ScoopPackage
 // -----------------------------------------------------------------------------
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -34,8 +54,12 @@ pub struct ScoopPackage {
     pub info: String,
     #[serde(default)]
     pub match_source: MatchSource,
+    /// Installation type based on bucket source
     #[serde(default)]
-    pub is_versioned_install: bool,
+    pub installation_type: InstallationType,
+    /// Whether the app has multiple version directories (technical state)
+    #[serde(default)]
+    pub has_multiple_versions: bool,
 }
 
 // -----------------------------------------------------------------------------
