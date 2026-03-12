@@ -137,22 +137,35 @@ export interface Dict {
     viewPackagesOnRepository: string;
   };
   buttons: {
+    add: string;
+    addShim: string;
+    apply: string;
     cancel: string;
+    clear: string;
     close: string;
     closeDialog: string;
     collapse: string;
     confirm: string;
     copyToClipboard: string;
+    delete: string;
+    deleteDirectly: string;
+    edit: string;
+    expand: string;
     goToBuckets: string;
     install: string;
     later: string;
     openPath: string;
     refresh: string;
     removeAll: string;
+    removeAllShort: string;
     removeSelected: string;
+    reset: string;
+    save: string;
     showLess: string;
     showMore: string;
+    switch: string;
     uninstall: string;
+    update: string;
     updateAll: string;
     view: string;
   };
@@ -174,10 +187,17 @@ export interface Dict {
       delete: string;
       deleteAll: string;
       deleteFiles: string;
+      deletePartialSuccess: string;
       filterPlaceholder: string;
       name: string;
       noCachedFiles: string;
       openCacheDirectory: string;
+      settings: {
+        preserveVersioned: string;
+        preserveVersionedDescription: string;
+        title: string;
+        useScoopCleanup: string;
+      };
       size: string;
       title: string;
       version: string;
@@ -281,6 +301,34 @@ export interface Dict {
       title: string;
     };
     title: string;
+    versionedApps: {
+      bucket: string;
+      cleanupAllOldVersionsError: string;
+      cleanupAllOldVersionsInfo: string;
+      cleanupAllOldVersionsSuccess: string;
+      cleanupAllOldVersionsWarning: string;
+      confirmCleanupAllOldVersions: string;
+      confirmRemoval: string;
+      confirmSwitch: string;
+      currentVersion: string;
+      deleteVersionError: string;
+      deleteVersionSuccess: string;
+      filterPlaceholder: string;
+      localVersions: string;
+      name: string;
+      noVersionedApps: string;
+      noVersionedAppsDesc: string;
+      openAppsDirectory: string;
+      preserveVersionedInstalls: string;
+      removeApps: string;
+      removeWarning: string;
+      selectAction: string;
+      switchVersion: string;
+      switchVersionError: string;
+      switchVersionSuccess: string;
+      title: string;
+      versionManagement: string;
+    };
   };
   installed: {
     grid: {

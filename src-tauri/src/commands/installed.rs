@@ -398,7 +398,12 @@ fn get_install_time(install_root: &Path) -> String {
 
 /// Builds a ScoopPackage from the collected information.
 fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: String, updated_time: String, has_version_dirs: bool) -> ScoopPackage {
-    let is_versioned_install = if bucket == "Custom" { has_version_dirs } else { false };
+    // Configure installation type based on bucket
+    let installation_type = match bucket.as_str() {
+        "versions" => crate::models::InstallationType::Versioned,
+        "Custom" => crate::models::InstallationType::Custom,
+        _ => crate::models::InstallationType::Standard,
+    };
     
     ScoopPackage {
         name: package_name,
@@ -407,8 +412,9 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         updated: updated_time,
         is_installed: true,
         info: manifest.description.unwrap_or_default(),
-        is_versioned_install,
-        ..Default::default()
+        match_source: crate::models::MatchSource::default(),
+        installation_type,
+        has_multiple_versions: has_version_dirs,
     }
 }
 
@@ -742,7 +748,7 @@ async fn update_package_versions_cache(
     
     // Build versions map for versioned installs
     for package in packages {
-        if package.is_versioned_install {
+        if matches!(package.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom) {
             let package_path = scoop_path.join("apps").join(&package.name);
             if let Ok(entries) = fs::read_dir(&package_path) {
                 let version_dirs: Vec<String> = entries

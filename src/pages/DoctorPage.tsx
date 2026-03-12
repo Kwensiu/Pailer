@@ -2,20 +2,16 @@ import { createSignal, onMount, createMemo, Show, onCleanup } from 'solid-js';
 import { TriangleAlert } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import Checkup, { CheckupItem } from '../components/page/doctor/Checkup';
-import Cleanup from '../components/page/doctor/Cleanup';
 import CacheManager from '../components/page/doctor/CacheManager';
+import VersionedAppsManager from '../components/page/doctor/VersionedAppsManager';
 import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
 import CommandInputField from '../components/page/doctor/CommandInputField';
-import OperationModal from '../components/modals/OperationModal';
 import installedPackagesStore from '../stores/installedPackagesStore';
-import { useOperations } from '../stores/operations';
 import { t } from '../i18n';
 
 function DoctorPage() {
-  const { addOperation, operations } = useOperations();
-
   const [installingHelper, setInstallingHelper] = createSignal<string | null>(null);
 
   // State lifted from Checkup.tsx
@@ -38,39 +34,7 @@ function DoctorPage() {
 
   const scrollToCheckup = () => checkupRef?.scrollIntoView({ behavior: 'smooth' });
 
-  // Derived state from global operations store
-  const currentOperationId = createMemo(() => {
-    const ops = operations();
-    // Find the first in-progress operation (prioritize cleanup operations)
-    const cleanupOps = Object.keys(ops).filter(
-      (id) =>
-        ops[id].status === 'in-progress' &&
-        (ops[id].title.includes('cleanup') || ops[id].title.includes('Cleaning'))
-    );
-    return cleanupOps.length > 0 ? cleanupOps[0] : null;
-  });
-
-  const currentOperation = createMemo(() => {
-    const id = currentOperationId();
-    return id ? operations()[id] : null;
-  });
-
-  const operationTitle = createMemo(() => {
-    return currentOperation()?.title || null;
-  });
-
-  // Check if operation is already active using global store
-  const isOperationActive = (operationId: string) => {
-    return operations()[operationId]?.status === 'in-progress';
-  };
-
-  // Logic for running checkup, now in the parent component
   const runCheckup = async (isRetry = false) => {
-    const operationId = 'checkup';
-    if (isOperationActive(operationId)) {
-      return;
-    }
-
     if (isRetry) {
       setIsRetrying(true);
     } else {
@@ -100,10 +64,6 @@ function DoctorPage() {
 
   const handleInstallHelper = async (helperId: string) => {
     setInstallingHelper(helperId);
-    const operationId = `install-${helperId}`;
-    if (isOperationActive(operationId)) {
-      return;
-    }
     try {
       await invoke('install_package', { packageName: helperId, bucket: '' });
       await runCheckup();
@@ -113,51 +73,6 @@ function DoctorPage() {
       console.error(`Failed to install ${helperId}:`, errorMsg);
     } finally {
       setInstallingHelper(null);
-    }
-  };
-
-  const runOperation = (title: string, command: Promise<any>, operationId: string) => {
-    if (isOperationActive(operationId)) {
-      return;
-    }
-
-    // Add operation to the store
-    addOperation({
-      id: operationId,
-      title,
-      status: 'in-progress' as const,
-      output: [],
-      isMinimized: false,
-    });
-
-    command
-      .then(() => {
-        // Operation succeeded
-        console.log(`Operation "${title}" completed successfully`);
-      })
-      .catch((err) => {
-        // Operation failed
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        console.error(`Operation "${title}" failed:`, errorMsg);
-      });
-    // Modal closure is handled by its own event
-  };
-
-  const handleCleanupApps = () => {
-    runOperation('Cleaning up old app versions...', invoke('cleanup_all_apps'), 'cleanup-apps');
-  };
-
-  const handleCleanupCache = () => {
-    runOperation(
-      'Cleaning up outdated cache...',
-      invoke('cleanup_outdated_cache'),
-      'cleanup-cache'
-    );
-  };
-
-  const handleCloseOperationModal = (_operationId: string, wasSuccess: boolean) => {
-    if (wasSuccess) {
-      runCheckup();
     }
   };
 
@@ -198,17 +113,12 @@ function DoctorPage() {
           <ScoopInfo />
           <CommandInputField />
           <ScoopProxySettings />
-          <Cleanup onCleanupApps={handleCleanupApps} onCleanupCache={handleCleanupCache} />
           <CacheManager />
+          <VersionedAppsManager />
           <ShimManager />
           <div ref={checkupRef}>{checkupComponent}</div>
         </div>
       </div>
-      <OperationModal
-        title={operationTitle()}
-        operationId={currentOperationId() || undefined}
-        onClose={handleCloseOperationModal}
-      />
     </>
   );
 }

@@ -64,19 +64,19 @@ pub async fn cleanup_all_apps<R: Runtime>(
     // Count versioned installs for logging
     let versioned_count = installed_packages
         .iter()
-        .filter(|pkg| pkg.is_versioned_install)
+        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
         .count();
 
     if versioned_count > 0 {
         log::warn!(
-            "Found {} versioned installs. These will be EXCLUDED from cleanup to preserve specific versions.", 
+            "Found {} versioned/custom installs. These will be EXCLUDED from cleanup to preserve specific versions.", 
             versioned_count
         );
 
-        // Get only regular packages (non-versioned installs)
+        // Get only regular packages (standard installations)
         let regular_packages: Vec<String> = installed_packages
             .iter()
-            .filter(|pkg| !pkg.is_versioned_install)
+            .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
             .map(|pkg| pkg.name.clone())
             .collect();
 
@@ -97,6 +97,115 @@ pub async fn cleanup_all_apps<R: Runtime>(
     } else {
         log::info!("No versioned installs found - running standard cleanup");
         run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions", "cleanup-apps").await
+    }
+}
+
+/// Cleans up cache for specific packages using scoop cache rm.
+#[tauri::command]
+pub async fn remove_cache_for_specific_packages(
+    window: Window,
+    package_names: Vec<String>,
+) -> Result<(), String> {
+    log::info!("Running scoop cache rm for specific packages: {:?}", package_names);
+    
+    if package_names.is_empty() {
+        return Ok(());
+    }
+    
+    // Build the scoop cache rm command for specific packages
+    let packages_str = package_names.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(" ");
+    let command = format!("scoop cache rm {}", packages_str);
+    
+    run_cleanup_command(window, &command, "Cleanup Specific Packages Cache", "cache-specific").await
+}
+
+/// Cleans up all cache using scoop cache rm * command.
+#[tauri::command]
+pub async fn remove_all_cache_with_scoop(window: Window) -> Result<(), String> {
+    log::info!("Running scoop cache rm *");
+    run_cleanup_command(
+        window,
+        "scoop cache rm *",
+        "Cleanup All Cache with Scoop",
+        "cache-all-scoop",
+    )
+    .await
+}
+
+/// Cleans up old versions of ALL apps, with option to preserve versioned installs.
+/// This is equivalent to `scoop cleanup --all` but with intelligence.
+#[tauri::command]
+pub async fn cleanup_all_apps_smart<R: Runtime>(
+    window: Window,
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+    preserve_versioned: Option<bool>,
+) -> Result<(), String> {
+    let preserve = preserve_versioned.unwrap_or(true);
+    
+    if preserve {
+        log::info!("Running SMART cleanup of old app versions (preserving versioned installs)");
+        
+        // Get all installed packages to identify versioned installs
+        let installed_packages_result = get_installed_packages_full(app, state.clone()).await;
+        
+        let installed_packages = match installed_packages_result {
+            Ok(packages) => {
+                log::info!("Successfully retrieved {} installed packages", packages.len());
+                packages
+            },
+            Err(e) => {
+                log::error!("Failed to retrieve installed packages: {}", e);
+                return Err(format!("Failed to retrieve installed packages: {}", e));
+            }
+        };
+
+        // Count versioned installs for logging
+        let versioned_count = installed_packages
+            .iter()
+            .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+            .count();
+
+        if versioned_count > 0 {
+            log::info!(
+                "Found {} versioned/custom installs. These will be EXCLUDED from cleanup to preserve specific versions.", 
+                versioned_count
+            );
+
+            // Get only regular packages (standard installations)
+            let regular_packages: Vec<String> = installed_packages
+                .iter()
+                .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
+                .map(|pkg| pkg.name.clone())
+                .collect();
+
+            if regular_packages.is_empty() {
+                log::info!("All packages are versioned installs - no cleanup needed");
+                return Ok(());
+            }
+
+            // Clean up only regular packages
+            let packages_str = regular_packages.join(" ");
+            let command = format!("scoop cleanup {}", packages_str);
+
+            log::info!(
+                "Running selective cleanup for {} regular packages",
+                regular_packages.len()
+            );
+            run_cleanup_command(window, &command, "Cleanup Old App Versions", "cleanup-apps").await
+        } else {
+            log::info!("No versioned installs found - running standard cleanup");
+            run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions", "cleanup-apps").await
+        }
+    } else {
+        log::warn!("Running FORCE cleanup of ALL app versions (including versioned installs)");
+        run_cleanup_command(
+            window,
+            "scoop cleanup --all",
+            "Force Cleanup All App Versions",
+            "cleanup-force",
+        )
+        .await
     }
 }
 
@@ -140,7 +249,7 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
     // Collect packages that are NOT versioned installs (safe to clean cache)
     let safe_packages: Vec<String> = installed_packages
         .iter()
-        .filter(|pkg| !pkg.is_versioned_install)
+        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
         .map(|pkg| pkg.name.clone())
         .collect();
 

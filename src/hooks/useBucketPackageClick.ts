@@ -14,7 +14,8 @@ export function createTemporaryPackage(packageName: string, bucketName: string):
     info: '', // Will be fetched by package info
     match_source: 'name',
     available_version: undefined,
-    is_versioned_install: false,
+    installation_type: 'standard',
+    has_multiple_versions: false,
   };
 }
 
@@ -42,7 +43,8 @@ export async function handleBucketPackageClick(
     info: '', // Will be fetched by package info
     match_source: 'name',
     available_version: undefined,
-    is_versioned_install: false,
+    installation_type: 'standard',
+    has_multiple_versions: false,
   };
 
   // Fetch package info (this will open the PackageInfoModal)

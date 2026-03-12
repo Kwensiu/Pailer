@@ -7,7 +7,8 @@ export interface ScoopPackage {
   info: string;
   match_source: 'name' | 'binary' | 'none' | 'path';
   available_version?: string;
-  is_versioned_install?: boolean;
+  installation_type: 'standard' | 'versioned' | 'custom';
+  has_multiple_versions: boolean;
 }
 
 export interface ScoopInfo {

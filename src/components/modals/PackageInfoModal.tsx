@@ -11,6 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
+import { Dropdown } from '../common/Dropdown';
 
 hljs.registerLanguage('json', json);
 
@@ -438,64 +439,64 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
   // Header action component (dropdown menu)
   const headerAction = (
-    <div class="dropdown dropdown-end">
-      <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
-        <Ellipsis class="h-5 w-5" />
-      </label>
-      <ul tabindex="0" class="dropdown-content menu w-52 p-2">
-        <li>
-          <a onClick={() => props.pkg && fetchManifest(props.pkg)}>
-            <FileText class="mr-2 h-4 w-4" />
-            {t('packageInfo.viewManifest')}
-          </a>
-        </li>
-        <Show when={props.pkg?.is_installed}>
-          <li>
-            <a
-              onClick={async () => {
-                if (props.pkg) {
-                  try {
-                    const debug = await invoke<string>('debug_package_structure', {
-                      packageName: props.pkg.name,
-                      global: false,
-                    });
-                    console.log('Package structure debug:', debug);
-                    alert(debug);
-                  } catch (error) {
-                    console.error('Failed to debug package info:', error);
+    <Dropdown
+      position="end"
+      trigger={
+        <button class="btn btn-ghost btn-sm btn-circle">
+          <Ellipsis class="h-5 w-5" />
+        </button>
+      }
+      items={[
+        {
+          label: t('packageInfo.viewManifest'),
+          onClick: () => props.pkg && fetchManifest(props.pkg),
+          icon: FileText,
+        },
+        ...(props.pkg?.is_installed
+          ? [
+              {
+                label: t('packageInfo.debugStructure'),
+                onClick: async () => {
+                  if (props.pkg) {
+                    try {
+                      const debug = await invoke<string>('debug_package_structure', {
+                        packageName: props.pkg.name,
+                        global: false,
+                      });
+                      console.log('Package structure debug:', debug);
+                      alert(debug);
+                    } catch (error) {
+                      console.error('Failed to debug package info:', error);
+                    }
                   }
-                }
-              }}
-            >
-              <FileText class="mr-2 h-4 w-4" />
-              {t('packageInfo.debugStructure')}
-            </a>
-          </li>
-        </Show>
-        <Show when={props.pkg?.is_installed}>
-          <li>
-            <button
-              type="button"
-              onClick={async () => {
-                if (props.pkg) {
-                  try {
-                    const packagePath = await invoke<string>('get_package_path', {
-                      packageName: props.pkg.name,
-                    });
-                    await openPath(packagePath);
-                  } catch (error) {
-                    console.error('Failed to open package path:', error);
+                },
+                icon: FileText,
+              },
+            ]
+          : []),
+        ...(props.pkg?.is_installed
+          ? [
+              {
+                label: t('packageInfo.openInExplorer'),
+                onClick: async () => {
+                  if (props.pkg) {
+                    try {
+                      const packagePath = await invoke<string>('get_package_path', {
+                        packageName: props.pkg.name,
+                      });
+                      await openPath(packagePath);
+                    } catch (error) {
+                      console.error('Failed to open package path:', error);
+                    }
                   }
-                }
-              }}
-            >
-              <ExternalLink class="mr-2 h-4 w-4" />
-              {t('packageInfo.openInExplorer')}
-            </button>
-          </li>
-        </Show>
-      </ul>
-    </div>
+                },
+                icon: ExternalLink,
+              },
+            ]
+          : []),
+      ]}
+      contentClass="w-52 p-2"
+    />
   );
 
   // Footer component (buttons)

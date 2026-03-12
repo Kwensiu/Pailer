@@ -123,55 +123,49 @@ function CommandInputField() {
       // description={t('doctor.commandInput.description')}
       additionalContent={t('doctor.commandInput.switchInputMode')}
     >
-      <div class="form-control">
-        <div class="join w-full">
-          <span
-            class={`btn join-item cursor-pointer transition-all duration-300 ${
-              exec.useScoopPrefix ? 'btn-success' : 'bg-gray-500 text-gray-300 hover:bg-gray-600'
-            }`}
-            onClick={handleToggleScoopPrefix}
-            style={{
-              'text-decoration': exec.useScoopPrefix ? 'none' : 'line-through',
-            }}
-            title={
-              exec.useScoopPrefix
-                ? t('doctor.commandInput.scoopPrefixEnabled')
-                : t('doctor.commandInput.scoopPrefixDisabled')
-            }
-          >
-            scoop
-          </span>
-          <input
-            type="text"
-            placeholder={
-              exec.useScoopPrefix
-                ? t('doctor.commandInput.enterCommand')
-                : t('doctor.commandInput.enterFullCommand')
-            }
-            class="input input-bordered join-item flex-1"
-            value={exec.command}
-            onInput={(e) => setCommand(e.currentTarget.value)}
-            onKeyPress={handleKeyPress}
-            disabled={exec.isRunning}
-          />
-          <button
-            class="btn btn-info join-item"
-            onClick={handleRunCommand}
-            disabled={exec.isRunning}
-          >
-            {exec.isRunning ? (
-              <>
-                <span class="loading loading-spinner loading-xs"></span>
-                {t('doctor.commandInput.running')}
-              </>
-            ) : (
-              <>
-                <Terminal class="h-4 w-4" />
-                {t('doctor.commandInput.run')}
-              </>
-            )}
-          </button>
-        </div>
+      <div class="join w-full">
+        <span
+          class={`btn join-item cursor-pointer transition-all duration-300 ${
+            exec.useScoopPrefix ? 'btn-success' : 'bg-gray-500 text-gray-300 hover:bg-gray-600'
+          }`}
+          onClick={handleToggleScoopPrefix}
+          style={{
+            'text-decoration': exec.useScoopPrefix ? 'none' : 'line-through',
+          }}
+          title={
+            exec.useScoopPrefix
+              ? t('doctor.commandInput.scoopPrefixEnabled')
+              : t('doctor.commandInput.scoopPrefixDisabled')
+          }
+        >
+          scoop
+        </span>
+        <input
+          type="text"
+          placeholder={
+            exec.useScoopPrefix
+              ? t('doctor.commandInput.enterCommand')
+              : t('doctor.commandInput.enterFullCommand')
+          }
+          class="input input-bordered join-item flex-1"
+          value={exec.command}
+          onInput={(e) => setCommand(e.currentTarget.value)}
+          onKeyPress={handleKeyPress}
+          disabled={exec.isRunning}
+        />
+        <button class="btn btn-info join-item" onClick={handleRunCommand} disabled={exec.isRunning}>
+          {exec.isRunning ? (
+            <>
+              <span class="loading loading-spinner loading-xs"></span>
+              {t('doctor.commandInput.running')}
+            </>
+          ) : (
+            <>
+              <Terminal class="h-4 w-4" />
+              {t('doctor.commandInput.run')}
+            </>
+          )}
+        </button>
       </div>
 
       {/* 终端模拟显示框 */}

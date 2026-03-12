@@ -91,7 +91,7 @@ function BucketCard(props: BucketCardProps) {
             </Show>
           </div>
         }
-        class={`card-bucket bg-base-card ${settings.theme}`}
+        class={`card-bucket ${settings.theme}`}
       >
         {props.bucket.git_url ? (
           <div

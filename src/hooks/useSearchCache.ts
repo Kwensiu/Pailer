@@ -249,7 +249,8 @@ export function useSearchCache(): UseSearchCacheReturn {
           info: '',
           match_source: 'name' as const,
           available_version: undefined,
-          is_versioned_install: false,
+          installation_type: 'standard',
+          has_multiple_versions: false,
         }));
     }
 
