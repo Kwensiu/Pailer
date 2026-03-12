@@ -85,7 +85,11 @@ export default function AboutSection(props: AboutSectionProps) {
                   </div>
                   <div class="tooltip tooltip-left" data-tip={t('settings.about.autoCheckTooltip')}>
                     <button
-                      class={`btn btn-xs btn-ghost ${settings.update.autoCheckEnabled ? 'bg-base-100 dark:bg-green-400/50' : 'btn-soft text-black/40 dark:bg-black/30 dark:text-white/30'}`}
+                      class={`btn btn-xs ${
+                        settings.update.autoCheckEnabled
+                          ? 'bg-success/20 text-success border-success/30 hover:bg-success/30 dark:bg-success/30 dark:text-success'
+                          : 'btn-autocheck'
+                      }`}
                       onClick={() =>
                         setUpdateSettings({ autoCheckEnabled: !settings.update.autoCheckEnabled })
                       }
@@ -198,7 +202,7 @@ export default function AboutSection(props: AboutSectionProps) {
 
         {/* Footer */}
         <div class="text-base-content/30 text-center text-xs">
-          <p>Copyright © {new Date().getFullYear()} Kwensiu. MIT License.</p>
+          <p>Copyright © {new Date().getFullYear()} Kwensiu / AmarBego. MIT License.</p>
         </div>
       </div>
 

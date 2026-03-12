@@ -8,7 +8,6 @@ mod tray;
 pub mod utils;
 mod i18n;
 
-use crate::commands::settings::detect_scoop_path;
 use std::path::PathBuf;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
@@ -22,7 +21,7 @@ mod config_keys {
 
 // Application constants
 mod app_constants {
-    pub const DEFAULT_SCOOP_PATH_WINDOWS: &str = "C:\\scoop";
+    // No constants needed since we don't use default paths
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -140,8 +139,20 @@ pub fn run() {
             #[cfg(windows)]
             setup_windows_specific(app)?;
 
-            // Resolve Scoop path
-            let scoop_path = resolve_scoop_path(app.handle().clone())?;
+            // Resolve Scoop path with proper error handling
+            let scoop_path_result = resolve_scoop_path(app.handle().clone());
+            let scoop_path = match scoop_path_result {
+                Ok(path) => {
+                    log::info!("Resolved Scoop path: {}", path.display());
+                    path
+                }
+                Err(e) => {
+                    log::error!("Failed to resolve Scoop path during startup: {}", e);
+                    log::error!("Application cannot start without a valid Scoop path. Please configure it in settings.");
+                    return Err(e);
+                }
+            };
+
             app.manage(state::AppState::new(scoop_path));
 
             // Show the main application window
@@ -185,7 +196,9 @@ pub fn run() {
             commands::settings::set_virustotal_api_key,
             commands::settings::get_scoop_proxy,
             commands::settings::set_scoop_proxy,
-            commands::settings::detect_scoop_path,
+            commands::settings::auto_detect_scoop_path,
+            commands::settings::path_exists,
+            commands::settings::get_default_scoop_config,
             commands::settings::validate_scoop_directory,
             commands::settings::check_directory_exists,
             commands::settings::run_scoop_command,
@@ -200,9 +213,16 @@ pub fn run() {
             commands::doctor::checkup::run_scoop_checkup,
             commands::doctor::cleanup::cleanup_all_apps,
             commands::doctor::cleanup::cleanup_all_apps_force,
+            commands::doctor::cleanup::cleanup_all_apps_smart,
             commands::doctor::cleanup::cleanup_outdated_cache,
+            commands::doctor::cleanup::remove_cache_for_specific_packages,
+            commands::doctor::cleanup::remove_all_cache_with_scoop,
             commands::doctor::cache::list_cache_contents,
             commands::doctor::cache::clear_cache,
+            commands::doctor::versioned_apps::get_versioned_apps,
+            commands::doctor::versioned_apps::switch_app_version,
+            commands::doctor::versioned_apps::delete_app_version,
+            commands::doctor::versioned_apps::remove_versioned_apps,
             commands::doctor::shim::list_shims,
             commands::doctor::shim::remove_shim,
             commands::doctor::shim::alter_shim,
@@ -325,30 +345,35 @@ fn setup_windows_specific(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-// Resolve Scoop installation path with fallback to defaults
+// Resolve Scoop installation path - Windows only
+// Returns error if path cannot be resolved (no config + auto-detection failed)
 fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    // First, try to get configured path
     match utils::resolve_scoop_root(app_handle.clone()) {
         Ok(path) => Ok(path),
         Err(e) => {
-            log::warn!("Could not resolve scoop root path: {}", e);
-            detect_scoop_path().map(PathBuf::from).or_else(|_| {
-                #[cfg(windows)]
-                {
-                    log::info!(
-                        "Using default Windows Scoop path: {}",
-                        app_constants::DEFAULT_SCOOP_PATH_WINDOWS
-                    );
-                    Ok(PathBuf::from(app_constants::DEFAULT_SCOOP_PATH_WINDOWS))
+            log::warn!("Could not resolve scoop root path from config: {}", e);
+
+            // Try auto-detection on first launch
+            log::info!("Attempting auto-detection of Scoop installation...");
+            match crate::commands::settings::auto_detect_scoop_path() {
+                Ok(detected_path) => {
+                    log::info!("Auto-detected Scoop path: {}", detected_path);
+
+                    // Persist the detected path for future launches
+                    if let Err(save_err) = crate::commands::settings::set_scoop_path(app_handle.clone(), detected_path.clone()) {
+                        log::warn!("Failed to persist auto-detected path: {}", save_err);
+                    } else {
+                        log::info!("Auto-detected path saved to configuration");
+                    }
+
+                    Ok(PathBuf::from(detected_path))
                 }
-                #[cfg(not(windows))]
-                {
-                    log::info!(
-                        "Using default Unix Scoop path: {}",
-                        app_constants::DEFAULT_SCOOP_PATH_UNIX
-                    );
-                    Ok(PathBuf::from(app_constants::DEFAULT_SCOOP_PATH_UNIX))
+                Err(detect_err) => {
+                    log::error!("Auto-detection failed: {}", detect_err);
+                    Err(format!("Cannot resolve Scoop path: {}. Please configure manually in settings.", detect_err).into())
                 }
-            })
+            }
         }
     }
 }

@@ -1,13 +1,13 @@
-import { createSignal, onMount, onCleanup, For, createEffect } from 'solid-js';
-import { CircleCheckBig, AlertTriangle, AlertCircle, Info } from 'lucide-solid';
+import { createSignal, onMount, onCleanup, For, createEffect, JSX } from 'solid-js';
+import { CircleCheckBig, TriangleAlert, CircleAlert, Info } from 'lucide-solid';
 
 export interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
-  duration?: number; // 自动关闭时间(ms)，0表示不自动关闭
-  persistent?: boolean; // 是否持久化（不自动关闭）
-  icon?: any; // 自定义图标组件
+  duration?: number;
+  persistent?: boolean;
+  icon?: JSX.Element;
 }
 
 interface ToastProps {
@@ -19,17 +19,17 @@ function ToastItem(props: ToastProps) {
   const [isVisible, setIsVisible] = createSignal(false);
 
   onMount(() => {
-    // 入场动画
+    // Entrance animation
     const showTimer = setTimeout(() => setIsVisible(true), 10);
 
-    // 自动关闭
+    // Auto close
     let autoCloseTimer: ReturnType<typeof setTimeout> | undefined;
     if (props.message.duration !== 0 && !props.message.persistent) {
       const duration = props.message.duration || 3000;
       autoCloseTimer = setTimeout(() => handleClose(), duration);
     }
 
-    // 清理定时器
+    // Clean up timers
     onCleanup(() => {
       clearTimeout(showTimer);
       if (autoCloseTimer) clearTimeout(autoCloseTimer);
@@ -55,9 +55,9 @@ function ToastItem(props: ToastProps) {
       case 'success':
         return <CircleCheckBig class="h-5 w-5 shrink-0" />;
       case 'error':
-        return <AlertCircle class="h-5 w-5 shrink-0" />;
+        return <CircleAlert class="h-5 w-5 shrink-0" />;
       case 'warning':
-        return <AlertTriangle class="h-5 w-5 shrink-0" />;
+        return <TriangleAlert class="h-5 w-5 shrink-0" />;
       case 'info':
         return <Info class="h-5 w-5 shrink-0" />;
     }
@@ -78,10 +78,10 @@ function ToastItem(props: ToastProps) {
   );
 }
 
-// 生成唯一 ID 的计数器
+// Generate unique ID counter
 let toastIdCounter = 0;
 
-// 全局Toast管理
+// Global Toast management
 const [toasts, setToasts] = createSignal<ToastMessage[]>([]);
 
 export const toast = {

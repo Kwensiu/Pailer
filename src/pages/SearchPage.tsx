@@ -1,5 +1,5 @@
-import PackageInfoModal from '../components/PackageInfoModal';
-import OperationModal from '../components/OperationModal';
+import PackageInfoModal from '../components/modals/PackageInfoModal';
+import OperationModal from '../components/modals/OperationModal';
 
 import { useSearch } from '../hooks/useSearch';
 import SearchBar from '../components/page/search/SearchBar';
@@ -176,6 +176,7 @@ function SearchPage() {
         onInstall={handleInstall}
         onUninstall={handleUninstall}
         context="search"
+        fromPackageModal={true}
         onPackageStateChanged={() => {
           // This will be called when install/uninstall buttons are clicked
           // The actual refresh will happen in closeOperationModal when the operation completes

@@ -2,9 +2,9 @@ import { createEffect, Show, createSignal } from 'solid-js';
 import hljs from 'highlight.js/lib/core';
 import json from 'highlight.js/lib/languages/json';
 import { Copy, Check } from 'lucide-solid';
-import Modal from './common/Modal';
-import settingsStore from '../stores/settings';
-import { t } from '../i18n';
+import Modal from '../common/Modal';
+import settingsStore from '../../stores/settings';
+import { t } from '../../i18n';
 
 hljs.registerLanguage('json', json);
 

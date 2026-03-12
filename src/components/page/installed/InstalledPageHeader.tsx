@@ -93,7 +93,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
     <div class="mb-6 flex items-center">
       <h2 class="mr-4 shrink-0 text-3xl font-bold">{t('installed.header.title')}</h2>
       <div
-        class="join mr-4 flex-1"
+        class="join mr-2 flex-1"
         style={{
           opacity: isExpanded() ? '1' : '0',
           transition: 'opacity 0.15s ease-in-out',
@@ -196,10 +196,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             >
               <Funnel class="h-4 w-4" />
             </button>
-            <div
-              tabindex="0"
-              class="dropdown-content menu bg-base-content-bg rounded-box z-10 w-64 p-4 shadow"
-            >
+            <div tabindex="0" class="dropdown-content menu z-10 w-64 p-4">
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">{t('installed.header.bucketLabel')}</span>

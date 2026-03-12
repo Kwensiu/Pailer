@@ -133,7 +133,6 @@ fn locate_install_dir(package_path: &Path) -> Result<PathBuf, String> {
     let current_path = package_path.join("current");
 
     if current_path.is_dir() {
-        log::debug!("Found current directory for package: {}", package_name);
         Ok(current_path)
     } else if let Some(fallback_dir) = find_latest_version_dir(package_path) {
         log::info!(
@@ -155,24 +154,36 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
         "Computing apps fingerprint for {} app directories",
         app_dirs.len()
     );
+    let mut located_packages = Vec::new();
+    
     let entries: Vec<String> = app_dirs
         .iter()
         .filter_map(|path| {
             path.file_name().and_then(|n| n.to_str()).map(|name| {
-                let modified_stamp = match locate_install_dir(path) {
-                    Ok(install_dir) => get_install_modification_time(&install_dir),
-                    Err(_) => get_path_modification_time(path),
-                };
-                
-                format!("{}:{}", name.to_ascii_lowercase(), modified_stamp)
+                match locate_install_dir(path) {
+                    Ok(install_dir) => {
+                        located_packages.push(name.to_string());
+                        let modified_stamp = get_install_modification_time(&install_dir);
+                        format!("{}:{}", name.to_ascii_lowercase(), modified_stamp)
+                    }
+                    Err(_) => {
+                        let modified_stamp = get_path_modification_time(path);
+                        format!("{}:{}", name.to_ascii_lowercase(), modified_stamp)
+                    }
+                }
             })
         })
         .collect();
 
+    // Log located packages in groups of 10
+    for chunk in located_packages.chunks(10) {
+        log::trace!("Located current directories for packages: {}", chunk.join(", "));
+    }
+
     let mut sorted_entries = entries;
     sorted_entries.sort();
     let fingerprint = format!("{}|{}", app_dirs.len(), sorted_entries.join(";"));
-    log::debug!("Computed apps fingerprint: {}", fingerprint);
+    log::debug!("{} [FINGERPRINT] Computed (length: {} chars)", "=== INSTALLED SCAN ===", fingerprint.len());
     fingerprint
 }
 
@@ -387,7 +398,12 @@ fn get_install_time(install_root: &Path) -> String {
 
 /// Builds a ScoopPackage from the collected information.
 fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: String, updated_time: String, has_version_dirs: bool) -> ScoopPackage {
-    let is_versioned_install = if bucket == "Custom" { has_version_dirs } else { false };
+    // Configure installation type based on bucket
+    let installation_type = match bucket.as_str() {
+        "versions" => crate::models::InstallationType::Versioned,
+        "Custom" => crate::models::InstallationType::Custom,
+        _ => crate::models::InstallationType::Standard,
+    };
     
     ScoopPackage {
         name: package_name,
@@ -396,8 +412,9 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         updated: updated_time,
         is_installed: true,
         info: manifest.description.unwrap_or_default(),
-        is_versioned_install,
-        ..Default::default()
+        match_source: crate::models::MatchSource::default(),
+        installation_type,
+        has_multiple_versions: has_version_dirs,
     }
 }
 
@@ -405,7 +422,7 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
 /// Uses enhanced error recovery to handle various installation scenarios.
 fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopPackage, String> {
     let package_name = extract_package_name(package_path)?;
-    log::debug!("Loading package details for: {}", package_name);
+    log::trace!("Loading package details for: {}", package_name);
 
     // Check if this package has version directories (indicating versioned install)
     let has_version_dirs = fs::read_dir(package_path)
@@ -423,44 +440,32 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
     let bucket = determine_bucket(&install_manifest, scoop_path, &package_name);
     let updated_time = get_install_time(&install_root);
 
-    log::debug!("Determined bucket for package {}: {}", package_name, bucket);
+    log::trace!("Determined bucket for package {}: {}", package_name, bucket);
 
     Ok(build_scoop_package(package_name, manifest, bucket, updated_time, has_version_dirs))
 }
 
-/// Fetches a list of all installed Scoop packages by scanning the filesystem.
+/// Check if scoop path is available, but don't auto-detect or update it.
+/// This function now only validates the existing configured path.
 async fn refresh_scoop_path_if_needed<R: Runtime>(
-    app: AppHandle<R>,
+    _app: AppHandle<R>,
     state: &AppState,
     reason: &str,
 ) -> Option<PathBuf> {
     let current_path = state.scoop_path();
     log::info!(
-        "Refreshing scoop path if needed. Current path: {}, reason: {}",
+        "Checking scoop path availability. Current path: {}, reason: {}",
         current_path.display(),
         reason
     );
 
-    match crate::utils::resolve_scoop_root(app) {
-        Ok(new_path) => {
-            if current_path != new_path {
-                log::info!(
-                    "Scoop path updated from '{}' to '{}' ({})",
-                    current_path.display(),
-                    new_path.display(),
-                    reason
-                );
-                state.set_scoop_path(new_path.clone());
-                let mut cache_guard = state.installed_packages.lock().await;
-                *cache_guard = None;
-                return Some(new_path);
-            }
-            Some(current_path)
-        }
-        Err(err) => {
-            log::warn!("Failed to refresh Scoop path ({}): {}", reason, err);
-            None
-        }
+    // Only check if the current path exists, don't auto-detect or update
+    if current_path.exists() {
+        log::info!("Scoop path is valid: {}", current_path.display());
+        Some(current_path)
+    } else {
+        log::warn!("Configured Scoop path does not exist: {}", current_path.display());
+        None
     }
 }
 
@@ -511,28 +516,24 @@ async fn scan_installed_packages_internal<R: Runtime>(
     );
 
     let fingerprint = compute_apps_fingerprint(&app_dirs);
-    log::debug!("{} Computed fingerprint: {}", log_prefix, fingerprint);
+    log::debug!("{} [FINGERPRINT] Computed (length: {} chars)", log_prefix, fingerprint.len());
 
     // Get scoop path for use in package loading
     let scoop_path = state.scoop_path();
 
     // Check cache
     if let Some(cached_packages) = check_cache(state, &fingerprint, log_prefix).await {
+        log::info!("{} [CACHE] ✓ Hit - returning {} cached packages", log_prefix, cached_packages.len());
         return Ok(cached_packages);
     }
 
-    log::info!(
-        "{} Scanning {} installed package directories from filesystem",
-        log_prefix,
-        app_dirs.len()
-    );
+    log::debug!("{} [SCAN] Starting package directory scan", log_prefix);
 
     let packages: Vec<ScoopPackage> = app_dirs
         .par_iter()
         .filter_map(
             |path| match load_package_details(path.as_path(), &scoop_path) {
                 Ok(package) => {
-                    log::debug!("Successfully loaded package: {}", package.name);
                     Some(package)
                 }
                 Err(e) => {
@@ -540,7 +541,7 @@ async fn scan_installed_packages_internal<R: Runtime>(
                         .and_then(|n| n.to_str())
                         .unwrap_or("unknown");
                     log::warn!(
-                        "{} Skipping package '{}': {}",
+                        "{} [SCAN] Skipping package '{}': {}",
                         log_prefix,
                         package_name,
                         e
@@ -552,7 +553,7 @@ async fn scan_installed_packages_internal<R: Runtime>(
         .collect();
 
     log::info!(
-        "{} ✓ Scanned {} packages, found {} valid packages",
+        "{} [SCAN] ✓ Completed scan: {} directories processed, {} valid packages found",
         log_prefix,
         app_dirs.len(),
         packages.len()
@@ -747,7 +748,7 @@ async fn update_package_versions_cache(
     
     // Build versions map for versioned installs
     for package in packages {
-        if package.is_versioned_install {
+        if matches!(package.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom) {
             let package_path = scoop_path.join("apps").join(&package.name);
             if let Ok(entries) = fs::read_dir(&package_path) {
                 let version_dirs: Vec<String> = entries

@@ -1,16 +1,16 @@
 import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from 'solid-js';
 import { listen, UnlistenFn, emit } from '@tauri-apps/api/event';
-import { useOperations } from '../stores/operations';
+import { useOperations } from '../../stores/operations';
 import {
   OperationOutput as StoreOperationOutput,
   OperationResult as StoreOperationResult,
   OperationModalProps,
-} from '../types/operations';
+} from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
-import { t } from '../i18n';
-import { isErrorLineWithContext } from '../utils/errorDetection';
-import { stripAnsi } from '../utils/ansiUtils';
-import Modal from './common/Modal';
+import { t } from '../../i18n';
+import { isErrorLineWithContext } from '../../utils/errorDetection';
+import { stripAnsi } from '../../utils/ansiUtils';
+import Modal from '../common/Modal';
 
 // Define VirustotalResult locally since it's not exported from types
 interface VirustotalResult {
@@ -183,6 +183,16 @@ function OperationModal(props: OperationModalProps) {
               console.log('Operation no longer exists, ignoring output');
               return;
             }
+
+            // Deduplicate consecutive identical lines
+            const currentOutput = currentOp.output || [];
+            const lastLine =
+              currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
+            if (lastLine === event.payload.line) {
+              console.log('Skipping duplicate line:', event.payload.line);
+              return;
+            }
+
             console.log('Operation output matches current operationId:', operationId());
             addOperationOutput(operationId(), {
               operationId: operationId(),
@@ -491,7 +501,7 @@ function OperationModal(props: OperationModalProps) {
           </Show>
           <button
             classList={{
-              'btn btn-sm': true,
+              btn: true,
               'btn-error': currentOperation?.status === 'in-progress',
               'btn-primary': currentOperation?.status === 'success',
               'btn-warning': currentOperation?.status === 'error',
@@ -506,7 +516,7 @@ function OperationModal(props: OperationModalProps) {
       {/* Output content */}
       <div
         ref={scrollRef}
-        class="my-3 overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
+        class="overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
         style="white-space: pre-wrap; word-break: break-word;"
       >
         <For each={currentOperation?.output || []}>
@@ -531,7 +541,7 @@ function OperationModal(props: OperationModalProps) {
       {/* Status alerts */}
       <div class="my-2">
         <Show when={currentOperation?.status === 'error'}>
-          <div class="status-alert status-alert-error rounded-lg">
+          <div class="status-alert status-alert-error rounded-lg!">
             <Show when={currentOperation.result?.message} fallback={<span>Operation failed</span>}>
               <FormattedErrorMessage message={currentOperation.result?.message || ''} />
             </Show>
@@ -539,7 +549,7 @@ function OperationModal(props: OperationModalProps) {
         </Show>
 
         <Show when={currentOperation?.status === 'success'}>
-          <div class="status-alert status-alert-success rounded-lg">
+          <div class="status-alert status-alert-success rounded-lg!">
             <span>{currentOperation.result?.message || 'Operation completed successfully'}</span>
           </div>
         </Show>

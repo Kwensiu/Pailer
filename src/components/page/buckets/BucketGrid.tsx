@@ -1,5 +1,5 @@
 import { Show, For, createSignal, onMount, onCleanup } from 'solid-js';
-import { RefreshCw, X } from 'lucide-solid';
+import { RefreshCw } from 'lucide-solid';
 import { BucketInfo } from '../../../hooks/useBuckets';
 import BucketCard from './BucketCard';
 import { t } from '../../../i18n';
@@ -11,11 +11,16 @@ interface BucketGridProps {
   onUpdateBucket?: (bucketName: string) => void;
   onUpdateAll?: () => void;
   onCancelUpdateAll?: () => void;
+  onCloseBulkUpdate?: () => void;
   updatingBuckets?: Set<string>;
   updateResults?: { [key: string]: string };
+  updateResultStatuses?: { [key: string]: 'success' | 'info' | 'error' | 'default' };
   loading?: boolean;
   isUpdatingAll?: boolean;
   isCancelling?: boolean;
+  bulkUpdateCompleted?: boolean;
+  bulkUpdateMessage?: string;
+  isBulkUpdate?: boolean;
 }
 
 function BucketGrid(props: BucketGridProps) {
@@ -40,53 +45,43 @@ function BucketGrid(props: BucketGridProps) {
         <h2 class="card-title">{t('bucket.grid.title')}</h2>
         <Show when={props.onUpdateAll && props.buckets.some((b) => b.is_git_repo)}>
           <div class="flex gap-2">
-            <Show
-              when={!props.isUpdatingAll}
-              fallback={
-                <button
-                  class="btn btn-warning btn-sm gap-2"
-                  onClick={props.onCancelUpdateAll}
-                  disabled={props.isCancelling}
-                >
-                  <X class="h-4 w-4" />
-                  {props.isCancelling ? t('bucket.grid.cancelling') : t('bucket.grid.cancel')}
-                </button>
+            <button
+              class="btn btn-accent btn-sm gap-2"
+              onClick={props.onUpdateAll}
+              disabled={
+                (props.updatingBuckets && props.updatingBuckets.size > 0) ||
+                props.isUpdatingAll ||
+                props.isBulkUpdate
               }
             >
-              <button
-                class="btn btn-accent btn-sm gap-2"
-                onClick={props.onUpdateAll}
-                disabled={props.updatingBuckets && props.updatingBuckets.size > 0}
+              <RefreshCw class="h-4 w-4" />
+              <span
+                class="relative inline-block truncate transition-all duration-300 ease-in-out"
+                classList={{
+                  'max-w-64': !isSmallScreen(),
+                  'max-w-16': isSmallScreen(),
+                }}
               >
-                <RefreshCw class="h-4 w-4" />
                 <span
-                  class="relative inline-block truncate transition-all duration-300 ease-in-out"
+                  class="transition-opacity duration-300 ease-in-out"
                   classList={{
-                    'max-w-64': !isSmallScreen(),
-                    'max-w-16': isSmallScreen(),
+                    'relative opacity-100': isSmallScreen(),
+                    'absolute inset-0 opacity-0': !isSmallScreen(),
                   }}
                 >
-                  <span
-                    class="transition-opacity duration-300 ease-in-out"
-                    classList={{
-                      'relative opacity-100': isSmallScreen(),
-                      'absolute inset-0 opacity-0': !isSmallScreen(),
-                    }}
-                  >
-                    {t('bucket.grid.updateAllGitShort')}
-                  </span>
-                  <span
-                    class="transition-opacity duration-300 ease-in-out"
-                    classList={{
-                      'absolute inset-0 opacity-0': isSmallScreen(),
-                      'relative opacity-100': !isSmallScreen(),
-                    }}
-                  >
-                    {t('bucket.grid.updateAllGit')}
-                  </span>
+                  {t('bucket.grid.updateAllGitShort')}
                 </span>
-              </button>
-            </Show>
+                <span
+                  class="transition-opacity duration-300 ease-in-out"
+                  classList={{
+                    'absolute inset-0 opacity-0': isSmallScreen(),
+                    'relative opacity-100': !isSmallScreen(),
+                  }}
+                >
+                  {t('bucket.grid.updateAllGit')}
+                </span>
+              </span>
+            </button>
             <Show when={props.onRefresh}>
               <button class="btn btn-soft btn-sm gap-2" onClick={props.onRefresh}>
                 <RefreshCw class="h-4 w-4" />
@@ -157,6 +152,8 @@ function BucketGrid(props: BucketGridProps) {
                   onUpdateBucket={props.onUpdateBucket}
                   isUpdating={props.updatingBuckets?.has(bucket.name) || false}
                   updateResult={props.updateResults?.[bucket.name]}
+                  updateResultStatus={props.updateResultStatuses?.[bucket.name]}
+                  isBulkUpdate={props.isBulkUpdate}
                 />
               )}
             </For>

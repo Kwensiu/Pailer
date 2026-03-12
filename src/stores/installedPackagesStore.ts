@@ -122,7 +122,8 @@ function createInstalledPackagesStore() {
   };
 
   const isPackageVersioned = (packageName: string) => {
-    return versionedPackages().includes(packageName);
+    const result = versionedPackages().includes(packageName);
+    return result;
   };
 
   return {

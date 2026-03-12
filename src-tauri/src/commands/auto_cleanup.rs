@@ -43,13 +43,13 @@ pub async fn run_auto_cleanup<R: Runtime>(
     // Separate regular packages from versioned installs
     let regular_packages: Vec<String> = installed_packages
         .iter()
-        .filter(|pkg| !pkg.is_versioned_install)
+        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
         .map(|pkg| pkg.name.clone())
         .collect();
 
     let versioned_packages: Vec<String> = installed_packages
         .iter()
-        .filter(|pkg| pkg.is_versioned_install)
+        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
         .map(|pkg| pkg.name.clone())
         .collect();
 

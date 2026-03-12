@@ -2,6 +2,7 @@ import { For, Show } from 'solid-js';
 import { ScoopPackage } from '../../../types/scoop';
 import { Download } from 'lucide-solid';
 import { t } from '../../../i18n';
+import HighlightText from '../../common/HighlightText';
 
 interface SearchResultsListProps {
   loading: boolean;
@@ -49,8 +50,13 @@ function SearchResultsList(props: SearchResultsListProps) {
               <div class="card-body">
                 <div class="flex items-start justify-between">
                   <div class="min-w-0 grow">
-                    <h3 class="card-title truncate">{pkg.name}</h3>
-                    <p class="truncate">{t('search.results.fromBucket', { bucket: pkg.source })}</p>
+                    <h3 class="card-title truncate">
+                      <HighlightText text={pkg.name} query={props.searchTerm} />
+                    </h3>
+                    <p class="truncate">
+                      {t('search.results.fromBucket').replace('{{bucket}}', '')}
+                      <HighlightText text={pkg.source} query={props.searchTerm} />
+                    </p>
                   </div>
                   <div class="ml-4 flex shrink-0 items-center gap-2 text-right">
                     <span class="badge badge-primary badge-soft whitespace-nowrap">
@@ -80,7 +86,7 @@ function SearchResultsList(props: SearchResultsListProps) {
         </For>
       </div>
 
-      {/* 分页控件 */}
+      {/* Pagination controls */}
       <Show when={props.results.length > ITEMS_PER_PAGE}>
         <div class="mt-6 flex items-center justify-center space-x-2">
           <button

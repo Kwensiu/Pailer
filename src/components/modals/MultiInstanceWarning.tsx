@@ -1,7 +1,7 @@
 import { createSignal, Show, onMount, onCleanup } from 'solid-js';
 import { TriangleAlert, X } from 'lucide-solid';
-import { useOperations } from '../stores/operations';
-import { t } from '../i18n';
+import { useOperations } from '../../stores/operations';
+import { t } from '../../i18n';
 
 // Multi-instance warning component
 const MultiInstanceWarning = () => {

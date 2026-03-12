@@ -2,7 +2,7 @@ import { createSignal, Show, onMount, createMemo, createEffect, onCleanup, For }
 import './App.css';
 import './i18n';
 import './styles/minimized-indicator.css';
-import Header from './components/Header.tsx';
+import Header from './components/page/Header.tsx';
 import SearchPage from './pages/SearchPage.tsx';
 import BucketPage from './pages/BucketPage.tsx';
 import InstalledPage from './pages/InstalledPage.tsx';
@@ -10,10 +10,10 @@ import { View } from './types/scoop';
 import type { OperationState } from './types/operations';
 import SettingsPage from './pages/SettingsPage.tsx';
 import DoctorPage from './pages/DoctorPage.tsx';
-import DebugModal from './components/DebugModal.tsx';
-import MinimizedIndicatorManager from './components/MinimizedIndicatorManager.tsx';
-import MultiInstanceWarning from './components/MultiInstanceWarning.tsx';
-import OperationModal from './components/OperationModal.tsx';
+import DebugModal from './components/modals/DebugModal.tsx';
+import MinimizedIndicatorManager from './components/modals/MinimizedOperationsTray.tsx';
+import MultiInstanceWarning from './components/modals/MultiInstanceWarning.tsx';
+import OperationModal from './components/modals/OperationModal.tsx';
 import ToastContainer from './components/common/ToastAlert.tsx';
 import { listen } from '@tauri-apps/api/event';
 import { info, error as logError } from '@tauri-apps/plugin-log';
@@ -25,6 +25,7 @@ import { BucketInfo, updateBucketsCache } from './hooks/useBuckets';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
+import { localStorageUtils } from './hooks/useSearchCache';
 
 function App() {
   const { settings } = settingsStore;
@@ -189,7 +190,47 @@ function App() {
         logError(`Failed to register global scoop-ready listener: ${e}`);
       }
 
+      // Listen for window close event to perform cleanup
+      // Moved to onCleanup to avoid blocking app close
+      /*
+      try {
+        const unlistenClose = await webview.onCloseRequested(async (_event) => {
+          console.log('🧹 [App] Window close requested, performing cache cleanup...');
+          info('Performing cache cleanup before app close');
+
+          // Perform cache cleanup asynchronously (don't block close)
+          setTimeout(() => {
+            try {
+              // Clean up expired cache entries
+              localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
+              // Ensure cache size is reasonable
+              localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
+              console.log('🧹 Cache cleanup completed successfully');
+            } catch (error) {
+              console.warn('⚠️ Cache cleanup failed:', error);
+            }
+          }, 0);
+        });
+        unlistenFunctions.push(unlistenClose);
+      } catch (e) {
+        logError(`Failed to register window close listener: ${e}`);
+      }
+      */
+
       return () => {
+        console.log('🧹 [App] Component unmounting, performing cache cleanup...');
+        info('Performing cache cleanup on component unmount');
+
+        try {
+          // Clean up expired cache entries
+          localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000); // 24 hours
+          // Ensure cache size is reasonable
+          localStorageUtils.limitCacheSize(2 * 1024 * 1024); // 2MB limit before close
+          console.log('🧹 Cache cleanup completed successfully');
+        } catch (error) {
+          console.warn('⚠️ Cache cleanup failed:', error);
+        }
+
         // Cleanup all listeners on unmount
         unlistenFunctions.forEach((unlisten) => unlisten());
       };

@@ -1,12 +1,13 @@
 import { createSignal, onMount, createMemo, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { createLocalStorageSignal } from './createLocalStorageSignal';
-import heldStore from '../stores/held';
-import installedPackagesStore from '../stores/installedPackagesStore';
-import { usePackageOperations } from './usePackageOperations';
-import { usePackageInfo } from './usePackageInfo';
 import { ScoopPackage } from '../types/scoop';
 import { useBuckets } from './useBuckets';
+import { usePackageOperations } from './usePackageOperations';
+import { usePackageInfo } from './usePackageInfo';
+import { createLocalStorageSignal } from './createLocalStorageSignal';
+import installedPackagesStore from '../stores/installedPackagesStore';
+import heldStore from '../stores/held';
+import { searchCacheManager } from './useSearchCache';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -132,7 +133,7 @@ export function useInstalledPackages() {
 
   const handleSort = (key: SortKey) => {
     if (sortKey() === key) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      setSortDirection((prev: 'asc' | 'desc') => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
       setSortDirection('asc');
@@ -161,23 +162,6 @@ export function useInstalledPackages() {
     } finally {
       await heldStore.refetch();
       installedPackagesStore.checkForUpdates();
-      setOperatingOn(null);
-    }
-  };
-
-  const handleSwitchVersion = async (pkgName: string, version: string) => {
-    setOperatingOn(pkgName);
-    try {
-      await invoke('switch_package_version', {
-        packageName: pkgName,
-        targetVersion: version,
-        global: false, // TODO: Add support for global packages
-      });
-    } catch (err) {
-      console.error(`Failed to switch package ${pkgName} to version ${version}:`, err);
-    } finally {
-      // Refresh packages list to reflect any changes
-      await refetch();
       setOperatingOn(null);
     }
   };
@@ -227,6 +211,9 @@ export function useInstalledPackages() {
     if (wasSuccess) {
       await refetch();
 
+      // 在操作成功后失效搜索缓存
+      searchCacheManager.invalidateCache();
+
       // Update selectedPackage if it exists
       const currentSelected = packageInfo.selectedPackage();
       if (currentSelected) {
@@ -256,15 +243,15 @@ export function useInstalledPackages() {
     sortedPkgs.sort((a, b) => {
       // Updatable apps always show first, regardless of sort field
       const aHasUpdate =
-        !!a.available_version && !heldStore.isHeld(a.name) && !a.is_versioned_install;
+        !!a.available_version && !heldStore.isHeld(a.name) && a.installation_type === 'standard';
       const bHasUpdate =
-        !!b.available_version && !heldStore.isHeld(b.name) && !b.is_versioned_install;
+        !!b.available_version && !heldStore.isHeld(b.name) && b.installation_type === 'standard';
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
       // After updatable apps sorting completed, sort by normal logic
-      const valA = a[key].toLowerCase();
-      const valB = b[key].toLowerCase();
+      const valA = (a as any)[key].toLowerCase();
+      const valB = (b as any)[key].toLowerCase();
       if (valA < valB) return direction === 'asc' ? -1 : 1;
       if (valA > valB) return direction === 'asc' ? 1 : -1;
       return 0;
@@ -274,7 +261,8 @@ export function useInstalledPackages() {
 
   const updatableCount = () =>
     packages().filter(
-      (p) => !!p.available_version && !heldStore.isHeld(p.name) && !p.is_versioned_install
+      (p) =>
+        !!p.available_version && !heldStore.isHeld(p.name) && p.installation_type === 'standard'
     ).length;
 
   return {
@@ -324,7 +312,6 @@ export function useInstalledPackages() {
     handleSort,
     handleHold,
     handleUnhold,
-    handleSwitchVersion,
     handleChangeBucket,
     handleOpenChangeBucket,
     fetchInstalledPackages,

@@ -1,7 +1,8 @@
-import { For, Show, createMemo, Switch, Match } from 'solid-js';
-import { BucketInfo } from '../hooks/useBuckets';
-import { SearchableBucket } from '../hooks/useBucketSearch';
-import { useBucketInstall } from '../hooks/useBucketInstall';
+import { For, Show, createMemo, createSignal, Switch, Match } from 'solid-js';
+import { BucketInfo } from '../../hooks/useBuckets';
+import { SearchableBucket } from '../../hooks/useBucketSearch';
+import { useBucketInstall } from '../../hooks/useBucketInstall';
+import { clearManifestCache } from '../../hooks/useBuckets';
 import hljs from 'highlight.js/lib/core';
 
 import bash from 'highlight.js/lib/languages/bash';
@@ -12,15 +13,15 @@ import {
   ExternalLink,
   Download,
   Trash2,
-  LoaderCircle,
   FolderOpen,
   RefreshCw,
+  LoaderCircle,
 } from 'lucide-solid';
-import Modal from './common/Modal';
+import Modal from '../common/Modal';
 import { openUrl, openPath } from '@tauri-apps/plugin-opener';
-import settingsStore from '../stores/settings';
-import { t } from '../i18n';
-import { formatBucketDate } from '../utils/date';
+import settingsStore from '../../stores/settings';
+import { t } from '../../i18n';
+import { formatBucketDate } from '../../utils/date';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -38,6 +39,8 @@ interface BucketInfoModalProps {
   onPackageClick?: (packageName: string, bucketName: string) => void;
   onBucketInstalled?: () => void; // Callback when bucket is installed/removed
   onFetchManifests?: (bucketName: string) => Promise<void>; // Callback to fetch manifests for newly installed bucket
+  zIndex?: string; // Z-index for modal layering
+  fromPackageModal?: boolean; // Whether opened from PackageInfoModal
 }
 
 // Component to render bucket detail values
@@ -55,7 +58,12 @@ function ManifestsList(props: {
   manifests: string[];
   loading: boolean;
   onPackageClick?: (packageName: string) => void;
+  showAll?: boolean;
+  onLoadAll?: () => void;
 }) {
+  const isLargeList = () => props.manifests.length > 1500;
+  const shouldShowAll = () => props.showAll || !isLargeList();
+
   return (
     <Show
       when={!props.loading}
@@ -74,25 +82,42 @@ function ManifestsList(props: {
           </div>
         }
       >
-        <div class="max-h-60 overflow-y-auto">
-          <div class="grid grid-cols-2 gap-1 text-xs">
-            <For each={props.manifests}>
-              {(manifest) => {
-                // Clean up manifest name (remove (root) suffix if present)
-                const cleanName = manifest.replace(/ \(root\)$/, '');
-                return (
-                  <div
-                    class="hover:text-primary hover:bg-base-300 cursor-pointer rounded px-1 py-0.5 transition-colors"
-                    onClick={() => props.onPackageClick?.(cleanName)}
-                    title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
-                  >
-                    {manifest}
-                  </div>
-                );
-              }}
-            </For>
+        <Show
+          when={isLargeList() && !shouldShowAll()}
+          fallback={
+            <div class="max-h-60 overflow-y-auto">
+              <div class="grid grid-cols-2 gap-1 text-xs">
+                <For each={props.manifests}>
+                  {(manifest) => {
+                    // Clean up manifest name (remove (root) suffix if present)
+                    const cleanName = manifest.replace(/ \(root\)$/, '');
+                    return (
+                      <div
+                        class="hover:text-primary hover:bg-base-300 cursor-pointer rounded px-1 py-0.5 transition-colors"
+                        onClick={() => props.onPackageClick?.(cleanName)}
+                        title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
+                      >
+                        {manifest}
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </div>
+          }
+        >
+          <div class="py-19 text-center">
+            <div class="mb-4">
+              <p class="text-base-content/70 mb-2 text-sm">
+                {t('bucketInfo.tooManyPackages', { count: props.manifests.length })}
+              </p>
+              <p class="text-base-content/50 text-xs">{t('bucketInfo.loadAllWarning')}</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onClick={() => props.onLoadAll?.()}>
+              {t('bucketInfo.loadAllPackages')}
+            </button>
           </div>
-        </div>
+        </Show>
       </Show>
     </Show>
   );
@@ -107,6 +132,9 @@ function BucketInfoModal(props: BucketInfoModalProps) {
 
   const bucketName = () => props.bucket?.name || props.searchBucket?.name || '';
   const isExternalBucket = () => !props.bucket && !!props.searchBucket;
+
+  // State for handling large manifest lists
+  const [showAllManifests, setShowAllManifests] = createSignal(false);
 
   // Properly check if bucket is installed
   const isInstalled = () => {
@@ -203,6 +231,25 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       }
     } catch (error) {
       console.error('Failed to refresh bucket:', error);
+    }
+  };
+
+  // Handle loading all manifests for large buckets
+  const handleLoadAllManifests = () => {
+    setShowAllManifests(true);
+  };
+
+  // Handle refreshing manifests with cache clear
+  const handleRefreshManifests = async () => {
+    const name = bucketName();
+    if (!name) return;
+
+    // Clear cache for this bucket
+    clearManifestCache(name);
+
+    // Fetch fresh manifests
+    if (props.onFetchManifests) {
+      await props.onFetchManifests(name);
     }
   };
   const orderedDetails = createMemo(() => {
@@ -373,6 +420,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
         headerAction={headerAction}
         footer={footer}
         preventBackdropClose={false}
+        zIndex={props.zIndex}
       >
         <Show when={props.error}>
           <div role="alert" class="alert alert-error mb-4">
@@ -470,7 +518,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                             </Match>
                             <Match when={key === t('bucketInfo.path')}>
                               <div
-                                class="link-primary bg-primary/5 border-bg-primary inline-block cursor-pointer rounded border-x-2 px-1.5 py-0.5 break-all"
+                                class="link-primary border-bg-primary inline-block cursor-pointer break-all"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (props.bucket?.path) {
@@ -523,32 +571,75 @@ function BucketInfoModal(props: BucketInfoModalProps) {
             </div>
 
             <div class="flex-1">
-              <Show
-                when={isInstalled() && (props.manifests.length > 0 || props.manifestsLoading)}
-                fallback={
-                  // Show description when bucket is not installed or no manifests available
-                  <Show when={props.description && !isInstalled()}>
-                    <h4 class="mb-3 border-b pb-2 text-lg font-medium">
-                      {t('bucketInfo.description')}
-                    </h4>
-                    <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
-                      <p class="text-sm leading-relaxed">{props.description}</p>
-                    </div>
-                  </Show>
-                }
-              >
-                <h4 class="mb-3 flex items-center gap-2 border-b pb-2 text-lg font-medium">
-                  {t('bucketInfo.availablePackages')} ({props.manifests.length})
+              <Show when={props.fromPackageModal}>
+                <h4 class="mb-3 border-b pb-2 text-lg font-medium">
+                  {t('bucketInfo.availablePackages')}
                 </h4>
-                <div class="bg-base-content-bg rounded-lg p-3">
-                  <ManifestsList
-                    manifests={props.manifests}
-                    loading={props.manifestsLoading}
-                    onPackageClick={(packageName) =>
-                      props.onPackageClick?.(packageName, props.bucket?.name ?? bucketName())
-                    }
-                  />
+                <div class="bg-base-content-bg rounded-lg px-6 py-18">
+                  <div class="text-center">
+                    <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="text-base-content/50 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                        />
+                      </svg>
+                    </div>
+                    <p class="text-base-content/70 mb-2 whitespace-pre-line">
+                      {t('bucketInfo.viewPackagesOnRepository')}
+                    </p>
+                  </div>
                 </div>
+              </Show>
+
+              <Show when={!props.fromPackageModal}>
+                <Show
+                  when={isInstalled() && (props.manifests.length > 0 || props.manifestsLoading)}
+                  fallback={
+                    <Show when={props.description && !isInstalled()}>
+                      <h4 class="mb-3 border-b pb-2 text-lg font-medium">
+                        {t('bucketInfo.description')}
+                      </h4>
+                      <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
+                        <p class="text-sm leading-relaxed">{props.description}</p>
+                      </div>
+                    </Show>
+                  }
+                >
+                  <h4 class="mb-3 flex items-center justify-between border-b pb-1 text-lg font-medium">
+                    <span class="flex items-center gap-2">
+                      {t('bucketInfo.availablePackages')} ({props.manifests.length})
+                    </span>
+                    <Show when={isInstalled()}>
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        onClick={handleRefreshManifests}
+                        title={t('bucketInfo.refreshManifests')}
+                      >
+                        <RefreshCw class="h-4 w-4" />
+                      </button>
+                    </Show>
+                  </h4>
+                  <div class="bg-base-content-bg rounded-lg p-3">
+                    <ManifestsList
+                      manifests={props.manifests}
+                      loading={props.manifestsLoading}
+                      showAll={showAllManifests()}
+                      onLoadAll={handleLoadAllManifests}
+                      onPackageClick={(packageName) =>
+                        props.onPackageClick?.(packageName, props.bucket?.name ?? bucketName())
+                      }
+                    />
+                  </div>
+                </Show>
               </Show>
             </div>
           </div>

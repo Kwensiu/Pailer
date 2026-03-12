@@ -4,13 +4,15 @@ import { useBuckets, type BucketInfo } from '../hooks/useBuckets';
 import { usePackageInfo } from '../hooks/usePackageInfo';
 import { usePackageOperations } from '../hooks/usePackageOperations';
 import { createTauriSignal } from '../hooks/createTauriSignal';
+import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
 import { ScoopPackage } from '../types/scoop';
-import BucketInfoModal from '../components/BucketInfoModal';
-import PackageInfoModal from '../components/PackageInfoModal';
-import OperationModal from '../components/OperationModal';
+import BucketInfoModal from '../components/modals/BucketInfoModal';
+import PackageInfoModal from '../components/modals/PackageInfoModal';
+import OperationModal from '../components/modals/OperationModal';
 import BucketSearch from '../components/page/buckets/BucketSearch';
 import BucketGrid from '../components/page/buckets/BucketGrid';
 import BucketSearchResults from '../components/page/buckets/BucketSearchResults';
+import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
 import { SearchableBucket } from '../hooks/useBucketSearch';
 import { t } from '../i18n';
 
@@ -22,12 +24,7 @@ interface BucketUpdateResult {
   manifest_count?: number;
 }
 
-type UpdateState = {
-  status: 'idle' | 'updating' | 'completed' | 'cancelled' | 'error';
-  current: number;
-  total: number;
-  message: string;
-};
+type UpdateState = BulkUpdateState;
 
 function BucketPage() {
   const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests, cleanup } =
@@ -53,18 +50,23 @@ function BucketPage() {
   // Update state
   const [updatingBuckets, setUpdatingBuckets] = createSignal<Set<string>>(new Set());
   const [updateResults, setUpdateResults] = createSignal<{ [key: string]: string }>({});
+  const [updateResultStatuses, setUpdateResultStatuses] = createSignal<{
+    [key: string]: 'success' | 'info' | 'error' | 'default';
+  }>({});
   const [updateState, setUpdateState] = createSignal<UpdateState>({
     status: 'idle',
     current: 0,
     total: 0,
     message: '',
   });
+  const [isCancelling, setIsCancelling] = createSignal(false);
+  const [failedResults, setFailedResults] = createSignal<BucketUpdateResult[]>([]);
+
+  // Error details expansion state
+  const [showErrorDetails, setShowErrorDetails] = createSignal(false);
 
   let resultTimerIds: Map<string, number> = new Map();
   let stateTimerId: number | null = null;
-
-  // Reference to current update operation for cancellation
-  let currentUpdateOperation: { cancel: () => void } | null = null;
 
   onMount(() => {
     fetchBuckets();
@@ -136,6 +138,22 @@ function BucketPage() {
     }
   };
 
+  const handleCloseBulkUpdate = () => {
+    setUpdateState((prev) => ({
+      ...prev,
+      status: 'idle',
+    }));
+    setIsCancelling(false); // Reset cancelling state when closing
+    setFailedResults([]); // Reset failed results when closing
+    setShowErrorDetails(false); // Reset error details when closing
+  };
+
+  // Helper function to get error details from structured data
+  const getErrorDetails = () => {
+    if (updateState().status !== 'completed') return [];
+    return failedResults();
+  };
+
   const closeModal = () => {
     setSelectedBucket(null);
     setSelectedSearchBucket(null);
@@ -145,22 +163,15 @@ function BucketPage() {
   };
 
   const handlePackageClick = async (packageName: string, bucketName: string) => {
-    // Create a ScoopPackage object for the package info modal
-    const pkg: ScoopPackage = {
-      name: packageName,
-      version: '', // Will be fetched by package info
-      source: bucketName,
-      updated: '',
-      is_installed: false, // Will be determined by package info
-      info: '',
-      match_source: 'name',
-    };
-
-    // Simply open package info modal - bucket modal stays open underneath
-    await packageInfo.fetchPackageInfo(pkg);
+    // Use the shared hook for consistent behavior
+    await handleBucketPackageClick(
+      packageName,
+      bucketName,
+      packageInfo.fetchPackageInfo
+      // Don't close bucket modal for BucketPage behavior
+    );
   };
 
-  // Handle bucket installation/removal - refresh bucket list
   const handleBucketInstalled = async () => {
     markForRefresh();
     await fetchBuckets(true);
@@ -180,20 +191,56 @@ function BucketPage() {
   };
 
   // Handle updating a single bucket
-  const handleUpdateBucket = async (bucketName: string, shouldRefreshBuckets: boolean = true) => {
+  const handleUpdateBucket = async (
+    bucketName: string,
+    shouldRefreshBuckets: boolean = true,
+    abortSignal?: AbortSignal
+  ) => {
+    // Check if bulk update is being cancelled
+    const isBulkUpdateCancelling = isCancelling();
+
     // Add to updating set
     setUpdatingBuckets((prev) => new Set([...prev, bucketName]));
 
     try {
+      // Check if operation was aborted before starting
+      if (abortSignal?.aborted) {
+        return { success: false, message: 'Operation cancelled', bucket_name: bucketName };
+      }
+
       const result = await invoke<BucketUpdateResult>('update_bucket', {
         bucketName: bucketName,
       });
 
-      // Store result message
-      setUpdateResults((prev) => ({
-        ...prev,
-        [bucketName]: result.message,
-      }));
+      // Check if operation was aborted after completion
+      if (abortSignal?.aborted) {
+        return { success: false, message: 'Operation cancelled', bucket_name: bucketName };
+      }
+
+      // Only store result message if not in cancelled bulk update
+      if (!isBulkUpdateCancelling) {
+        // Determine status based on result
+        let status: 'success' | 'info' | 'error' | 'default' = 'default';
+        if (result.success) {
+          if (result.message.includes('already up to date')) {
+            status = 'info';
+          } else {
+            status = 'success';
+          }
+        } else {
+          status = 'error';
+        }
+
+        setUpdateResults((prev) => ({
+          ...prev,
+          [bucketName]: result.message,
+        }));
+
+        setUpdateResultStatuses((prev) => ({
+          ...prev,
+          [bucketName]: status,
+        }));
+      }
 
       if (result.success) {
         // If this bucket is currently selected, refresh its manifests
@@ -203,7 +250,7 @@ function BucketPage() {
         }
 
         // Conditionally refresh bucket list to avoid excessive refreshes during batch updates
-        if (shouldRefreshBuckets) {
+        if (shouldRefreshBuckets && !isBulkUpdateCancelling) {
           // Refresh bucket list without showing loading screen
           markForRefresh();
           // Use quiet mode to refresh without showing loading state
@@ -211,38 +258,65 @@ function BucketPage() {
         }
       }
 
-      // Clear result message after 2 seconds to avoid long display
-      const timerId = window.setTimeout(() => {
-        setUpdateResults((prev) => {
-          const newResults = { ...prev };
-          delete newResults[bucketName];
-          return newResults;
-        });
-        resultTimerIds.delete(bucketName);
-      }, 2000);
+      // Only set timer if not cancelled and we have a result
+      if (!isBulkUpdateCancelling) {
+        // Clear result message after 2 seconds to avoid long display
+        const timerId = window.setTimeout(() => {
+          setUpdateResults((prev) => {
+            const newResults = { ...prev };
+            delete newResults[bucketName];
+            return newResults;
+          });
+          resultTimerIds.delete(bucketName);
+        }, 2000);
 
-      resultTimerIds.set(bucketName, timerId);
+        resultTimerIds.set(bucketName, timerId);
+      }
 
       return result; // Return the result
     } catch (error) {
+      // Check if operation was aborted
+      if (abortSignal?.aborted) {
+        return { success: false, message: 'Operation cancelled', bucket_name: bucketName };
+      }
+
       console.error('Failed to update bucket:', bucketName, error);
-      setUpdateResults((prev) => ({
-        ...prev,
-        [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`,
-      }));
 
-      const timerId = window.setTimeout(() => {
-        setUpdateResults((prev) => {
-          const newResults = { ...prev };
-          delete newResults[bucketName];
-          return newResults;
-        });
-        resultTimerIds.delete(bucketName);
-      }, 2000);
+      // Only store error result if not in cancelled bulk update
+      if (!isBulkUpdateCancelling) {
+        setUpdateResults((prev) => ({
+          ...prev,
+          [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`,
+        }));
 
-      resultTimerIds.set(bucketName, timerId);
+        setUpdateResultStatuses((prev) => ({
+          ...prev,
+          [bucketName]: 'error',
+        }));
 
-      throw error; // Re-throw the error
+        const timerId = window.setTimeout(() => {
+          setUpdateResults((prev) => {
+            const newResults = { ...prev };
+            delete newResults[bucketName];
+            return newResults;
+          });
+          setUpdateResultStatuses((prev) => {
+            const newStatuses = { ...prev };
+            delete newStatuses[bucketName];
+            return newStatuses;
+          });
+          resultTimerIds.delete(bucketName);
+        }, 2000);
+
+        resultTimerIds.set(bucketName, timerId);
+      }
+
+      // Return a proper BulkUpdateResult instead of throwing
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+        bucket_name: bucketName,
+      };
     } finally {
       // Remove from updating set in all cases
       setUpdatingBuckets((prev) => {
@@ -253,152 +327,34 @@ function BucketPage() {
     }
   };
 
-  // Handle updating all buckets with limited concurrency
-  const handleUpdateAllBuckets = async () => {
-    // If we're cancelling or already updating, don't start a new update
+  // Handle updating all buckets - simplified to just trigger the update
+  const handleUpdateAllBuckets = () => {
+    // If we're already updating, don't start a new update
     if (updateState().status === 'updating') return;
 
-    const gitBuckets = buckets().filter((bucket) => bucket.is_git_repo);
-
-    // Set updating all flag to prevent full page reload
+    // Set updating state to trigger the component's logic
     setUpdateState({
       status: 'updating',
       current: 0,
-      total: gitBuckets.length,
-      message: 'Starting updates...',
+      total: 0, // Will be set by the component
+      message: t('bucket.grid.updatingBuckets'),
     });
+  };
 
-    // Flag to track cancellation
-    let cancelled = false;
+  // Handle state updates from BulkUpdateProgress component
+  const handleUpdateStateChange = (newState: BulkUpdateState) => {
+    setUpdateState(newState);
+  };
 
-    // Create and store a cancellable object immediately
-    const cancellable = {
-      cancel: () => {
-        cancelled = true;
-        setUpdateState((prev) => ({
-          ...prev,
-          status: 'cancelled',
-          message: 'Cancelling...',
-        }));
-
-        // Refresh bucket list when cancelled
-        markForRefresh();
-        fetchBuckets(true, true);
-      },
-    };
-
-    currentUpdateOperation = cancellable;
-
-    try {
-      // Create update promises using map directly
-      const updatePromises = gitBuckets.map(async (bucket, index) => {
-        // Check if cancelled before starting
-        if (cancelled) return Promise.resolve();
-
-        setUpdateState((prev) => ({
-          ...prev,
-          message: `Updating ${bucket.name} (${index + 1}/${gitBuckets.length})`,
-        }));
-
-        // Update bucket but don't refresh the bucket list yet
-        try {
-          const result = await handleUpdateBucket(bucket.name, false);
-
-          // Check if cancelled after update
-          if (cancelled) return Promise.resolve();
-
-          setUpdateState((prev) => ({
-            ...prev,
-            current: prev.current + 1,
-          }));
-
-          return result;
-        } catch (error) {
-          console.error(`Failed to update bucket ${bucket.name}:`, error);
-
-          setUpdateState((prev) => ({
-            ...prev,
-            current: prev.current + 1,
-          }));
-
-          return Promise.resolve();
-        }
-      });
-
-      // Execute all promises
-      await Promise.all(updatePromises);
-
-      // Check if cancelled before completing
-      if (cancelled) return;
-
-      // Refresh bucket list once after all updates are complete
-      markForRefresh();
-      await fetchBuckets(true, true);
-
-      // Show completion state
-      setUpdateState((prev) => ({
-        ...prev,
-        status: 'completed',
-        message: 'Complete',
-      }));
-    } catch (error) {
-      // Check if this is a cancellation
-      if (cancelled) {
-        setUpdateState((prev) => ({
-          ...prev,
-          status: 'cancelled',
-          message: 'Cancelled',
-        }));
-        return;
-      }
-
-      console.error('Error updating all buckets:', error);
-      setUpdateState((prev) => ({
-        ...prev,
-        status: 'error',
-        message: 'Error occurred during update',
-      }));
-    } finally {
-      // Clear updating all flag and hide progress bar after delay
-      if (stateTimerId) {
-        window.clearTimeout(stateTimerId);
-      }
-
-      stateTimerId = window.setTimeout(() => {
-        setUpdateState((prev) => ({
-          ...prev,
-          status: 'idle',
-        }));
-      }, 300);
-
-      // Hide progress bar after 3 seconds
-      const progressBarTimerId = window.setTimeout(() => {
-        setUpdateState((prev) => ({
-          ...prev,
-          status: prev.status === 'completed' ? 'idle' : prev.status,
-        }));
-
-        window.clearTimeout(progressBarTimerId);
-      }, 3000);
-
-      // Clear current update operation reference
-      currentUpdateOperation = null;
-    }
-
-    return cancellable;
+  // Handle failed results from BulkUpdateProgress component
+  const handleFailedResultsChange = (results: BucketUpdateResult[]) => {
+    setFailedResults(results);
   };
 
   // Handle manual reload of local buckets
   const handleReloadLocalBuckets = async () => {
     markForRefresh();
     await fetchBuckets(true);
-  };
-
-  const handleCancelUpdateAll = () => {
-    if (currentUpdateOperation) {
-      currentUpdateOperation.cancel();
-      currentUpdateOperation = null;
-    }
   };
 
   const cleanupTimers = () => {
@@ -468,37 +424,19 @@ function BucketPage() {
           </div>
         </Show>
 
-        {/* Progress bar for updating all buckets */}
-        <Show when={updateState().status !== 'idle'}>
-          <div class="bg-base-100 rounded-box mb-4 p-4 shadow transition-opacity duration-300">
-            <div class="mb-1 flex justify-between">
-              <span class="text-base font-medium">{t('bucket.grid.updatingBuckets')}</span>
-              <span class="text-sm font-medium">
-                {updateState().current}/{updateState().total}
-              </span>
-            </div>
-            <div class="h-2.5 w-full rounded-full bg-gray-200">
-              <div
-                class={`h-2.5 rounded-full transition-all duration-300 ${
-                  updateState().status === 'completed'
-                    ? 'bg-success'
-                    : updateState().status === 'error'
-                      ? 'bg-error'
-                      : 'bg-warning'
-                }`}
-                style={{
-                  width: `${(updateState().current / Math.max(updateState().total, 1)) * 100}%`,
-                }}
-              ></div>
-            </div>
-            <div class="mt-2 text-sm text-gray-500">
-              {updateState().message}
-              <Show when={updateState().status === 'completed'}>
-                <span> - {t('bucket.grid.updateCompletionNote')}</span>
-              </Show>
-            </div>
-          </div>
-        </Show>
+        <BulkUpdateProgress
+          buckets={buckets().map((b) => ({ name: b.name, is_git_repo: b.is_git_repo }))}
+          updateState={updateState}
+          onUpdateStateChange={handleUpdateStateChange}
+          onClose={handleCloseBulkUpdate}
+          onRefreshBuckets={() => fetchBuckets(true, true)}
+          onUpdateBucket={handleUpdateBucket}
+          errorDetails={getErrorDetails}
+          showErrorDetails={showErrorDetails}
+          onToggleErrorDetails={() => setShowErrorDetails(!showErrorDetails())}
+          onSetCancelling={setIsCancelling}
+          onFailedResultsChange={handleFailedResultsChange}
+        />
 
         {/* Regular Buckets View */}
         <Show when={!isSearchActive()}>
@@ -515,12 +453,16 @@ function BucketPage() {
                   onRefresh={handleReloadLocalBuckets}
                   onUpdateBucket={handleUpdateBucket}
                   onUpdateAll={handleUpdateAllBuckets}
-                  onCancelUpdateAll={handleCancelUpdateAll}
+                  onCloseBulkUpdate={handleCloseBulkUpdate}
                   updatingBuckets={updatingBuckets()}
                   updateResults={updateResults()}
+                  updateResultStatuses={updateResultStatuses()}
                   loading={loading() && updateState().status !== 'updating'} // Only show loading when not updating specific buckets
                   isUpdatingAll={updateState().status === 'updating'}
-                  isCancelling={updateState().status === 'cancelled'}
+                  isCancelling={isCancelling()}
+                  bulkUpdateCompleted={updateState().status === 'completed'}
+                  bulkUpdateMessage={updateState().message}
+                  isBulkUpdate={updateState().status === 'updating'}
                 />
               </div>
             </div>
@@ -553,6 +495,7 @@ function BucketPage() {
         onInstall={packageOperations.handleInstall}
         onUninstall={packageOperations.handleUninstall}
         showBackButton={true}
+        fromPackageModal={true}
         onPackageStateChanged={() => {
           // Refresh bucket manifests to reflect installation changes
           const currentBucket = selectedBucket();

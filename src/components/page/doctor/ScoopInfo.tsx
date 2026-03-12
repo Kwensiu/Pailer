@@ -1,11 +1,13 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Settings, Folder, Edit } from 'lucide-solid';
+import { Settings, Edit } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
+import OpenPathButton from '../../common/OpenPathButton';
+import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
-import { createLocalStorageSignal } from '../../../hooks/createLocalStorageSignal';
 import settingsStore from '../../../stores/settings';
+import { createSessionCache } from '../../../hooks/createSessionStorage';
 
 interface ScoopConfig {
   [key: string]: any;
@@ -18,15 +20,31 @@ export interface ScoopInfoProps {
   onOpenDirectory?: () => void;
 }
 
-function ScoopInfo(props: ScoopInfoProps) {
-  const [scoopPath, setScoopPath] = createSignal<string | null>(null);
-  // Use localStorage to persist config data
-  const [scoopConfig, setScoopConfig] = createLocalStorageSignal<ScoopConfig | null>(
-    'scoopConfig',
-    null
-  );
-  const [isLoading, setIsLoading] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+function ScoopInfo() {
+  // Combined cache for both config and directory - simple and single source of truth
+  const {
+    data: scoopData,
+    loading,
+    error,
+    refresh,
+    updateData,
+  } = createSessionCache<{
+    config: ScoopConfig | null;
+    directory: string | null;
+  }>('scoopData', async () => {
+    const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
+    let directory = null;
+
+    if (config) {
+      try {
+        directory = await invoke<string>('get_scoop_config_directory');
+      } catch (err) {
+        console.warn('Failed to get config directory:', err);
+      }
+    }
+
+    return { config, directory };
+  });
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
   const [editConfig, setEditConfig] = createSignal<string>('');
   const [isSaving, setIsSaving] = createSignal(false);
@@ -38,43 +56,43 @@ function ScoopInfo(props: ScoopInfoProps) {
 
   const fetchScoopInfo = async (silent: boolean = false) => {
     if (!silent) {
-      setIsLoading(true);
-    } else {
-      // For silent mode, if currently loading, set to false first
-      if (isLoading()) {
-        setIsLoading(false);
-      }
+      // Use hook's refresh for manual refresh
+      refresh();
     }
-    setError(null);
 
     try {
-      // Get Scoop path
-      const path = await invoke<string | null>('get_scoop_path');
-      setScoopPath(path);
+      // Get configured Scoop path first
+      const configuredPath = await invoke<string | null>('get_scoop_path');
 
-      // Get Scoop configuration
-      const config = await invoke<ScoopConfigMap | null>('get_scoop_config');
+      if (!configuredPath) {
+        console.error('No Scoop path configured. Please configure it in settings.');
+        return;
+      }
 
-      // Update config
-      setScoopConfig(config);
+      // Check if the configured path exists
+      const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
+      if (!pathExists) {
+        // Update hook's data to null when path doesn't exist
+        updateData({ config: null, directory: null });
+        return;
+      }
+
+      // Config directory is now handled by its own cache
+      console.log('Scoop config loaded via hook');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to fetch scoop info:', errorMsg);
-      setError('Could not load Scoop information.');
-    } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      // Hook handles error state automatically
     }
   };
 
   onMount(() => {
-    // Enable automatic silent refresh to avoid flickering
-    fetchScoopInfo(true);
+    // Both scoopConfig and configDirectory are now handled by their respective caches
+    // No need to manually fetch anything
   });
 
   const openEditModal = () => {
-    const config = scoopConfig();
+    const config = scoopData()?.config;
     if (config) {
       setEditConfig(JSON.stringify(config, null, 2));
       setSaveError(null);
@@ -93,17 +111,24 @@ function ScoopInfo(props: ScoopInfoProps) {
     setSaveError(null);
 
     try {
-      const config = JSON.parse(editConfig());
-      await invoke('update_scoop_config', { config });
+      const newConfig = JSON.parse(editConfig());
+      await invoke('update_scoop_config', { config: newConfig });
 
-      // Refresh the config after saving
-      await fetchScoopInfo(true); // Silent refresh
+      // Update hook's data directly
+      const currentData = scoopData() || { config: null, directory: null };
+      updateData({ ...currentData, config: newConfig });
+
+      // Show success toast
+      toast.success(t('doctor.scoopInfo.saveSuccess'));
 
       closeEditModal();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to save scoop config:', errorMsg);
-      setSaveError('Failed to save configuration: ' + errorMsg);
+
+      // Only internationalize the user-friendly prefix, keep technical errors in English
+      const userFriendlyPrefix = t('doctor.scoopInfo.saveErrorPrefix');
+      setSaveError(`${userFriendlyPrefix}: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }
@@ -117,41 +142,44 @@ function ScoopInfo(props: ScoopInfoProps) {
         onRefresh={() => fetchScoopInfo()}
         headerAction={
           <div class="flex items-center gap-2">
-            <Show when={scoopConfig()}>
+            <Show when={scoopData()?.config}>
               <button
-                class="btn btn-ghost btn-sm"
+                class="btn btn-ghost btn-sm tooltip tooltip-bottom"
+                data-tip={t('doctor.scoopInfo.editConfiguration')}
                 onClick={openEditModal}
-                title={t('doctor.scoopInfo.editConfiguration')}
               >
                 <Edit class="h-5 w-5" />
               </button>
             </Show>
-            <Show when={props.onOpenDirectory && scoopPath()}>
-              <button
-                class="btn btn-ghost btn-sm"
-                onClick={props.onOpenDirectory}
-                title={t('doctor.scoopInfo.openScoopDirectory')}
-              >
-                <Folder class="h-5 w-5" />
-              </button>
-            </Show>
+            <OpenPathButton
+              path={scoopData()?.directory || ''}
+              validatePath={true}
+              showErrorToast={true}
+              tooltip={
+                scoopData()?.directory
+                  ? t('doctor.scoopInfo.openConfigDirectory')
+                  : 'Loading configuration directory...'
+              }
+              size="sm"
+              disabled={!scoopData()?.directory}
+            />
           </div>
         }
       >
-        {isLoading() ? (
+        {loading() ? (
           <div class="flex h-32 items-center justify-center">
             <div class="loading loading-spinner loading-md"></div>
           </div>
         ) : error() ? (
-          <div class="alert alert-error">
+          <div class="status-alert status-alert-error">
             <span>{error()}</span>
           </div>
         ) : (
           <div class="space-y-4">
             <div>
-              {scoopConfig() ? (
+              {scoopData()?.config ? (
                 <div class="bg-base-list overflow-x-auto rounded-lg p-4 text-sm">
-                  <For each={Object.entries(scoopConfig()!)}>
+                  <For each={Object.entries(scoopData()!.config!)}>
                     {([key, value]) => (
                       <div class="border-base-100 flex border-b py-1 last:border-0">
                         <span class="text-primary mr-2 min-w-[150px] font-mono font-bold">
@@ -202,7 +230,7 @@ function ScoopInfo(props: ScoopInfoProps) {
           />
         </div>
         <Show when={saveError()}>
-          <div class="alert alert-error mt-4">
+          <div class="status-alert status-alert-error mt-4">
             <span>{saveError()}</span>
           </div>
         </Show>

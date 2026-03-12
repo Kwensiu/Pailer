@@ -1,21 +1,7 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import OperationModal from '../components/OperationModal';
-import ScoopConfiguration from '../components/page/settings/ScoopConfiguration';
-import StartupSettings from '../components/page/settings/StartupSettings';
-import HotkeySettings from '../components/page/settings/HotkeySettings';
-import VirusTotalSettings from '../components/page/settings/VirusTotalSettings';
-import HeldPackagesManagement from '../components/page/settings/HeldPackagesManagement';
-import AboutSection from '../components/page/settings/AboutSection';
-import DebugSettings from '../components/page/settings/DebugSettings';
-import AutoCleanupSettings from '../components/page/settings/AutoCleanupSettings';
-import BucketAutoUpdateSettings from '../components/page/settings/BucketAutoUpdateSettings';
-import TraySettings from '../components/page/settings/TraySettings';
-import ThemeSettings from '../components/page/settings/ThemeSettings';
-import DefaultLaunchPageSettings from '../components/page/settings/DefaultLaunchPageSettings';
-import AppDataManagement from '../components/page/settings/AppDataManagement';
-import LanguageSettings from '../components/page/settings/LanguageSettings';
-import PowerShellSettings from '../components/page/settings/PowerShellSettings';
+import OperationModal from '../components/modals/OperationModal';
+import * as SC from '../components/page/settings';
 import heldStore from '../stores/held';
 import { t } from '../i18n';
 import { createLocalStorageSignal } from '../hooks/createLocalStorageSignal';
@@ -84,49 +70,49 @@ function SettingsPage(props: SettingsPageProps) {
           {/* Automation Tab */}
           <Show when={activeTab() === 'automation'}>
             <div class="space-y-6">
-              <AutoCleanupSettings />
-              <BucketAutoUpdateSettings />
+              <SC.AutoCleanupSettings />
+              <SC.BucketAutoUpdateSettings />
             </div>
           </Show>
 
           {/* Management Tab */}
           <Show when={activeTab() === 'management'}>
             <div class="space-y-6">
-              <ScoopConfiguration />
+              <SC.ScoopConfiguration />
 
-              <HeldPackagesManagement
+              <SC.HeldPackagesManagement
                 onUnhold={handleUnhold}
                 operationInProgress={!!operationTitle() || isUnholding()}
               />
 
-              <PowerShellSettings />
+              <SC.PowerShellSettings />
             </div>
           </Show>
 
           {/* Security Tab */}
           <Show when={activeTab() === 'security'}>
             <div class="space-y-6">
-              <VirusTotalSettings />
+              <SC.VirusTotalSettings />
             </div>
           </Show>
 
           {/* Window & UI Tab */}
           <Show when={activeTab() === 'window'}>
             <div class="space-y-6">
-              <ThemeSettings />
-              <LanguageSettings />
-              <TraySettings />
-              <StartupSettings />
-              <HotkeySettings />
-              <DefaultLaunchPageSettings />
-              <DebugSettings />
+              <SC.ThemeSettings />
+              <SC.LanguageSettings />
+              <SC.TraySettings />
+              <SC.StartupSettings />
+              <SC.HotkeySettings />
+              <SC.DefaultLaunchPageSettings />
+              <SC.DebugSettings />
             </div>
           </Show>
 
           {/* About Tab */}
           <Show when={activeTab() === 'about'}>
-            <AboutSection isScoopInstalled={props.isScoopInstalled} />
-            <AppDataManagement />
+            <SC.AboutSection isScoopInstalled={props.isScoopInstalled} />
+            <SC.AppDataManagement />
           </Show>
         </div>
       </div>

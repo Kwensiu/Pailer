@@ -1,11 +1,11 @@
 import { createSignal, Show, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { info, warn, error } from '@tauri-apps/plugin-log';
-import settingsStore from '../stores/settings';
-import Modal from './common/Modal';
+import settingsStore from '../../stores/settings';
+import Modal from '../common/Modal';
 import OperationModal from './OperationModal';
-import { useOperations } from '../stores/operations';
-import { toast } from './common/ToastAlert';
+import { useOperations } from '../../stores/operations';
+import { toast } from '../common/ToastAlert';
 
 interface DebugInfo {
   timestamp: string;

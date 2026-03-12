@@ -1,10 +1,16 @@
-import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
+import { createSignal, onMount, For, Show, createMemo, createEffect } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Trash2, Archive, TriangleAlert, Inbox, Folder, Database } from 'lucide-solid';
+import { Trash2, TriangleAlert, Inbox, Database, Settings, Info, RefreshCw } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
-import ConfirmationModal from '../../ConfirmationModal';
+import ConfirmationModal from '../../modals/ConfirmationModal';
+import OptionsModal from '../../modals/OptionsModal';
 import Card from '../../common/Card';
+import OpenPathButton from '../../common/OpenPathButton';
+import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { t } from '../../../i18n';
+import { createTauriSignal } from '../../../hooks/createTauriSignal';
+
+const CACHE_DIR = 'cache';
 
 interface CacheEntry {
   name: string;
@@ -16,30 +22,36 @@ interface CacheEntry {
 // A unique identifier for a cache entry
 type CacheIdentifier = string;
 
-export interface CacheManagerProps {
-  onOpenDirectory?: () => void;
-  onCleanupApps?: () => void;
-  onCleanupCache?: () => void;
-}
-
 function getCacheIdentifier(entry: CacheEntry): CacheIdentifier {
   // Using the full filename for uniqueness
   return entry.fileName;
 }
 
-function CacheManager(props: CacheManagerProps) {
+function CacheManager() {
   const [cacheContents, setCacheContents] = createSignal<CacheEntry[]>([]);
   const [selectedItems, setSelectedItems] = createSignal<Set<CacheIdentifier>>(new Set());
   const [filter, setFilter] = createSignal('');
-  const [isLoading, setIsLoading] = createSignal(true);
+  const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [cacheDirectory, setCacheDirectory] = createSignal<string>('');
+
+  // Settings state
+  const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
+  const [useScoopCleanup, setUseScoopCleanup] = createTauriSignal(
+    'cacheManager.useScoopCleanup',
+    false
+  );
+  const [preserveVersioned, setPreserveVersioned] = createTauriSignal(
+    'cacheManager.preserveVersioned',
+    true
+  );
 
   // State for the confirmation modal
   const [isConfirmModalOpen, setIsConfirmModalOpen] = createSignal(false);
   const [confirmationDetails, setConfirmationDetails] = createSignal({
-    onConfirm: () => {},
     title: '',
     content: null as any,
+    onConfirm: () => {},
   });
 
   const filteredCacheContents = createMemo(() => {
@@ -56,24 +68,83 @@ function CacheManager(props: CacheManagerProps) {
     return contents.every((item) => selectedItems().has(getCacheIdentifier(item)));
   });
 
+  const getScoopSubPath = (subPath: string) => {
+    return async () => {
+      try {
+        const scoopPath = await invoke<string>('get_scoop_path');
+        if (!scoopPath) {
+          throw new Error('Scoop path not configured');
+        }
+        return `${scoopPath}\\${subPath}`;
+      } catch (error) {
+        console.error(`Failed to get scoop ${subPath} path:`, error);
+        throw error;
+      }
+    };
+  };
+
+  const fetchCacheDirectory = async () => {
+    try {
+      const getPath = getScoopSubPath(CACHE_DIR);
+      const path = await getPath();
+      setCacheDirectory(path);
+    } catch (error) {
+      console.error('Failed to fetch cache directory:', error);
+    }
+  };
+
   const fetchCacheContents = async () => {
     setIsLoading(true);
     setError(null);
     setSelectedItems(new Set<CacheIdentifier>());
+
     try {
-      const result = await invoke<CacheEntry[]>('list_cache_contents');
-      setCacheContents(result);
+      // 检查Scoop路径是否存在
+      const scoopPath = await invoke<string | null>('get_scoop_path');
+      if (!scoopPath) {
+        setError('No Scoop path configured. Please configure it in settings.');
+        setCacheDirectory('');
+        return;
+      }
+
+      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+      if (!pathExists) {
+        setError(`Configured Scoop path does not exist: ${scoopPath}`);
+        setCacheDirectory('');
+        return;
+      }
+
+      // 获取缓存内容
+      const cacheData = await invoke<CacheEntry[]>('list_cache_contents', {
+        preserveVersioned: preserveVersioned(),
+      });
+      setCacheContents(cacheData);
+
+      // 获取缓存目录路径
+      await fetchCacheDirectory();
     } catch (err) {
       console.error('Failed to fetch cache contents:', err);
       setError(
         typeof err === 'string' ? err : 'An unknown error occurred while fetching cache contents.'
       );
+      setCacheDirectory('');
     } finally {
       setIsLoading(false);
     }
   };
 
   onMount(fetchCacheContents);
+
+  // 监听preserveVersioned变化以重新获取缓存
+  createEffect(() => {
+    const currentPreserveVersioned = preserveVersioned();
+    // 使用setTimeout避免在组件挂载时立即触发
+    setTimeout(() => {
+      if (preserveVersioned() === currentPreserveVersioned) {
+        fetchCacheContents();
+      }
+    }, 0);
+  });
 
   const toggleSelection = (identifier: CacheIdentifier) => {
     setSelectedItems((prev) => {
@@ -114,7 +185,7 @@ function CacheManager(props: CacheManagerProps) {
     const selectedFiles = [...selectedItems()];
     if (selectedFiles.length === 0) return;
 
-    const packageNames = Array.from(new Set(selectedFiles.map((id) => id.split('@')[0]))).sort();
+    const packageNames = Array.from(new Set(selectedFiles.map((id) => id.split('#')[0]))).sort();
 
     setConfirmationDetails({
       title: t('doctor.cacheManager.confirmDeletion'),
@@ -135,14 +206,35 @@ function CacheManager(props: CacheManagerProps) {
       onConfirm: async () => {
         setIsLoading(true);
         try {
-          await invoke('clear_cache', { files: selectedFiles });
+          if (useScoopCleanup()) {
+            // Extract package names from selected files (list is already filtered)
+            const packageNames = Array.from(
+              new Set(selectedFiles.map((id) => id.split('#')[0]))
+            ).sort();
+
+            if (packageNames.length > 0) {
+              await invoke('remove_cache_for_specific_packages', { packageNames });
+            }
+            await fetchCacheContents();
+          } else {
+            // Use direct file deletion
+            const [success, failure] = await invoke<[number, number]>('clear_cache', {
+              files: selectedFiles,
+              preserveVersioned: preserveVersioned(),
+            });
+            if (failure > 0) {
+              setError(t('doctor.cacheManager.deletePartialSuccess', { success, failure }));
+            } else {
+              await fetchCacheContents();
+            }
+          }
         } catch (err) {
           console.error('Failed to clear selected cache items:', err);
           setError(
             typeof err === 'string' ? err : 'An unknown error occurred while clearing cache.'
           );
         } finally {
-          await fetchCacheContents();
+          setIsLoading(false);
         }
       },
     });
@@ -157,54 +249,121 @@ function CacheManager(props: CacheManagerProps) {
       onConfirm: async () => {
         setIsLoading(true);
         try {
-          await invoke('clear_cache', { files: null });
+          if (useScoopCleanup()) {
+            // Get package names from current displayed list (already filtered)
+            const displayedPackages = [...new Set(cacheContents().map((item) => item.name))];
+
+            if (displayedPackages.length > 0) {
+              await invoke('remove_cache_for_specific_packages', {
+                packageNames: displayedPackages,
+              });
+            }
+            await fetchCacheContents();
+          } else {
+            // Use direct file deletion
+            const [success, failure] = await invoke<[number, number]>('clear_cache', {
+              files: null,
+              preserveVersioned: preserveVersioned(),
+            });
+            if (failure > 0) {
+              setError(t('doctor.cacheManager.deletePartialSuccess', { success, failure }));
+            } else {
+              await fetchCacheContents();
+            }
+          }
         } catch (err) {
           console.error('Failed to clear all cache items:', err);
           setError(
             typeof err === 'string' ? err : 'An unknown error occurred while clearing cache.'
           );
         } finally {
-          await fetchCacheContents();
+          setIsLoading(false);
+          setIsConfirmModalOpen(false);
         }
-        setIsConfirmModalOpen(false);
       },
     });
 
     setIsConfirmModalOpen(true);
   };
 
+  const handleSettingsClose = () => {
+    setIsSettingsOpen(false);
+  };
+
   return (
     <>
       <Card
-        title={t('doctor.cacheManager.title')}
+        title={
+          <div class="flex items-center gap-2">
+            {t('doctor.cacheManager.title')}
+            <button
+              class="btn btn-ghost btn-sm btn-circle"
+              onClick={() => setIsSettingsOpen(true)}
+              title={t('doctor.cacheManager.settings.title')}
+            >
+              <Settings class="h-4 w-4" />
+            </button>
+          </div>
+        }
         icon={Database}
-        onRefresh={fetchCacheContents}
         headerAction={
           <div class="flex items-center gap-2">
-            <Show when={cacheContents().length > 0}>
-              <button
-                class="btn btn-warning btn-sm"
-                onClick={handleClearSelected}
-                disabled={selectedItems().size === 0 || isLoading()}
-              >
-                <Trash2 class="h-4 w-4" />
-                {t('buttons.removeSelected')} ({selectedItems().size})
-              </button>
-              <button class="btn btn-error btn-sm" onClick={handleClearAll} disabled={isLoading()}>
-                <Archive class="h-4 w-4" />
-                {t('buttons.removeAll')}
-              </button>
-              <div class="divider divider-horizontal m-1" />
+            <ResponsiveButton
+              collapsedButtonWidth="3rem"
+              breakpoint={771}
+              menuItems={[
+                {
+                  label: () => `${t('buttons.removeSelected')} (${selectedItems().size})`,
+                  onClick: handleClearSelected,
+                  disabled: () => selectedItems().size === 0 || isLoading(),
+                  class: 'btn-warning',
+                  icon: Trash2,
+                },
+                {
+                  label: () => t('buttons.removeAll'),
+                  onClick: handleClearAll,
+                  disabled: () => cacheContents().length === 0 || isLoading(),
+                  class: 'btn-error',
+                  icon: Trash2,
+                },
+              ]}
+            >
+              <>
+                <button
+                  class="btn btn-warning btn-sm"
+                  onClick={handleClearSelected}
+                  disabled={selectedItems().size === 0 || isLoading()}
+                >
+                  <Trash2 class="h-4 w-4" />
+                  {t('buttons.removeSelected')} ({selectedItems().size})
+                </button>
+                <button
+                  class="btn btn-error btn-sm"
+                  onClick={handleClearAll}
+                  disabled={cacheContents().length === 0 || isLoading()}
+                >
+                  <Trash2 class="h-4 w-4" />
+                  {t('buttons.removeAll')}
+                </button>
+              </>
+            </ResponsiveButton>
+            <div class="divider divider-horizontal m-1" />
+            <Show when={cacheDirectory()}>
+              <OpenPathButton
+                path={cacheDirectory()}
+                validatePath={true}
+                showErrorToast={true}
+                tooltip={t('doctor.cacheManager.openCacheDirectory')}
+              />
             </Show>
-            <Show when={props.onOpenDirectory}>
-              <button
-                class="btn btn-ghost btn-sm"
-                onClick={props.onOpenDirectory}
-                title={t('doctor.cacheManager.openCacheDirectory')}
-              >
-                <Folder class="h-5 w-5" />
-              </button>
-            </Show>
+            <button
+              class="btn btn-ghost btn-sm"
+              onClick={fetchCacheContents}
+              disabled={isLoading()}
+              title="Refresh cache"
+            >
+              <RefreshCw class="h-5 w-5" />
+            </button>
           </div>
         }
       >
@@ -283,10 +442,56 @@ function CacheManager(props: CacheManagerProps) {
         </div>
       </Card>
 
+      <OptionsModal
+        isOpen={isSettingsOpen()}
+        title={t('doctor.cacheManager.settings.title')}
+        onClose={handleSettingsClose}
+      >
+        <div class="space-y-4">
+          {/* Use Scoop Cleanup Option */}
+          <div class="flex items-center justify-between">
+            <label class="cursor-pointer text-sm font-medium" for="use-scoop-cleanup">
+              {t('doctor.cacheManager.settings.useScoopCleanup')}
+            </label>
+            <input
+              id="use-scoop-cleanup"
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={useScoopCleanup()}
+              onChange={(e) => setUseScoopCleanup(e.currentTarget.checked)}
+            />
+          </div>
+
+          {/* Preserve Versioned Cache Option */}
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <label class="cursor-pointer text-sm font-medium" for="preserve-versioned">
+                  {t('doctor.cacheManager.settings.preserveVersioned')}
+                </label>
+                <div
+                  class="tooltip"
+                  data-tip={t('doctor.cacheManager.settings.preserveVersionedDescription')}
+                >
+                  <Info class="text-base-content/50 h-4 w-4 cursor-help" />
+                </div>
+              </div>
+            </div>
+            <input
+              id="preserve-versioned"
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={preserveVersioned()}
+              onChange={(e) => setPreserveVersioned(e.currentTarget.checked)}
+            />
+          </div>
+        </div>
+      </OptionsModal>
+
       <ConfirmationModal
         isOpen={isConfirmModalOpen()}
         title={confirmationDetails().title}
-        confirmText={t('doctor.cacheManager.delete')}
+        confirmText={t('buttons.deleteDirectly')}
         onConfirm={() => {
           confirmationDetails().onConfirm();
           setIsConfirmModalOpen(false);
