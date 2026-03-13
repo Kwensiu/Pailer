@@ -112,7 +112,7 @@ export default function VirusTotalSettings() {
           />
           <button class="btn btn-info join-item" onClick={handleSave} disabled={isLoading()}>
             <Save class="mr-1 h-4 w-4" />
-            {t('settings.virustotal.save')}
+            {t('buttons.save')}
           </button>
         </div>
       </div>

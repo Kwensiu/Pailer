@@ -133,14 +133,14 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
             disabled={isDetecting() || isSaving() || !isValidPath()}
           >
             <Save class="mr-1 h-4 w-4" />
-            {t('settings.scoopConfiguration.save')}
+            {t('buttons.save')}
           </button>
           <button
             class="btn btn-accent join-item rounded-r-3xl pr-4.5"
             onClick={detectScoopPath}
             disabled={isDetecting() || isSaving()}
           >
-            {t('settings.scoopConfiguration.auto')}
+            {t('buttons.auto')}
           </button>
         </div>
 

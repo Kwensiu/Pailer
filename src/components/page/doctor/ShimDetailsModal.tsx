@@ -79,7 +79,7 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
             disabled={props.isOperationRunning}
           >
             <Trash2 class="h-4 w-4" />{' '}
-            {deleteConfirm() ? t('buttons.confirm') : t('doctor.shimDetails.remove')}
+            {deleteConfirm() ? t('buttons.confirm') : t('buttons.remove')}
           </button>
           <button class="btn" onClick={handleAlter} disabled={props.isOperationRunning}>
             <Show

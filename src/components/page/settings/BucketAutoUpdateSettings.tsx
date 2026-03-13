@@ -373,7 +373,7 @@ function CustomIntervalEditor(props: CustomIntervalEditorProps) {
           disabled={props.disabled || saving() || !!error()}
           onClick={handlePersist}
         >
-          {saving() ? t('settings.bucketAutoUpdate.saving') : t('settings.bucketAutoUpdate.save')}
+          {saving() ? t('buttons.saving') : t('buttons.save')}
         </button>
       </div>
       <div class="text-[11px] opacity-70">{preview()}</div>
