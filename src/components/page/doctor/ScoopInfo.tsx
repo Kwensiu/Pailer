@@ -213,7 +213,7 @@ function ScoopInfo() {
               {t('doctor.scoopInfo.cancel')}
             </button>
             <button class="btn btn-primary" onClick={saveConfig} disabled={isSaving()}>
-              {isSaving() ? t('doctor.scoopInfo.saving') : t('doctor.scoopInfo.save')}
+              {isSaving() ? t('buttons.saving') : t('doctor.scoopInfo.save')}
             </button>
           </div>
         }

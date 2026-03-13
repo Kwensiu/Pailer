@@ -246,7 +246,7 @@ function BucketSearchResults(props: BucketSearchResultsProps) {
                         fallback={
                           <>
                             <Trash2 class="mr-1 h-4 w-4" />
-                            {t('bucket.searchResults.remove')}
+                            {t('buttons.remove')}
                           </>
                         }
                       >

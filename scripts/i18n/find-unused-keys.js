@@ -77,20 +77,73 @@ function getSourceFiles(dirs, extensions = ['.ts', '.tsx', '.js', '.jsx']) {
 function isKeyUsed(key, filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const isRust = filePath.endsWith('.rs');
+  const isTypeDefinition = filePath.endsWith('dict-types.ts') || filePath.includes('types');
+
   if (isRust) {
     // For Rust files, search for JSON property access like get("key") or ["key"]
     return content.includes(`get("${key}")`) || content.includes(`["${key}"]`);
+  } else if (isTypeDefinition) {
+    // Skip type definition files - they only contain type annotations, not actual usage
+    return false;
   } else {
     // For TypeScript/JavaScript files, check for common usage patterns
-    const prefix = key.split('.').slice(0, -1).join('.');
+    // Be more specific to avoid false positives
+
+    // Check for t() function calls with the exact key
+    const hasTFunctionCall = content.includes(`t('${key}')`) || content.includes(`t("${key}")`);
+
+    // Check for dict property access
+    const hasDictAccess = content.includes(`dict.${key}`);
+
+    // Check for dynamic key construction patterns
+    const keyParts = key.split('.');
+    const baseKey = keyParts[0];
+    const subKey = keyParts.slice(1).join('.');
+
+    // Pattern 1: t(`baseKey.${variable}`) - dynamic subkey
+    const hasDynamicSubKey =
+      content.includes(`t(\`${baseKey}.\${`) ||
+      content.includes(`t('${baseKey}.' +`) ||
+      content.includes(`t("${baseKey}." +`) ||
+      (content.includes(`${baseKey}.`) && content.includes('items.') && content.includes('t('));
+
+    // Pattern 2: Special case for doctor.checkup.items - check for dynamic displayKey pattern
+    const hasCheckupItemsPattern =
+      key.startsWith('doctor.checkup.items.') &&
+      (content.includes('doctor.checkup.items.${') ||
+        content.includes("doctor.checkup.items.' +") ||
+        (content.includes('items.') && content.includes('displayKey') && content.includes('t(')));
+
+    // Pattern 3: Check if the key is used in template literals with dynamic parts
+    const hasTemplateLiteralPattern =
+      content.includes(`\`${baseKey}.\${`) && content.includes('t(');
+
+    // Pattern 4: Check for literal strings in t() context (more specific)
+    const hasLiteralInTContext =
+      (content.includes(`'${key}'`) || content.includes(`"${key}"`)) && content.includes('t(');
+
+    // Pattern 5: Check for key parts used separately in dynamic construction
+    const hasKeyPartsUsed = keyParts.some(
+      (part) => part && content.includes(part) && content.includes('t(') && content.includes('${')
+    );
+
+    // Pattern 6: Check for setError calls with the key (common in error handling)
+    const hasSetErrorPattern =
+      content.includes('setError(') &&
+      (content.includes(`'${key}'`) ||
+        content.includes(`"${key}"`) ||
+        content.includes(`\`${key}\``));
+
+    // Only return true if we found actual usage patterns
     return (
-      content.includes(`t('${key}')`) ||
-      content.includes(`t("${key}")`) ||
-      content.includes(`dict.${key}`) ||
-      content.includes(`'${key}'`) ||
-      content.includes(`"${key}"`) ||
-      content.includes(key) || // literal key
-      (prefix && content.includes(prefix)) // prefix for dynamic usages
+      hasTFunctionCall ||
+      hasDictAccess ||
+      hasLiteralInTContext ||
+      hasDynamicSubKey ||
+      hasCheckupItemsPattern ||
+      hasTemplateLiteralPattern ||
+      hasKeyPartsUsed ||
+      hasSetErrorPattern
     );
   }
 }

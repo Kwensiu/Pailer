@@ -79,14 +79,14 @@ function ScoopProxySettings() {
               onClick={handleSaveProxy}
               disabled={isLoading() || isSaving()}
             >
-              {t('doctor.proxySettings.save')}
+              {t('buttons.save')}
             </button>
             <button
               class="btn btn-warning join-item"
               onClick={handleClearProxy}
               disabled={isLoading() || isSaving() || !proxyValue()}
             >
-              {t('doctor.proxySettings.clear')}
+              {t('buttons.clear')}
             </button>
           </div>
         </div>

@@ -83,7 +83,7 @@ export default function UpdateModal(props: UpdateModalProps) {
           <div class="bg-base-200 rounded-lg p-4">
             <h4 class="mt-1 font-semibold">{t('settings.about.releaseNotes')}</h4>
             <div class="text-base-content/70 text-sm">
-              <p>No release notes available for this version.</p>
+              <p>{t('settings.about.noReleaseNotes')}</p>
             </div>
           </div>
         </Show>

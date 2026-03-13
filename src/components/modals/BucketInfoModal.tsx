@@ -387,7 +387,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
             fallback={
               <>
                 <Trash2 class="mr-2 h-4 w-4" />
-                {t('bucketInfo.remove')}
+                {t('buttons.remove')}
               </>
             }
           >
