@@ -6,12 +6,13 @@ import { useBuckets } from '../../hooks/useBuckets';
 import hljs from 'highlight.js/lib/core';
 
 import json from 'highlight.js/lib/languages/json';
-import { Download, Ellipsis, FileText, ExternalLink } from 'lucide-solid';
+import { Download, Ellipsis, FileText, ExternalLink, Trash2 } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
 import { Dropdown } from '../common/Dropdown';
+import { searchCacheManager } from '../../hooks/useSearchCache';
 
 hljs.registerLanguage('json', json);
 
@@ -179,6 +180,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     const detailsMap = new Map(props.info.details);
     const result: [string, string, string][] = []; // [label, value, originalKey]
 
+    // If we have updated version info, use the current version from there
+    const currentVersionInfo = versionInfo();
+    if (currentVersionInfo && currentVersionInfo.current_version) {
+      // Only update the version fields that exist in the original details
+      if (detailsMap.has('Installed Version')) {
+        detailsMap.set('Installed Version', currentVersionInfo.current_version);
+      }
+      if (detailsMap.has('Version')) {
+        detailsMap.set('Version', currentVersionInfo.current_version);
+      }
+    }
+
     for (const { key, label } of desiredOrder) {
       if (detailsMap.has(key)) {
         result.push([label, detailsMap.get(key)!, key]);
@@ -309,6 +322,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const [updateConfirm, setUpdateConfirm] = createSignal(false);
   const [updateTimer, setUpdateTimer] = createSignal<number | null>(null);
 
+  // State for delete version confirmation
+  const [deleteVersionConfirm, setDeleteVersionConfirm] = createSignal<string | null>(null);
+  const [deleteVersionTimer, setDeleteVersionTimer] = createSignal<number | null>(null);
+
   createEffect(() => {
     if (props.info?.notes && codeRef) {
       hljs.highlightElement(codeRef);
@@ -361,6 +378,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       if (updateTimer()) {
         window.clearTimeout(updateTimer()!);
         setUpdateTimer(null);
+      }
+      // Reset delete version confirmation state when switching packages
+      setDeleteVersionConfirm(null);
+      if (deleteVersionTimer()) {
+        window.clearTimeout(deleteVersionTimer()!);
+        setDeleteVersionTimer(null);
       }
     }
     return currentPackageName;
@@ -426,6 +449,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
       // Notify parent that package state may have changed
       props.onPackageStateChanged?.();
+
+      searchCacheManager.invalidateCache();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setVersionError(
@@ -434,6 +459,46 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
     } finally {
       setSwitchingVersion(null);
+    }
+  };
+
+  const deleteVersion = async (pkg: ScoopPackage, versionToDelete: string) => {
+    if (deleteVersionConfirm() === versionToDelete) {
+      // Execute delete
+      if (deleteVersionTimer()) {
+        window.clearTimeout(deleteVersionTimer()!);
+        setDeleteVersionTimer(null);
+      }
+      setDeleteVersionConfirm(null);
+
+      try {
+        await invoke('delete_app_version', {
+          appName: pkg.name,
+          version: versionToDelete,
+        });
+
+        // Refresh version info after deletion
+        await fetchVersionInfo(pkg);
+
+        // Notify parent that package state may have changed
+        props.onPackageStateChanged?.();
+
+        searchCacheManager.invalidateCache();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        setVersionError(
+          t('packageInfo.errorDeletingVersion', { version: versionToDelete, error: errorMsg })
+        );
+        console.error(`Failed to delete version ${versionToDelete} for ${pkg.name}:`, errorMsg);
+      }
+    } else {
+      // First click - show confirmation
+      setDeleteVersionConfirm(versionToDelete);
+      const timer = window.setTimeout(() => {
+        setDeleteVersionConfirm(null);
+        setDeleteVersionTimer(null);
+      }, 3000);
+      setDeleteVersionTimer(timer);
     }
   };
 
@@ -533,7 +598,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               }
             }}
           >
-            {uninstallConfirm() ? t('packageInfo.sure') : t('buttons.uninstall')}
+            {uninstallConfirm() ? t('buttons.sure') : t('buttons.uninstall')}
           </button>
         </Show>
         {/* Change Bucket Bottom in PackageInfoModal */}
@@ -741,7 +806,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                                   class="btn btn-xs btn-primary"
                                   onClick={openVersionSwitcher}
                                 >
-                                  {t('packageInfo.switch')}
+                                  {t('buttons.switch')}
                                 </button>
                               </Show>
                             </div>
@@ -815,22 +880,42 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                                     </div>
                                   </Show>
                                 </div>
-                                <Show when={!version.is_current}>
-                                  <button
-                                    class="btn btn-sm btn-primary"
-                                    disabled={switchingVersion() === version.version}
-                                    onClick={() =>
-                                      props.pkg && switchVersion(props.pkg, version.version)
-                                    }
-                                  >
-                                    <Show
-                                      when={switchingVersion() === version.version}
-                                      fallback={t('packageInfo.switch')}
+                                <div class="flex gap-2">
+                                  <Show when={!version.is_current}>
+                                    <button
+                                      class="btn btn-sm btn-primary"
+                                      disabled={switchingVersion() === version.version}
+                                      onClick={() =>
+                                        props.pkg && switchVersion(props.pkg, version.version)
+                                      }
                                     >
-                                      <span class="loading loading-spinner loading-xs"></span>
-                                    </Show>
-                                  </button>
-                                </Show>
+                                      <Show
+                                        when={switchingVersion() === version.version}
+                                        fallback={t('buttons.switch')}
+                                      >
+                                        <span class="loading loading-spinner loading-xs"></span>
+                                      </Show>
+                                    </button>
+                                  </Show>
+                                  <Show when={!version.is_current}>
+                                    <button
+                                      class="btn btn-sm btn-error"
+                                      classList={{
+                                        'btn-warning': deleteVersionConfirm() === version.version,
+                                      }}
+                                      onClick={() =>
+                                        props.pkg && deleteVersion(props.pkg, version.version)
+                                      }
+                                    >
+                                      <Show
+                                        when={deleteVersionConfirm() === version.version}
+                                        fallback={<Trash2 class="h-4 w-4" />}
+                                      >
+                                        {t('buttons.sure')}
+                                      </Show>
+                                    </button>
+                                  </Show>
+                                </div>
                               </div>
                             </div>
                           )}

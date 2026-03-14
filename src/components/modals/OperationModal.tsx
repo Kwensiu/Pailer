@@ -18,7 +18,6 @@ interface VirustotalResult {
   is_api_key_missing: boolean;
 }
 
-// Helper component to find and render links in a line of text
 const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (
   props
 ) => {
@@ -26,10 +25,8 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
 
-  // Check if line should be displayed as error with context awareness
   const isError = isErrorLineWithContext(cleanLine, props.previousLines || [], props.isStderr);
 
-  // If it's an error line, wrap it in error styling
   if (isError) {
     return (
       <span class="font-mono">
@@ -77,19 +74,14 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
   );
 };
 
-// Helper component to format error messages with proper line breaks
 const FormattedErrorMessage: Component<{ message: string }> = (props) => {
-  // Split the message by common error separators and clean up
   const formatErrorMessage = (message: string) => {
-    // Look for patterns like "ERROR:", "WARN:", or numbered errors
     const parts = message.split(/(?=\s*(?:ERROR|WARN|INFO|WARNING|FATAL):)/i);
 
     if (parts.length === 1) {
-      // No special formatting needed, just split by newlines
       return message.split('\n').filter((line) => line.trim());
     }
 
-    // Format as list items
     return parts.map((part) => part.trim()).filter((line) => line);
   };
 
@@ -118,6 +110,88 @@ const FormattedErrorMessage: Component<{ message: string }> = (props) => {
   );
 };
 
+const getErrorMessage = (operation: any) => {
+  if (!operation) return t('operation.failed.generic', { defaultValue: 'Operation failed' });
+
+  const result = operation.result;
+
+  if (result?.message) {
+    return result.message;
+  }
+
+  const operationName = result?.operation_name || '';
+  const errorCount = result?.error_count;
+
+  if (errorCount && errorCount > 0) {
+    return t('operation.failed.withErrors', {
+      name: operationName,
+      count: errorCount,
+    });
+  } else {
+    return t('operation.failed.generic', { name: operationName });
+  }
+};
+
+const getSuccessMessage = (operation: any) => {
+  if (!operation)
+    return t('operation.completed', { defaultValue: 'Operation completed successfully' });
+
+  const result = operation.result;
+
+  if (result?.message) {
+    return result.message;
+  }
+
+  const operationName = result?.operation_name || '';
+
+  const operationPatterns = [
+    { prefix: 'Installing ', key: 'packageInfo.success.install' },
+    { prefix: 'Updating ', key: 'packageInfo.success.update' },
+    { prefix: 'Force updating ', key: 'packageInfo.success.forceUpdate' },
+    { prefix: 'Uninstalling ', key: 'packageInfo.success.uninstall' },
+    { prefix: 'Scanning ', key: 'virustotal.noThreats' },
+  ];
+
+  for (const { prefix, key } of operationPatterns) {
+    if (operationName.startsWith(prefix)) {
+      const packageName = operationName.substring(prefix.length);
+      return t(key, { name: packageName });
+    }
+  }
+
+  // Handle special cases (minimal hardcoding)
+  const specialCases = [
+    {
+      check: (name: string) => name === 'Updating all packages',
+      result: () =>
+        t('operation.updateAllSuccess', { defaultValue: 'All packages updated successfully' }),
+    },
+    {
+      check: (name: string) => name.startsWith('Switching ') || name.startsWith('Switched '),
+      result: (name: string) => {
+        const words = name.split(' ');
+        if (words.length >= 4) {
+          const packageName = words[0].replace(/^(Switching|Switched)\s*/, '');
+          const version = words[2];
+          return t('packageInfo.success.switchVersion', { name: packageName, version });
+        }
+      },
+    },
+  ];
+
+  for (const { check, result } of specialCases) {
+    if (check(operationName)) {
+      return (
+        result(operationName) ||
+        t('operation.completed', { defaultValue: 'Operation completed successfully' })
+      );
+    }
+  }
+
+  // Fallback to generic completion message
+  return t('operation.completed', { defaultValue: 'Operation completed successfully' });
+};
+
 function OperationModal(props: OperationModalProps) {
   const {
     removeOperation,
@@ -133,7 +207,6 @@ function OperationModal(props: OperationModalProps) {
   const [rendered, setRendered] = createSignal(false);
   const [isMinimizing, setIsMinimizing] = createSignal(false);
 
-  // Generate or use provided operation ID
   const operationId = createMemo(() => {
     if (props.operationId) {
       return props.operationId;
@@ -141,50 +214,47 @@ function OperationModal(props: OperationModalProps) {
     return generateOperationId(props.title || 'operation');
   });
 
-  // Get operation state from store
   const operation = createMemo(() => {
     return operations()[operationId()];
   });
 
-  // This effect now correctly manages the lifecycle of the listeners
   let scrollRef: HTMLDivElement | undefined;
 
-  // Use a separate effect for listener management that only cleans up when operation is complete
   createEffect(() => {
     const currentOp = operation();
-    if (!props.title || !currentOp) return;
+    if (!currentOp) return;
 
-    console.log(
-      'Setting up persistent listeners for operation:',
-      operationId(),
-      'Status:',
-      currentOp.status
-    );
     setRendered(true);
+
+    if (
+      currentOp.status === 'success' ||
+      currentOp.status === 'error' ||
+      currentOp.status === 'cancelled'
+    ) {
+      return;
+    }
 
     let outputListener: UnlistenFn | undefined;
     let standardResultListener: UnlistenFn | undefined;
     let vtResultListener: UnlistenFn | undefined;
     let isDisposed = false;
+    let listenersSetup = false;
 
     const setupListeners = async () => {
+      if (listenersSetup) return;
+      listenersSetup = true;
+
       try {
-        // Common output listener for all operations
         outputListener = await listen<StoreOperationOutput>('operation-output', (event) => {
           if (isDisposed) return;
-          console.log('Received operation-output event:', event.payload);
-          // Support both operationId and operation_id for compatibility
-          const eventOperationId = event.payload.operationId || event.payload.operation_id;
-          // Only process output for this operation
+          const eventOperationId = event.payload.operationId;
           if (eventOperationId === operationId()) {
-            // Check if operation still exists to prevent race conditions
             const currentOp = operation();
             if (!currentOp) {
               console.log('Operation no longer exists, ignoring output');
               return;
             }
 
-            // Deduplicate consecutive identical lines
             const currentOutput = currentOp.output || [];
             const lastLine =
               currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
@@ -209,20 +279,19 @@ function OperationModal(props: OperationModalProps) {
         });
 
         if (props.isScan) {
-          // Listen for the special VirusTotal result event
           vtResultListener = await listen<VirustotalResult>('virustotal-scan-finished', (event) => {
             if (isDisposed) return;
-            // This is a global event, but we need to check if it's for this operation
-            // For now, assume it's for the current scan operation
             const result: StoreOperationResult = {
               operationId: operationId(),
-              success: !event.payload.detections_found && !event.payload.is_api_key_missing,
-              message: event.payload.detections_found
-                ? `Found ${event.payload.detections_found} potential threats`
-                : event.payload.is_api_key_missing
-                  ? 'VirusTotal API key not configured'
-                  : 'No threats detected',
+              success: event.payload.detections_found === 0,
+              operationName: `Scanning`,
+              errorCount: event.payload.detections_found > 0 ? 1 : undefined,
               timestamp: Date.now(),
+              message: event.payload.is_api_key_missing
+                ? 'VirusTotal API key is not configured.'
+                : event.payload.detections_found > 0
+                  ? `VirusTotal found ${event.payload.detections_found} detection(s).`
+                  : 'No threats found.',
             };
 
             setOperationResult(operationId(), result);
@@ -232,52 +301,37 @@ function OperationModal(props: OperationModalProps) {
             }
           });
         } else {
-          // Standard listener for install, update, etc.
           standardResultListener = await listen<StoreOperationResult>(
             'operation-finished',
             (event) => {
               if (isDisposed) return;
-              console.log('Received operation-finished event:', event.payload);
-              // Support both operationId and operation_id for compatibility
-              const eventOperationId = event.payload.operationId || event.payload.operation_id;
-              console.log('Current operationId():', operationId());
-              console.log('Event payload operationId:', eventOperationId);
-              console.log('Comparison result:', eventOperationId === operationId());
-              // Only process result for this operation
+              const eventOperationId = event.payload.operationId;
               if (eventOperationId === operationId()) {
-                // Check if operation still exists to prevent race conditions
                 const currentOp = operation();
                 if (!currentOp) {
-                  console.log('Operation no longer exists, ignoring result');
                   return;
                 }
-                console.log('Operation finished matches current operationId:', operationId());
-                console.log(
-                  'Setting operation status to:',
-                  event.payload.success ? 'success' : 'error'
-                );
+
                 setOperationResult(operationId(), event.payload);
                 setOperationStatus(operationId(), event.payload.success ? 'success' : 'error');
 
+                if (props.onOperationFinished) {
+                  props.onOperationFinished(operationId(), event.payload.success);
+                }
+
                 if (event.payload.success && props.nextStep) {
-                  // Handle next step logic
                   props.nextStep.onNext();
                 }
-              } else {
-                console.log('Operation finished ignored - different operationId:', {
-                  received: eventOperationId,
-                  current: operationId(),
-                });
               }
             }
           );
         }
       } catch (error) {
         console.error('Failed to setup operation listeners:', error);
-        // Set error result to notify user
         const errorResult: StoreOperationResult = {
           operationId: operationId(),
           success: false,
+          operationName: 'Operation Error',
           message: 'Failed to initialize operation monitoring',
           timestamp: Date.now(),
         };
@@ -287,25 +341,11 @@ function OperationModal(props: OperationModalProps) {
 
     setupListeners();
 
-    // Only cleanup when operation is complete or component unmounts
     onCleanup(() => {
-      console.log(
-        'Checking cleanup for operation:',
-        operationId(),
-        'Current status:',
-        operation()?.status
-      );
-      const op = operation();
-      // Only cleanup if operation is complete (success/error) or no longer exists
-      if (!op || op.status === 'success' || op.status === 'error' || op.status === 'cancelled') {
-        console.log('Cleaning up persistent listeners for operation:', operationId());
-        isDisposed = true;
-        outputListener?.();
-        standardResultListener?.();
-        vtResultListener?.();
-      } else {
-        console.log('Not cleaning up listeners - operation still in progress:', operationId());
-      }
+      isDisposed = true;
+      outputListener?.();
+      standardResultListener?.();
+      vtResultListener?.();
     });
   });
 
@@ -323,8 +363,13 @@ function OperationModal(props: OperationModalProps) {
     setIsClosing(true);
     setOperationStatus(operationId(), wasSuccessful ? 'success' : 'cancelled');
     setTimeout(() => {
+      try {
+        props.onClose(operationId(), wasSuccessful);
+      } catch (error) {
+        console.error('Error calling onClose:', error);
+      }
+
       removeOperation(operationId());
-      props.onClose(operationId(), wasSuccessful);
     }, 300);
   };
 
@@ -424,10 +469,12 @@ function OperationModal(props: OperationModalProps) {
     const currentOperation = operation();
     if (
       scrollRef &&
-      currentOperation?.output &&
-      currentOperation.output.length > 0 &&
-      !currentOperation.isMinimized
+      currentOperation &&
+      currentOperation.output &&
+      currentOperation.output.length > 0
     ) {
+      console.log('Scroll effect triggered, output length:', currentOperation.output.length);
+      console.log('Last output line:', currentOperation.output[currentOperation.output.length - 1]);
       // Use requestAnimationFrame to ensure DOM is updated before scrolling
       requestAnimationFrame(() => {
         const container = scrollRef!;
@@ -542,15 +589,18 @@ function OperationModal(props: OperationModalProps) {
       <div class="my-2">
         <Show when={currentOperation?.status === 'error'}>
           <div class="status-alert status-alert-error rounded-lg!">
-            <Show when={currentOperation.result?.message} fallback={<span>Operation failed</span>}>
+            <Show when={currentOperation.result?.message}>
               <FormattedErrorMessage message={currentOperation.result?.message || ''} />
+            </Show>
+            <Show when={!currentOperation.result?.message}>
+              <span>{getErrorMessage(currentOperation)}</span>
             </Show>
           </div>
         </Show>
 
         <Show when={currentOperation?.status === 'success'}>
           <div class="status-alert status-alert-success rounded-lg!">
-            <span>{currentOperation.result?.message || 'Operation completed successfully'}</span>
+            <span>{getSuccessMessage(currentOperation)}</span>
           </div>
         </Show>
       </div>
