@@ -1,5 +1,5 @@
 use crate::commands::auto_cleanup::trigger_auto_cleanup;
-use crate::commands::scoop::{self, ScoopOp};
+use crate::commands::scoop::{self, ScoopOp, generate_operation_id};
 use crate::state::AppState;
 use tauri::{AppHandle, State, Window};
 
@@ -11,26 +11,33 @@ pub async fn update_package(
     state: State<'_, AppState>,
     package_name: String,
     force: Option<bool>,
+    operation_id: Option<String>,
 ) -> Result<(), String> {
     log::info!("Updating package '{}'", package_name);
+    
     let op = if force.unwrap_or(false) {
-        log::info!("Force updating package '{}'", package_name);
         ScoopOp::UpdateForce
     } else {
         ScoopOp::Update
     };
     
-    let operation_id = if force.unwrap_or(false) {
-        Some(format!("force-update-{}-{}", package_name, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()))
-    } else {
-        Some(format!("update-{}-{}", package_name, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()))
-    };
+    let operation_id = operation_id.unwrap_or_else(|| {
+        generate_operation_id(ScoopOp::Update, Some(&package_name))
+    });
     
-    scoop::execute_scoop(window, op, Some(&package_name), None, operation_id).await?;
+    let update_result = scoop::execute_scoop(window, op, Some(&package_name), None, operation_id.clone()).await;
+    
+    match &update_result {
+        Ok(_) => {
+            log::info!("Package '{}' updated successfully", package_name);
+        }
+        Err(e) => {
+            log::error!("Package '{}' update failed: {}", package_name, e);
+        }
+    }
 
-    // Trigger auto cleanup after update
+    update_result?;
     trigger_auto_cleanup(app, state).await;
-
     Ok(())
 }
 
@@ -40,10 +47,14 @@ pub async fn update_all_packages(
     window: Window,
     app: AppHandle,
     state: State<'_, AppState>,
+    operation_id: Option<String>,
 ) -> Result<(), String> {
     log::info!("Updating all packages (manual)");
     
-    let operation_id = Some(format!("update-all-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()));
+    // Use the provided operation_id or generate a new one
+    let operation_id = operation_id.unwrap_or_else(|| {
+        generate_operation_id(ScoopOp::UpdateAll, None)
+    });
     
     // Execute the update through window streaming
     let result = scoop::execute_scoop(window.clone(), ScoopOp::UpdateAll, None, None, operation_id).await;
