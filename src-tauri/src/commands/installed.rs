@@ -175,9 +175,13 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
         })
         .collect();
 
-    // Log located packages in groups of 10
-    for chunk in located_packages.chunks(10) {
-        log::trace!("Located current directories for packages: {}", chunk.join(", "));
+    // Log located packages summary
+    log::info!("Located current directories for {} packages", located_packages.len());
+    if located_packages.len() <= 10 {
+        log::debug!("Packages: {}", located_packages.join(", "));
+    } else {
+        log::debug!("First 10 packages: {}", located_packages[..10].join(", "));
+        log::debug!("... and {} more packages", located_packages.len() - 10);
     }
 
     let mut sorted_entries = entries;

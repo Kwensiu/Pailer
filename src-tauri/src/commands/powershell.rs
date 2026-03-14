@@ -19,26 +19,34 @@ pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
 
 const STDOUT_ERROR_PATTERNS: &[&str] = &[
-    "error", "failed", "fatal", "exception",
+    "error:", "failed", "fatal:", "exception:",
     "access to the path", "denied", "permission denied",
     "requires admin", "admin rights",
     "remove-item", "remove item",
+    "cannot ", "unable to ", "not found",
 ];
+
 
 /// Represents a line of output from a command, specifying its source (stdout or stderr).
 #[derive(Serialize, Clone)]
 pub struct StreamOutput {
+    #[serde(rename = "operationId")]
+    pub operation_id: String,
     pub line: String,
     pub source: String,
-    pub operation_id: Option<String>,
 }
 
-/// Represents the final result of a command, indicating success or failure and a corresponding message.
+/// Represents the final result of a command with minimal structured data for frontend i18n.
 #[derive(Serialize, Clone)]
 pub struct CommandResult {
     pub success: bool,
-    pub message: String,
-    pub operation_id: Option<String>,
+    #[serde(rename = "operationId")]
+    pub operation_id: String,
+    #[serde(rename = "operationName")]
+    pub operation_name: String,
+    #[serde(rename = "errorCount")]
+    pub error_count: Option<usize>,
+    pub timestamp: u64,
 }
 
 /// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
@@ -110,7 +118,7 @@ fn spawn_output_stream_handler(
     window: Window,
     output_event: String,
     error_tx: mpsc::Sender<String>,
-    operation_id: Option<String>,
+    operation_id: String,
 ) {
     let mut reader = BufReader::new(stream).lines();
     let op_id = operation_id.clone();  // Clone once outside the loop
@@ -179,13 +187,16 @@ pub async fn run_and_stream_command(
     output_event: &str,
     finished_event: &str,
     cancel_event: &str,
-    operation_id: Option<String>,
+    operation_id: String,
 ) -> Result<(), String> {
-    log::info!("Executing streaming command: {}", &command_str);
+    log::info!("[{}] Starting: {}", operation_id, operation_name);
 
     let mut child = create_powershell_command(&command_str)
         .spawn()
-        .map_err(|e| format!("Failed to spawn command '{}': {}", command_str, e))?;
+        .map_err(|e| {
+            log::error!("[{}] Process spawn failed: {}", operation_id, e);
+            format!("Failed to spawn command '{}': {}", command_str, e)
+        })?;
 
     let stdout = child
         .stdout
@@ -235,15 +246,15 @@ async fn handle_command_completion(
     window: &Window,
     finished_event: &str,
     error_rx: &mut mpsc::Receiver<String>,
-    operation_id: Option<String>,
+    operation_id: String,
 ) -> Result<(), String> {
     let status = status_res.map_err(|e| {
-        format!(
-            "Failed to wait on child process for {}: {}",
-            operation_name, e
-        )
+        log::error!("[{}] Process wait failed: {}", operation_id, e);
+        format!("Failed to wait on child process for {}: {}", operation_name, e)
     })?;
-    log::info!("{} finished with status: {}", operation_name, status);
+    
+    let success = status.success();
+    log::info!("[{}] Completed: {} (success: {})", operation_id, operation_name, success);
 
     // Collect all error messages
     let mut error_messages = Vec::new();
@@ -253,45 +264,30 @@ async fn handle_command_completion(
 
     let has_errors = !error_messages.is_empty();
     let was_successful = status.success() && !has_errors;
+    let error_count = if has_errors { Some(error_messages.len()) } else { None };
 
-    let message = if was_successful {
-        format!("{} completed successfully", operation_name)
-    } else {
-        if !error_messages.is_empty() {
-            // Show the last few error messages for context
-            let error_preview = if error_messages.len() <= 3 {
-                error_messages.join("\n")
-            } else {
-                format!(
-                    "{}\n... and {} more errors",
-                    error_messages[..3].join("\n"),
-                    error_messages.len() - 3
-                )
-            };
-
-            format!(
-                "{} failed with {} error(s):\n{}\nPlease check the output log for details.",
-                operation_name,
-                error_messages.len(),
-                error_preview
-            )
-        } else if !status.success() {
-            format!(
-                "{} failed with exit code {:?}. Please check the output log for details.",
-                operation_name,
-                status.code()
-            )
-        } else {
-            format!("{} completed with issues", operation_name)
+    // Log key error summary only if there are errors
+    if has_errors {
+        log::warn!("[{}] {} errors detected", operation_id, error_messages.len());
+        for (i, msg) in error_messages.iter().take(3).enumerate() {
+            log::warn!("[{}] Error {}: {}", operation_id, i + 1, msg);
         }
-    };
+        if error_messages.len() > 3 {
+            log::warn!("[{}] ... and {} more errors", operation_id, error_messages.len() - 3);
+        }
+    }
 
     if let Err(e) = window.emit(
         finished_event,
         CommandResult {
             success: was_successful,
-            message: message.clone(),
-            operation_id: operation_id.clone(),
+            operation_name: operation_name.to_string(),
+            error_count: error_count,
+            operation_id: operation_id,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
         },
     ) {
         log::error!("Failed to emit finished event: {}", e);
@@ -300,7 +296,8 @@ async fn handle_command_completion(
     if was_successful {
         Ok(())
     } else {
-        Err(message)
+    // Use operation name for better context, frontend will handle i18n
+        Err(format!("{} failed", operation_name))
     }
 }
 
@@ -310,7 +307,7 @@ async fn handle_cancellation(
     operation_name: &str,
     window: &Window,
     finished_event: &str,
-    operation_id: Option<String>,
+    operation_id: String,
 ) -> Result<(), String> {
     log::warn!("Cancelling operation: {}", operation_name);
 
@@ -319,17 +316,21 @@ async fn handle_cancellation(
         log::error!("Failed to kill child process: {}", e);
     }
 
-    let message = format!("{} was cancelled by user", operation_name);
     if let Err(e) = window.emit(
         finished_event,
         CommandResult {
             success: false,
-            message: message.clone(),
-            operation_id: operation_id.clone(),
+            operation_name: operation_name.to_string(),
+            error_count: Some(0), // Cancelled operation, not an error
+            operation_id: operation_id,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
         },
     ) {
         log::error!("Failed to emit cancellation event: {}", e);
     }
 
-    Err(message)
+    Err(format!("{} cancelled by user", operation_name))
 }

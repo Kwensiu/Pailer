@@ -12,6 +12,38 @@ pub enum ScoopOp {
     UpdateAll,
 }
 
+/// Generate operation name based on operation type and package name
+fn generate_operation_name(op: ScoopOp, package: Option<&str>) -> String {
+    match (op, package) {
+        (ScoopOp::Install, Some(pkg)) => format!("Installing {}", pkg),
+        (ScoopOp::Uninstall, Some(pkg)) => format!("Uninstalling {}", pkg),
+        (ScoopOp::Update, Some(pkg)) => format!("Updating {}", pkg),
+        (ScoopOp::UpdateForce, Some(pkg)) => format!("Force updating {}", pkg),
+        (ScoopOp::ClearCache, Some(pkg)) => format!("Clearing cache for {}", pkg),
+        (ScoopOp::UpdateAll, _) => "Updating all packages".to_string(),
+        // This case should not be reached if `build_scoop_cmd` is correct.
+        _ => "Invalid operation or missing package name.".to_string(),
+    }
+}
+
+/// Generate operation ID with timestamp
+pub fn generate_operation_id(op: ScoopOp, package_name: Option<&str>) -> String {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    match (op, package_name) {
+        (ScoopOp::Install, Some(pkg)) => format!("install-{}-{}", pkg, timestamp),
+        (ScoopOp::Uninstall, Some(pkg)) => format!("uninstall-{}-{}", pkg, timestamp),
+        (ScoopOp::Update, Some(pkg)) => format!("update-{}-{}", pkg, timestamp),
+        (ScoopOp::UpdateForce, Some(pkg)) => format!("force-update-{}-{}", pkg, timestamp),
+        (ScoopOp::ClearCache, Some(pkg)) => format!("clear-cache-{}-{}", pkg, timestamp),
+        (ScoopOp::UpdateAll, None) => format!("update-all-{}", timestamp),
+        _ => format!("unknown-{}", timestamp),
+    }
+}
+
 /// Builds a Scoop command as a string, returning an error if a required
 /// package name is missing.
 fn build_scoop_cmd(
@@ -58,20 +90,12 @@ pub async fn execute_scoop(
     op: ScoopOp,
     package: Option<&str>,
     bucket: Option<&str>,
-    operation_id: Option<String>,
+    operation_id: String,
 ) -> Result<(), String> {
     let cmd = build_scoop_cmd(op, package, bucket)?;
+    let op_name = generate_operation_name(op, package);
 
-    let op_name = match (op, package) {
-        (ScoopOp::Install, Some(pkg)) => format!("Installing {}", pkg),
-        (ScoopOp::Uninstall, Some(pkg)) => format!("Uninstalling {}", pkg),
-        (ScoopOp::Update, Some(pkg)) => format!("Updating {}", pkg),
-        (ScoopOp::UpdateForce, Some(pkg)) => format!("Force updating {}", pkg),
-        (ScoopOp::ClearCache, Some(pkg)) => format!("Clearing cache for {}", pkg),
-        (ScoopOp::UpdateAll, _) => "Updating all packages".to_string(),
-        // This case should not be reached if `build_scoop_cmd` is correct.
-        _ => return Err("Invalid operation or missing package name.".to_string()),
-    };
+    log::info!("[{}] Executing: {}", operation_id, cmd);
 
     powershell::run_and_stream_command(
         window,

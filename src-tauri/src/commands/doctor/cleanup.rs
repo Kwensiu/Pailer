@@ -26,7 +26,7 @@ async fn run_cleanup_command(
         powershell::EVENT_OUTPUT,
         powershell::EVENT_FINISHED,
         powershell::EVENT_CANCEL,
-        Some(operation_id.to_string()),
+        operation_id.to_string(),
     )
     .await;
     
@@ -61,7 +61,6 @@ pub async fn cleanup_all_apps<R: Runtime>(
         }
     };
 
-    // Count versioned installs for logging
     let versioned_count = installed_packages
         .iter()
         .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
@@ -73,7 +72,6 @@ pub async fn cleanup_all_apps<R: Runtime>(
             versioned_count
         );
 
-        // Get only regular packages (standard installations)
         let regular_packages: Vec<String> = installed_packages
             .iter()
             .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
@@ -85,7 +83,6 @@ pub async fn cleanup_all_apps<R: Runtime>(
             return Ok(());
         }
 
-        // Clean up only regular packages
         let packages_str = regular_packages.join(" ");
         let command = format!("scoop cleanup {}", packages_str);
 
@@ -112,7 +109,6 @@ pub async fn remove_cache_for_specific_packages(
         return Ok(());
     }
     
-    // Build the scoop cache rm command for specific packages
     let packages_str = package_names.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(" ");
     let command = format!("scoop cache rm {}", packages_str);
     

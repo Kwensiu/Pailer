@@ -1,29 +1,44 @@
 use crate::commands::powershell;
 use serde::Serialize;
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Window, AppHandle};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-/// Represents the result of a VirusTotal scan.
+/// Generate operation name for VirusTotal scanning
+fn generate_virustotal_operation_name(package_name: &str) -> String {
+    format!("Scanning {}", package_name)
+}
+
+/// Represents the final result of a command with minimal structured data for frontend i18n.
 #[derive(Serialize, Clone, Debug)]
-pub struct VirustotalResult {
-    /// True if any detections were found.
-    detections_found: bool,
-    /// True if the scan failed because the API key is missing.
-    is_api_key_missing: bool,
-    /// A human-readable message summarizing the result.
-    message: String,
+pub struct CommandResult {
+    pub success: bool,
+    #[serde(rename = "operationId")]
+    pub operation_id: String,
+    #[serde(rename = "operationName")]
+    pub operation_name: String,
+    #[serde(rename = "errorCount")]
+    pub error_count: Option<usize>,
+    pub timestamp: u64,
 }
 
 /// Scans a package using `scoop virustotal` and emits the results.
 ///
-/// This command streams its output to the frontend and emits a `virustotal-scan-finished`
-/// event with a `VirustotalResult` payload upon completion.
+/// This command streams its output to the frontend and emits a `operation-finished`
+/// event with a `CommandResult` payload upon completion.
 #[tauri::command]
 pub async fn scan_package(
     window: Window,
+    _app: AppHandle,
     package_name: String,
     bucket: String,
 ) -> Result<(), String> {
+    // Generate consistent operation ID at the beginning
+    let operation_id = format!("virustotal-{}-{}", package_name, 
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis());
+
     // The `bucket` parameter may be an empty string or the literal "None"
     // if the user does not specify a bucket.
     let command_str = if bucket.is_empty() || bucket.eq_ignore_ascii_case("none") {
@@ -57,6 +72,7 @@ pub async fn scan_package(
 
     // Spawn tasks to forward output to the frontend.
     let window_clone = window.clone();
+    let operation_id_clone = operation_id.clone(); // Use the consistent operation_id
     tokio::spawn(async move {
         while let Ok(Some(line)) = stdout_reader.next_line().await {
             log::info!("virustotal stdout: {}", &line);
@@ -65,7 +81,7 @@ pub async fn scan_package(
                 powershell::StreamOutput {
                     line,
                     source: "stdout".to_string(),
-                    operation_id: None,
+                    operation_id: operation_id_clone.clone(),
                 },
             ) {
                 log::error!("Failed to emit stdout event: {}", e);
@@ -74,6 +90,7 @@ pub async fn scan_package(
     });
 
     let window_clone = window.clone();
+    let operation_id_clone2 = operation_id.clone();
     tokio::spawn(async move {
         while let Ok(Some(line)) = stderr_reader.next_line().await {
             log::error!("virustotal stderr: {}", &line);
@@ -82,7 +99,7 @@ pub async fn scan_package(
                 powershell::StreamOutput {
                     line,
                     source: "stderr".to_string(),
-                    operation_id: None,
+                    operation_id: operation_id_clone2.clone(),
                 },
             ) {
                 log::error!("Failed to emit stderr event: {}", e);
@@ -100,35 +117,64 @@ pub async fn scan_package(
     // Interpret the exit code to determine the scan result.
     // See: https://github.com/rasa/scoop-virustotal#exit-codes
     let result = match exit_code {
-        0 => VirustotalResult {
-            detections_found: false,
-            is_api_key_missing: false,
-            message: "No threats found.".to_string(),
+        0 => {
+            // Success case - no threats found
+            CommandResult {
+                success: true,
+                operation_id: operation_id.clone(), // Use consistent operation_id
+                operation_name: generate_virustotal_operation_name(&package_name),
+                error_count: None,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            }
         },
-        2 => VirustotalResult {
-            detections_found: true,
-            is_api_key_missing: false,
-            message: "VirusTotal found one or more detections.".to_string(),
+        2 => {
+            // Detections found - this should be marked as failure for user awareness
+            CommandResult {
+                success: false,  // Changed: threats found should be marked as failed
+                operation_id: operation_id.clone(), // Use consistent operation_id
+                operation_name: generate_virustotal_operation_name(&package_name),
+                error_count: Some(1), // 1 error = detections found
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            }
         },
-        16 => VirustotalResult {
-            detections_found: false,
-            is_api_key_missing: true,
-            message: "VirusTotal API key is not configured.".to_string(),
+        16 => {
+            // API key missing - configuration error
+            CommandResult {
+                success: false,  // Changed: API key missing is a failure
+                operation_id: operation_id.clone(), // Use consistent operation_id
+                operation_name: generate_virustotal_operation_name(&package_name),
+                error_count: Some(1), // 1 error = API key missing
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            }
         },
-        _ => VirustotalResult {
-            detections_found: true, // Treat other errors as a failure/warning state.
-            is_api_key_missing: false,
-            message: format!(
-                "Scan failed with an unexpected error (exit code {}). Please check the output.",
-                exit_code
-            ),
+        _ => {
+            // Other errors - command execution failed
+            CommandResult {
+                success: false,
+                operation_id: operation_id.clone(), // Use consistent operation_id
+                operation_name: generate_virustotal_operation_name(&package_name),
+                error_count: Some(1), // 1 error = unknown error
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            }
         },
     };
 
     log::info!("VirusTotal scan finished: {:?}", result);
 
     window
-        .emit("virustotal-scan-finished", result)
+        .emit("operation-finished", result)
         .map_err(|e| format!("Failed to emit scan result: {}", e))?;
 
     Ok(())

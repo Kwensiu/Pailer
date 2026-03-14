@@ -1,5 +1,6 @@
 //! Commands for managing the Scoop cache.
 use crate::commands::installed::get_installed_packages_full;
+use crate::models::InstallationType;
 use crate::state::AppState;
 use rayon::prelude::*;
 use serde::Serialize;
@@ -128,14 +129,50 @@ pub async fn list_cache_contents<R: Runtime>(
     
     // Add logging to observe installation type identification process
     log::info!("Total installed packages: {}", installed_packages.len());
+    
+    // Installed packages statistics
+    let mut standard_count = 0;
+    let mut versioned_count = 0;
+    let mut multi_version_count = 0;
+    let mut bucket_stats = std::collections::HashMap::new();
+    
     for pkg in &installed_packages {
-        log::info!("Package '{}' from bucket '{}' - installation_type: {:?}, has_multiple_versions: {}", 
-                  pkg.name, pkg.source, pkg.installation_type, pkg.has_multiple_versions);
+        match pkg.installation_type {
+            InstallationType::Standard => standard_count += 1,
+            InstallationType::Versioned => versioned_count += 1,
+            InstallationType::Custom => versioned_count += 1,
+        }
+        
+        if pkg.has_multiple_versions {
+            multi_version_count += 1;
+        }
+        
+        *bucket_stats.entry(pkg.source.clone()).or_insert(0) += 1;
     }
     
-    // Fix: Use explicit installation type judgment logic
-    // Versioned installs (from versions bucket) and custom installs (from Custom bucket) need cache protection
-    // Regular installs with multiple version directories don't protect cache (might be backup directories)
+    log::info!("Installation type distribution: {} standard, {} versioned", standard_count, versioned_count);
+    log::info!("Packages with multiple versions: {}", multi_version_count);
+    
+    let mut bucket_vec: Vec<_> = bucket_stats.iter().collect();
+    bucket_vec.sort_by(|a, b| b.1.cmp(a.1));
+    for (bucket, count) in bucket_vec.iter().take(5) {
+        log::info!("Bucket '{}': {} packages", bucket, count);
+    }
+    
+    let versioned_packages: Vec<_> = installed_packages.iter()
+        .filter(|pkg| matches!(pkg.installation_type, InstallationType::Versioned | InstallationType::Custom))
+        .collect();
+    
+    if !versioned_packages.is_empty() {
+        log::info!("Versioned installations: {}", versioned_packages.len());
+        for pkg in &versioned_packages {
+            log::info!("  - '{}' from bucket '{}'", pkg.name, pkg.source);
+        }
+    }
+    
+    // Use explicit installation type judgment logic
+    // Versioned installs (from versions bucket) and custom installs need cache protection
+    // Regular installs with multiple version directories don't protect cache
     let versioned_packages: HashSet<String> = installed_packages
         .iter()
         .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
@@ -164,13 +201,11 @@ pub async fn list_cache_contents<R: Runtime>(
         let original_count = entries.len();
         entries.retain(|entry| {
             if let Some(local_version_list) = local_versions.get(&entry.name) {
-                // Versioned install: only show versions not present locally
                 let should_keep = !local_version_list.contains(&entry.version);
                 log::debug!("Cache entry '{}@{}' - local versions: {:?}, should keep: {}", 
                           entry.name, entry.version, local_version_list, should_keep);
                 should_keep
             } else {
-                // Non-versioned install: show all cache entries
                 log::debug!("Cache entry '{}@{}' - non-versioned install, keeping", entry.name, entry.version);
                 true
             }
