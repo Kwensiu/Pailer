@@ -3,16 +3,23 @@ use tauri::Manager;
 
 /// Load tray locale strings for the given language
 pub fn load_tray_locale_strings(app: &tauri::AppHandle<tauri::Wry>, language: &str) -> tauri::Result<serde_json::Value> {
+    log::info!("Loading tray locale strings for language: {}", language);
+    
     let locale_file = match language {
         "zh" => "zh.json",
         _ => "en.json",
     };
 
     let paths = get_locale_file_paths(app, locale_file);
+    log::info!("Trying {} paths for locale file: {}", paths.len(), locale_file);
 
-    for path in paths {
+    for (i, path) in paths.iter().enumerate() {
+        log::info!("Attempt {}: Trying path: {}", i + 1, path.display());
         if let Ok(content) = std::fs::read_to_string(&path) {
+            log::info!("Successfully read locale file from {}, size: {} bytes", path.display(), content.len());
             return parse_locale_content(&content, &path);
+        } else {
+            log::warn!("Failed to read locale file from: {}", path.display());
         }
     }
 
@@ -42,6 +49,7 @@ fn get_locale_file_paths(app: &tauri::AppHandle<tauri::Wry>, locale_file: &str) 
                     .join("locales")
                     .join(locale_file);
                 paths.push(dev_path);
+                log::info!("Added development path: {}", project_root.join("src-tauri").join("resources").join("locales").join(locale_file).display());
             }
         }
     }
@@ -50,11 +58,13 @@ fn get_locale_file_paths(app: &tauri::AppHandle<tauri::Wry>, locale_file: &str) 
     if let Ok(resource_dir) = app.path().resource_dir() {
         let resource_path = resource_dir.join("locales").join(locale_file);
         paths.push(resource_path);
+        log::info!("Added resource path: {}", resource_dir.join("locales").join(locale_file).display());
 
         // Special handling for NSIS installer: also try resources/ subdirectory
         // Some Tauri installations may put resources in a subdirectory
         let alt_resource_path = resource_dir.join("resources").join("locales").join(locale_file);
         paths.push(alt_resource_path);
+        log::info!("Added alternative resource path: {}", resource_dir.join("resources").join("locales").join(locale_file).display());
     }
 
     paths

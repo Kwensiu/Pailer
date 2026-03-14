@@ -225,7 +225,13 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                         "operation-finished",
                         serde_json::json!({
                             "success": true,
-                            "message": "Automatic package update completed successfully"
+                            "operation_name": "Automatic package update",
+                            "error_count": None::<usize>,
+                            "operation_id": None::<String>,
+                            "timestamp": std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
                         }),
                     );
                 }
@@ -250,7 +256,13 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                         "operation-finished",
                         serde_json::json!({
                             "success": false,
-                            "message": format!("Automatic package update failed: {}", e)
+                            "operation_name": "Automatic package update",
+                            "error_count": Some(1),
+                            "operation_id": None::<String>,
+                            "timestamp": std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
                         }),
                     );
                 }
