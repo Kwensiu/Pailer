@@ -144,6 +144,7 @@
     "save": "保存",
     "showLess": "收起",
     "showMore": "显示更多",
+    "sure": "确认？",
     "switch": "切换",
     "uninstall": "卸载",
     "updateAll": "全部更新",
@@ -287,7 +288,7 @@
       "selectAction": "请选择操作",
       "switchVersionError": "切换 {{appName}} 到版本 {{version}} 失败：{{error}}",
       "switchVersionSuccess": "已将 {{appName}} 切换到版本 {{version}}",
-      "title": "版本管理"
+      "title": "多版本管理"
     }
   },
   "installed": {
@@ -345,17 +346,29 @@
     "noMatchCriteria": "没有已安装的软件包符合当前筛选条件。",
     "title": "未找到软件包"
   },
+  "operation": {
+    "completed": "操作成功",
+    "failed": {
+      "cancelled": "{{name}} 操作已取消",
+      "generic": "{{name}} 操作失败",
+      "withErrors": "{{name}} 操作失败，遇到 {{count}} 个错误"
+    },
+    "updateAllSuccess": "所有软件包更新成功"
+  },
   "packageInfo": {
     "backToBucket": "返回仓库",
     "bucket": "仓库",
     "changeBucket": "更换仓库",
     "changeBucketFor": "更改 {{name}} 的仓库",
     "close": "关闭",
+    "confirmDeleteVersion": "确定要删除版本 v{{version}} 吗？此操作无法撤销。",
     "current": "当前版本",
     "debugStructure": "调试结构",
+    "deleteVersion": "删除版本",
     "description": "描述",
     "details": "详细信息",
     "ensureSoftwarePresent": "确保目标仓库中存在该软件包",
+    "errorDeletingVersion": "删除版本 v{{version}} 失败: {{error}}",
     "errorLoadingManifest": "加载 {{name}} 清单失败: {{error}}",
     "errorLoadingVersions": "加载 {{name}} 版本失败: {{error}}",
     "errorSwitchingVersion": "切换到版本 v{{version}} 失败: {{error}}",
@@ -367,12 +380,20 @@
     "installDate": "安装日期",
     "installed": "目录",
     "installedVersion": "版本",
+    "installing": "正在安装 {{name}}",
     "latestVersion": "最新版本",
     "license": "许可证",
     "name": "软件名",
     "openInExplorer": "在资源管理器中打开",
-    "switch": "切换",
+    "success": {
+      "forceUpdate": "{{name}} 强制更新成功",
+      "install": "{{name}} 安装成功",
+      "switchVersion": "{{name}} 已切换到版本 {{version}}",
+      "uninstall": "{{name}} 卸载成功",
+      "update": "{{name}} 更新成功"
+    },
     "title": "关于 {{name}} 的信息",
+    "uninstalling": "正在卸载 {{name}}",
     "update": "更新",
     "updateDate": "更新日期",
     "updating": "更新 {{name}}",
@@ -646,6 +667,11 @@
     "error": "错误",
     "inProgress": "运行中...",
     "loading": "加载中..."
+  },
+  "virustotal": {
+    "apiKeyMissing": "未配置 VirusTotal API 密钥",
+    "detectionsFound": "{{name}} 发现威胁",
+    "noThreats": "{{name}} 未发现威胁"
   },
   "warnings": {
     "multiInstance": {

@@ -20,21 +20,21 @@ export interface PackageInfoModalState {
 
 // Operation output interface
 export interface OperationOutput {
-  operationId?: string;
-  operation_id?: string; // Support both camelCase and snake_case for compatibility
+  operationId: string; // camelCase for consistency
   line: string;
   source: string; // Support custom source values
   message?: string; // Optional message property
-  timestamp: number;
+  timestamp: number; // Milliseconds since epoch
 }
 
 // Operation result interface
 export interface OperationResult {
-  operationId?: string;
-  operation_id?: string; // Support both camelCase and snake_case for compatibility
+  operationId: string; // camelCase for consistency
   success: boolean;
-  message: string;
-  timestamp: number;
+  operationName: string; // Raw operation name like "Installing maa"
+  errorCount?: number; // Number of errors (if any)
+  message?: string; // Legacy/custom messages (optional, for backward compatibility)
+  timestamp: number; // Milliseconds since epoch
 }
 
 // Operation status
@@ -63,6 +63,8 @@ export interface OperationState {
   isScan?: boolean;
   nextStep?: OperationNextStep;
   onInstallConfirm?: () => void;
+  operationType?: 'install' | 'uninstall' | 'update' | 'auto-update';
+  packageName?: string;
 }
 
 // Minimized indicator props interface
@@ -82,6 +84,7 @@ export interface OperationModalProps {
   operationId?: string;
   title: string | null;
   onClose: (operationId: string, wasSuccess: boolean) => void;
+  onOperationFinished?: (operationId: string, wasSuccess: boolean) => void; // New callback for operation completion
   nextStep?: OperationNextStep;
   isScan?: boolean;
   onInstallConfirm?: () => void;
