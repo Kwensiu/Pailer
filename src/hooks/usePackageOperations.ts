@@ -29,6 +29,12 @@ const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
 const [operationNextStep, setOperationNextStep] = createSignal<OperationNextStep | null>(null);
 const [isScanning, setIsScanning] = createSignal(false);
 const [pendingInstallPackage, setPendingInstallPackage] = createSignal<ScoopPackage | null>(null);
+const [currentOperation, setCurrentOperation] = createSignal<{
+  type: 'install' | 'uninstall' | 'update' | 'update-all';
+  packageName: string;
+  bucket?: string;
+  id: string; // 简单添加操作ID避免竞态
+} | null>(null);
 const closeHandlers = new Set<(wasSuccess: boolean) => void>();
 
 const addCloseListener = (handler: (wasSuccess: boolean) => void) => {
@@ -44,23 +50,36 @@ const performInstall = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const title = `Installing ${pkg.name}`;
+  // Track current operation
+  const operationId = `install-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
+  setCurrentOperation({
+    type: 'install',
+    packageName: pkg.name,
+    bucket: pkg.source,
+    id: operationId,
+  });
+
+  const title = t('packageInfo.installing', { name: pkg.name });
   setOperationTitle(title);
 
   addOperation({
-    id: `install-${pkg.name}-${Math.floor(Date.now() / 1000)}`,
+    id: operationId,
     title,
     status: 'in-progress',
     isMinimized: false,
     output: [],
+    operationType: 'install',
+    packageName: pkg.name,
   });
 
   invoke('install_package', {
     packageName: pkg.name,
     bucket: pkg.source,
+    operationId,
   }).catch((err) => {
     console.error(`Installation invocation failed for ${pkg.name}:`, err);
     setOperationNextStep(null);
+    setCurrentOperation(null);
   });
 };
 
@@ -90,23 +109,36 @@ const handleUninstall = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const title = `Uninstalling ${pkg.name}`;
+  // Track current operation
+  const operationId = `uninstall-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
+  setCurrentOperation({
+    type: 'uninstall',
+    packageName: pkg.name,
+    bucket: pkg.source,
+    id: operationId,
+  });
+
+  const title = t('packageInfo.uninstalling', { name: pkg.name });
   setOperationTitle(title);
 
   addOperation({
-    id: `uninstall-${pkg.name}-${Math.floor(Date.now() / 1000)}`,
+    id: operationId,
     title,
     status: 'in-progress',
     isMinimized: false,
     output: [],
+    operationType: 'uninstall',
+    packageName: pkg.name,
   });
 
   invoke('uninstall_package', {
     packageName: pkg.name,
     bucket: pkg.source,
+    operationId,
   }).catch((err) => {
     console.error(`Uninstallation invocation failed for ${pkg.name}:`, err);
     setOperationNextStep(null);
+    setCurrentOperation(null);
   });
 };
 
@@ -116,10 +148,17 @@ const handleUpdate = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
+  // Track current operation
+  const operationId = `update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
+  setCurrentOperation({
+    type: 'update',
+    packageName: pkg.name,
+    bucket: pkg.source,
+    id: operationId,
+  });
+
   const title = t('packageInfo.updating', { name: pkg.name });
   setOperationTitle(title);
-
-  const operationId = `update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
 
   addOperation({
     id: operationId,
@@ -127,10 +166,14 @@ const handleUpdate = (pkg: ScoopPackage) => {
     status: 'in-progress',
     isMinimized: false,
     output: [],
+    operationType: 'update',
+    packageName: pkg.name,
   });
 
-  invoke('update_package', { packageName: pkg.name }).catch((err) => {
+  // Call backend command with operationId
+  invoke('update_package', { packageName: pkg.name, operationId }).catch((err) => {
     console.error('Update invocation failed:', err);
+    setCurrentOperation(null);
   });
 };
 
@@ -140,19 +183,31 @@ const handleForceUpdate = (pkg: ScoopPackage) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
+  // Track current operation
+  const operationId = `force-update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
+  setCurrentOperation({
+    type: 'update',
+    packageName: pkg.name,
+    bucket: pkg.source,
+    id: operationId,
+  });
+
   const title = t('packageInfo.forceUpdating', { name: pkg.name });
   setOperationTitle(title);
 
   addOperation({
-    id: `force-update-${pkg.name}-${Math.floor(Date.now() / 1000)}`,
+    id: operationId,
     title,
     status: 'in-progress',
     isMinimized: false,
     output: [],
+    operationType: 'update',
+    packageName: pkg.name,
   });
 
-  invoke('update_package', { packageName: pkg.name, force: true }).catch((err) => {
+  invoke('update_package', { packageName: pkg.name, force: true, operationId }).catch((err) => {
     console.error('Force update invocation failed:', err);
+    setCurrentOperation(null);
   });
 };
 
@@ -162,10 +217,16 @@ const handleUpdateAll = () => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
+  // Track current operation
+  const operationId = `update-all-${Math.floor(Date.now() / 1000)}`;
+  setCurrentOperation({
+    type: 'update-all',
+    packageName: 'all-packages',
+    id: operationId,
+  });
+
   const title = t('buttons.updateAll');
   setOperationTitle(title);
-
-  const operationId = `update-all-${Math.floor(Date.now() / 1000)}`;
 
   addOperation({
     id: operationId,
@@ -176,22 +237,38 @@ const handleUpdateAll = () => {
   });
 
   // Call backend command
-  invoke('update_all_packages').catch((err) => {
+  invoke('update_all_packages', { operationId }).catch((err) => {
     console.error('Update all invocation failed:', err);
+    setCurrentOperation(null);
   });
 };
 
 const closeOperationModal = (wasSuccess: boolean) => {
+  console.log('🎯🎯🎯 closeOperationModal FINALLY called with:', { wasSuccess });
+
   // Clear all operation states to ensure clean slate for next operation
   setOperationTitle(null);
   setOperationNextStep(null);
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  if (wasSuccess) {
-    installedPackagesStore.fetch();
-    // 在操作成功后失效搜索缓存
+  const operation = currentOperation();
+
+  if (wasSuccess && operation) {
+    console.log(
+      `Package operation completed successfully: ${operation.type} - ${operation.packageName}`
+    );
+
+    // Silent refresh to avoid loading UI
+    console.log('🔄 Calling installedPackagesStore.silentRefetch()');
+    installedPackagesStore.silentRefetch();
+    console.log('✅ silentRefetch completed');
+    // Search cache invalidation
+    console.log('🗑️ Invalidating search cache');
     searchCacheManager.invalidateCache();
+    console.log('✅ Search cache invalidated');
+  } else if (operation) {
+    console.log(`Package operation failed: ${operation.type} - ${operation.packageName}`);
   }
 
   closeHandlers.forEach((handler) => handler(wasSuccess));
