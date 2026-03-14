@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
+import { createSignal, For, Show, createMemo, createEffect, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { Trash2, TriangleAlert, Folder, GitBranch } from 'lucide-solid';
 import ConfirmationModal from '../../modals/ConfirmationModal';
@@ -7,6 +7,12 @@ import OpenPathButton from '../../common/OpenPathButton';
 import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
+import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
+
+interface VersionedAppsData {
+  apps: VersionedApp[];
+  directory: string;
+}
 
 interface VersionedApp {
   name: string;
@@ -17,12 +23,55 @@ interface VersionedApp {
 }
 
 function VersionedAppsManager() {
-  const [versionedApps, setVersionedApps] = createSignal<VersionedApp[]>([]);
   const [filter, setFilter] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [appsDirectory, setAppsDirectory] = createSignal<string>('');
   const [preserveVersionedInstalls, setPreserveVersionedInstalls] = createSignal(true);
+
+  // Session cache for versioned apps data
+  const {
+    data: versionedAppsData,
+    loading: dataLoading,
+    error: dataError,
+    refresh: refreshVersionedApps,
+    onInvalidate,
+  } = createSessionCache<VersionedAppsData>('versionedAppsData', async () => {
+    const scoopPath = await invoke<string | null>('get_scoop_path');
+    if (!scoopPath) {
+      throw new Error('No Scoop path configured. Please configure it in settings.');
+    }
+
+    const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+    if (!pathExists) {
+      throw new Error(`Configured Scoop path does not exist: ${scoopPath}`);
+    }
+
+    // Get versioned apps
+    const appsData = await invoke<VersionedApp[]>('get_versioned_apps');
+    const appsDirectory = `${scoopPath}\\apps`;
+
+    return {
+      apps: appsData,
+      directory: appsDirectory,
+    };
+  });
+
+  // Force refresh function that clears cache before refreshing
+  const forceRefresh = () => {
+    // Clear cache to bypass valid cache
+    sessionStorage.removeItem('versionedAppsData');
+    return refreshVersionedApps();
+  };
+
+  // Computed values from cache data
+  const versionedApps = () => versionedAppsData()?.apps || [];
+  const appsDirectory = () => versionedAppsData()?.directory || '';
+
+  // Sync loading state with cache loading
+  createEffect(() => {
+    setIsLoading(dataLoading());
+    setError(dataError());
+  });
 
   // State for the confirmation modal
   const [isConfirmModalOpen, setIsConfirmModalOpen] = createSignal(false);
@@ -39,53 +88,32 @@ function VersionedAppsManager() {
     let apps = versionedApps();
 
     // 过滤：只显示有多个版本的，或者是真正的版本化安装
-    apps = apps.filter((app) => app.localVersions.length > 1 || app.isVersionedInstall);
+    apps = apps.filter(
+      (app: VersionedApp) => app.localVersions.length > 1 || app.isVersionedInstall
+    );
 
     if (!f) return apps;
     return apps.filter(
-      (app) =>
+      (app: VersionedApp) =>
         app.name.toLowerCase().includes(f) ||
         app.currentVersion.toLowerCase().includes(f) ||
-        app.localVersions.some((v) => v.toLowerCase().includes(f))
+        app.localVersions.some((v: string) => v.toLowerCase().includes(f))
     );
   });
 
-  const fetchVersionedApps = async () => {
-    setIsLoading(true);
-    setError(null);
+  onMount(() => {
+    console.log('VersionedAppsManager mounted - forcing initial refresh');
+    // Always trigger refresh on mount to ensure data is loaded
+    refreshVersionedApps();
 
-    try {
-      // 检查Scoop路径是否存在
-      const scoopPath = await invoke<string | null>('get_scoop_path');
-      if (!scoopPath) {
-        setError('No Scoop path configured. Please configure it in settings.');
-        setAppsDirectory('');
-        return;
-      }
+    // Listen for cache invalidation events
+    const unsubscribe = onInvalidate(() => {
+      console.log('Version operation detected, forcing immediate refresh');
+      forceRefresh();
+    });
 
-      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
-      if (!pathExists) {
-        setError(`Configured Scoop path does not exist: ${scoopPath}`);
-        setAppsDirectory('');
-        return;
-      }
-
-      // 获取版本化安装的应用
-      const appsData = await invoke<VersionedApp[]>('get_versioned_apps');
-      setVersionedApps(appsData);
-      setAppsDirectory(`${scoopPath}\\apps`);
-    } catch (err) {
-      console.error('Failed to fetch versioned apps:', err);
-      setError(
-        typeof err === 'string' ? err : 'An unknown error occurred while fetching versioned apps.'
-      );
-      setAppsDirectory('');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  onMount(fetchVersionedApps);
+    return unsubscribe;
+  });
 
   const handleSwitchVersion = (appName: string, targetVersion: string) => {
     setConfirmationDetails({
@@ -107,7 +135,11 @@ function VersionedAppsManager() {
             appName: appName,
             targetVersion: targetVersion,
           });
-          await fetchVersionedApps();
+
+          // Version switched successfully
+
+          invalidateCache('versionedAppsData');
+
           toast.success(
             t('doctor.versionedApps.switchVersionSuccess', { appName, version: targetVersion })
           );
@@ -115,6 +147,7 @@ function VersionedAppsManager() {
           console.error('Failed to switch app version:', err);
           const errorMsg =
             typeof err === 'string' ? err : 'An unknown error occurred while switching version.';
+
           toast.error(
             t('doctor.versionedApps.switchVersionError', {
               appName,
@@ -123,6 +156,7 @@ function VersionedAppsManager() {
             })
           );
           setError(errorMsg);
+          // EventBus auto-handles errors
         } finally {
           setIsLoading(false);
           setIsConfirmModalOpen(false);
@@ -132,7 +166,11 @@ function VersionedAppsManager() {
         setIsLoading(true);
         try {
           await invoke('delete_app_version', { appName: appName, version: targetVersion });
-          await fetchVersionedApps();
+
+          // Version deleted successfully
+
+          invalidateCache('versionedAppsData');
+
           toast.success(
             t('doctor.versionedApps.deleteVersionSuccess', { appName, version: targetVersion })
           );
@@ -140,6 +178,7 @@ function VersionedAppsManager() {
           console.error('Failed to delete app version:', err);
           const errorMsg =
             typeof err === 'string' ? err : 'An unknown error occurred while deleting version.';
+
           toast.error(
             t('doctor.versionedApps.deleteVersionError', {
               appName,
@@ -188,7 +227,7 @@ function VersionedAppsManager() {
           await invoke('cleanup_all_apps_smart', {
             preserve_versioned: preserveVersionedInstalls(),
           });
-          await fetchVersionedApps();
+          await refreshVersionedApps();
           toast.success(t('doctor.versionedApps.cleanupAllOldVersionsSuccess'));
         } catch (err) {
           console.error('Failed to cleanup old versions:', err);
@@ -214,7 +253,7 @@ function VersionedAppsManager() {
       <Card
         title={t('doctor.versionedApps.title')}
         icon={GitBranch}
-        onRefresh={fetchVersionedApps}
+        onRefresh={forceRefresh}
         headerAction={
           <div class="flex items-center gap-2">
             <ResponsiveButton
@@ -304,8 +343,8 @@ function VersionedAppsManager() {
                           <div class="flex flex-wrap gap-1">
                             <For
                               each={app.localVersions
-                                .filter((v) => v !== app.currentVersion)
-                                .sort((a, b) => b.localeCompare(a))}
+                                .filter((v: string) => v !== app.currentVersion)
+                                .sort((a: string, b: string) => b.localeCompare(a))}
                             >
                               {(version) => (
                                 <button

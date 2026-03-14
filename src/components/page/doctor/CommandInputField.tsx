@@ -56,11 +56,17 @@ function CommandInputField() {
     try {
       const fullCommand = exec.useScoopPrefix ? `scoop ${exec.command}` : exec.command;
 
-      addCommandOutput({ line: `> ${fullCommand}`, source: 'command', timestamp: Date.now() });
+      addCommandOutput({
+        operationId: 'command-execution',
+        line: `> ${fullCommand}`,
+        source: 'command',
+        timestamp: Date.now(),
+      });
       setCommandRunning(true);
 
       const unlisten: UnlistenFn = await listen('operation-output', (event: any) => {
         const cleanLine = {
+          operationId: 'command-execution',
           line: fixEncoding(stripAnsi(event.payload.line)),
           source: event.payload.source,
           timestamp: Date.now(),
@@ -76,6 +82,7 @@ function CommandInputField() {
         );
         setCommandRunning(false);
         addCommandOutput({
+          operationId: 'command-execution',
           line: fixEncoding(stripAnsi(event.payload.message)),
           source: event.payload.success ? 'success' : 'error',
           timestamp: Date.now(),
@@ -95,6 +102,7 @@ function CommandInputField() {
       currentUnlisteners.forEach((unlisten) => unlisten());
       currentUnlisteners = [];
       addCommandOutput({
+        operationId: 'command-execution',
         line: 'Error: ' + error.message,
         source: 'error',
         timestamp: Date.now(),

@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show, createMemo, createEffect } from 'solid-js';
+import { createSignal, For, Show, createMemo, createEffect, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { Trash2, TriangleAlert, Inbox, Database, Settings, Info, RefreshCw } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
@@ -8,9 +8,8 @@ import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
 import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { t } from '../../../i18n';
+import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
 import { createTauriSignal } from '../../../hooks/createTauriSignal';
-
-const CACHE_DIR = 'cache';
 
 interface CacheEntry {
   name: string;
@@ -22,18 +21,57 @@ interface CacheEntry {
 // A unique identifier for a cache entry
 type CacheIdentifier = string;
 
+interface CacheData {
+  contents: CacheEntry[];
+  directory: string;
+}
+
 function getCacheIdentifier(entry: CacheEntry): CacheIdentifier {
   // Using the full filename for uniqueness
   return entry.fileName;
 }
 
 function CacheManager() {
-  const [cacheContents, setCacheContents] = createSignal<CacheEntry[]>([]);
-  const [selectedItems, setSelectedItems] = createSignal<Set<CacheIdentifier>>(new Set());
+  const [selectedItems, setSelectedItems] = createSignal<Set<string>>(new Set());
   const [filter, setFilter] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [cacheDirectory, setCacheDirectory] = createSignal<string>('');
+
+  // Session cache for cache data
+  const {
+    data: cacheData,
+    loading: cacheLoading,
+    error: cacheError,
+    refresh: refreshCache,
+    onInvalidate,
+  } = createSessionCache<CacheData>('cacheData', async () => {
+    const scoopPath = await invoke<string | null>('get_scoop_path');
+    if (!scoopPath) {
+      throw new Error('No Scoop path configured. Please configure it in settings.');
+    }
+
+    const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+    if (!pathExists) {
+      throw new Error(`Configured Scoop path does not exist: ${scoopPath}`);
+    }
+
+    // Get cache contents
+    const cacheContents = await invoke<CacheEntry[]>('list_cache_contents', {
+      preserveVersioned: preserveVersioned(),
+    });
+
+    // Get cache directory path
+    const cacheDirectory = `${scoopPath}\\cache`;
+
+    return {
+      contents: cacheContents,
+      directory: cacheDirectory,
+    };
+  });
+
+  // Computed values from cache data
+  const cacheContents = () => cacheData()?.contents || [];
+  const cacheDirectory = () => cacheData()?.directory || '';
 
   // Settings state
   const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
@@ -58,92 +96,54 @@ function CacheManager() {
     const f = filter().toLowerCase();
     if (!f) return cacheContents();
     return cacheContents().filter(
-      (s) => s.name.toLowerCase().includes(f) || s.version.toLowerCase().includes(f)
+      (s: CacheEntry) => s.name.toLowerCase().includes(f) || s.version.toLowerCase().includes(f)
     );
+  });
+
+  // Sync loading state with cache loading
+  createEffect(() => {
+    setIsLoading(cacheLoading());
+    setError(cacheError());
   });
 
   const isAllSelected = createMemo(() => {
     const contents = filteredCacheContents();
     if (contents.length === 0) return false;
-    return contents.every((item) => selectedItems().has(getCacheIdentifier(item)));
+    return contents.every((item: CacheEntry) => selectedItems().has(getCacheIdentifier(item)));
   });
 
-  const getScoopSubPath = (subPath: string) => {
-    return async () => {
-      try {
-        const scoopPath = await invoke<string>('get_scoop_path');
-        if (!scoopPath) {
-          throw new Error('Scoop path not configured');
-        }
-        return `${scoopPath}\\${subPath}`;
-      } catch (error) {
-        console.error(`Failed to get scoop ${subPath} path:`, error);
-        throw error;
-      }
-    };
+  // Force refresh function that clears cache before refreshing
+  const forceRefresh = () => {
+    // Clear cache to bypass valid cache
+    sessionStorage.removeItem('cacheData');
+    return refreshCache();
   };
 
-  const fetchCacheDirectory = async () => {
-    try {
-      const getPath = getScoopSubPath(CACHE_DIR);
-      const path = await getPath();
-      setCacheDirectory(path);
-    } catch (error) {
-      console.error('Failed to fetch cache directory:', error);
-    }
-  };
-
-  const fetchCacheContents = async () => {
-    setIsLoading(true);
-    setError(null);
-    setSelectedItems(new Set<CacheIdentifier>());
-
-    try {
-      // 检查Scoop路径是否存在
-      const scoopPath = await invoke<string | null>('get_scoop_path');
-      if (!scoopPath) {
-        setError('No Scoop path configured. Please configure it in settings.');
-        setCacheDirectory('');
-        return;
-      }
-
-      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
-      if (!pathExists) {
-        setError(`Configured Scoop path does not exist: ${scoopPath}`);
-        setCacheDirectory('');
-        return;
-      }
-
-      // 获取缓存内容
-      const cacheData = await invoke<CacheEntry[]>('list_cache_contents', {
-        preserveVersioned: preserveVersioned(),
-      });
-      setCacheContents(cacheData);
-
-      // 获取缓存目录路径
-      await fetchCacheDirectory();
-    } catch (err) {
-      console.error('Failed to fetch cache contents:', err);
-      setError(
-        typeof err === 'string' ? err : 'An unknown error occurred while fetching cache contents.'
-      );
-      setCacheDirectory('');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  onMount(fetchCacheContents);
-
-  // 监听preserveVersioned变化以重新获取缓存
+  // Listen for settings changes that affect cache content
+  let lastPreserveVersioned = preserveVersioned();
   createEffect(() => {
-    const currentPreserveVersioned = preserveVersioned();
-    // 使用setTimeout避免在组件挂载时立即触发
-    setTimeout(() => {
-      if (preserveVersioned() === currentPreserveVersioned) {
-        fetchCacheContents();
-      }
-    }, 0);
+    const current = preserveVersioned();
+    // Only refresh if the setting actually changed
+    if (current !== lastPreserveVersioned) {
+      lastPreserveVersioned = current;
+      // Use setTimeout to avoid triggering during component initialization
+      setTimeout(() => {
+        forceRefresh();
+      }, 0);
+    }
+  });
+
+  onMount(() => {
+    console.log('CacheManager mounted - forcing initial refresh');
+    // Always trigger refresh on mount to ensure data is loaded
+    refreshCache();
+
+    // Listen for cache invalidation events
+    const unsubscribe = onInvalidate(() => {
+      forceRefresh();
+    });
+
+    return unsubscribe;
   });
 
   const toggleSelection = (identifier: CacheIdentifier) => {
@@ -160,24 +160,20 @@ function CacheManager() {
 
   const toggleSelectAll = () => {
     const currentItems = filteredCacheContents();
-    const currentIdentifiers = new Set(currentItems.map(getCacheIdentifier));
+    const currentIdentifiers = currentItems.map(getCacheIdentifier) as string[];
 
-    // If all currently visible items are selected, unselect them.
-    // Otherwise, select all currently visible items.
-    const allVisibleSelected = currentItems.every((item) =>
+    const allVisibleSelected = currentItems.every((item: CacheEntry) =>
       selectedItems().has(getCacheIdentifier(item))
     );
 
     if (allVisibleSelected && currentItems.length > 0) {
-      // Unselect only the visible items
-      setSelectedItems((prev) => {
+      setSelectedItems((prev: Set<string>) => {
         const next = new Set(prev);
-        currentIdentifiers.forEach((id) => next.delete(id));
+        currentIdentifiers.forEach((id: string) => next.delete(id));
         return next;
       });
     } else {
-      // Select all visible items, adding to any existing selection
-      setSelectedItems((prev) => new Set([...prev, ...currentIdentifiers]));
+      setSelectedItems((prev: Set<string>) => new Set([...prev, ...currentIdentifiers]));
     }
   };
 
@@ -185,7 +181,7 @@ function CacheManager() {
     const selectedFiles = [...selectedItems()];
     if (selectedFiles.length === 0) return;
 
-    const packageNames = Array.from(new Set(selectedFiles.map((id) => id.split('#')[0]))).sort();
+    const packageNames = [...new Set(selectedFiles.map((id) => id.split('#')[0]))].sort();
 
     setConfirmationDetails({
       title: t('doctor.cacheManager.confirmDeletion'),
@@ -206,33 +202,30 @@ function CacheManager() {
       onConfirm: async () => {
         setIsLoading(true);
         try {
-          if (useScoopCleanup()) {
-            // Extract package names from selected files (list is already filtered)
-            const packageNames = Array.from(
-              new Set(selectedFiles.map((id) => id.split('#')[0]))
-            ).sort();
+          const packageNames = Array.from(
+            new Set(selectedFiles.map((id) => id.split('#')[0]))
+          ).sort();
 
+          if (useScoopCleanup()) {
             if (packageNames.length > 0) {
               await invoke('remove_cache_for_specific_packages', { packageNames });
             }
-            await fetchCacheContents();
           } else {
-            // Use direct file deletion
-            const [success, failure] = await invoke<[number, number]>('clear_cache', {
+            await invoke<[number, number]>('clear_cache', {
               files: selectedFiles,
               preserveVersioned: preserveVersioned(),
             });
-            if (failure > 0) {
-              setError(t('doctor.cacheManager.deletePartialSuccess', { success, failure }));
-            } else {
-              await fetchCacheContents();
-            }
           }
+
+          // Cache cleared successfully
+
+          invalidateCache('cacheData');
         } catch (err) {
           console.error('Failed to clear selected cache items:', err);
           setError(
             typeof err === 'string' ? err : 'An unknown error occurred while clearing cache.'
           );
+          // EventBus auto-handles errors
         } finally {
           setIsLoading(false);
         }
@@ -249,33 +242,32 @@ function CacheManager() {
       onConfirm: async () => {
         setIsLoading(true);
         try {
-          if (useScoopCleanup()) {
-            // Get package names from current displayed list (already filtered)
-            const displayedPackages = [...new Set(cacheContents().map((item) => item.name))];
+          const displayedPackages = [
+            ...new Set(cacheContents().map((item: CacheEntry) => item.name)),
+          ];
 
+          if (useScoopCleanup()) {
             if (displayedPackages.length > 0) {
               await invoke('remove_cache_for_specific_packages', {
                 packageNames: displayedPackages,
               });
             }
-            await fetchCacheContents();
           } else {
-            // Use direct file deletion
-            const [success, failure] = await invoke<[number, number]>('clear_cache', {
+            await invoke<[number, number]>('clear_cache', {
               files: null,
               preserveVersioned: preserveVersioned(),
             });
-            if (failure > 0) {
-              setError(t('doctor.cacheManager.deletePartialSuccess', { success, failure }));
-            } else {
-              await fetchCacheContents();
-            }
           }
+
+          // All cache cleared successfully
+
+          invalidateCache('cacheData');
         } catch (err) {
           console.error('Failed to clear all cache items:', err);
           setError(
             typeof err === 'string' ? err : 'An unknown error occurred while clearing cache.'
           );
+          // EventBus auto-handles errors
         } finally {
           setIsLoading(false);
           setIsConfirmModalOpen(false);
@@ -358,7 +350,7 @@ function CacheManager() {
             </Show>
             <button
               class="btn btn-ghost btn-sm"
-              onClick={fetchCacheContents}
+              onClick={forceRefresh}
               disabled={isLoading()}
               title="Refresh cache"
             >

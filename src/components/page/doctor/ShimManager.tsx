@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show, createMemo } from 'solid-js';
+import { createSignal, For, Show, createMemo, createEffect, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { TriangleAlert, Inbox, Link, EyeOff, Plus, BookText, Layers2 } from 'lucide-solid';
 import ShimDetailsModal from './ShimDetailsModal';
@@ -6,8 +6,12 @@ import AddShimModal from './AddShimModal';
 import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
+import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
 
-const SHIMS_DIR = 'shims';
+interface ShimsData {
+  shims: Shim[];
+  directory: string;
+}
 
 export interface Shim {
   name: string;
@@ -26,7 +30,51 @@ function ShimManager() {
   const [error, setError] = createSignal<string | null>(null);
   const [selectedShim, setSelectedShim] = createSignal<Shim | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = createSignal(false);
-  const [shimsDirectory, setShimsDirectory] = createSignal<string>('');
+
+  // Session cache for shims data
+  const {
+    data: shimsData,
+    loading: dataLoading,
+    error: dataError,
+    refresh: refreshShims,
+    onInvalidate,
+  } = createSessionCache<ShimsData>('shimsData', async () => {
+    const scoopPath = await invoke<string | null>('get_scoop_path');
+    if (!scoopPath) {
+      throw new Error('No Scoop path configured. Please configure it in settings.');
+    }
+
+    const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
+    if (!pathExists) {
+      throw new Error(`Configured Scoop path does not exist: ${scoopPath}`);
+    }
+
+    // Get shims list
+    const result = await invoke<Shim[]>('list_shims');
+    const shimsDirectory = `${scoopPath}\\shims`;
+
+    return {
+      shims: result.sort((a, b) => a.name.localeCompare(b.name)),
+      directory: shimsDirectory,
+    };
+  });
+
+  // Computed values from cache data
+  const shimsDirectory = () => shimsData()?.directory || '';
+
+  // Sync shims data with cache data
+  createEffect(() => {
+    const data = shimsData();
+    if (data) {
+      setAllShims(data.shims);
+    }
+  });
+
+  // Sync loading state with cache loading
+  createEffect(() => {
+    setIsLoading(dataLoading());
+    setError(dataError());
+  });
 
   const filteredShims = createMemo(() => {
     const f = filter().toLowerCase();
@@ -36,76 +84,45 @@ function ShimManager() {
     );
   });
 
-  const getScoopSubPath = (subPath: string) => {
-    return async () => {
-      try {
-        const scoopPath = await invoke<string>('get_scoop_path');
-        if (!scoopPath) {
-          throw new Error('Scoop path not configured');
-        }
-        return `${scoopPath}\\${subPath}`;
-      } catch (error) {
-        console.error(`Failed to get scoop ${subPath} path:`, error);
-        throw error;
-      }
-    };
-  };
-
-  const fetchShimsDirectory = async () => {
-    try {
-      const getPath = getScoopSubPath(SHIMS_DIR);
-      const path = await getPath();
-      setShimsDirectory(path);
-    } catch (error) {
-      console.error('Failed to fetch shims directory:', error);
+  createEffect(() => {
+    const f = filter();
+    if (f) {
+      setSelectedShim(null);
     }
+  });
+
+  // Force refresh function that clears cache before refreshing
+  const forceRefresh = () => {
+    // Clear cache to bypass valid cache
+    sessionStorage.removeItem('shimsData');
+    return refreshShims();
   };
 
-  const fetchShims = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // 检查Scoop路径是否存在
-      const scoopPath = await invoke<string | null>('get_scoop_path');
-      if (!scoopPath) {
-        setError('No Scoop path configured. Please configure it in settings.');
-        setShimsDirectory('');
-        return;
-      }
+  onMount(() => {
+    console.log('ShimManager mounted - forcing initial refresh');
+    // Always trigger refresh on mount to ensure data is loaded
+    refreshShims();
 
-      const pathExists = await invoke<boolean>('path_exists', { path: scoopPath });
-      if (!pathExists) {
-        setError(`Configured Scoop path does not exist: ${scoopPath}`);
-        setShimsDirectory('');
-        return;
-      }
+    // Listen for cache invalidation events
+    const unsubscribe = onInvalidate(() => {
+      forceRefresh();
+    });
 
-      // 获取shim列表
-      const result = await invoke<Shim[]>('list_shims');
-      setAllShims(result.sort((a, b) => a.name.localeCompare(b.name)));
-
-      // 获取shim目录路径
-      await fetchShimsDirectory();
-    } catch (err) {
-      console.error('Failed to fetch shims:', err);
-      setError(typeof err === 'string' ? err : 'An unknown error occurred while fetching shims.');
-      setShimsDirectory('');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  onMount(fetchShims);
+    return unsubscribe;
+  });
 
   const handleAddShim = async (name: string, path: string, args: string) => {
     setIsProcessing(true);
     try {
       await invoke('add_shim', { args: { name, path, args } });
-      await fetchShims();
+
+      // Shim added successfully
+
+      invalidateCache('shimsData');
+
       setIsAddModalOpen(false);
     } catch (err) {
       console.error(`Failed to add shim ${name}:`, err);
-      // Optionally, set an error message to display to the user
     } finally {
       setIsProcessing(false);
     }
@@ -115,7 +132,11 @@ function ShimManager() {
     setIsProcessing(true);
     try {
       await invoke('remove_shim', { shimName });
-      await fetchShims();
+
+      // Shim removed successfully
+
+      invalidateCache('shimsData');
+
       setSelectedShim(null);
     } catch (err) {
       console.error(`Failed to remove shim ${shimName}:`, err);
@@ -128,7 +149,6 @@ function ShimManager() {
     setIsProcessing(true);
     try {
       await invoke('alter_shim', { shimName });
-      await fetchShims();
 
       const currentlySelected = selectedShim();
       if (currentlySelected && currentlySelected.name === shimName) {
@@ -149,7 +169,7 @@ function ShimManager() {
     <Card
       title={t('doctor.shimManager.title')}
       icon={Layers2}
-      onRefresh={fetchShims}
+      onRefresh={forceRefresh}
       headerAction={
         <div class="flex items-center gap-2">
           <Show when={allShims().length > 0}>

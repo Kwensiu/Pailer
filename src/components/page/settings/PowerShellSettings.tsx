@@ -1,19 +1,17 @@
 import { Terminal } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
-import { createSignal, createEffect, onMount } from 'solid-js';
+import { createSignal, createEffect } from 'solid-js';
 import { t } from '../../../i18n';
 import { createPowerShellCache } from '../../../hooks/createSessionStorage';
 
 function PowerShellSettings() {
   const { settings, setPowershellSettings } = settingsStore;
-  const { data: executables, error, initialize } = createPowerShellCache();
+  const { data: executables, error } = createPowerShellCache();
   const [selected, setSelected] = createSignal(settings.powershell.executable);
 
-  onMount(() => {
+  createEffect(() => {
     setPowershellSettings({ executable: settings.powershell.executable });
-    // Initialize PowerShell detection cache
-    initialize();
   });
 
   const getLabel = (exe: string) => {

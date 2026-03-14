@@ -44,11 +44,12 @@ function Checkup(props: CheckupProps) {
       </Show>
 
       <Show when={!props.isLoading && !props.error && props.checkupResult.length === 0}>
-        <div class="alert alert-success text-sm">
-          <CircleCheckBig class="h-5 w-5" />
-          <span>{t('doctor.checkup.noIssues')}</span>
+        <div class="alert alert-info text-sm">
+          <TriangleAlert class="h-5 w-5" />
+          <span>点击刷新按钮运行健康检查</span>
         </div>
       </Show>
+
       <Show when={!props.isLoading && !props.error && props.checkupResult.length > 0}>
         <ul class="space-y-3">
           <For each={props.checkupResult}>

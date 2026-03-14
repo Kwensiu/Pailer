@@ -28,6 +28,7 @@ function ScoopInfo() {
     error,
     refresh,
     updateData,
+    onInvalidate,
   } = createSessionCache<{
     config: ScoopConfig | null;
     directory: string | null;
@@ -45,6 +46,7 @@ function ScoopInfo() {
 
     return { config, directory };
   });
+
   const [isEditModalOpen, setIsEditModalOpen] = createSignal(false);
   const [editConfig, setEditConfig] = createSignal<string>('');
   const [isSaving, setIsSaving] = createSignal(false);
@@ -54,41 +56,24 @@ function ScoopInfo() {
   const isDark = () => settings.theme === 'dark';
   const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
-  const fetchScoopInfo = async (silent: boolean = false) => {
-    if (!silent) {
-      // Use hook's refresh for manual refresh
-      refresh();
-    }
-
-    try {
-      // Get configured Scoop path first
-      const configuredPath = await invoke<string | null>('get_scoop_path');
-
-      if (!configuredPath) {
-        console.error('No Scoop path configured. Please configure it in settings.');
-        return;
-      }
-
-      // Check if the configured path exists
-      const pathExists = await invoke<boolean>('path_exists', { path: configuredPath });
-      if (!pathExists) {
-        // Update hook's data to null when path doesn't exist
-        updateData({ config: null, directory: null });
-        return;
-      }
-
-      // Config directory is now handled by its own cache
-      console.log('Scoop config loaded via hook');
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to fetch scoop info:', errorMsg);
-      // Hook handles error state automatically
-    }
+  // Force refresh function that clears cache before refreshing
+  const forceRefresh = () => {
+    // Clear cache to bypass valid cache
+    sessionStorage.removeItem('scoopData');
+    return refresh();
   };
 
   onMount(() => {
-    // Both scoopConfig and configDirectory are now handled by their respective caches
-    // No need to manually fetch anything
+    console.log('ScoopInfo mounted - forcing initial refresh');
+    // Always trigger refresh on mount to ensure data is loaded
+    refresh();
+
+    // Listen for cache invalidation events
+    const unsubscribe = onInvalidate(() => {
+      forceRefresh();
+    });
+
+    return unsubscribe;
   });
 
   const openEditModal = () => {
@@ -139,7 +124,7 @@ function ScoopInfo() {
       <Card
         title={t('doctor.scoopInfo.title')}
         icon={Settings}
-        onRefresh={() => fetchScoopInfo()}
+        onRefresh={forceRefresh}
         headerAction={
           <div class="flex items-center gap-2">
             <Show when={scoopData()?.config}>
