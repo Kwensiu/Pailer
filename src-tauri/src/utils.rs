@@ -32,8 +32,6 @@ pub fn is_scoop_installation() -> bool {
 #[derive(Debug, Clone)]
 struct ScoopRootCandidateInfo {
     path: PathBuf,
-    score: u32,
-    installed_count: usize,
     has_apps_dir: bool,
     has_buckets_dir: bool,
 }
@@ -180,11 +178,12 @@ where
     candidates
 }
 
+#[allow(dead_code)]
 fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
-    log::info!("Evaluating Scoop candidate: {}", path.display());
+    log::debug!("Evaluating Scoop candidate: {}", path.display());
     
     if !path.is_dir() {
-        log::info!("Candidate path does not exist or is not a directory: {}", path.display());
+        log::debug!("Skipping invalid candidate: {}", path.display());
         return None;
     }
 
@@ -193,11 +192,8 @@ fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
     let has_apps_dir = apps_dir.is_dir();
     let has_buckets_dir = buckets_dir.is_dir();
 
-    log::info!("Candidate evaluation - apps_dir: {} ({}), buckets_dir: {} ({})", 
-               apps_dir.display(), has_apps_dir, buckets_dir.display(), has_buckets_dir);
-
     if !has_apps_dir && !has_buckets_dir {
-        log::info!("Candidate rejected - missing both apps and buckets directories");
+        log::debug!("Candidate rejected - missing both apps and buckets directories");
         return None;
     }
 
@@ -209,7 +205,7 @@ fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
                     .filter(|entry| entry.path().is_dir())
                     .take(200)
                     .count();
-                log::info!("Found {} installed apps in apps directory", count);
+                log::debug!("Found {} installed apps in apps directory", count);
                 count
             },
             Err(e) => {
@@ -218,84 +214,64 @@ fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
             }
         }
     } else {
-        log::info!("No apps directory found");
         0
     };
 
-    let mut score = 0;
-    if has_buckets_dir {
-        score += 10;
-        log::info!("+10 points for having buckets directory");
-    }
-    if has_apps_dir {
-        score += 30;
-        log::info!("+30 points for having apps directory");
-    }
-    score += installed_count.min(50) as u32;
-    log::info!("+{} points for installed apps (capped at 50)", installed_count.min(50));
-
-    log::info!("Total score for candidate {}: {}", path.display(), score);
+    log::debug!("Valid Scoop root candidate: {} (apps_dir={}, buckets_dir={}, installed={})", 
+               path.display(), has_apps_dir, has_buckets_dir, installed_count);
 
     Some(ScoopRootCandidateInfo {
         path,
-        score,
-        installed_count,
         has_apps_dir,
         has_buckets_dir,
     })
 }
 
+#[allow(dead_code)]
 fn select_best_scoop_root(
     candidates: Vec<PathBuf>,
     preferred: Option<&PathBuf>,
 ) -> Option<ScoopRootCandidateInfo> {
-    log::info!("Selecting best Scoop root from {} candidates", candidates.len());
-    let mut best: Option<ScoopRootCandidateInfo> = None;
+    log::debug!("Selecting best Scoop root from {} candidates", candidates.len());
 
-    for candidate in candidates {
-        let candidate_display = candidate.display().to_string();
-        let evaluated_candidate = evaluate_scoop_candidate(candidate);
-        
-        if evaluated_candidate.is_some() {
-            let mut info = evaluated_candidate.unwrap();
-            
-            if preferred.is_some() && preferred.unwrap().eq(&info.path) {
-                info.score += 5;
-                log::info!("+5 points for being the preferred path");
+    // Use preferred path if available
+    if let Some(preferred_path) = preferred {
+        if let Some(candidate) = candidates.iter().find(|path| **path == *preferred_path) {
+            if let Some(info) = evaluate_scoop_candidate(candidate.clone()) {
+                log::info!("Using preferred Scoop root: {}", preferred_path.display());
+                return Some(info);
             }
-
-            log::debug!(
-                "Scored potential Scoop root {} => score {} (apps_dir={}, buckets_dir={}, installed={})",
-                info.path.display(),
-                info.score,
-                info.has_apps_dir,
-                info.has_buckets_dir,
-                info.installed_count
-            );
-
-            let replace = if best.is_some() {
-                let current = best.as_ref().unwrap();
-                let should_replace = info.score > current.score
-                    || (info.score == current.score
-                        && info.installed_count > current.installed_count);
-                log::debug!("Comparing with current best - current score: {}, candidate score: {}, replace: {}", 
-                           current.score, info.score, should_replace);
-                should_replace
-            } else { 
-                true // No current best, always replace
-            };
-
-            if replace {
-                log::info!("Setting new best candidate: {} with score {}", info.path.display(), info.score);
-                best = Some(info);
-            }
-        } else {
-            log::debug!("Skipping invalid candidate: {}", candidate_display);
         }
     }
 
-    log::info!("Best Scoop root selection completed. Best candidate: {:?}", best.as_ref().map(|b| b.path.display().to_string()));
-    best
+    // Collect all valid candidates
+    let mut valid_candidates: Vec<ScoopRootCandidateInfo> = candidates
+        .into_iter()
+        .filter_map(|candidate| evaluate_scoop_candidate(candidate))
+        .collect();
+
+    // Sort by priority: has apps+buckets > has apps > has buckets
+    valid_candidates.sort_by(|a, b| {
+        let a_priority = (a.has_apps_dir, a.has_buckets_dir);
+        let b_priority = (b.has_apps_dir, b.has_buckets_dir);
+        b_priority.cmp(&a_priority)
+    });
+
+    if let Some(best) = valid_candidates.into_iter().next() {
+        let selection_type = if best.has_apps_dir && best.has_buckets_dir {
+            "with apps and buckets"
+        } else if best.has_apps_dir {
+            "with apps directory"
+        } else {
+            "with buckets directory"
+        };
+        
+        log::info!("Selected Scoop root {}: {}", selection_type, best.path.display());
+        Some(best)
+    } else {
+        log::warn!("No valid Scoop root found");
+        None
+    }
 }
 
 /// Resolve the root directory of Scoop on the host machine.
@@ -581,35 +557,39 @@ pub fn get_scoop_root_fallback() -> PathBuf {
         }
     }
     
-    // No cached value, perform detection
-    let candidates = build_candidate_list(Vec::<PathBuf>::new());
-
-    if let Some(best) = select_best_scoop_root(candidates, None) {
-        log::info!(
-            "Using Scoop root fallback: {} (apps_dir={}, buckets_dir={}, installs={})",
-            best.path.display(),
-            best.has_apps_dir,
-            best.has_buckets_dir,
-            best.installed_count
-        );
-        
-        // Cache the result
-        {
+    // Simple detection: check SCOOP env var first
+    if let Ok(scoop_path) = env::var("SCOOP") {
+        let path = PathBuf::from(&scoop_path);
+        if path.join("apps").is_dir() {
+            log::info!("Using SCOOP environment variable: {}", path.display());
             let mut cached_value = cache.lock().unwrap();
-            *cached_value = Some(best.path.clone());
+            *cached_value = Some(path.clone());
+            return path;
         }
-        
-        return best.path;
     }
-
-    log::warn!("Could not find Scoop root directory, using default");
-    let default_path = PathBuf::from("C:\\scoop");
     
-    // Cache the default as well
-    {
-        let mut cached_value = cache.lock().unwrap();
-        *cached_value = Some(default_path.clone());
+    // Fallback to common paths
+    let common_paths = vec![
+        PathBuf::from(r"C:\Users\x1852\scoop"),
+        PathBuf::from(r"C:\ProgramData\scoop"),
+        PathBuf::from(r"C:\scoop"),
+    ];
+    
+    for path in common_paths {
+        if path.join("apps").is_dir() {
+            log::info!("Found Scoop at: {}", path.display());
+            let mut cached_value = cache.lock().unwrap();
+            *cached_value = Some(path.clone());
+            return path;
+        }
     }
+    
+    // Default fallback
+    let default_path = PathBuf::from("C:\\scoop");
+    log::warn!("Using default Scoop path: {}", default_path.display());
+    
+    let mut cached_value = cache.lock().unwrap();
+    *cached_value = Some(default_path.clone());
     
     default_path
 }
@@ -721,7 +701,7 @@ fn parse_shortcut(_path: &PathBuf, _scoop_root: &std::path::Path) -> Result<Shor
     Err("Shortcut parsing is only supported on Windows".to_string())
 }
 
-/// Launch a Scoop app using its target path
+/// Emit a Scoop app using its target path
 pub fn launch_scoop_app(target_path: &str, working_directory: &str) -> Result<(), String> {
     log::info!(
         "Launching app: '{}' from '{}'",
