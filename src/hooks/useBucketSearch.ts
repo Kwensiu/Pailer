@@ -94,6 +94,8 @@ export function useBucketSearch(): UseBucketSearchReturn {
   const [error, setError] = createSignal<string | null>(null);
   const [cacheExists, setCacheExists] = createSignal(false);
 
+  let cacheStatusChecked = false;
+
   // Check if cache exists on mount
   const checkCacheStatus = async () => {
     try {
@@ -107,6 +109,7 @@ export function useBucketSearch(): UseBucketSearchReturn {
         console.log('Cache exists - automatically enabling expanded search');
       }
 
+      cacheStatusChecked = true;
       return exists;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -122,15 +125,13 @@ export function useBucketSearch(): UseBucketSearchReturn {
       const cacheExistsStatus = await checkCacheStatus();
 
       if (cacheExistsStatus) {
-        // If cache exists, load expanded results immediately with stars sorting
         console.log('Cache exists, loading expanded search results...');
-        setIncludeExpanded(true); // Ensure expanded search is enabled
+        setIncludeExpanded(true);
         const expandedResults = await searchBuckets(undefined, true, undefined, 'stars');
         return expandedResults?.buckets || [];
       } else {
-        // No cache, load default verified buckets (they should already be sorted by stars on backend)
         console.log('No cache, loading default buckets...');
-        setIncludeExpanded(false); // Ensure we're in default mode
+        setIncludeExpanded(false);
         const buckets = await invoke<SearchableBucket[]>('get_default_buckets');
         setSearchResults(buckets);
         setTotalCount(buckets.length);
@@ -256,18 +257,21 @@ export function useBucketSearch(): UseBucketSearchReturn {
     try {
       console.log('Loading default buckets...');
 
-      // Check cache status first
-      const cacheExistsStatus = await checkCacheStatus();
+      // Only check cache status if not already checked
+      if (!cacheStatusChecked) {
+        await checkCacheStatus();
+      }
+
+      // Use the cache status from the signal
+      const cacheExistsStatus = cacheExists();
 
       if (cacheExistsStatus) {
-        // If cache exists, load expanded results immediately with stars sorting
         console.log('Cache exists, loading expanded search results...');
-        setIncludeExpanded(true); // Ensure expanded search is enabled
-        await searchBuckets(undefined, true, undefined, 'stars'); // Explicit stars sorting
+        setIncludeExpanded(true);
+        await searchBuckets(undefined, true, undefined, 'stars');
       } else {
-        // No cache, load default verified buckets
         console.log('Loading default verified buckets...');
-        setIncludeExpanded(false); // Ensure we're in default mode
+        setIncludeExpanded(false);
         const buckets = await invoke<SearchableBucket[]>('get_default_buckets');
         setSearchResults(buckets);
         setTotalCount(buckets.length);

@@ -212,28 +212,27 @@ const clearSearchCache = (bucketName?: string): void => {
 };
 
 export function useSearchCache(): UseSearchCacheReturn {
-  // Clean up old cache entries on initialization
   if (typeof window !== 'undefined') {
     try {
-      // Clean up cache entries older than 7 days
       localStorageUtils.cleanupOldCache();
-      // Limit cache size to 5MB
       localStorageUtils.limitCacheSize();
+
+      // Listen for cache invalidation events
+      searchCacheManager.subscribe(() => {
+        console.log('Search cache invalidated by package operation');
+      });
     } catch (error) {
       console.warn('Failed to clean up localStorage cache:', error);
     }
   }
 
-  // Get cached search results
   const getCachedSearch = (bucketName: string, searchTerm: string): ScoopPackage[] | null => {
-    // First try search cache
     const searchCache = getSearchCache(bucketName, searchTerm);
     if (searchCache) {
       console.log(`Using cached search results for bucket: ${bucketName}, term: ${searchTerm}`);
       return searchCache.packages;
     }
 
-    // If no search cache, try to use bucket manifests cache for fast filtering
     const manifestCache = getManifestCache(bucketName);
     if (manifestCache && searchTerm.trim()) {
       console.log(`Using bucket manifests cache for fast filtering: ${bucketName}`);
@@ -257,19 +256,13 @@ export function useSearchCache(): UseSearchCacheReturn {
     return null;
   };
 
-  // Cache search results
   const cacheSearch = (bucketName: string, searchTerm: string, packages: ScoopPackage[]): void => {
     setSearchCache(bucketName, searchTerm, packages);
   };
 
-  // Clear cache
   const clearCache = (bucketName?: string): void => {
     clearSearchCache(bucketName);
   };
 
-  return {
-    getCachedSearch,
-    cacheSearch,
-    clearCache,
-  };
+  return { getCachedSearch, cacheSearch, clearCache };
 }

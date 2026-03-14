@@ -8,6 +8,7 @@ import type {
   OperationStatus,
   MultiInstanceWarning,
 } from '../types/operations';
+import { listen } from '@tauri-apps/api/event';
 
 // Command execution state interface
 export interface CommandExecutionState {
@@ -48,6 +49,54 @@ const operationsStore = createRoot(() => {
 
   // Operation management Hook
   const useOperations = () => {
+    // Global event listener for operation-finished events
+    createEffect(() => {
+      let unlisten: (() => void) | undefined;
+
+      const setupListener = async () => {
+        try {
+          unlisten = await listen('operation-finished', (event) => {
+            const result = event.payload as OperationResult;
+
+            // Find the operation by operationId if available
+            let operationId: string | undefined;
+            if (result.operationId) {
+              operationId = result.operationId;
+            } else {
+              // Fallback: find operation by timestamp range (more reliable)
+              const timestamp = result.timestamp; // Already in milliseconds
+              const tolerance = 5000; // 5 seconds tolerance
+              const found = Object.entries(operations).find(([, op]) => {
+                return Math.abs(op.createdAt - timestamp) <= tolerance;
+              });
+              if (found) {
+                operationId = found[0];
+              }
+            }
+
+            if (operationId) {
+              setOperationResult(operationId, result);
+            } else {
+              console.warn(
+                'Received operation-finished event but could not find matching operation:',
+                result
+              );
+            }
+          });
+        } catch (e) {
+          console.error('Failed to setup operation-finished listener:', e);
+        }
+      };
+
+      setupListener();
+
+      onCleanup(() => {
+        if (unlisten) {
+          unlisten();
+        }
+      });
+    });
+
     // Add new operation
     const addOperation = (operation: Omit<OperationState, 'createdAt' | 'updatedAt'>) => {
       const now = Date.now();

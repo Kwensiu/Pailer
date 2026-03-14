@@ -1,154 +1,129 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 
-interface SessionCache<T> {
+interface CacheData<T> {
   data: T;
   timestamp: number;
 }
 
-// Cache expiration time (5 minutes)
 const CACHE_EXPIRY_MS = 5 * 60 * 1000;
-
-// Global cache instance map with weak references to prevent memory leaks
 const globalCaches = new Map<string, any>();
+const invalidationListeners = new Map<string, Set<() => void>>();
+const activeFetches = new Map<string, Promise<any>>();
 
-// Global initialization tracking to prevent multiple initializations
-const globalInitialized = new Set<string>();
-
-// Cache cleanup interval (cleanup every 30 minutes)
-setInterval(
-  () => {
-    // Remove expired cache entries based on timestamp
-    for (const [key, cache] of globalCaches.entries()) {
+export function invalidateCache(key: string) {
+  const listeners = invalidationListeners.get(key);
+  if (listeners) {
+    listeners.forEach((cb) => {
       try {
-        const cached = cache.getCachedData?.();
-        if (!cached) {
-          globalCaches.delete(key);
-          globalInitialized.delete(key);
-        }
-      } catch (error) {
-        // Remove corrupted cache entries
-        globalCaches.delete(key);
-        globalInitialized.delete(key);
+        cb();
+      } catch (e) {
+        console.error(e);
       }
-    }
-  },
-  30 * 60 * 1000
-);
+    });
+  }
+}
 
-function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
+export function createCache<T>(key: string, fetcher: () => Promise<T>) {
+  if (globalCaches.has(key)) {
+    return globalCaches.get(key);
+  }
+
   const [data, setData] = createSignal<T | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  let initialized = false;
 
-  // Read data from cache
-  const getCachedData = (): SessionCache<T> | null => {
-    try {
-      const cached = sessionStorage.getItem(key);
-      if (cached) {
-        const parsed = JSON.parse(cached) as SessionCache<T>;
-        // Check if cache has expired
+  const listeners = new Set<() => void>();
+  invalidationListeners.set(key, listeners);
+
+  let isInitialized = false;
+
+  const fetchData = async () => {
+    // 防止并发获取
+    if (activeFetches.has(key)) {
+      return await activeFetches.get(key);
+    }
+
+    if (loading()) return;
+
+    setLoading(true);
+    setError(null);
+
+    const fetchPromise = (async () => {
+      try {
+        const cached = sessionStorage.getItem(key);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as CacheData<T>;
+            if (Date.now() - parsed.timestamp <= CACHE_EXPIRY_MS) {
+              setData(() => parsed.data);
+              return parsed.data;
+            }
+          } catch (parseError) {
+            console.warn(`Failed to parse cache for key "${key}":`, parseError);
+          }
+          sessionStorage.removeItem(key);
+        }
+
+        const results = await fetcher();
+        setData(() => results);
+        sessionStorage.setItem(
+          key,
+          JSON.stringify({
+            data: results,
+            timestamp: Date.now(),
+          })
+        );
+        return results;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(errorMessage);
+        console.error(`Failed to fetch data for key "${key}":`, err);
+        throw err;
+      } finally {
+        setLoading(false);
+        activeFetches.delete(key);
+      }
+    })();
+
+    activeFetches.set(key, fetchPromise);
+    return await fetchPromise;
+  };
+
+  const initialize = async () => {
+    if (isInitialized) return;
+
+    const cached = sessionStorage.getItem(key);
+    if (!cached) {
+      await fetchData();
+    } else {
+      try {
+        const parsed = JSON.parse(cached) as CacheData<T>;
         if (Date.now() - parsed.timestamp > CACHE_EXPIRY_MS) {
           sessionStorage.removeItem(key);
-          return null;
+          await fetchData();
+        } else {
+          setData(() => parsed.data);
         }
-        return parsed;
+      } catch (parseError) {
+        console.warn(`Failed to parse cache during initialization for key "${key}":`, parseError);
+        sessionStorage.removeItem(key);
+        await fetchData();
       }
-    } catch (err) {
-      console.error(`Failed to read cache for key "${key}":`, err);
     }
-    return null;
+    isInitialized = true;
   };
 
-  // Save data to cache
-  const setCachedData = (newData: T) => {
-    try {
-      const cache: SessionCache<T> = {
-        data: newData,
-        timestamp: Date.now(),
-      };
-      sessionStorage.setItem(key, JSON.stringify(cache));
-    } catch (err) {
-      console.error(`Failed to save cache for key "${key}":`, err);
-    }
-  };
+  initialize();
 
-  // Fetch data
-  const fetchData = async () => {
-    console.log(`🌐 [useSessionStorage] fetchData called for key: ${key}`);
-    try {
-      setLoading(true);
-      setError(null);
-      const results = await fetcher();
-      console.log(`📦 [useSessionStorage] fetchData success for ${key}:`, !!results);
-      setData(() => results);
-      setCachedData(results);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      console.error(`Failed to fetch data for key "${key}":`, err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refresh = () => fetchData();
 
-  // Initialize: check cache first, fetch if not available
-  const initialize = async () => {
-    console.log(`🔧 [useSessionStorage] initialize called for key: ${key}`, {
-      initialized,
-      globalInitialized: Array.from(globalInitialized),
-    });
-
-    // Prevent multiple initializations globally
-    if (initialized || globalInitialized.has(key)) {
-      console.log(
-        `⏭️ [useSessionStorage] Skipping initialization for ${key} - already initialized`
-      );
-      // Ensure loading is false if we're skipping initialization
-      setLoading(false);
-      return;
-    }
-
-    const cached = getCachedData();
-    console.log(`💾 [useSessionStorage] Cache check for ${key}:`, {
-      hasCache: !!cached,
-      hasData: cached?.data !== null,
-    });
-
-    if (cached && cached.data !== null) {
-      // Use cached data
-      console.log(`✅ [useSessionStorage] Using cached data for ${key}`);
-      setData(() => cached.data);
-      setLoading(false);
-      initialized = true;
-      globalInitialized.add(key);
-
-      // No background update for update cache to avoid unnecessary API calls
-    } else {
-      // No cache, perform detection
-      console.log(`🌐 [useSessionStorage] No cache for ${key}, fetching fresh data`);
-      await fetchData();
-      initialized = true;
-      globalInitialized.add(key);
-    }
-  };
-
-  // Clear cache
-  const clearCache = () => {
+  const clear = () => {
     sessionStorage.removeItem(key);
     setData(null);
-    initialized = false;
-    // Don't delete from globalInitialized, allow re-initialization
-    // globalInitialized.delete(key);
+    setError(null);
   };
 
-  // Manual refresh detection
-  const refresh = () => {
-    fetchData();
-  };
-
-  // Direct update cache data (for update check results)
   const updateData = (newData: T) => {
     sessionStorage.setItem(
       key,
@@ -158,29 +133,43 @@ function createSessionCacheInstance<T>(key: string, fetcher: () => Promise<T>) {
       })
     );
     setData(() => newData);
-    initialized = true;
-    globalInitialized.add(key);
   };
 
-  return {
+  const onInvalidate = (callback: () => void) => {
+    listeners.add(callback);
+    return () => listeners.delete(callback);
+  };
+
+  const cache = {
     data,
     loading,
     error,
     refresh,
+    clear,
     updateData,
-    clearCache,
-    initialize,
+    onInvalidate,
+    invalidate: () => invalidateCache(key),
   };
+
+  globalCaches.set(key, cache);
+  return cache;
 }
 
-export function createSessionCache<T>(key: string, fetcher: () => Promise<T>) {
-  if (!globalCaches.has(key)) {
-    const cache = createSessionCacheInstance(key, fetcher);
-    globalCaches.set(key, cache);
-    // Auto-initialize the cache
-    cache.initialize();
+export function createSessionCache<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  autoInvalidate: boolean = false
+) {
+  const cache = createCache(key, fetcher);
+
+  if (autoInvalidate) {
+    cache.onInvalidate(() => {
+      // 防止无限循环：只在数据实际需要更新时刷新
+      setTimeout(() => cache.refresh(), 100);
+    });
   }
-  return globalCaches.get(key) as ReturnType<typeof createSessionCacheInstance<T>>;
+
+  return cache;
 }
 
 // PowerShell specific convenience function
