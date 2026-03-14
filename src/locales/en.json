@@ -144,6 +144,7 @@
     "save": "Save",
     "showLess": "Show Less",
     "showMore": "Show More",
+    "sure": "Sure?",
     "switch": "Switch",
     "uninstall": "Uninstall",
     "updateAll": "Update All",
@@ -345,17 +346,29 @@
     "noMatchCriteria": "No installed packages match your current filter criteria.",
     "title": "No packages found"
   },
+  "operation": {
+    "completed": "Operation completed successfully",
+    "failed": {
+      "cancelled": "{{name}} operation cancelled",
+      "generic": "{{name}} operation failed",
+      "withErrors": "{{name}} operation failed with {{count}} errors"
+    },
+    "updateAllSuccess": "All packages updated successfully"
+  },
   "packageInfo": {
     "backToBucket": "Back to Bucket",
     "bucket": "Bucket",
     "changeBucket": "Change Bucket",
     "changeBucketFor": "Change bucket for {{name}}",
     "close": "Close",
+    "confirmDeleteVersion": "Are you sure you want to delete version v{{version}}? This action cannot be undone.",
     "current": "Current",
     "debugStructure": "Debug Structure",
+    "deleteVersion": "Delete Version",
     "description": "Description",
     "details": "Details",
     "ensureSoftwarePresent": "Ensure the software package is present in the target repository",
+    "errorDeletingVersion": "Failed to delete version v{{version}}: {{error}}",
     "errorLoadingManifest": "Failed to load manifest for {{name}}: {{error}}",
     "errorLoadingVersions": "Failed to load versions for {{name}}: {{error}}",
     "errorSwitchingVersion": "Failed to switch to version v{{version}}: {{error}}",
@@ -367,12 +380,20 @@
     "installDate": "Install Date",
     "installed": "Installed",
     "installedVersion": "Installed Version",
+    "installing": "Installing {{name}}",
     "latestVersion": "Latest Version",
     "license": "License",
     "name": "Name",
     "openInExplorer": "Open in Explorer",
-    "sure": "Sure?",
+    "success": {
+      "forceUpdate": "{{name}} force updated successfully",
+      "install": "{{name}} installed successfully",
+      "switchVersion": "{{name}} switched to version {{version}}",
+      "uninstall": "{{name}} uninstalled successfully",
+      "update": "{{name}} updated successfully"
+    },
     "title": "Information for {{name}}",
+    "uninstalling": "Uninstalling {{name}}",
     "update": "Update",
     "updateDate": "Update Date",
     "updating": "Updating {{name}}",
@@ -646,6 +667,11 @@
     "error": "Error",
     "inProgress": "In Progress",
     "loading": "Loading..."
+  },
+  "virustotal": {
+    "apiKeyMissing": "VirusTotal API key not configured",
+    "detectionsFound": "Threats found for {{name}}",
+    "noThreats": "No threats found for {{name}}"
   },
   "warnings": {
     "multiInstance": {

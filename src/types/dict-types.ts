@@ -144,6 +144,7 @@ export interface Dict {
     save: string;
     showLess: string;
     showMore: string;
+    sure: string;
     switch: string;
     uninstall: string;
     updateAll: string;
@@ -345,17 +346,29 @@ export interface Dict {
     noMatchCriteria: string;
     title: string;
   };
+  operation: {
+    completed: string;
+    failed: {
+      cancelled: string;
+      generic: string;
+      withErrors: string;
+    };
+    updateAllSuccess: string;
+  };
   packageInfo: {
     backToBucket: string;
     bucket: string;
     changeBucket: string;
     changeBucketFor: string;
     close: string;
+    confirmDeleteVersion: string;
     current: string;
     debugStructure: string;
+    deleteVersion: string;
     description: string;
     details: string;
     ensureSoftwarePresent: string;
+    errorDeletingVersion: string;
     errorLoadingManifest: string;
     errorLoadingVersions: string;
     errorSwitchingVersion: string;
@@ -367,12 +380,20 @@ export interface Dict {
     installDate: string;
     installed: string;
     installedVersion: string;
+    installing: string;
     latestVersion: string;
     license: string;
     name: string;
     openInExplorer: string;
-    sure: string;
+    success: {
+      forceUpdate: string;
+      install: string;
+      switchVersion: string;
+      uninstall: string;
+      update: string;
+    };
     title: string;
+    uninstalling: string;
     update: string;
     updateDate: string;
     updating: string;
@@ -646,6 +667,11 @@ export interface Dict {
     error: string;
     inProgress: string;
     loading: string;
+  };
+  virustotal: {
+    apiKeyMissing: string;
+    detectionsFound: string;
+    noThreats: string;
   };
   warnings: {
     multiInstance: {
