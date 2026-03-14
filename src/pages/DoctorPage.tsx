@@ -1,5 +1,5 @@
-import { createSignal, onMount, createMemo, Show, onCleanup } from 'solid-js';
-import { TriangleAlert } from 'lucide-solid';
+import { createSignal, createMemo, Show, onMount, onCleanup } from 'solid-js';
+import { TriangleAlert, RefreshCw } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import Checkup, { CheckupItem } from '../components/page/doctor/Checkup';
 import CacheManager from '../components/page/doctor/CacheManager';
@@ -8,25 +8,48 @@ import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
 import CommandInputField from '../components/page/doctor/CommandInputField';
+import { createSessionCache } from '../hooks/createSessionStorage';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { t } from '../i18n';
 
 function DoctorPage() {
   const [installingHelper, setInstallingHelper] = createSignal<string | null>(null);
+  const [isGlobalRefreshing, setIsGlobalRefreshing] = createSignal(false);
 
-  // State lifted from Checkup.tsx
-  const [checkupResult, setCheckupResult] = createSignal<CheckupItem[]>([]);
-  const [isCheckupLoading, setIsCheckupLoading] = createSignal(true);
-  const [checkupError, setCheckupError] = createSignal<string | null>(null);
+  // Use session cache for checkup data
+  const checkupCache = createSessionCache('checkupData', () =>
+    invoke<CheckupItem[]>('run_scoop_checkup')
+  );
+
+  // Force refresh function that clears cache before refreshing
+  const forceRefreshCheckup = () => {
+    // Clear cache to bypass valid cache
+    sessionStorage.removeItem('checkupData');
+    return checkupCache.refresh();
+  };
+
   const [isRetrying, setIsRetrying] = createSignal(false);
+
+  // Global refresh function for all doctor components
+  const refreshAllDoctorData = async () => {
+    setIsGlobalRefreshing(true);
+    try {
+      // Manual refresh - no EventBus events needed
+      await forceRefreshCheckup();
+      installedPackagesStore.refetch();
+    } finally {
+      setIsGlobalRefreshing(false);
+    }
+  };
 
   // Check if there are issues in the checkup result
   const hasIssues = createMemo(() => {
     return (
-      !isCheckupLoading() &&
-      !checkupError() &&
-      checkupResult().length > 0 &&
-      checkupResult().some((item) => !item.status)
+      !checkupCache.loading() &&
+      !checkupCache.error() &&
+      checkupCache.data() &&
+      checkupCache.data()!.length > 0 &&
+      checkupCache.data()!.some((item: any) => !item.status)
     );
   });
 
@@ -37,40 +60,30 @@ function DoctorPage() {
   const runCheckup = async (isRetry = false) => {
     if (isRetry) {
       setIsRetrying(true);
-    } else {
-      setIsCheckupLoading(true);
     }
-    setCheckupError(null);
-    try {
-      const result = await invoke<CheckupItem[]>('run_scoop_checkup');
-      setCheckupResult(result);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error('Failed to run health check:', errorMsg);
-      setCheckupError('Could not run health check. Please ensure your Scoop setup is correct.');
-      setCheckupResult([]);
-    } finally {
-      if (isRetry) {
-        setIsRetrying(false);
-      } else {
-        setIsCheckupLoading(false);
-      }
+
+    // Use force refresh to bypass cache
+    await forceRefreshCheckup();
+
+    if (isRetry) {
+      setIsRetrying(false);
     }
   };
 
-  onMount(() => {
-    runCheckup();
-  });
+  // Cache will be initialized automatically on first access
+  // No need to force refresh on mount - createSessionCache handles this
 
   const handleInstallHelper = async (helperId: string) => {
     setInstallingHelper(helperId);
     try {
       await invoke('install_package', { packageName: helperId, bucket: '' });
-      await runCheckup();
+
+      // Manual refresh after helper installation
+      await forceRefreshCheckup();
       installedPackagesStore.refetch();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`Failed to install ${helperId}:`, errorMsg);
+      console.error('Failed to install helper:', errorMsg);
     } finally {
       setInstallingHelper(null);
     }
@@ -80,12 +93,21 @@ function DoctorPage() {
     // Cleanup is handled by the global store
   });
 
+  onMount(() => {
+    // Listen for cache invalidation events
+    const unsubscribe = checkupCache.onInvalidate(() => {
+      forceRefreshCheckup();
+    });
+
+    return unsubscribe;
+  });
+
   const checkupComponent = (
     <Checkup
-      checkupResult={checkupResult()}
-      isLoading={isCheckupLoading()}
+      checkupResult={checkupCache.data() || []}
+      isLoading={checkupCache.loading()}
       isRetrying={isRetrying()}
-      error={checkupError()}
+      error={checkupCache.error()}
       onRerun={() => runCheckup(true)}
       onInstallHelper={handleInstallHelper}
       installingHelper={installingHelper()}
@@ -96,17 +118,29 @@ function DoctorPage() {
     <>
       <div class="p-6">
         <div class="mb-7 flex items-center justify-between">
-          <h1 class="text-3xl font-bold">{t('doctor.title')}</h1>
-          <Show when={hasIssues()}>
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold">{t('doctor.title')}</h1>
             <button
-              class="btn btn-warning btn-md"
-              onClick={scrollToCheckup}
-              title={t('doctor.checkup.scrollToIssues')}
+              class="btn btn-soft btn-circle btn-sm"
+              onClick={refreshAllDoctorData}
+              disabled={isGlobalRefreshing()}
+              title={t('doctor.refreshAll')}
             >
-              <TriangleAlert class="mr-1 h-4 w-4" />
-              {t('doctor.checkup.issuesFound')}
+              <RefreshCw class={`h-4 w-4 ${isGlobalRefreshing() ? 'animate-spin' : ''}`} />
             </button>
-          </Show>
+          </div>
+          <div class="flex items-center gap-2">
+            <Show when={hasIssues()}>
+              <button
+                class="btn btn-warning btn-md"
+                onClick={scrollToCheckup}
+                title={t('doctor.checkup.scrollToIssues')}
+              >
+                <TriangleAlert class="mr-1 h-4 w-4" />
+                {t('doctor.checkup.issuesFound')}
+              </button>
+            </Show>
+          </div>
         </div>
 
         <div class="space-y-8">

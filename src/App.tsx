@@ -26,6 +26,7 @@ import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
 import { localStorageUtils } from './hooks/useSearchCache';
+import { searchCacheManager } from './hooks/useSearchCache';
 
 function App() {
   const { settings } = settingsStore;
@@ -109,9 +110,12 @@ function App() {
   }
 
   const handleCloseAutoUpdateModal = (wasSuccess: boolean) => {
+    if (wasSuccess && autoUpdateTitle()) {
+      console.log('Auto-update completed successfully');
+    }
+
     setAutoUpdateTitle(null);
     if (wasSuccess) {
-      // Refresh installed packages after auto-update
       installedPackagesStore.refetch();
     }
   };
@@ -124,12 +128,9 @@ function App() {
       console.log('🔍 [App] Setting up cold start listeners');
       const webview = getCurrentWebviewWindow();
       const unlistenFunctions: (() => void)[] = [];
-
-      // Listen for auto-update start events
       try {
         const unlisten = await listen<string>('auto-operation-start', (event) => {
           info(`Auto-operation started: ${event.payload}`);
-          // Check if silent auto-update is enabled
           if (!settings.buckets.silentUpdateEnabled) {
             setAutoUpdateTitle(event.payload);
           }
@@ -430,12 +431,26 @@ function App() {
             <OperationModal
               operationId={operation.id}
               title={operation.title}
-              onClose={(operationId, wasSuccess) => {
-                removeOperation(operationId);
+              onOperationFinished={(_operationId, wasSuccess) => {
+                if (wasSuccess && operation.title !== autoUpdateTitle()) {
+                  if (
+                    operation.operationType === 'install' ||
+                    operation.operationType === 'uninstall' ||
+                    operation.operationType === 'update'
+                  ) {
+                    installedPackagesStore.silentRefetch();
+                    searchCacheManager.invalidateCache();
+                  }
+                }
+              }}
+              onClose={(_operationId, wasSuccess) => {
+                // Only remove operation when user manually closes the modal
+                removeOperation(operation.id);
                 if (operation.title === autoUpdateTitle()) {
                   handleCloseAutoUpdateModal(wasSuccess);
                 }
               }}
+              nextStep={operation.nextStep ?? undefined}
             />
           </Show>
         )}

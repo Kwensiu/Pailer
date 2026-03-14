@@ -1,4 +1,4 @@
-import { Show, createSignal, createMemo, onMount, createEffect } from 'solid-js';
+import { Show, createSignal, createMemo, createEffect } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
@@ -34,8 +34,6 @@ function InstalledPage(props: InstalledPageProps) {
     setSelectedBucket,
     selectedPackage,
     info,
-    infoLoading,
-    infoError,
     setOperationTitle,
     operationTitle,
     operationNextStep,
@@ -56,6 +54,7 @@ function InstalledPage(props: InstalledPageProps) {
     handleCloseInfoModalWithVersions,
     autoShowVersions,
     fetchInstalledPackages,
+    handleForceRefresh,
     checkForUpdates,
     handleHold,
     handleUnhold,
@@ -110,11 +109,6 @@ function InstalledPage(props: InstalledPageProps) {
     }
   });
 
-  // Execute a silent refresh when the component mounts
-  onMount(() => {
-    fetchInstalledPackages(true);
-  });
-
   // Fetch bucket manifests when a bucket is selected for info
   createEffect(() => {
     const bucketName = selectedBucketForInfo();
@@ -132,7 +126,7 @@ function InstalledPage(props: InstalledPageProps) {
     const query = searchQuery().toLowerCase().trim();
     if (!query) return processedPackages();
 
-    return processedPackages().filter((p) => {
+    return processedPackages().filter((p: any) => {
       // Support package name matching
       if (p.name.toLowerCase().includes(query)) return true;
 
@@ -163,7 +157,7 @@ function InstalledPage(props: InstalledPageProps) {
         setViewMode={setViewMode}
         isCheckingForUpdates={isCheckingForUpdates}
         onCheckForUpdates={checkForUpdates}
-        onRefresh={fetchInstalledPackages}
+        onRefresh={handleForceRefresh}
       />
 
       <Show when={loading()}>
@@ -188,7 +182,7 @@ function InstalledPage(props: InstalledPageProps) {
             />
           </svg>
           <span>Error: {error()}</span>
-          <button class="btn btn-sm btn-primary" onClick={() => fetchInstalledPackages(false)}>
+          <button class="btn btn-sm btn-primary" onClick={() => handleForceRefresh()}>
             Try Again
           </button>
         </div>
@@ -294,13 +288,14 @@ function InstalledPage(props: InstalledPageProps) {
       <PackageInfoModal
         pkg={selectedPackage()}
         info={info()}
-        loading={infoLoading()}
-        error={infoError()}
+        loading={false}
+        error={null}
         onClose={handleCloseInfoModalWithVersions}
         onInstall={handleInstall}
         onUninstall={handleUninstall}
         onUpdate={handleUpdate}
         onForceUpdate={handleForceUpdate}
+        onChangeBucket={handleOpenChangeBucket}
         autoShowVersions={autoShowVersions()}
         isPackageVersioned={isPackageVersioned}
         onPackageStateChanged={() => fetchInstalledPackages()}
@@ -324,7 +319,7 @@ function InstalledPage(props: InstalledPageProps) {
 
       <Show when={selectedBucketForInfo()}>
         <BucketInfoModal
-          bucket={buckets().find((b) => b.name === selectedBucketForInfo()) || null}
+          bucket={buckets().find((b: any) => b.name === selectedBucketForInfo()) || null}
           manifests={bucketManifests()}
           manifestsLoading={bucketManifestsLoading()}
           error={bucketManifestsError()}
