@@ -119,6 +119,16 @@ pub async fn delete_app_version<R: Runtime>(
         format!("Failed to remove version directory: {}", e)
     })?;
 
+	// Invalidate caches so the UI doesn't see stale version data
+	{
+		let mut versions_guard = state.package_versions.lock().await;
+		*versions_guard = None;
+	}
+	{
+		let mut installed_guard = state.installed_packages.lock().await;
+		*installed_guard = None;
+	}
+
     log::info!("Successfully deleted version '{}' of app '{}'", version, app_name);
     Ok(())
 }
