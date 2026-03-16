@@ -87,7 +87,7 @@ function VersionedAppsManager() {
     const f = filter().toLowerCase();
     let apps = versionedApps();
 
-    // 过滤：只显示有多个版本的，或者是真正的版本化安装
+    // Filter: only show apps with multiple versions or true versioned installations
     apps = apps.filter(
       (app: VersionedApp) => app.localVersions.length > 1 || app.isVersionedInstall
     );

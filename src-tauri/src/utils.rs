@@ -569,11 +569,15 @@ pub fn get_scoop_root_fallback() -> PathBuf {
     }
     
     // Fallback to common paths
-    let common_paths = vec![
-        PathBuf::from(r"C:\Users\x1852\scoop"),
+    let mut common_paths = vec![
         PathBuf::from(r"C:\ProgramData\scoop"),
         PathBuf::from(r"C:\scoop"),
     ];
+    
+    // Add user profile scoop path dynamically
+    if let Ok(user_profile) = env::var("USERPROFILE") {
+        common_paths.insert(0, PathBuf::from(user_profile).join("scoop"));
+    }
     
     for path in common_paths {
         if path.join("apps").is_dir() {

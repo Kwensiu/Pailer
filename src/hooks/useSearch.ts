@@ -398,7 +398,7 @@ export function useSearch(): UseSearchReturn {
     return filteredResults;
   };
 
-  // 手动失效搜索缓存的简单函数
+  // Simple function to manually invalidate search cache
   const invalidateSearchCache = () => {
     searchCacheManager.invalidateCache();
   };

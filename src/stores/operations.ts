@@ -215,10 +215,13 @@ const operationsStore = createRoot(() => {
       const newOutput: OperationOutput = { ...output, timestamp };
 
       setOperations(operationId, 'output', (prev = []) => {
-        // If approaching limit, directly create new array and truncate
-        if (prev.length >= 950) {
-          // Process in advance to avoid frequently reaching 1000 limit
-          const updated = prev.slice(-50); // Keep last 50 entries
+        // Use more reasonable limits to avoid excessive memory usage
+        const MAX_OUTPUT_LINES = 500;
+        const KEEP_LINES_AFTER_TRIM = 200;
+
+        if (prev.length >= MAX_OUTPUT_LINES) {
+          // Keep more history to avoid losing important intermediate logs
+          const updated = prev.slice(-KEEP_LINES_AFTER_TRIM);
           updated.push(newOutput);
           return updated;
         }

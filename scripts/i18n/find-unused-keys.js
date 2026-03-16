@@ -105,7 +105,10 @@ function isKeyUsed(key, filePath) {
       content.includes(`t(\`${baseKey}.\${`) ||
       content.includes(`t('${baseKey}.' +`) ||
       content.includes(`t("${baseKey}." +`) ||
-      (content.includes(`${baseKey}.`) && content.includes('items.') && content.includes('t('));
+      (key.startsWith('doctor.checkup.items.') &&
+        content.includes('items.') &&
+        content.includes('displayKey') &&
+        content.includes('t('));
 
     // Pattern 2: Special case for doctor.checkup.items - check for dynamic displayKey pattern
     const hasCheckupItemsPattern =

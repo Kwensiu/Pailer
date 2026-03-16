@@ -48,7 +48,7 @@ jobs:
           path: |
             C:\Users\runneradmin\.cargo\bin
             C:\Users\runneradmin\.cargo\env
-          key: ${{ runner.os }}-rust-toolchain-stable-1.94.0
+          key: ${{ runner.os }}-rust-toolchain-stable-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-rust-toolchain-stable-
             ${{ runner.os }}-rust-toolchain-

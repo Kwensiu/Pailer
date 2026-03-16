@@ -253,19 +253,21 @@ pub async fn validate_bucket_install(
         }
     };
 
-    // Check if bucket already exists
-    let already_exists = bucket_exists(&bucket_name).unwrap_or(false);
-
-    let bucket_path = if already_exists {
-        match get_bucket_path(&bucket_name) {
-            Ok(path) => Some(path.to_string_lossy().to_string()),
-            Err(e) => {
-                log::error!("Failed to get bucket path: {}", e);
+    // Check if bucket already exists and get path atomically
+    let (already_exists, bucket_path) = match get_bucket_path(&bucket_name) {
+        Ok(path) => {
+            let exists = path.exists();
+            let path_str = if exists {
+                Some(path.to_string_lossy().to_string())
+            } else {
                 None
-            }
+            };
+            (exists, path_str)
         }
-    } else {
-        None
+        Err(e) => {
+            log::error!("Failed to get bucket path: {}", e);
+            (false, None)
+        }
     };
 
     Ok(BucketInstallResult {

@@ -14,7 +14,7 @@ interface ConfirmationModalProps {
   type?: 'default' | 'version-management' | 'cleanup-all-versions';
 }
 
-// Footer配置系统
+// Footer configuration system
 const footerConfigs = {
   default: (props: ConfirmationModalProps) => (
     <div class="flex w-full justify-end gap-2">

@@ -4,8 +4,8 @@ import { usePackageInfo } from './usePackageInfo';
 import { useBuckets } from './useBuckets';
 
 /**
- * 组合 hook：为包管理页面提供所有必要的功能
- * 这是一个 convenience hook，避免在组件中重复调用多个相关 hooks
+ * Combined hook: Provides all necessary functionality for package management page
+ * This is a convenience hook to avoid calling multiple related hooks repeatedly in components
  */
 export function usePackageManager() {
   const installedPackages = useInstalledPackages();
@@ -14,16 +14,16 @@ export function usePackageManager() {
   const buckets = useBuckets();
 
   return {
-    // 已安装包相关
+    // Installed packages related
     ...installedPackages,
 
-    // 包操作相关
+    // Package operations related
     ...packageOperations,
 
-    // 包信息相关
+    // Package info related
     ...packageInfo,
 
-    // 存储桶相关
+    // Buckets related
     buckets: buckets.buckets,
     fetchBuckets: buckets.fetchBuckets,
     bucketLoading: buckets.loading,
