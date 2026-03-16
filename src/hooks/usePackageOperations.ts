@@ -33,7 +33,7 @@ const [currentOperation, setCurrentOperation] = createSignal<{
   type: 'install' | 'uninstall' | 'update' | 'update-all';
   packageName: string;
   bucket?: string;
-  id: string; // 简单添加操作ID避免竞态
+  id: string; // Simple operation ID to avoid race conditions
 } | null>(null);
 const closeHandlers = new Set<(wasSuccess: boolean) => void>();
 

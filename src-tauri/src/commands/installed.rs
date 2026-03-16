@@ -210,7 +210,7 @@ fn load_manifests_with_fallback(
             .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?
     } else {
         // Return error if manifest doesn't exist - this matches old version behavior
-        return Err(format!("Failed to read manifest.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+        return Err(format!("Failed to read manifest.json for {}: file not found", package_name));
     };
 
     // Try to read install.json
@@ -227,7 +227,7 @@ fn load_manifests_with_fallback(
             .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?
     } else {
         // Return error if install.json doesn't exist - this matches old version behavior
-        return Err(format!("Failed to read install.json for {}: {}", package_name, std::io::Error::from(std::io::ErrorKind::NotFound)));
+        return Err(format!("Failed to read install.json for {}: file not found", package_name));
     };
 
     Ok((manifest, install_manifest))

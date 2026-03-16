@@ -191,8 +191,8 @@ const clearSearchCache = (bucketName?: string): void => {
       const keys = Object.keys(localStorage);
       const safeBucketName = bucketName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
       keys.forEach((key) => {
-        // 匹配格式: search_cache_{bucket}__{term}
-        // 只清理以指定bucket开头的搜索缓存
+        // Match format: search_cache_{bucket}__{term}
+        // Only clear search caches starting with specified bucket
         if (key.startsWith(`${SEARCH_CACHE_PREFIX}${safeBucketName}__`)) {
           localStorage.removeItem(key);
         }

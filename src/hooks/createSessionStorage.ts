@@ -24,22 +24,23 @@ export function invalidateCache(key: string) {
   }
 
   const listeners = invalidationListeners.get(key);
-  if (listeners) {
+  if (listeners && listeners.size > 0) {
     invalidationCallStack.set(key, currentDepth + 1);
-    try {
-      listeners.forEach((cb) => {
-        try {
-          // Use setTimeout to defer execution and prevent synchronous loops
-          setTimeout(() => cb(), 0);
-        } catch (e) {
-          console.error(e);
-        }
-      });
-    } finally {
-      // Reset call depth after a short delay to allow legitimate re-invalidations
-      setTimeout(() => {
-        invalidationCallStack.set(key, 0);
-      }, 100);
+
+    // Execute all callbacks synchronously and reset depth immediately
+    const callbacks = Array.from(listeners);
+    callbacks.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(`Error in cache invalidation callback for key "${key}":`, e);
+      }
+    });
+
+    // Reset depth immediately after all callbacks complete
+    const depth = invalidationCallStack.get(key) || 0;
+    if (depth > 0) {
+      invalidationCallStack.set(key, depth - 1);
     }
   }
 }
@@ -58,13 +59,50 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
 
   let isInitialized = false;
 
+  const safeSetSessionStorage = (storageKey: string, value: string): boolean => {
+    const maxRetries = 3;
+    let retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        sessionStorage.setItem(storageKey, value);
+        return true;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+          console.warn(
+            `SessionStorage quota exceeded for key "${storageKey}", cleanup attempt ${retryCount + 1}`
+          );
+
+          // Get all cache keys except current one
+          const keys = Object.keys(sessionStorage);
+          const cacheKeys = keys.filter((k) => k !== storageKey && k.startsWith('cache_'));
+
+          if (cacheKeys.length > 0) {
+            // Remove multiple old entries to free more space
+            const keysToRemove = cacheKeys.slice(0, Math.min(5, cacheKeys.length));
+            keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+            retryCount++;
+            continue;
+          }
+        }
+        console.error(`Failed to set sessionStorage for key "${storageKey}":`, e);
+        return false;
+      }
+    }
+    console.error(`Failed to set sessionStorage after ${maxRetries} cleanup attempts`);
+    return false;
+  };
+
   const fetchData = async () => {
-    // 防止并发获取
-    if (activeFetches.has(key)) {
-      return await activeFetches.get(key);
+    // Prevent concurrent fetches
+    const activePromise = activeFetches.get(key);
+    if (activePromise) {
+      return await activePromise;
     }
 
-    if (loading()) return;
+    if (loading()) {
+      return data();
+    }
 
     setLoading(true);
     setError(null);
@@ -87,13 +125,13 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
 
         const results = await fetcher();
         setData(() => results);
-        sessionStorage.setItem(
-          key,
-          JSON.stringify({
-            data: results,
-            timestamp: Date.now(),
-          })
-        );
+
+        const cacheData = JSON.stringify({
+          data: results,
+          timestamp: Date.now(),
+        });
+
+        safeSetSessionStorage(key, cacheData);
         return results;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -145,13 +183,11 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
   };
 
   const updateData = (newData: T) => {
-    sessionStorage.setItem(
-      key,
-      JSON.stringify({
-        data: newData,
-        timestamp: Date.now(),
-      })
-    );
+    const cacheData = JSON.stringify({
+      data: newData,
+      timestamp: Date.now(),
+    });
+    safeSetSessionStorage(key, cacheData);
     setData(() => newData);
   };
 
@@ -184,7 +220,7 @@ export function createSessionCache<T>(
 
   if (autoInvalidate) {
     cache.onInvalidate(() => {
-      // 防止无限循环：只在数据实际需要更新时刷新
+      // Prevent infinite loops: only refresh when data actually needs to be updated
       setTimeout(() => cache.refresh(), 100);
     });
   }

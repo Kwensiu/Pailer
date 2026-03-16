@@ -277,20 +277,24 @@ fn read_cleanup_settings<R: Runtime>(app: &AppHandle<R>) -> Result<CleanupSettin
 /// Compares two version strings using semantic version logic.
 /// Returns std::cmp::Ordering::Less if a < b, Greater if a > b, Equal if same.
 fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
-    // Split version strings by dots and compare each part as numbers
-    let a_parts: Vec<u32> = a
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-    let b_parts: Vec<u32> = b
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-
-    // Compare each part
-    for i in 0..std::cmp::max(a_parts.len(), b_parts.len()) {
-        let a_val = a_parts.get(i).unwrap_or(&0);
-        let b_val = b_parts.get(i).unwrap_or(&0);
+    // Split version from prerelease tags (e.g., "1.2.3-beta.1" -> "1.2.3" and "beta.1")
+    let split_version = |v: &str| -> (Vec<u32>, Option<String>) {
+        let parts: Vec<&str> = v.split('-').collect();
+        let version_parts: Vec<u32> = parts[0]
+            .split('.')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        let prerelease = parts.get(1).map(|&s| s.to_string());
+        (version_parts, prerelease)
+    };
+    
+    let (a_ver, a_pre) = split_version(a);
+    let (b_ver, b_pre) = split_version(b);
+    
+    // Compare main version numbers
+    for i in 0..std::cmp::max(a_ver.len(), b_ver.len()) {
+        let a_val = a_ver.get(i).unwrap_or(&0);
+        let b_val = b_ver.get(i).unwrap_or(&0);
         
         match a_val.cmp(b_val) {
             std::cmp::Ordering::Equal => continue,
@@ -298,5 +302,52 @@ fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
         }
     }
     
-    std::cmp::Ordering::Equal
+    // Main versions are equal, compare prerelease tags
+    match (a_pre, b_pre) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Greater,  // Stable version > prerelease
+        (Some(_), None) => std::cmp::Ordering::Less,     // Prerelease < stable version
+        (Some(a_pre), Some(b_pre)) => {
+            // Parse prerelease identifiers (e.g., "beta.10" -> ("beta", 10))
+            let parse_prerelease = |pre: &str| -> (String, Vec<u32>) {
+                let parts: Vec<&str> = pre.split('.').collect();
+                let identifier = parts[0].to_string();
+                let numbers: Vec<u32> = parts.iter()
+                    .skip(1)
+                    .filter_map(|s| s.parse().ok())
+                    .collect();
+                (identifier, numbers)
+            };
+            
+            let (a_id, a_nums) = parse_prerelease(&a_pre);
+            let (b_id, b_nums) = parse_prerelease(&b_pre);
+            
+            // Compare prerelease type (alpha < beta < rc < others)
+            let prerelease_order = |id: &str| -> u8 {
+                if id.starts_with("alpha") { 1 }
+                else if id.starts_with("beta") { 2 }
+                else if id.starts_with("rc") { 3 }
+                else { 4 }
+            };
+            
+            let a_order = prerelease_order(&a_id);
+            let b_order = prerelease_order(&b_id);
+            
+            match a_order.cmp(&b_order) {
+                std::cmp::Ordering::Equal => {
+                    // Same prerelease type, compare numeric parts
+                    for i in 0..std::cmp::max(a_nums.len(), b_nums.len()) {
+                        let a_num = a_nums.get(i).unwrap_or(&0);
+                        let b_num = b_nums.get(i).unwrap_or(&0);
+                        match a_num.cmp(b_num) {
+                            std::cmp::Ordering::Equal => continue,
+                            ordering => return ordering,
+                        }
+                    }
+                    std::cmp::Ordering::Equal
+                }
+                ordering => ordering,
+            }
+        }
+    }
 }

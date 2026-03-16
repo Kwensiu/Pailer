@@ -169,11 +169,12 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
     })?;
     
     // Also update the in-memory app state if it exists
-    // We're only setting the scoop path synchronously and not clearing the cache
-    // to avoid needing async context or blocking operations
     if let Some(state) = app.try_state::<crate::state::AppState>() {
         state.set_scoop_path(std::path::PathBuf::from(path));
     }
+    
+    // Clear the Scoop root cache to ensure fresh path detection
+    crate::utils::clear_scoop_root_cache();
     
     Ok(())
 }
