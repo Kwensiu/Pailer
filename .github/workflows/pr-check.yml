@@ -22,10 +22,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.27.0
+          version: 10.32.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -133,42 +143,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache Vite
+      - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
           path: |
-            ~/.vite
-            node_modules/.vite
-          key: ${{ runner.os }}-vite-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'vite.config.ts') }}
+            ~/.pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-vite-
+            ${{ runner.os }}-pnpm-
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.27.0
+          version: 10.32.1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
 
-      - name: Install system dependencies
-        run: |
-          echo "📦 Installing system dependencies for Windows..."
-          # Windows Tauri builds don't require additional system dependencies like Linux
-
-      - name: Cache Rust dependencies
+      - name: Cache Rust toolchain and dependencies
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-cargo-deps-${{ hashFiles('**/Cargo.lock') }}
+            C:\Users\runneradmin\.cargo\bin
+            C:\Users\runneradmin\.cargo\env
+            C:\Users\runneradmin\.cargo\registry\index
+            C:\Users\runneradmin\.cargo\registry\cache
+            C:\Users\runneradmin\.cargo\git\db
+          key: ${{ runner.os }}-rust-${{ hashFiles('src-tauri/Cargo.lock', '**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-deps-
+            ${{ runner.os }}-rust-
+            ${{ runner.os }}-rust-toolchain-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
