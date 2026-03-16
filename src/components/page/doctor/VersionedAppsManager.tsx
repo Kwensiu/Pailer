@@ -102,9 +102,16 @@ function VersionedAppsManager() {
   });
 
   onMount(() => {
-    console.log('VersionedAppsManager mounted - forcing initial refresh');
-    // Always trigger refresh on mount to ensure data is loaded
-    refreshVersionedApps();
+    console.log('VersionedAppsManager mounted - data should be preloaded');
+    // Data is preloaded on app cold start, so we don't force refresh on mount
+    // The createSessionCache will use the cached data if available
+    // Only trigger refresh if cache is empty
+    if (!versionedAppsData()) {
+      console.log('VersionedAppsManager: no cached data, fetching...');
+      refreshVersionedApps();
+    } else {
+      console.log('VersionedAppsManager: using cached data');
+    }
 
     // Listen for cache invalidation events
     const unsubscribe = onInvalidate(() => {
@@ -140,6 +147,9 @@ function VersionedAppsManager() {
 
           invalidateCache('versionedAppsData');
 
+          // Force refresh to ensure UI updates immediately (consistent with delete behavior)
+          await refreshVersionedApps();
+
           toast.success(
             t('doctor.versionedApps.switchVersionSuccess', { appName, version: targetVersion })
           );
@@ -170,6 +180,9 @@ function VersionedAppsManager() {
           // Version deleted successfully
 
           invalidateCache('versionedAppsData');
+
+          // Force refresh to ensure UI updates immediately
+          await refreshVersionedApps();
 
           toast.success(
             t('doctor.versionedApps.deleteVersionSuccess', { appName, version: targetVersion })
