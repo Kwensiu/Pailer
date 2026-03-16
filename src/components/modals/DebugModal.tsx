@@ -6,6 +6,7 @@ import Modal from '../common/Modal';
 import OperationModal from './OperationModal';
 import { useOperations } from '../../stores/operations';
 import { toast } from '../common/ToastAlert';
+import { OperationStatus } from '../../types/operations';
 
 interface DebugInfo {
   timestamp: string;
@@ -243,9 +244,10 @@ const DebugModal = () => {
                     addOperation({
                       id: id,
                       title: 'Test Operation',
-                      status: 'in-progress',
+                      status: OperationStatus.InProgress,
                       isMinimized: false,
                       output: [],
+                      isScan: true,
                     });
                   }}
                 >

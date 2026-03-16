@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
-import OperationModal from '../components/modals/OperationModal';
 import { useInstalledPackages } from '../hooks/useInstalledPackages';
 import { usePackageOperations } from '../hooks/usePackageOperations';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
@@ -13,6 +12,8 @@ import { View } from '../types/scoop';
 import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
 import { t } from '../i18n';
+import versionedPackagesStore from '../stores/versionedPackagesStore';
+import installedPackagesStore from '../stores/installedPackagesStore';
 
 interface InstalledPageProps {
   onNavigate?: (view: View) => void;
@@ -34,9 +35,6 @@ function InstalledPage(props: InstalledPageProps) {
     setSelectedBucket,
     selectedPackage,
     info,
-    setOperationTitle,
-    operationTitle,
-    operationNextStep,
     operatingOn,
     scoopStatus,
     statusLoading,
@@ -53,7 +51,6 @@ function InstalledPage(props: InstalledPageProps) {
     handleFetchPackageInfoForVersions,
     handleCloseInfoModalWithVersions,
     autoShowVersions,
-    fetchInstalledPackages,
     handleForceRefresh,
     checkForUpdates,
     handleHold,
@@ -65,7 +62,6 @@ function InstalledPage(props: InstalledPageProps) {
     setNewBucketName,
     handleChangeBucketConfirm,
     handleChangeBucketCancel,
-    handleCloseOperationModal,
     // Buckets for selection
     buckets,
   } = useInstalledPackages();
@@ -298,15 +294,15 @@ function InstalledPage(props: InstalledPageProps) {
         onChangeBucket={handleOpenChangeBucket}
         autoShowVersions={autoShowVersions()}
         isPackageVersioned={isPackageVersioned}
-        onPackageStateChanged={() => fetchInstalledPackages()}
+        onPackageStateChanged={async () => {
+          await installedPackagesStore.silentRefetch();
+
+          if (selectedPackage()) {
+            await versionedPackagesStore.fetchPackageVersions(selectedPackage()!.name, false);
+          }
+        }}
         context="installed"
         fromPackageModal={true}
-        setOperationTitle={setOperationTitle}
-      />
-      <OperationModal
-        title={operationTitle()}
-        onClose={handleCloseOperationModal}
-        nextStep={operationNextStep() ?? undefined}
       />
       <ScoopStatusModal
         isOpen={showStatusModal()}
