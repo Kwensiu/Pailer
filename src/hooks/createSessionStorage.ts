@@ -10,17 +10,37 @@ const CACHE_EXPIRY_MS = 5 * 60 * 1000;
 const globalCaches = new Map<string, any>();
 const invalidationListeners = new Map<string, Set<() => void>>();
 const activeFetches = new Map<string, Promise<any>>();
+const invalidationCallStack = new Map<string, number>();
+const MAX_INVALIDATION_DEPTH = 3;
 
 export function invalidateCache(key: string) {
+  // Prevent infinite loops by tracking call depth
+  const currentDepth = invalidationCallStack.get(key) || 0;
+  if (currentDepth >= MAX_INVALIDATION_DEPTH) {
+    console.warn(
+      `Cache invalidation loop detected for key "${key}". Stopping at depth ${currentDepth}.`
+    );
+    return;
+  }
+
   const listeners = invalidationListeners.get(key);
   if (listeners) {
-    listeners.forEach((cb) => {
-      try {
-        cb();
-      } catch (e) {
-        console.error(e);
-      }
-    });
+    invalidationCallStack.set(key, currentDepth + 1);
+    try {
+      listeners.forEach((cb) => {
+        try {
+          // Use setTimeout to defer execution and prevent synchronous loops
+          setTimeout(() => cb(), 0);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    } finally {
+      // Reset call depth after a short delay to allow legitimate re-invalidations
+      setTimeout(() => {
+        invalidationCallStack.set(key, 0);
+      }, 100);
+    }
   }
 }
 
