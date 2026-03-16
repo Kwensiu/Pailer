@@ -26,7 +26,6 @@ import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
 import { localStorageUtils } from './hooks/useSearchCache';
-import { searchCacheManager } from './hooks/useSearchCache';
 
 function App() {
   const { settings } = settingsStore;
@@ -54,6 +53,54 @@ function App() {
 
   // Auto-update modal state
   const [autoUpdateTitle, setAutoUpdateTitle] = createSignal<string | null>(null);
+
+  // Unified data preload function
+  const preloadData = async () => {
+    info('Starting data preload for all pages');
+    console.log('🔄 [App] Starting data preload for all pages');
+
+    // Parallel preload all page data
+    await Promise.all([
+      // Preload installed packages
+      (async () => {
+        console.log('🔄 [App] Preloading installed packages...');
+        try {
+          await installedPackagesStore.refetch();
+          console.log('✅ [App] Installed packages preloaded');
+          info('Installed packages preload completed');
+        } catch (err: unknown) {
+          logError(`Failed to preload installed packages: ${err}`);
+        }
+      })(),
+
+      // Preload buckets
+      (async () => {
+        console.log('🔄 [App] Preloading buckets...');
+        try {
+          const buckets = await invoke<BucketInfo[]>('get_buckets');
+          if (buckets && buckets.length > 0) {
+            console.log(`✅ [App] Preloaded ${buckets.length} buckets`);
+            updateBucketsCache(buckets);
+            info('Buckets preload completed');
+          }
+        } catch (err: unknown) {
+          logError(`Failed to preload buckets: ${err}`);
+        }
+      })(),
+
+      // Preload doctor page data: checkup and versioned apps
+      (async () => {
+        console.log('🔄 [App] Preloading doctor page data...');
+        try {
+          await Promise.all([invoke('run_scoop_checkup'), invoke('get_versioned_apps')]);
+          console.log('✅ [App] Doctor page data preloaded');
+          info('Doctor page data preload completed');
+        } catch (err: unknown) {
+          logError(`Failed to preload doctor data: ${err}`);
+        }
+      })(),
+    ]);
+  };
 
   // Deferred / concurrent update check logic (network) with timeout; triggered after ready event
   const triggerUpdateCheck = async () => {
@@ -270,37 +317,17 @@ function App() {
         console.log(`Current state before event: ready=${isReady()}, error=${error()}`);
         // Only update if not already ready
         if (payload) {
-          info('Cold start ready event - triggering installed packages refetch');
+          info('Cold start ready event - triggering data preload');
           console.log('Setting ready flag to true');
           setReadyFlag('true');
 
           // Set initial view to default launch page
           setView(settings.defaultLaunchPage);
 
-          // Trigger refetch of installed packages to ensure we get the freshly prefetched data
+          // Preload all page data after cold start
           // Use a small delay to ensure backend event is fully processed
           setTimeout(() => {
-            info('Executing deferred refetch of installed packages');
-            installedPackagesStore
-              .refetch()
-              .then(() => info('Refetch completed successfully'))
-              .catch((err: unknown) => {
-                logError(`Failed to refetch installed packages on cold start: ${err}`);
-              });
-
-            // Fetch and cache buckets list after initialization
-            invoke<BucketInfo[]>('get_buckets')
-              .then((buckets) => {
-                if (buckets && buckets.length > 0) {
-                  console.log(`Preloaded ${buckets.length} buckets`);
-                  // Also update the buckets cache in the useBuckets hook
-                  updateBucketsCache(buckets);
-                }
-              })
-              .catch((err: unknown) => {
-                logError(`Failed to fetch buckets: ${err}`);
-                setError('Failed to load bucket list.');
-              });
+            preloadData();
           }, 100);
           // Kick off update check shortly after readiness if applicable
           // Note: update check is now handled by createEffect after ready event
@@ -325,22 +352,33 @@ function App() {
         console.log(`Forcing ready state after timeout. ${timeoutMsg}`);
         setInitTimedOut(true);
         setReadyFlag('true');
-        // Ensure update check still runs even if events were missed
-        // Note: update check is now handled by createEffect when readyFlag changes
-      }
-    }, 3000); // Further reduce timeout to 3 seconds for immediate display
 
-    // Also set up an immediate fallback for white screen issues
+        // Force refetch installed packages to ensure data is loaded
+        console.log('🔄 [App] Force refetching installed packages after timeout');
+        installedPackagesStore
+          .refetch()
+          .then(() => console.log('✅ [App] Force refetch completed'))
+          .catch((err) => console.error('❌ [App] Force refetch failed:', err));
+      }
+    }, 3000); // Wait 3 seconds for cold-start event before forcing
+
+    // Immediate fallback to prevent white screen, but also trigger data fetch
     const immediateFallback = setTimeout(() => {
-      console.log('Immediate fallback: Setting ready flag to true after 1 second');
-      setReadyFlag('true');
+      if (!isReady() && !error()) {
+        console.log('⚠️ [App] Immediate fallback: Setting ready flag to true after 1 second');
+        console.log('⚠️ [App] Triggering data fetch immediately to prevent delay');
+        setReadyFlag('true');
+
+        // Trigger preload immediately to avoid delay
+        preloadData();
+      }
     }, 1000);
 
     // Clean up on unmount
     return () => {
       clearTimeout(timeoutId);
       clearTimeout(immediateFallback);
-      cleanupFunction();
+      cleanupFunction?.();
     };
   });
 
@@ -431,20 +469,13 @@ function App() {
             <OperationModal
               operationId={operation.id}
               title={operation.title}
-              onOperationFinished={(_operationId, wasSuccess) => {
-                if (wasSuccess && operation.title !== autoUpdateTitle()) {
-                  if (
-                    operation.operationType === 'install' ||
-                    operation.operationType === 'uninstall' ||
-                    operation.operationType === 'update'
-                  ) {
-                    installedPackagesStore.silentRefetch();
-                    searchCacheManager.invalidateCache();
-                  }
-                }
+              onOperationFinished={() => {
+                // Cache refresh is handled by global listener in operations.ts
+                // No need to duplicate the logic here
               }}
               onClose={(_operationId, wasSuccess) => {
-                // Only remove operation when user manually closes the modal
+                // Cache refresh is handled by global listener in operations.ts
+                // Only handle modal cleanup here
                 removeOperation(operation.id);
                 if (operation.title === autoUpdateTitle()) {
                   handleCloseAutoUpdateModal(wasSuccess);
