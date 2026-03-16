@@ -2,9 +2,9 @@ import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup
 import { listen, UnlistenFn, emit } from '@tauri-apps/api/event';
 import { useOperations } from '../../stores/operations';
 import {
-  OperationOutput as StoreOperationOutput,
   OperationResult as StoreOperationResult,
   OperationModalProps,
+  OperationStatus,
 } from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
 import { t } from '../../i18n';
@@ -195,7 +195,6 @@ const getSuccessMessage = (operation: any) => {
 function OperationModal(props: OperationModalProps) {
   const {
     removeOperation,
-    addOperationOutput,
     setOperationResult,
     toggleMinimize,
     setOperationStatus,
@@ -220,6 +219,33 @@ function OperationModal(props: OperationModalProps) {
 
   let scrollRef: HTMLDivElement | undefined;
 
+  // Track previous status to detect changes
+  const [previousStatus, setPreviousStatus] = createSignal<OperationStatus | null>(null);
+
+  // Watch for operation status changes to trigger onOperationFinished
+  createEffect(() => {
+    const op = operation();
+    if (!op) return;
+
+    const newStatus = op.status;
+    const prevStatus = previousStatus();
+
+    if (
+      prevStatus !== null &&
+      newStatus !== prevStatus &&
+      (newStatus === 'success' || newStatus === 'error' || newStatus === 'cancelled')
+    ) {
+      if (props.onOperationFinished) {
+        props.onOperationFinished(operationId(), newStatus === 'success');
+      }
+
+      if (newStatus === 'success' && props.nextStep) {
+        props.nextStep.onNext();
+      }
+    }
+    setPreviousStatus(newStatus);
+  });
+
   createEffect(() => {
     const currentOp = operation();
     if (!currentOp) return;
@@ -234,8 +260,6 @@ function OperationModal(props: OperationModalProps) {
       return;
     }
 
-    let outputListener: UnlistenFn | undefined;
-    let standardResultListener: UnlistenFn | undefined;
     let vtResultListener: UnlistenFn | undefined;
     let isDisposed = false;
     let listenersSetup = false;
@@ -245,39 +269,6 @@ function OperationModal(props: OperationModalProps) {
       listenersSetup = true;
 
       try {
-        outputListener = await listen<StoreOperationOutput>('operation-output', (event) => {
-          if (isDisposed) return;
-          const eventOperationId = event.payload.operationId;
-          if (eventOperationId === operationId()) {
-            const currentOp = operation();
-            if (!currentOp) {
-              console.log('Operation no longer exists, ignoring output');
-              return;
-            }
-
-            const currentOutput = currentOp.output || [];
-            const lastLine =
-              currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
-            if (lastLine === event.payload.line) {
-              console.log('Skipping duplicate line:', event.payload.line);
-              return;
-            }
-
-            console.log('Operation output matches current operationId:', operationId());
-            addOperationOutput(operationId(), {
-              operationId: operationId(),
-              line: event.payload.line,
-              source: event.payload.source,
-              message: event.payload.message,
-            });
-          } else {
-            console.log('Operation output ignored - different operationId:', {
-              received: eventOperationId,
-              current: operationId(),
-            });
-          }
-        });
-
         if (props.isScan) {
           vtResultListener = await listen<VirustotalResult>('virustotal-scan-finished', (event) => {
             if (isDisposed) return;
@@ -300,31 +291,6 @@ function OperationModal(props: OperationModalProps) {
               props.onInstallConfirm?.();
             }
           });
-        } else {
-          standardResultListener = await listen<StoreOperationResult>(
-            'operation-finished',
-            (event) => {
-              if (isDisposed) return;
-              const eventOperationId = event.payload.operationId;
-              if (eventOperationId === operationId()) {
-                const currentOp = operation();
-                if (!currentOp) {
-                  return;
-                }
-
-                setOperationResult(operationId(), event.payload);
-                setOperationStatus(operationId(), event.payload.success ? 'success' : 'error');
-
-                if (props.onOperationFinished) {
-                  props.onOperationFinished(operationId(), event.payload.success);
-                }
-
-                if (event.payload.success && props.nextStep) {
-                  props.nextStep.onNext();
-                }
-              }
-            }
-          );
         }
       } catch (error) {
         console.error('Failed to setup operation listeners:', error);
@@ -343,8 +309,6 @@ function OperationModal(props: OperationModalProps) {
 
     onCleanup(() => {
       isDisposed = true;
-      outputListener?.();
-      standardResultListener?.();
       vtResultListener?.();
     });
   });
@@ -361,7 +325,10 @@ function OperationModal(props: OperationModalProps) {
 
   const handleCloseOrCancelPanel = (wasSuccessful: boolean) => {
     setIsClosing(true);
-    setOperationStatus(operationId(), wasSuccessful ? 'success' : 'cancelled');
+    setOperationStatus(
+      operationId(),
+      wasSuccessful ? OperationStatus.Success : OperationStatus.Cancelled
+    );
     setTimeout(() => {
       try {
         props.onClose(operationId(), wasSuccessful);
@@ -390,7 +357,7 @@ function OperationModal(props: OperationModalProps) {
       // Emit cancel event first, then update status for consistency
       emit('cancel-operation');
       // Update status to provide visual feedback
-      setOperationStatus(operationId(), 'cancelled');
+      setOperationStatus(operationId(), OperationStatus.Cancelled);
     }
   };
 
@@ -413,10 +380,8 @@ function OperationModal(props: OperationModalProps) {
   };
 
   const handleMinimize = () => {
-    console.log('handleMinimize called for operation:', operationId());
     const currentOperation = operation();
     if (currentOperation && !currentOperation.isMinimized) {
-      console.log('Minimizing operation:', currentOperation.title);
       // Send minimize state event to backend
       emit('panel-minimize-state', {
         isMinimized: true,
@@ -446,7 +411,6 @@ function OperationModal(props: OperationModalProps) {
       // Store timer ID for potential cleanup
       onCleanup(() => clearTimeout(minimizeTimer));
     } else if (currentOperation) {
-      console.log('Restoring operation:', currentOperation.title);
       // Send restore state event to backend
       emit('panel-minimize-state', {
         isMinimized: false,
@@ -473,8 +437,6 @@ function OperationModal(props: OperationModalProps) {
       currentOperation.output &&
       currentOperation.output.length > 0
     ) {
-      console.log('Scroll effect triggered, output length:', currentOperation.output.length);
-      console.log('Last output line:', currentOperation.output[currentOperation.output.length - 1]);
       // Use requestAnimationFrame to ensure DOM is updated before scrolling
       requestAnimationFrame(() => {
         const container = scrollRef!;
