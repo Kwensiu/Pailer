@@ -1,16 +1,63 @@
 import { ScoopPackage, ScoopInfo } from './scoop';
 
+/**
+ * Timestamp in milliseconds since epoch
+ */
+export type Timestamp = number;
+
+/**
+ * Output source type for operation logs
+ */
+export type OutputSource =
+  | 'stdout'
+  | 'stderr'
+  | 'system'
+  | 'custom'
+  | 'command'
+  | 'error'
+  | 'success';
+
+/**
+ * Operation status enum
+ */
+export enum OperationStatus {
+  InProgress = 'in-progress',
+  Success = 'success',
+  Error = 'error',
+  Cancelled = 'cancelled',
+}
+
+/**
+ * Operation type enum
+ */
+export enum OperationType {
+  Install = 'install',
+  Uninstall = 'uninstall',
+  Update = 'update',
+  AutoUpdate = 'auto-update',
+  UpdateAll = 'update-all',
+}
+
+/**
+ * Next step configuration for operation modal
+ */
 export interface OperationNextStep {
   buttonLabel: string;
   onNext: () => void;
 }
 
+/**
+ * Modal state for operation display
+ */
 export interface ModalState {
   operationTitle: string | null;
   operationNextStep: OperationNextStep | null;
   isScanning?: boolean;
 }
 
+/**
+ * Package info modal state
+ */
 export interface PackageInfoModalState {
   selectedPackage: ScoopPackage | null;
   info: ScoopInfo | null;
@@ -18,56 +65,86 @@ export interface PackageInfoModalState {
   error: string | null;
 }
 
-// Operation output interface
+/**
+ * Operation output interface
+ * Represents a single line of output from an operation
+ */
 export interface OperationOutput {
-  operationId: string; // camelCase for consistency
+  operationId: string;
   line: string;
-  source: string; // Support custom source values
-  message?: string; // Optional message property
-  timestamp: number; // Milliseconds since epoch
+  source: OutputSource;
+  message?: string;
+  timestamp: Timestamp;
 }
 
-// Operation result interface
+/**
+ * Operation result interface
+ * Represents the final result of an operation
+ */
 export interface OperationResult {
-  operationId: string; // camelCase for consistency
+  operationId: string;
   success: boolean;
-  operationName: string; // Raw operation name like "Installing maa"
-  errorCount?: number; // Number of errors (if any)
-  message?: string; // Legacy/custom messages (optional, for backward compatibility)
-  timestamp: number; // Milliseconds since epoch
+  operationName: string;
+  errorCount?: number;
+  message?: string;
+  timestamp: Timestamp;
 }
 
-// Operation status
-export type OperationStatus = 'in-progress' | 'success' | 'error' | 'cancelled';
-
-// Minimized state interface
+/**
+ * Minimized state interface
+ * Represents the state of a minimized operation in the tray
+ */
 export interface MinimizedState {
   operationId: string;
   isMinimized: boolean;
   showIndicator: boolean;
   title: string;
   result?: OperationStatus;
-  timestamp: number;
+  timestamp: Timestamp;
 }
 
-// Operation state interface
-export interface OperationState {
+/**
+ * Base operation state properties
+ */
+export interface BaseOperationState {
   id: string;
   title: string;
   status: OperationStatus;
   isMinimized: boolean;
   output: OperationOutput[];
   result?: OperationResult;
-  createdAt: number;
-  updatedAt: number;
-  isScan?: boolean;
-  nextStep?: OperationNextStep;
-  onInstallConfirm?: () => void;
-  operationType?: 'install' | 'uninstall' | 'update' | 'auto-update';
-  packageName?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
-// Minimized indicator props interface
+/**
+ * Scan operation specific properties
+ */
+export interface ScanOperationState {
+  isScan: true;
+  nextStep?: OperationNextStep;
+}
+
+/**
+ * Package operation specific properties
+ */
+export interface PackageOperationState {
+  isScan: false;
+  operationType: OperationType;
+  packageName: string;
+  onInstallConfirm?: () => void;
+  nextStep?: OperationNextStep;
+}
+
+/**
+ * Operation state interface
+ * Represents the complete state of an operation
+ */
+export type OperationState = BaseOperationState & (ScanOperationState | PackageOperationState);
+
+/**
+ * Minimized indicator props interface
+ */
 export interface MinimizedIndicatorProps {
   operationId: string;
   title: string;
@@ -76,30 +153,36 @@ export interface MinimizedIndicatorProps {
   visible: boolean;
   onClick: () => void;
   onClose?: () => void;
-  index?: number; // For layout calculation
+  index?: number;
 }
 
-// Operation modal props interface
+/**
+ * Operation modal props interface
+ */
 export interface OperationModalProps {
   operationId?: string;
   title: string | null;
   onClose: (operationId: string, wasSuccess: boolean) => void;
-  onOperationFinished?: (operationId: string, wasSuccess: boolean) => void; // New callback for operation completion
+  onOperationFinished?: (operationId: string, wasSuccess: boolean) => void;
   nextStep?: OperationNextStep;
   isScan?: boolean;
   onInstallConfirm?: () => void;
 }
 
-// Operation queue management interface
+/**
+ * Operation queue management interface
+ */
 export interface OperationQueue {
   active: OperationState[];
   completed: OperationState[];
   maxConcurrent: number;
 }
 
-// Multi-instance warning configuration
+/**
+ * Multi-instance warning configuration
+ */
 export interface MultiInstanceWarning {
   enabled: boolean;
-  threshold: number; // Operation count to trigger warning
+  threshold: number;
   dismissed: boolean;
 }
