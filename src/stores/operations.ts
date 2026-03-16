@@ -2,12 +2,19 @@ import { createStore } from 'solid-js/store';
 import { createEffect, createMemo, onCleanup, createRoot } from 'solid-js';
 import { createTauriSignal } from '../hooks/createTauriSignal';
 import type {
+  BaseOperationState,
   OperationState,
   OperationOutput,
   OperationResult,
   OperationStatus,
   MultiInstanceWarning,
+  ScanOperationState,
+  PackageOperationState,
 } from '../types/operations';
+import { OperationStatus as OperationStatusEnum } from '../types/operations';
+import { OperationType } from '../types/operations';
+import installedPackagesStore from './installedPackagesStore';
+import { searchCacheManager } from '../hooks/useSearchCache';
 import { listen } from '@tauri-apps/api/event';
 
 // Command execution state interface
@@ -33,8 +40,9 @@ const operationsStore = createRoot(() => {
 
   // Current active operations count - automatically calculated using createMemo
   const activeOperationsCount = createMemo(() => {
-    return Object.values(operations).filter((op) => op.status === 'in-progress' || op.isMinimized)
-      .length;
+    return Object.values(operations).filter(
+      (op) => op.status === OperationStatusEnum.InProgress || op.isMinimized
+    ).length;
   });
 
   // Multi-instance warning configuration - using persistent storage
@@ -49,6 +57,46 @@ const operationsStore = createRoot(() => {
 
   // Operation management Hook
   const useOperations = () => {
+    // Global event listener for operation-output events (must be global so minimized modals still receive output)
+    createEffect(() => {
+      let unlisten: (() => void) | undefined;
+
+      const setupOutputListener = async () => {
+        try {
+          unlisten = await listen('operation-output', (event) => {
+            const payload = event.payload as any;
+            const operationId = payload.operationId ?? payload.operation_id;
+
+            if (operationId && operations[operationId]) {
+              const currentOp = operations[operationId];
+              const currentOutput = currentOp.output || [];
+              const lastLine =
+                currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
+
+              if (lastLine !== payload.line) {
+                addOperationOutput(operationId, {
+                  operationId,
+                  line: payload.line,
+                  source: payload.source,
+                  message: payload.message,
+                });
+              }
+            }
+          });
+        } catch (e) {
+          console.error('Failed to setup operation-output listener:', e);
+        }
+      };
+
+      setupOutputListener();
+
+      onCleanup(() => {
+        if (unlisten) {
+          unlisten();
+        }
+      });
+    });
+
     // Global event listener for operation-finished events
     createEffect(() => {
       let unlisten: (() => void) | undefined;
@@ -56,7 +104,19 @@ const operationsStore = createRoot(() => {
       const setupListener = async () => {
         try {
           unlisten = await listen('operation-finished', (event) => {
-            const result = event.payload as OperationResult;
+            const payload = event.payload as any;
+            const result: OperationResult = {
+              operationId: payload.operationId ?? payload.operation_id ?? '',
+              success: !!payload.success,
+              operationName: payload.operationName ?? payload.operation_name ?? '',
+              errorCount: payload.errorCount ?? payload.error_count,
+              message: payload.message,
+              timestamp: (() => {
+                const ts = payload.timestamp;
+                if (typeof ts !== 'number') return Date.now();
+                return ts < 1e12 ? ts * 1000 : ts;
+              })(),
+            };
 
             // Find the operation by operationId if available
             let operationId: string | undefined;
@@ -64,7 +124,7 @@ const operationsStore = createRoot(() => {
               operationId = result.operationId;
             } else {
               // Fallback: find operation by timestamp range (more reliable)
-              const timestamp = result.timestamp; // Already in milliseconds
+              const timestamp = result.timestamp; // Already normalized to milliseconds
               const tolerance = 5000; // 5 seconds tolerance
               const found = Object.entries(operations).find(([, op]) => {
                 return Math.abs(op.createdAt - timestamp) <= tolerance;
@@ -76,6 +136,22 @@ const operationsStore = createRoot(() => {
 
             if (operationId) {
               setOperationResult(operationId, result);
+
+              // Refresh installed/search caches immediately on successful package operations.
+              // This must live here (global listener) so it still works when OperationModal is minimized/unmounted.
+              const op = operations[operationId];
+              if (result.success && op && !op.isScan) {
+                const operationType = op.operationType;
+                if (
+                  operationType === OperationType.Install ||
+                  operationType === OperationType.Uninstall ||
+                  operationType === OperationType.Update ||
+                  operationType === OperationType.UpdateAll
+                ) {
+                  installedPackagesStore.silentRefetch();
+                  searchCacheManager.invalidateCache();
+                }
+              }
             } else {
               console.warn(
                 'Received operation-finished event but could not find matching operation:',
@@ -98,13 +174,16 @@ const operationsStore = createRoot(() => {
     });
 
     // Add new operation
-    const addOperation = (operation: Omit<OperationState, 'createdAt' | 'updatedAt'>) => {
+    type AddOperationPayload = Omit<BaseOperationState, 'createdAt' | 'updatedAt'> &
+      (ScanOperationState | PackageOperationState);
+
+    const addOperation = (operation: AddOperationPayload) => {
       const now = Date.now();
-      const newOperation: OperationState = {
+      const newOperation = {
         ...operation,
         createdAt: now,
         updatedAt: now,
-      };
+      } as OperationState;
 
       setOperations(newOperation.id, newOperation);
       // Active operations count will be automatically updated through createMemo
@@ -151,7 +230,7 @@ const operationsStore = createRoot(() => {
     // Set operation result
     const setOperationResult = (operationId: string, result: OperationResult) => {
       updateOperation(operationId, {
-        status: result.success ? 'success' : 'error',
+        status: result.success ? OperationStatusEnum.Success : OperationStatusEnum.Error,
         result,
       });
     };
@@ -174,7 +253,7 @@ const operationsStore = createRoot(() => {
     // Get active operations
     const getActiveOperations = () => {
       return Object.values(operations).filter(
-        (op) => op.status === 'in-progress' || op.isMinimized
+        (op) => op.status === OperationStatusEnum.InProgress || op.isMinimized
       );
     };
 
@@ -274,7 +353,8 @@ const operationsStore = createRoot(() => {
 
       Object.entries(operations).forEach(([id, operation]) => {
         if (
-          (operation.status === 'success' || operation.status === 'error') &&
+          (operation.status === OperationStatusEnum.Success ||
+            operation.status === OperationStatusEnum.Error) &&
           now - operation.updatedAt > cleanupThreshold
         ) {
           setOperations(id, undefined as any);

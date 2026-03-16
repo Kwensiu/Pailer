@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ScoopPackage } from '../types/scoop';
-import { OperationNextStep } from '../types/operations';
+import { OperationNextStep, OperationStatus, OperationType } from '../types/operations';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
 import { searchCacheManager } from './useSearchCache';
@@ -65,12 +65,13 @@ const performInstall = (pkg: ScoopPackage) => {
   addOperation({
     id: operationId,
     title,
-    status: 'in-progress',
+    status: OperationStatus.InProgress,
     isMinimized: false,
     output: [],
-    operationType: 'install',
+    isScan: false,
+    operationType: OperationType.Install,
     packageName: pkg.name,
-  });
+  } as Parameters<typeof addOperation>[0]);
 
   invoke('install_package', {
     packageName: pkg.name,
@@ -124,12 +125,13 @@ const handleUninstall = (pkg: ScoopPackage) => {
   addOperation({
     id: operationId,
     title,
-    status: 'in-progress',
+    status: OperationStatus.InProgress,
     isMinimized: false,
     output: [],
-    operationType: 'uninstall',
+    isScan: false,
+    operationType: OperationType.Uninstall,
     packageName: pkg.name,
-  });
+  } as Parameters<typeof addOperation>[0]);
 
   invoke('uninstall_package', {
     packageName: pkg.name,
@@ -163,12 +165,13 @@ const handleUpdate = (pkg: ScoopPackage) => {
   addOperation({
     id: operationId,
     title,
-    status: 'in-progress',
+    status: OperationStatus.InProgress,
     isMinimized: false,
     output: [],
-    operationType: 'update',
+    isScan: false,
+    operationType: OperationType.Update,
     packageName: pkg.name,
-  });
+  } as Parameters<typeof addOperation>[0]);
 
   // Call backend command with operationId
   invoke('update_package', { packageName: pkg.name, operationId }).catch((err) => {
@@ -198,12 +201,13 @@ const handleForceUpdate = (pkg: ScoopPackage) => {
   addOperation({
     id: operationId,
     title,
-    status: 'in-progress',
+    status: OperationStatus.InProgress,
     isMinimized: false,
     output: [],
-    operationType: 'update',
+    isScan: false,
+    operationType: OperationType.Update,
     packageName: pkg.name,
-  });
+  } as Parameters<typeof addOperation>[0]);
 
   invoke('update_package', { packageName: pkg.name, force: true, operationId }).catch((err) => {
     console.error('Force update invocation failed:', err);
@@ -231,10 +235,13 @@ const handleUpdateAll = () => {
   addOperation({
     id: operationId,
     title,
-    status: 'in-progress',
+    status: OperationStatus.InProgress,
     isMinimized: false,
     output: [],
-  });
+    isScan: false,
+    operationType: OperationType.UpdateAll,
+    packageName: 'all-packages',
+  } as Parameters<typeof addOperation>[0]);
 
   // Call backend command
   invoke('update_all_packages', { operationId }).catch((err) => {
