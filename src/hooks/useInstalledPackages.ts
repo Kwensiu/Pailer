@@ -49,8 +49,7 @@ export function useInstalledPackages() {
     packageInfo.fetchPackageInfo(pkg);
   };
 
-  const handleCloseInfoModalWithVersions = () => {
-  };
+  const handleCloseInfoModalWithVersions = () => {};
 
   const handleSort = (key: SortKey) => {
     if (sortKey() === key) {
