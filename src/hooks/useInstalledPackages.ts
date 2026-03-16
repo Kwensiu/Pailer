@@ -18,12 +18,10 @@ export function useInstalledPackages() {
   const [statusLoading, setStatusLoading] = createSignal(false);
   const [statusError, setStatusError] = createSignal<string | null>(null);
 
-  // Use shared hooks
   const packageOperations = usePackageOperations();
   const packageInfo = usePackageInfo();
   const { buckets } = useBuckets();
 
-  // Local storage for view mode and sort preferences
   const [viewMode, setViewMode] = createLocalStorageSignal<'grid' | 'list'>(
     'installed-view-mode',
     'grid'
@@ -38,7 +36,6 @@ export function useInstalledPackages() {
     'all'
   );
 
-  // Change bucket modal state
   const [changeBucketModalOpen, setChangeBucketModalOpen] = createSignal(false);
   const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
     createSignal<ScoopPackage | null>(null);
@@ -53,7 +50,6 @@ export function useInstalledPackages() {
   };
 
   const handleCloseInfoModalWithVersions = () => {
-    // Do nothing for now
   };
 
   const handleSort = (key: SortKey) => {
@@ -73,10 +69,12 @@ export function useInstalledPackages() {
     setStatusLoading(true);
     setStatusError(null);
     try {
-      const status = await invoke<any>('get_scoop_status');
+      const status = await invoke<any>('check_scoop_status');
       setScoopStatus(status);
     } catch (err) {
-      setStatusError('Failed to check Scoop status');
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('Scoop status check failed:', errorMsg);
+      setStatusError(`Error checking status: ${errorMsg}`);
     } finally {
       setStatusLoading(false);
     }
@@ -152,7 +150,6 @@ export function useInstalledPackages() {
     const direction = sortDirection();
     const sortedPkgs = [...pkgs];
     sortedPkgs.sort((a, b) => {
-      // Updatable apps always show first, regardless of sort field
       const aHasUpdate =
         !!a.available_version && !heldStore.isHeld(a.name) && a.installation_type === 'standard';
       const bHasUpdate =
@@ -160,7 +157,6 @@ export function useInstalledPackages() {
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
-      // After updatable apps sorting completed, sort by normal logic
       const valA = (a as any)[key].toLowerCase();
       const valB = (b as any)[key].toLowerCase();
       if (valA < valB) return direction === 'asc' ? -1 : 1;
@@ -207,7 +203,6 @@ export function useInstalledPackages() {
     handleForceRefresh,
     checkForUpdates,
 
-    // Change bucket states
     changeBucketModalOpen,
     setChangeBucketModalOpen,
     currentPackageForBucketChange,
@@ -216,10 +211,8 @@ export function useInstalledPackages() {
     handleChangeBucketConfirm,
     handleChangeBucketCancel,
 
-    // Buckets for selection
     buckets,
 
-    // Package info and operations from packageOperations
     selectedPackage: packageInfo.selectedPackage,
     info: packageInfo.info,
     isPackageVersioned: installedPackagesStore.isPackageVersioned,
