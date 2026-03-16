@@ -46,6 +46,8 @@ function createInstalledPackagesStore() {
     }
   };
 
+  // Initial fetch - only runs if data hasn't been loaded yet
+  // This prevents unnecessary refetches when data is already available
   const fetchInstalledPackages = async () => {
     if (isLoaded() || loading()) {
       return;
@@ -70,6 +72,8 @@ function createInstalledPackagesStore() {
     }
   };
 
+  // Force refetch - always refreshes data regardless of current state
+  // Resets isLoaded flag to allow fresh data fetch
   const refetch = async () => {
     setIsLoaded(false);
     setLoading(true);
@@ -91,6 +95,8 @@ function createInstalledPackagesStore() {
     }
   };
 
+  // Silent refetch - refreshes data without showing loading UI
+  // Used after operations complete to update the list in the background
   const silentRefetch = async () => {
     setError(null);
     try {
