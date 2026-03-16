@@ -134,6 +134,8 @@ export function useBuckets(): UseBucketsReturn {
       return;
     }
 
+    // If we have cached data and it's not a force refresh, use it immediately
+    // This ensures the UI shows cached data even if we're still fetching in the background
     if (cachedBuckets && !forceRefresh && !shouldRefreshCache) {
       setBuckets(cachedBuckets);
       if (!quiet) {

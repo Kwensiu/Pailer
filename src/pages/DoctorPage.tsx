@@ -94,6 +94,10 @@ function DoctorPage() {
   });
 
   onMount(() => {
+    // Data is preloaded on app cold start, so we don't force refresh on mount
+    // The createSessionCache will use the cached data if available
+    console.log('DoctorPage mounted - checkup data should be preloaded');
+
     // Listen for cache invalidation events
     const unsubscribe = checkupCache.onInvalidate(() => {
       forceRefreshCheckup();
