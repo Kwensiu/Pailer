@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/Kwensiu/Pailer/compare/v1.1.3...v1.2.0) (2026-03-16)
+
+
+### Features
+
+* add versioned apps management and enhance cache handling ([71f13ed](https://github.com/Kwensiu/Pailer/commit/71f13ed9b2c186dba8a9e2553891d58cd8373fd8))
+* add versioned packages store for efficient version management ([bb7dbc4](https://github.com/Kwensiu/Pailer/commit/bb7dbc4ebea7d63803547bfbb2d39a160d393c41))
+* **backend:** enhance package management commands ([bedbe3b](https://github.com/Kwensiu/Pailer/commit/bedbe3b8848c1d00cfc628b705de384f35358cda))
+* **core:** update app logic and page components ([0e08235](https://github.com/Kwensiu/Pailer/commit/0e082356a8d16ab7a21d49dc7a83d419f5896f35))
+* **core:** update backend utilities and configuration ([1d42ad6](https://github.com/Kwensiu/Pailer/commit/1d42ad6c93c505bdd5f0c62c1734d5cbc0f3b688))
+* enhance version manager with cache-aware mounting ([6921943](https://github.com/Kwensiu/Pailer/commit/692194355b685e598f619497e858b884469a87fd))
+* **hooks:** optimize data management and state handling ([8861e1f](https://github.com/Kwensiu/Pailer/commit/8861e1f52bc3d3102bde7130c16e50fe3240a41d))
+* **i18n:** update type definitions and translations ([b9e5230](https://github.com/Kwensiu/Pailer/commit/b9e5230ab59ed87fd9594922898e285ff47118b3))
+* invalidate caches after deleting app version to prevent stale data ([b3f34bf](https://github.com/Kwensiu/Pailer/commit/b3f34bf551a7cd6cc8c038e97672aeacee0078ff))
+* **pages:** enhance main application pages ([be7570d](https://github.com/Kwensiu/Pailer/commit/be7570d5f5cf4d93601ee6f5c533415423ea3260))
+* **search:** add text highlighting and cache mechanism ([5b619c8](https://github.com/Kwensiu/Pailer/commit/5b619c84cec088f26789213896eb58ad18e32079))
+* **settings:** improve PowerShell settings and diagnostic info ([7ae41d1](https://github.com/Kwensiu/Pailer/commit/7ae41d182eb08f482e9f0486752922328bdaa11e))
+* **ui:** enhance doctor and settings components ([ad019fa](https://github.com/Kwensiu/Pailer/commit/ad019fa3d035ac6610a8f345c8182db2e2bbde97))
+
+
+### Bug Fixes
+
+* i18n support for tooltips and improve package operations ([a164f56](https://github.com/Kwensiu/Pailer/commit/a164f5605da00a34af3158ed95626ec391f4f983))
+* resolve app close issue by moving cache cleanup ([5d45350](https://github.com/Kwensiu/Pailer/commit/5d45350264818e5f0bd4075bd3b9d0161042c51a))
+* resolve critical issues from code review ([9b907fa](https://github.com/Kwensiu/Pailer/commit/9b907fabe7de15e2d789b8251f155936b8940cee))
+
+
+### UI
+
+* add new BulkUpdateProgress to separate bucketPage responsibilities ([85cac66](https://github.com/Kwensiu/Pailer/commit/85cac66289eb6d1be9664c3476f372b10f6d1bb3))
+* add OpenPathButton component ([80654b1](https://github.com/Kwensiu/Pailer/commit/80654b11d4192a306df016f0192246c341caf745))
+* css improvements ([7e1ad12](https://github.com/Kwensiu/Pailer/commit/7e1ad125ae342c7ea9077caa640d0c1068ced242))
+* fix incorrect ui in OperationModal and PackageInfoModal ([c81ae0a](https://github.com/Kwensiu/Pailer/commit/c81ae0a6c83d184752fe8933df282e324a87822b))
+* improve UI adjustments and modal layering ([83cc69a](https://github.com/Kwensiu/Pailer/commit/83cc69a69e57f1d3e42b12a5400980a58ba38793))
+* update settings, styles, and localization ([48c2f41](https://github.com/Kwensiu/Pailer/commit/48c2f412ff518add3e78a6b34fd060f100ae952d))
+
+
+### Performance
+
+* implement unified data preloading for improved startup performance ([9918b35](https://github.com/Kwensiu/Pailer/commit/9918b35c1da53a21eba3762a60e688d5378ba9f0))
+* improve bucket install command ([0e08b1f](https://github.com/Kwensiu/Pailer/commit/0e08b1f4e171578aa6f92cea3ab3d2898ce491d5))
+* optimize session storage with anti-loop protection ([af654cf](https://github.com/Kwensiu/Pailer/commit/af654cfedecaa668d1b706b4a175dc4562010698))
+
+
+### Refactoring
+
+* centralize cache refresh logic in operations store ([02f0607](https://github.com/Kwensiu/Pailer/commit/02f0607ac9cccf85d1c7876e862effe7b0de1417))
+* enhance package operations and modal interactions ([8ab30a8](https://github.com/Kwensiu/Pailer/commit/8ab30a8ba8f40764989015d42424cdfa8388936d))
+* file structure and imports ([4f77dd1](https://github.com/Kwensiu/Pailer/commit/4f77dd15a83c31c23fed85c74e8cfb916f9b2791))
+* improve operation modal lifecycle and status handling ([470a7de](https://github.com/Kwensiu/Pailer/commit/470a7dedc6d664ef03591343d64296a02c77adb9))
+* **installed:** redesign package list with context menu ([de8047f](https://github.com/Kwensiu/Pailer/commit/de8047fd70b4ba620f7b8ff47ba37a872214b64f))
+* streamline installed packages hook with optimized caching ([5b20207](https://github.com/Kwensiu/Pailer/commit/5b202071a7d96a18ba500685cc9ad2a50cc66dbe))
+* **types:** enhance data types and storage mechanisms ([5016a26](https://github.com/Kwensiu/Pailer/commit/5016a26c47cd19ef77f304f3f38a5229cefaeb3f))
+* update scoop path detection logic and log output ([2131678](https://github.com/Kwensiu/Pailer/commit/2131678717242324fb27679bdb7cf14c98e6ce2b))
+
 ## [1.1.3](https://github.com/Kwensiu/Pailer/compare/v1.1.2...v1.1.3) (2026-03-05)
 
 
