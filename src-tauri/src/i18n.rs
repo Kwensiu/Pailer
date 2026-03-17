@@ -1,99 +1,15 @@
-use std::path::PathBuf;
-use tauri::Manager;
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 
-/// Load tray locale strings for the given language
-pub fn load_tray_locale_strings(app: &tauri::AppHandle<tauri::Wry>, language: &str) -> tauri::Result<serde_json::Value> {
-    log::info!("Loading tray locale strings for language: {}", language);
-    
-    let locale_file = match language {
-        "zh" => "zh.json",
-        _ => "en.json",
-    };
+static TRAY_STRINGS: std::sync::OnceLock<Mutex<HashMap<String, Value>>> = std::sync::OnceLock::new();
+static TRAY_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-    let paths = get_locale_file_paths(app, locale_file);
-    log::info!("Trying {} paths for locale file: {}", paths.len(), locale_file);
-
-    for (i, path) in paths.iter().enumerate() {
-        log::info!("Attempt {}: Trying path: {}", i + 1, path.display());
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            log::info!("Successfully read locale file from {}, size: {} bytes", path.display(), content.len());
-            return parse_locale_content(&content, &path);
-        } else {
-            log::warn!("Failed to read locale file from: {}", path.display());
-        }
-    }
-
-    // Final fallback to default strings
-    log::warn!("All locale loading attempts failed, using default strings");
-    Ok(get_default_tray_strings())
+fn get_tray_strings_cache() -> &'static Mutex<HashMap<String, Value>> {
+    TRAY_STRINGS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Get possible locale file paths for the given locale file
-fn get_locale_file_paths(app: &tauri::AppHandle<tauri::Wry>, locale_file: &str) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-
-    // 1. Try development path - from exe location up to project root
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            // Path structure: project_root/src-tauri/target/debug/
-            // We need to go up 3 levels: debug -> target -> src-tauri -> project_root
-            let project_root = exe_dir
-                .parent() // target
-                .and_then(|p| p.parent()) // src-tauri
-                .and_then(|p| p.parent()); // project_root
-
-            if let Some(project_root) = project_root {
-                let dev_path = project_root
-                    .join("src-tauri")
-                    .join("resources")
-                    .join("locales")
-                    .join(locale_file);
-                paths.push(dev_path);
-                log::info!("Added development path: {}", project_root.join("src-tauri").join("resources").join("locales").join(locale_file).display());
-            }
-        }
-    }
-
-    // 2. Try resource directory (production)
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let resource_path = resource_dir.join("locales").join(locale_file);
-        paths.push(resource_path);
-        log::info!("Added resource path: {}", resource_dir.join("locales").join(locale_file).display());
-
-        // Special handling for NSIS installer: also try resources/ subdirectory
-        // Some Tauri installations may put resources in a subdirectory
-        let alt_resource_path = resource_dir.join("resources").join("locales").join(locale_file);
-        paths.push(alt_resource_path);
-        log::info!("Added alternative resource path: {}", resource_dir.join("resources").join("locales").join(locale_file).display());
-    }
-
-    paths
-}
-
-/// Parse locale file content and extract tray section
-fn parse_locale_content(content: &str, path: &std::path::Path) -> tauri::Result<serde_json::Value> {
-    log::info!("Successfully loaded locale file from {}, size: {} bytes", path.display(), content.len());
-    match serde_json::from_str::<serde_json::Value>(content) {
-        Ok(json) => {
-            // Extract the tray section - it's nested under settings
-            if let Some(settings) = json.get("settings") {
-                if let Some(tray_section) = settings.get("tray") {
-                    log::info!("Found tray section in locale file");
-                    return Ok(tray_section.clone());
-                }
-            }
-            log::warn!("No 'settings.tray' section found in locale file: {}", path.display());
-            Ok(get_default_tray_strings())
-        }
-        Err(e) => {
-            log::warn!("Failed to parse locale file {}: {}", path.display(), e);
-            Ok(get_default_tray_strings())
-        }
-    }
-}
-
-/// Get default tray strings as fallback
-fn get_default_tray_strings() -> serde_json::Value {
+fn get_default_tray_strings() -> Value {
     serde_json::json!({
         "show": "Show Pailer",
         "hide": "Hide Pailer",
@@ -107,27 +23,51 @@ fn get_default_tray_strings() -> serde_json::Value {
     })
 }
 
-/// Load full locale strings for the given language (for frontend use)
-pub fn load_full_locale_strings(app: &tauri::AppHandle<tauri::Wry>, lang: &str) -> Result<serde_json::Value, String> {
-    let locale_file = match lang {
-        "zh" => "zh.json",
-        _ => "en.json",
-    };
-
-    let paths = get_locale_file_paths(app, locale_file);
-
-    for path in paths {
-        match std::fs::read_to_string(&path) {
-            Ok(content) => {
-                log::info!("Successfully read full locale file, size: {} bytes", content.len());
-                return serde_json::from_str(&content)
-                    .map_err(|e| format!("Failed to parse locale file {}: {}", path.display(), e));
+pub fn get_tray_locale_strings(language: &str) -> Result<Value, String> {
+    let cache = get_tray_strings_cache();
+    
+    match cache.lock() {
+        Ok(strings) => {
+            if let Some(cached) = strings.get(language) {
+                return Ok(cached.clone());
             }
-            Err(e) => {
-                log::debug!("Failed to read locale file from {}: {}", path.display(), e);
-            }
+            log::debug!("No tray strings cached for language: {}, using defaults", language);
+            Ok(get_default_tray_strings())
+        }
+        Err(e) => {
+            log::error!("Failed to acquire tray strings lock: {:?}, using defaults", e);
+            Ok(get_default_tray_strings())
         }
     }
+}
 
-    Err(format!("Failed to load locale file for language: {}", lang))
+#[tauri::command]
+pub fn update_backend_tray_strings(app: tauri::AppHandle, language: String, tray_strings: Value) -> Result<(), String> {
+    let cache = get_tray_strings_cache();
+    match cache.lock() {
+        Ok(mut strings) => {
+            strings.insert(language.clone(), tray_strings);
+            drop(strings);
+            
+            if !TRAY_INITIALIZED.swap(true, Ordering::SeqCst) {
+                if let Err(e) = crate::tray::setup_system_tray(&app) {
+                    log::error!("Failed to create tray: {}", e);
+                    TRAY_INITIALIZED.store(false, Ordering::SeqCst);
+                }
+            } else {
+                let app_handle = app.clone();
+                let lang = language.clone();
+                tauri::async_runtime::block_on(async move {
+                    if let Err(e) = crate::tray::refresh_tray_with_language(app_handle, lang).await {
+                        log::error!("Failed to refresh tray menu: {}", e);
+                    }
+                });
+            }
+            Ok(())
+        }
+        Err(e) => {
+            log::error!("Failed to cache tray strings: {:?}", e);
+            Err("Failed to cache tray strings".to_string())
+        }
+    }
 }

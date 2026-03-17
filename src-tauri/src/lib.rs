@@ -158,10 +158,8 @@ pub fn run() {
             // Show the main application window
             show_main_window(app)?;
 
-            // Setup system tray
-            if let Err(e) = tray::setup_system_tray(&app.handle()) {
-                log::error!("Failed to setup system tray: {}", e);
-            }
+            // Tray will be created when frontend syncs locale data
+            // No need for delayed initialization here
 
 
             // Start background tasks
@@ -275,9 +273,8 @@ pub fn run() {
             cold_start::is_cold_start_ready,
             tray::refresh_tray_apps_menu,
             tray::get_current_language,
-            tray::set_language_setting,
             tray::get_scoop_app_shortcuts,
-            tray::get_locale_strings,
+            i18n::update_backend_tray_strings,
             commands::update_config::reload_update_config,
             commands::update_config::get_update_channel,
             commands::update_config::get_update_info_for_channel,

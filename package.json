@@ -9,6 +9,8 @@
     "build": "vite build",
     "serve": "vite preview",
     "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "i18n": "make i18n",
     "bump-version": "make bump",
     "format": "make format",
