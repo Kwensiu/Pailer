@@ -6,7 +6,7 @@
 
 **Tauri + Rust**
 
-[中文版本](./doc/README-zh.md) | English
+English | [中文说明](./docs/README-zh.md)
 
 Pailer is a modern GUI for [Scoop](https://scoop.sh/).
 </br>
@@ -20,8 +20,8 @@ Pailer is Forked from [Rscoop](https://github.com/AmarBego/Rscoop), which has </
 
 <table align="center">
   <tr>
-    <td align="center"><img src="./doc/pic/bucket-dark-en.png" width="600"></td>
-    <td align="center"><img src="./doc/pic/installed-light-cn.png" width="600"></td>
+    <td align="center"><img src="./docs/pic/bucket-dark-en.png" width="600"></td>
+    <td align="center"><img src="./docs/pic/installed-light-cn.png" width="600"></td>
   </tr>
 </table>
 

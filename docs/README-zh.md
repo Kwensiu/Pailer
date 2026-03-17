@@ -6,7 +6,7 @@
 
 **Tauri + Rust**
 
-中文版本 | [English](../README.md)
+[English](../README.md) | 中文说明
 
 Pailer 是一个为 [Scoop](https://scoop.sh/) 打造的现代化桌面客户端
 </br>
