@@ -3,6 +3,7 @@ import { createStore } from 'solid-js/store';
 import { Store } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
 import { View } from '../types/scoop';
+import { sysLang } from '../i18n';
 
 /// Current store file name for frontend settings
 const STORE_NAME = 'settings.json';
@@ -87,14 +88,14 @@ const defaultSettings: Settings = {
     autoUpdateInterval: 'off',
     autoUpdatePackagesEnabled: false,
     silentUpdateEnabled: false,
-    updateHistoryEnabled: true, // Enable by default
+    updateHistoryEnabled: true,
   },
   update: {
     channel: 'stable',
     autoCheckEnabled: true,
   },
   defaultLaunchPage: 'installed',
-  language: 'en',
+  language: '',
   trayAppsList: [],
   powershell: {
     executable: 'auto',
@@ -126,20 +127,9 @@ function createSettingsStore() {
     return globalStore;
   };
 
-  // Supported locales list for extensibility
-  const supportedLocales = ['en', 'zh'];
-
-  const detectSystemLanguage = (): string => {
-    if (typeof navigator !== 'undefined') {
-      const lang = (navigator.language || navigator.languages?.[0] || 'en').split('-')[0];
-      return supportedLocales.includes(lang) ? lang : 'en';
-    }
-    return 'en';
-  };
-
   // Dynamic defaults for first launch detection
   const getFirstLaunchDefaults = (): Partial<Settings> => ({
-    language: detectSystemLanguage(),
+    language: sysLang(),
   });
 
   const getInitialSettings = async (): Promise<Settings> => {
@@ -219,7 +209,7 @@ function createSettingsStore() {
             defaultLaunchPage: stored.defaultLaunchPage || defaultSettings.defaultLaunchPage,
             scoopPath: scoopPathValue,
             scoopPathManuallyConfigured: stored.scoopPathManuallyConfigured,
-            language: stored.language || detectSystemLanguage(),
+            language: stored.language || sysLang(),
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
             powershell: {
               executable: stored.powershell?.executable || defaultSettings.powershell.executable,
@@ -246,7 +236,10 @@ function createSettingsStore() {
     }
   };
 
-  const [settings, setSettings] = createStore<Settings>(defaultSettings);
+  const [settings, setSettings] = createStore<Settings>({
+    ...defaultSettings,
+    language: '',
+  });
 
   // Initialize settings from store on startup
   (async () => {

@@ -1,7 +1,6 @@
 use crate::commands::settings;
 use crate::state::AppState;
 use crate::utils::{get_scoop_app_shortcuts_with_path, launch_scoop_app, ScoopAppShortcut};
-use crate::i18n;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -96,22 +95,32 @@ pub fn setup_system_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-fn build_tray_menu(
-    app: &tauri::AppHandle<tauri::Wry>,
-    shortcuts_map: Arc<Mutex<HashMap<String, ScoopAppShortcut>>>,
-) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    // Get the current language setting
-    let language = settings::get_config_value(
+fn fetch_current_language(app: &tauri::AppHandle<tauri::Wry>) -> String {
+    settings::get_config_value(
         app.clone(),
         "settings.language".to_string(),
     )
     .ok()
     .flatten()
     .and_then(|v| v.as_str().map(|s| s.to_string()))
-    .unwrap_or_else(|| "en".to_string());
+    .unwrap_or_else(|| "en".to_string())
+}
 
-    // Get localized menu strings
-    let menu_strings = i18n::load_tray_locale_strings(app, &language)?;
+fn build_tray_menu(
+    app: &tauri::AppHandle<tauri::Wry>,
+    shortcuts_map: Arc<Mutex<HashMap<String, ScoopAppShortcut>>>,
+) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    let language = fetch_current_language(app);
+    build_tray_menu_with_language(app, shortcuts_map, &language)
+}
+
+fn build_tray_menu_with_language(
+    app: &tauri::AppHandle<tauri::Wry>,
+    shortcuts_map: Arc<Mutex<HashMap<String, ScoopAppShortcut>>>,
+    language: &str,
+) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    let menu_strings = crate::i18n::get_tray_locale_strings(language)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // Extract strings with defaults
     let show_text = menu_strings.get("show")
@@ -315,17 +324,9 @@ async fn perform_tray_refresh(
 pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
     log::info!("Displaying blocking native dialog for tray notification");
 
-    // Get notification strings from locale files
-    let language = settings::get_config_value(
-        app.clone(),
-        "settings.language".to_string(),
-    )
-    .ok()
-    .flatten()
-    .and_then(|v| v.as_str().map(|s| s.to_string()))
-    .unwrap_or_else(|| "en".to_string());
+    let language = fetch_current_language(app);
 
-    let strings = match i18n::load_tray_locale_strings(app, &language) {
+    let strings = match crate::i18n::get_tray_locale_strings(&language) {
         Ok(s) => s,
         Err(e) => {
             log::error!("Failed to get notification strings: {}", e);
@@ -380,9 +381,23 @@ pub async fn refresh_tray_apps_menu(app: tauri::AppHandle<tauri::Wry>) -> Result
 }
 
 #[tauri::command]
+pub async fn refresh_tray_with_language(app: tauri::AppHandle<tauri::Wry>, language: String) -> Result<(), String> {
+    let shortcuts_map = app.state::<Arc<Mutex<HashMap<String, ScoopAppShortcut>>>>().inner().clone();
+    let new_menu = build_tray_menu_with_language(&app, shortcuts_map, &language)
+        .map_err(|e| format!("Failed to build new menu: {}", e))?;
+    
+    if let Some(tray) = app.tray_by_id("main") {
+        tray.set_menu(Some(new_menu))
+            .map_err(|e| format!("Failed to set new menu: {}", e))?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_current_language(app: tauri::AppHandle<tauri::Wry>) -> Result<String, String> {
     let language = settings::get_config_value(
-        app.clone(),
+        app,
         "settings.language".to_string(),
     )
     .ok()
@@ -391,11 +406,6 @@ pub fn get_current_language(app: tauri::AppHandle<tauri::Wry>) -> Result<String,
     .unwrap_or_else(|| "en".to_string());
     
     Ok(language)
-}
-
-#[tauri::command]
-pub fn set_language_setting(app: tauri::AppHandle<tauri::Wry>, language: String) -> Result<(), String> {
-    settings::set_config_value(app, "settings.language".to_string(), serde_json::json!(language))
 }
 
 #[tauri::command]
@@ -417,7 +427,3 @@ pub fn get_scoop_app_shortcuts() -> Result<Vec<serde_json::Value>, String> {
     }
 }
 
-#[tauri::command]
-pub fn get_locale_strings(app: tauri::AppHandle<tauri::Wry>, lang: String) -> Result<serde_json::Value, String> {
-    i18n::load_full_locale_strings(&app, &lang)
-}
