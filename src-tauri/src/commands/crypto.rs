@@ -7,7 +7,7 @@ use base64::{Engine as _, engine::general_purpose};
 pub fn encrypt_data(data: &[u8]) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        match windows_dpapi::encrypt_data(data, windows_dpapi::Scope::User) {
+        match windows_dpapi::encrypt_data(data, windows_dpapi::Scope::User, None) {
             Ok(encrypted) => Ok(general_purpose::STANDARD.encode(&encrypted)),
             Err(e) => Err(format!("DPAPI encryption failed: {}", e)),
         }
@@ -31,7 +31,7 @@ pub fn decrypt_api_key(encrypted_key: &str) -> Result<String, String> {
             .decode(encrypted_key)
             .map_err(|e| format!("Base64 decode failed: {}", e))?;
 
-        match windows_dpapi::decrypt_data(&encrypted, windows_dpapi::Scope::User) {
+        match windows_dpapi::decrypt_data(&encrypted, windows_dpapi::Scope::User, None) {
             Ok(decrypted_bytes) => String::from_utf8(decrypted_bytes)
                 .map_err(|e| format!("UTF-8 decode failed: {}", e)),
             Err(e) => Err(format!("DPAPI decryption failed: {}", e)),
