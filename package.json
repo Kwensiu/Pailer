@@ -34,7 +34,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.0",
     "@tauri-apps/cli": "^2.10.1",
-    "@types/node": "^25.4.0",
+    "@types/node": "^25.5.0",
     "daisyui": "^5.5.19",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
