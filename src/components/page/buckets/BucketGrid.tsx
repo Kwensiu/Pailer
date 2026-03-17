@@ -21,6 +21,7 @@ interface BucketGridProps {
   bulkUpdateCompleted?: boolean;
   bulkUpdateMessage?: string;
   isBulkUpdate?: boolean;
+  onBucketUpdated?: (bucketName: string, newBranch?: string) => void;
 }
 
 function BucketGrid(props: BucketGridProps) {
@@ -154,6 +155,9 @@ function BucketGrid(props: BucketGridProps) {
                   updateResult={props.updateResults?.[bucket.name]}
                   updateResultStatus={props.updateResultStatuses?.[bucket.name]}
                   isBulkUpdate={props.isBulkUpdate}
+                  onBucketUpdated={(bucketName, newBranch) =>
+                    props.onBucketUpdated?.(bucketName, newBranch)
+                  }
                 />
               )}
             </For>

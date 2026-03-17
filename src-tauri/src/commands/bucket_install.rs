@@ -400,15 +400,28 @@ fn update_bucket_sync(
                                 let local_commit = head.peel_to_commit()
                                     .map_err(|e| format!("Failed to get local commit for bucket '{}': {}", bucket_name, e))?;
 
-                                // Check if update is needed
+                                let repo_status = repo.statuses(None)
+                                    .map_err(|e| format!("Failed to get repository status: {}", e))?;
+                                
+                                let has_uncommitted_changes = repo_status.iter().any(|entry| {
+                                    entry.status() != git2::Status::CURRENT
+                                });
+
+                                if has_uncommitted_changes {
+                                    return Ok(BucketInstallResult {
+                                        success: false,
+                                        message: "BUCKET_HAS_UNCOMMITTED_CHANGES".to_string(),
+                                        bucket_name: bucket_name.to_string(),
+                                        bucket_path: Some(bucket_path.to_string_lossy().to_string()),
+                                        manifest_count: None,
+                                    });
+                                }
+
                                 if remote_commit.id() == local_commit.id() {
                                     let manifest_count = utils::count_manifests(bucket_path);
                                     return Ok(BucketInstallResult {
                                         success: true,
-                                        message: format!(
-                                            "Bucket '{}' is already up to date",
-                                            bucket_name
-                                        ),
+                                        message: "BUCKET_UP_TO_DATE".to_string(),
                                         bucket_name: bucket_name.to_string(),
                                         bucket_path: Some(
                                             bucket_path.to_string_lossy().to_string(),
@@ -417,7 +430,6 @@ fn update_bucket_sync(
                                     });
                                 }
 
-                                // Perform fast-forward merge
                                 let mut checkout_builder = git2::build::CheckoutBuilder::new();
                                 checkout_builder.force();
 
@@ -440,10 +452,7 @@ fn update_bucket_sync(
 
                                 Ok(BucketInstallResult {
                                     success: true,
-                                    message: format!(
-                                        "Successfully updated bucket '{}' with {} manifests",
-                                        bucket_name, manifest_count
-                                    ),
+                                    message: "BUCKET_UPDATE_SUCCESS".to_string(),
                                     bucket_name: bucket_name.to_string(),
                                     bucket_path: Some(bucket_path.to_string_lossy().to_string()),
                                     manifest_count: Some(manifest_count),

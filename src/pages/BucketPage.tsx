@@ -1,6 +1,11 @@
 import { createSignal, onMount, Show, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { useBuckets, type BucketInfo } from '../hooks/useBuckets';
+import {
+  useBuckets,
+  type BucketInfo,
+  updateBucketsCache,
+  clearManifestCache,
+} from '../hooks/useBuckets';
 import { usePackageInfo } from '../hooks/usePackageInfo';
 import { usePackageOperations } from '../hooks/usePackageOperations';
 import { createTauriSignal } from '../hooks/createTauriSignal';
@@ -15,6 +20,8 @@ import BucketSearchResults from '../components/page/buckets/BucketSearchResults'
 import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
 import { SearchableBucket } from '../hooks/useBucketSearch';
 import { t } from '../i18n';
+
+const UPDATE_RESULT_DISPLAY_DURATION = 2000;
 
 interface BucketUpdateResult {
   success: boolean;
@@ -217,63 +224,63 @@ function BucketPage() {
         return { success: false, message: 'Operation cancelled', bucket_name: bucketName };
       }
 
-      // Only store result message if not in cancelled bulk update
-      if (!isBulkUpdateCancelling) {
-        // Determine status based on result
-        let status: 'success' | 'info' | 'error' | 'default' = 'default';
-        if (result.success) {
-          if (result.message.includes('already up to date')) {
-            status = 'info';
-          } else {
-            status = 'success';
-          }
-        } else {
-          status = 'error';
-        }
+      // Always determine the display message and return the correct result format
+      let status: 'success' | 'info' | 'error' | 'default' = 'default';
+      let displayMessage = result.message;
 
+      if (result.success) {
+        if (result.message === 'BUCKET_UP_TO_DATE') {
+          status = 'info';
+          displayMessage = t('bucket.update.upToDate', { bucket: bucketName });
+        } else if (result.message === 'BUCKET_UPDATE_SUCCESS') {
+          status = 'success';
+          displayMessage = t('bucket.update.success', {
+            bucket: bucketName,
+            count: result.manifest_count || 0,
+          });
+        } else {
+          status = 'success';
+        }
+      } else {
+        status = 'error';
+        if (result.message === 'BUCKET_HAS_UNCOMMITTED_CHANGES') {
+          displayMessage = t('bucket.update.hasUncommittedChanges', { bucket: bucketName });
+        } else {
+          displayMessage = result.message;
+        }
+      }
+
+      if (!isBulkUpdateCancelling && shouldRefreshBuckets) {
         setUpdateResults((prev) => ({
           ...prev,
-          [bucketName]: result.message,
+          [bucketName]: displayMessage,
         }));
 
         setUpdateResultStatuses((prev) => ({
           ...prev,
           [bucketName]: status,
         }));
-      }
 
-      if (result.success) {
-        // If this bucket is currently selected, refresh its manifests
-        const currentBucket = selectedBucket();
-        if (currentBucket && currentBucket.name === bucketName) {
-          await handleFetchManifests(bucketName);
-        }
+        if (!isBulkUpdateCancelling) {
+          const timerId = window.setTimeout(() => {
+            setUpdateResults((prev) => {
+              const newResults = { ...prev };
+              delete newResults[bucketName];
+              return newResults;
+            });
+            resultTimerIds.delete(bucketName);
+          }, UPDATE_RESULT_DISPLAY_DURATION);
 
-        // Conditionally refresh bucket list to avoid excessive refreshes during batch updates
-        if (shouldRefreshBuckets && !isBulkUpdateCancelling) {
-          // Refresh bucket list without showing loading screen
-          markForRefresh();
-          // Use quiet mode to refresh without showing loading state
-          await fetchBuckets(true, true);
+          resultTimerIds.set(bucketName, timerId);
         }
       }
 
-      // Only set timer if not cancelled and we have a result
-      if (!isBulkUpdateCancelling) {
-        // Clear result message after 2 seconds to avoid long display
-        const timerId = window.setTimeout(() => {
-          setUpdateResults((prev) => {
-            const newResults = { ...prev };
-            delete newResults[bucketName];
-            return newResults;
-          });
-          resultTimerIds.delete(bucketName);
-        }, 2000);
-
-        resultTimerIds.set(bucketName, timerId);
-      }
-
-      return result; // Return the result
+      // Always return the correct result format for bulk update statistics
+      return {
+        success: result.success,
+        message: displayMessage,
+        bucket_name: bucketName,
+      };
     } catch (error) {
       // Check if operation was aborted
       if (abortSignal?.aborted) {
@@ -282,8 +289,7 @@ function BucketPage() {
 
       console.error('Failed to update bucket:', bucketName, error);
 
-      // Only store error result if not in cancelled bulk update
-      if (!isBulkUpdateCancelling) {
+      if (!isBulkUpdateCancelling && shouldRefreshBuckets) {
         setUpdateResults((prev) => ({
           ...prev,
           [bucketName]: `Failed to update: ${error instanceof Error ? error.message : String(error)}`,
@@ -306,7 +312,7 @@ function BucketPage() {
             return newStatuses;
           });
           resultTimerIds.delete(bucketName);
-        }, 2000);
+        }, UPDATE_RESULT_DISPLAY_DURATION);
 
         resultTimerIds.set(bucketName, timerId);
       }
@@ -355,6 +361,46 @@ function BucketPage() {
   const handleReloadLocalBuckets = async () => {
     markForRefresh();
     await fetchBuckets(true);
+  };
+
+  // Handle bucket update (e.g., branch switch)
+  const handleBucketUpdated = async (bucketName: string, newBranch?: string) => {
+    console.log(`Bucket updated: ${bucketName}, new branch: ${newBranch || 'unknown'}`);
+
+    clearManifestCache(bucketName);
+
+    const currentBucket = selectedBucket();
+    if (currentBucket && currentBucket.name === bucketName) {
+      if (newBranch) {
+        setSelectedBucket({
+          ...currentBucket,
+          git_branch: newBranch,
+        });
+      }
+      await handleFetchManifests(bucketName);
+    }
+
+    try {
+      const updatedBucketInfo = await invoke<BucketInfo>('get_bucket_info', {
+        bucketName: bucketName,
+      });
+
+      if (updatedBucketInfo && updatedBucketInfo.name === bucketName) {
+        const currentBuckets = buckets();
+        const updatedBuckets = currentBuckets.map((bucket: BucketInfo) =>
+          bucket.name === bucketName ? updatedBucketInfo : bucket
+        );
+        updateBucketsCache(updatedBuckets);
+      } else {
+        throw new Error('Invalid bucket info received');
+      }
+    } catch (error) {
+      console.error('Failed to get updated bucket info:', error);
+      if (error instanceof Error && !error.message.includes('cancelled')) {
+        markForRefresh();
+        await fetchBuckets(true);
+      }
+    }
   };
 
   const cleanupTimers = () => {
@@ -463,6 +509,7 @@ function BucketPage() {
                   bulkUpdateCompleted={updateState().status === 'completed'}
                   bulkUpdateMessage={updateState().message}
                   isBulkUpdate={updateState().status === 'updating'}
+                  onBucketUpdated={handleBucketUpdated}
                 />
               </div>
             </div>
