@@ -42,7 +42,7 @@ dirs = "6.0"
 regex = "1.12"
 rayon = "1.10"
 itertools = "0.14"
-once_cell = "1.21.3"
+once_cell = "1.21.4"
 base64 = "0.22"
 sha2 = "0.10"
 tauri-plugin-dialog = "2"
@@ -51,11 +51,11 @@ tauri-plugin-opener = "2"
 git2 = "0.20"
 url = "2.5"
 lazy_static = "1.4.0"
-tempfile = "3.26"
+tempfile = "3.27"
 
 [target."cfg(windows)".dependencies]
-windows-dpapi = "0.1.0"
-winreg = "0.55.0"
+windows-dpapi = "0.2.0"
+winreg = "0.56.0"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
