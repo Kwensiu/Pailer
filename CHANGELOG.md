@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/Kwensiu/Pailer/compare/v1.2.0...v1.3.0) (2026-03-17)
+
+
+### Features
+
+* add branch switching support for git buckets ([8809cab](https://github.com/Kwensiu/Pailer/commit/8809cab1218693ebf5b07fa9ce40255d37657064))
+
+
+### Bug Fixes
+
+* **bucket:** improve branch switching functions ([9bf6378](https://github.com/Kwensiu/Pailer/commit/9bf637871ef1ce56e928c6a48288b28cacd3a1a5))
+* **crypto:** update windows DPAPI function signatures ([c0e6502](https://github.com/Kwensiu/Pailer/commit/c0e65029a9df14670c2a67cb740e21056b7b8e24))
+
+
+### Refactoring
+
+* **i18n:** Optimizes the front-end and back-end i18n synchronization mechanism ([cd0cb2d](https://github.com/Kwensiu/Pailer/commit/cd0cb2d4d2e14fc21cbcec6e1f7a3a3dc830e4fa))
+
 ## [1.2.0](https://github.com/Kwensiu/Pailer/compare/v1.1.3...v1.2.0) (2026-03-16)
 
 
