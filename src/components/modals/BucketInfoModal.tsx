@@ -18,6 +18,7 @@ import {
   LoaderCircle,
 } from 'lucide-solid';
 import Modal from '../common/Modal';
+import BranchSelector from '../common/BranchSelector';
 import { openUrl, openPath } from '@tauri-apps/plugin-opener';
 import settingsStore from '../../stores/settings';
 import { t } from '../../i18n';
@@ -39,6 +40,7 @@ interface BucketInfoModalProps {
   onPackageClick?: (packageName: string, bucketName: string) => void;
   onBucketInstalled?: () => void; // Callback when bucket is installed/removed
   onFetchManifests?: (bucketName: string) => Promise<void>; // Callback to fetch manifests for newly installed bucket
+  onBucketUpdated?: (bucketName: string, newBranch?: string) => void; // Callback when bucket is updated (e.g., branch switch)
   zIndex?: string; // Z-index for modal layering
   fromPackageModal?: boolean; // Whether opened from PackageInfoModal
 }
@@ -252,6 +254,14 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       await props.onFetchManifests(name);
     }
   };
+
+  // Handle branch change in modal
+  const handleBranchChanged = (newBranch: string) => {
+    // Update bucket info and refresh manifests after branch change
+    if (props.onBucketUpdated && bucketName()) {
+      props.onBucketUpdated(bucketName(), newBranch);
+    }
+  };
   const orderedDetails = createMemo(() => {
     if (!props.bucket) return [];
 
@@ -273,12 +283,6 @@ function BucketInfoModal(props: BucketInfoModalProps) {
 
   const headerAction = (
     <div class="flex items-center gap-2">
-      <Show when={props.bucket?.is_git_repo}>
-        <div class="badge badge-primary badge-sm">
-          <GitBranch class="mr-1 h-3 w-3" />
-          {t('bucketInfo.git')}
-        </div>
-      </Show>
       <Show when={isExternalBucket()}>
         <div class="badge badge-warning badge-sm">{t('bucketInfo.external')}</div>
       </Show>
@@ -413,6 +417,18 @@ function BucketInfoModal(props: BucketInfoModalProps) {
             <span class="text-info font-mono">
               {props.bucket?.name || props.searchBucket?.name}
             </span>
+            <Show when={props.bucket?.is_git_repo && props.bucket?.name}>
+              {(() => {
+                const bucket = props.bucket!;
+                return (
+                  <BranchSelector
+                    bucketName={bucket.name}
+                    currentBranch={bucket.git_branch}
+                    onBranchChanged={handleBranchChanged}
+                  />
+                );
+              })()}
+            </Show>
           </span>
         }
         size="large"

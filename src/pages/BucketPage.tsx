@@ -530,6 +530,7 @@ function BucketPage() {
           onPackageClick={handlePackageClick}
           onBucketInstalled={handleBucketInstalled}
           onFetchManifests={(bucketName: string) => handleFetchManifests(bucketName)}
+          onBucketUpdated={handleBucketUpdated}
         />
       </Show>
 

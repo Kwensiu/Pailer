@@ -14,6 +14,8 @@ function BranchSelector(props: BranchSelectorProps) {
   const [isOpen, setIsOpen] = createSignal(false);
   const [branches, setBranches] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [switching, setSwitching] = createSignal(false);
+  const [currentOperationId, setCurrentOperationId] = createSignal<string | null>(null);
   let containerRef: HTMLDivElement | undefined;
 
   const fetchBranches = async () => {
@@ -40,11 +42,21 @@ function BranchSelector(props: BranchSelectorProps) {
       return;
     }
 
+    // 生成唯一的操作ID
+    const operationId = `switch-${Date.now()}-${Math.random()}`;
+    setCurrentOperationId(operationId);
+    setSwitching(true);
+    
     try {
       const result = await invoke<string>('switch_bucket_branch', {
         bucketName: props.bucketName,
         branchName: branchName,
       });
+
+      // 检查操作是否仍然有效
+      if (currentOperationId() !== operationId) {
+        return; // 操作已被新的操作取代
+      }
 
       if (result.startsWith('Switched to branch')) {
         const branchMatch = result.match(/Switched to branch '(.+)'/);
@@ -59,12 +71,27 @@ function BranchSelector(props: BranchSelectorProps) {
       props.onBranchChanged?.(branchName);
       setIsOpen(false);
     } catch (err) {
+      // 检查操作是否仍然有效
+      if (currentOperationId() !== operationId) {
+        return; // 操作已被新的操作取代
+      }
+
       const errorMessage = err instanceof Error ? err.message : String(err);
 
       if (errorMessage === 'UNCOMMITTED_CHANGES') {
         toast.error(t('bucket.errors.uncommittedChanges'));
+      } else if (errorMessage === 'NETWORK_ERROR' || errorMessage.includes('network')) {
+        toast.error(t('bucket.errors.networkError'));
+      } else if (errorMessage === 'PERMISSION_DENIED') {
+        toast.error(t('bucket.errors.permissionDenied'));
       } else {
         toast.error(t('bucket.errors.switchBranchFailed', { error: errorMessage }));
+      }
+    } finally {
+      // 只有当这是当前操作时才重置状态
+      if (currentOperationId() === operationId) {
+        setSwitching(false);
+        setCurrentOperationId(null);
       }
     }
   };
@@ -104,7 +131,7 @@ function BranchSelector(props: BranchSelectorProps) {
             <Show when={loading()}>
               <div class="text-base-content/70 flex items-center justify-center p-2 text-xs">
                 <span class="loading loading-spinner loading-xs mr-1"></span>
-                Loading branches...
+                Loading...
               </div>
             </Show>
 
@@ -116,10 +143,12 @@ function BranchSelector(props: BranchSelectorProps) {
                       class={`hover:bg-base-200 flex w-full items-center justify-between px-2 py-1 text-left text-xs whitespace-nowrap transition-colors ${
                         branch === props.currentBranch
                           ? 'bg-primary/10 text-primary font-medium'
+                          : switching()
+                          ? 'text-base-content/30 cursor-not-allowed'
                           : 'text-base-content'
                       }`}
                       onClick={() => handleBranchSwitch(branch)}
-                      disabled={branch === props.currentBranch || !props.currentBranch}
+                      disabled={branch === props.currentBranch || switching()}
                     >
                       <span class="truncate">{branch}</span>
                     </button>
