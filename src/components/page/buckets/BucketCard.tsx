@@ -92,7 +92,6 @@ function BucketCard(props: BucketCardProps) {
                 // Refresh bucket info after branch change
                 props.onBucketUpdated?.(props.bucket.name, newBranch);
               }}
-              class="absolute top-5.25 right-4 z-10"
             />
           </Show>
         }
