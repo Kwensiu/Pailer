@@ -233,6 +233,8 @@ pub fn run() {
             commands::bucket::get_buckets,
             commands::bucket::get_bucket_info,
             commands::bucket::get_bucket_manifests,
+            commands::bucket::get_bucket_branches,
+            commands::bucket::switch_bucket_branch,
             commands::bucket_install::install_bucket,
             commands::bucket_install::validate_bucket_install,
             commands::bucket_install::update_bucket,

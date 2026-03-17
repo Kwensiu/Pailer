@@ -80,7 +80,7 @@ function BulkUpdateProgress(props: BulkUpdateProgressProps) {
             current: currentState.current + 1,
           });
 
-          return { success: true, result };
+          return { success: true, cancelled: false, result };
         } catch (error) {
           // Check if operation was aborted
           if (controller.signal.aborted) {
@@ -108,21 +108,46 @@ function BulkUpdateProgress(props: BulkUpdateProgressProps) {
       let successfulUpdates = 0;
 
       results.forEach((settledResult, index) => {
-        if (settledResult.status === 'fulfilled') {
-          const { success, cancelled, error } = settledResult.value;
-          const bucketName = gitBuckets[index].name;
+        const bucketName = gitBuckets[index].name;
 
-          if (success && !cancelled) {
-            successfulUpdates++;
-          } else if (!success && !cancelled) {
+        if (settledResult.status === 'fulfilled') {
+          const updateResult = settledResult.value;
+
+          if (!updateResult || typeof updateResult !== 'object') {
             failures.push({
               success: false,
-              message: error instanceof Error ? error.message : String(error),
+              message: 'Invalid result format',
+              bucket_name: bucketName,
+            });
+            return;
+          }
+
+          const isCancelled = 'cancelled' in updateResult && updateResult.cancelled;
+          if (isCancelled) {
+            return;
+          }
+
+          const isLegacyFormat = 'result' in updateResult;
+          const actualResult = isLegacyFormat ? (updateResult as any).result : updateResult;
+
+          if (actualResult && typeof actualResult === 'object' && 'success' in actualResult) {
+            if (actualResult.success) {
+              successfulUpdates++;
+            } else {
+              failures.push({
+                success: false,
+                message: actualResult.message || 'Update failed',
+                bucket_name: bucketName,
+              });
+            }
+          } else {
+            failures.push({
+              success: false,
+              message: 'Invalid result structure',
               bucket_name: bucketName,
             });
           }
         } else {
-          const bucketName = gitBuckets[index].name;
           failures.push({
             success: false,
             message: 'Unexpected error',
@@ -247,7 +272,7 @@ function BulkUpdateProgress(props: BulkUpdateProgressProps) {
               <button
                 class="btn btn-warning btn-xs btn-circle"
                 onClick={handleCancel}
-                title="取消更新"
+                title="Cancel update"
               >
                 <X class="h-3 w-3" />
               </button>
@@ -260,7 +285,7 @@ function BulkUpdateProgress(props: BulkUpdateProgressProps) {
               <button
                 class="btn btn-ghost btn-xs btn-circle"
                 onClick={props.onClose}
-                title="关闭进度条"
+                title="Close progress"
               >
                 <X class="h-3 w-3" />
               </button>
@@ -271,7 +296,9 @@ function BulkUpdateProgress(props: BulkUpdateProgressProps) {
           <div
             class={`mt-2 h-1.5 rounded-full transition-all duration-300 ${
               props.updateState().status === 'completed'
-                ? 'bg-success'
+                ? props.errorDetails && props.errorDetails().length > 0
+                  ? 'bg-warning' // Warning color when there are errors
+                  : 'bg-success' // Success color when all good
                 : props.updateState().status === 'error'
                   ? 'bg-error'
                   : props.updateState().status === 'cancelled'

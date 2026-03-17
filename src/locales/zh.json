@@ -16,6 +16,22 @@
       "updating": "更新中...",
       "view": "查看"
     },
+    "errors": {
+      "branchNotFound": "分支 '{{branchName}}' 未找到：{{error}}",
+      "branchNotFoundAnywhere": "分支 '{{branchName}}' 在本地和远程都未找到：{{error}}",
+      "bucketNotFound": "仓库 '{{bucketName}}' 不存在",
+      "checkoutFailed": "检出树失败：{{error}}",
+      "commitGetFailed": "获取提交失败：{{error}}",
+      "fetchBranchesFailed": "获取分支失败：{{error}}",
+      "gitReferencesFailed": "获取引用失败：{{error}}",
+      "gitRepoOpenFailed": "打开 git 仓库失败：{{error}}",
+      "headNoTarget": "无法更新 HEAD：引用 {{referenceName}} 没有目标",
+      "headUpdateFailed": "更新 HEAD 引用失败：{{error}}",
+      "repoStatusFailed": "获取仓库状态失败：{{error}}",
+      "switchBranchFailed": "切换分支失败：{{error}}",
+      "switchBranchSuccess": "已切换到分支 '{{branch}}'",
+      "uncommittedChanges": "无法切换分支：仓库有未提交的更改。请先提交或暂存您的更改。"
+    },
     "grid": {
       "bulkUpdateCompletedSuccess": "成功更新了 {{successful}}/{{total}} 个仓库",
       "bulkUpdateCompletedWithFailures": "更新了 {{successful}}/{{total}} 个仓库。失败: {{failures}}",
@@ -86,6 +102,12 @@
       "updated": "更新于 {{date}}",
       "verified": "已验证",
       "viewDetails": "查看详情"
+    },
+    "update": {
+      "actualUpdates": "更新了 {{added}} 个新增，{{modified}} 个修改，{{removed}} 个删除的清单",
+      "hasUncommittedChanges": "无法更新仓库 '{{bucket}}'：仓库有未提交的更改。请先提交或暂存您的更改。",
+      "success": "成功更新仓库 '{{bucket}}'，包含 {{count}} 个清单",
+      "upToDate": "仓库 '{{bucket}}' 已是最新版本"
     }
   },
   "bucketInfo": {

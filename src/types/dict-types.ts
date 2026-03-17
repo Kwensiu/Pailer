@@ -16,6 +16,22 @@ export interface Dict {
       updating: string;
       view: string;
     };
+    errors: {
+      branchNotFound: string;
+      branchNotFoundAnywhere: string;
+      bucketNotFound: string;
+      checkoutFailed: string;
+      commitGetFailed: string;
+      fetchBranchesFailed: string;
+      gitReferencesFailed: string;
+      gitRepoOpenFailed: string;
+      headNoTarget: string;
+      headUpdateFailed: string;
+      repoStatusFailed: string;
+      switchBranchFailed: string;
+      switchBranchSuccess: string;
+      uncommittedChanges: string;
+    };
     grid: {
       bulkUpdateCompletedSuccess: string;
       bulkUpdateCompletedWithFailures: string;
@@ -86,6 +102,12 @@ export interface Dict {
       updated: string;
       verified: string;
       viewDetails: string;
+    };
+    update: {
+      actualUpdates: string;
+      hasUncommittedChanges: string;
+      success: string;
+      upToDate: string;
     };
   };
   bucketInfo: {

@@ -16,6 +16,22 @@
       "updating": "Updating...",
       "view": "View"
     },
+    "errors": {
+      "branchNotFound": "Branch '{{branchName}}' not found: {{error}}",
+      "branchNotFoundAnywhere": "Branch '{{branchName}}' not found locally or remotely: {{error}}",
+      "bucketNotFound": "Bucket '{{bucketName}}' does not exist",
+      "checkoutFailed": "Failed to checkout tree: {{error}}",
+      "commitGetFailed": "Failed to get commit: {{error}}",
+      "fetchBranchesFailed": "Failed to fetch branches: {{error}}",
+      "gitReferencesFailed": "Failed to get references: {{error}}",
+      "gitRepoOpenFailed": "Failed to open git repository: {{error}}",
+      "headNoTarget": "Cannot update HEAD: reference {{referenceName}} has no target",
+      "headUpdateFailed": "Failed to update HEAD reference: {{error}}",
+      "repoStatusFailed": "Failed to get repository status: {{error}}",
+      "switchBranchFailed": "Failed to switch branch: {{error}}",
+      "switchBranchSuccess": "Switched to branch '{{branch}}'",
+      "uncommittedChanges": "Cannot switch branch: repository has uncommitted changes. Please commit or stash your changes first."
+    },
     "grid": {
       "bulkUpdateCompletedSuccess": "Successfully updated {{successful}}/{{total}} buckets",
       "bulkUpdateCompletedWithFailures": "Updated {{successful}}/{{total}} buckets. Failed: {{failures}}",
@@ -86,6 +102,12 @@
       "updated": "Updated {{date}}",
       "verified": "Verified",
       "viewDetails": "View bucket details"
+    },
+    "update": {
+      "actualUpdates": "Updated {{added}} new, {{modified}} modified, {{removed}} removed manifests",
+      "hasUncommittedChanges": "Cannot update bucket '{{bucket}}': repository has uncommitted changes. Please commit or stash your changes first.",
+      "success": "Successfully updated bucket '{{bucket}}' with {{count}} manifests",
+      "upToDate": "Bucket '{{bucket}}' is already up to date"
     }
   },
   "bucketInfo": {

@@ -3,6 +3,7 @@ import { RefreshCw, Eye } from 'lucide-solid';
 import { BucketInfo } from '../../../hooks/useBuckets';
 import { openPath } from '@tauri-apps/plugin-opener';
 import Card from '../../common/Card';
+import BranchSelector from '../../common/BranchSelector';
 import { formatBucketDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import settingsStore from '../../../stores/settings';
@@ -16,6 +17,7 @@ interface BucketCardProps {
   updateResult?: string;
   updateResultStatus?: 'success' | 'info' | 'error' | 'default';
   isBulkUpdate?: boolean;
+  onBucketUpdated?: (bucketName: string, newBranch?: string) => void;
 }
 
 function BucketCard(props: BucketCardProps) {
@@ -61,22 +63,38 @@ function BucketCard(props: BucketCardProps) {
 
   return (
     <div class="relative">
-      <Show when={props.bucket.git_branch}>
-        <div class="badge badge-soft badge-sm border-primary/50 bg-primary/15 absolute top-5.25 right-4 z-10 border backdrop-blur-sm">
-          {props.bucket.git_branch}
-        </div>
-      </Show>
-      <Show when={!props.bucket.is_git_repo}>
-        <div class="badge badge-soft badge-sm border-base-content/30 bg-base-200 absolute top-5.25 right-4 z-10 border backdrop-blur-sm">
-          {t('bucket.card.local')}
-        </div>
-      </Show>
-
       <Card
         title={
-          <h3 class="overflow-hidden text-ellipsis whitespace-nowrap" title={props.bucket.name}>
-            {props.bucket.name}
+          <h3
+            class="max-w-48 overflow-hidden text-ellipsis whitespace-nowrap"
+            title={props.bucket.name}
+          >
+            {props.bucket.name.length > 18
+              ? props.bucket.name.substring(0, 18) + '...'
+              : props.bucket.name}
           </h3>
+        }
+        headerAction={
+          <Show
+            when={props.bucket.git_branch}
+            fallback={
+              <Show when={!props.bucket.is_git_repo}>
+                <div class="badge badge-soft badge-sm border-base-content/30 bg-base-200 border backdrop-blur-sm">
+                  {t('bucket.card.local')}
+                </div>
+              </Show>
+            }
+          >
+            <BranchSelector
+              bucketName={props.bucket.name}
+              currentBranch={props.bucket.git_branch}
+              onBranchChanged={(newBranch) => {
+                // Refresh bucket info after branch change
+                props.onBucketUpdated?.(props.bucket.name, newBranch);
+              }}
+              class="absolute top-5.25 right-4 z-10"
+            />
+          </Show>
         }
         description={
           <div class="text-base-content/70 text-sm">
