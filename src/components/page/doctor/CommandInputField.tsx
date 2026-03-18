@@ -1,11 +1,14 @@
-import { For, createEffect, onCleanup } from 'solid-js';
-import { Terminal } from 'lucide-solid';
+import { For, createEffect, createSignal, onCleanup } from 'solid-js';
+import { Terminal, ChevronUp, ChevronDown } from 'lucide-solid';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { stripAnsi } from '../../../utils/ansiUtils';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
 import { useOperations } from '../../../stores/operations';
+
+// Constants
+const SCROLL_THRESHOLD = 100;
 
 function CommandInputField() {
   const {
@@ -21,15 +24,25 @@ function CommandInputField() {
   let scrollRef: HTMLDivElement | undefined;
   let currentUnlisteners: UnlistenFn[] = [];
 
+  // State for clear output confirmation
+  const [clearConfirm, setClearConfirm] = createSignal(false);
+  const [clearTimer, setClearTimer] = createSignal<number | null>(null);
+
   onCleanup(() => {
     currentUnlisteners.forEach((unlisten) => unlisten());
     currentUnlisteners = [];
+
+    // Clear clear output timer if exists
+    if (clearTimer()) {
+      window.clearTimeout(clearTimer()!);
+      setClearTimer(null);
+    }
   });
 
   createEffect(() => {
     if (exec.output.length > 0 && scrollRef) {
       const isNearBottom =
-        scrollRef.scrollHeight - scrollRef.scrollTop <= scrollRef.clientHeight + 100;
+        scrollRef.scrollHeight - scrollRef.scrollTop <= scrollRef.clientHeight + SCROLL_THRESHOLD;
       if (isNearBottom) {
         scrollRef.scrollTop = scrollRef.scrollHeight;
       }
@@ -74,17 +87,26 @@ function CommandInputField() {
         addCommandOutput(cleanLine);
       });
 
-      const unlistenFinished: UnlistenFn = await listen('operation-finished', (event: any) => {
+      let unlistenFinished: UnlistenFn;
+      unlistenFinished = await listen('operation-finished', (event: any) => {
         unlisten();
         unlistenFinished();
         currentUnlisteners = currentUnlisteners.filter(
           (u) => u !== unlisten && u !== unlistenFinished
         );
         setCommandRunning(false);
+
+        // For scoop commands, if we got output, consider it successful even if there are some errors
+        const hasOutput = exec.output.length > 0;
+        const isSuccess = hasOutput && exec.useScoopPrefix;
+        const message = event.payload.message
+          ? fixEncoding(stripAnsi(event.payload.message))
+          : 'Command completed';
+
         addCommandOutput({
           operationId: 'command-execution',
-          line: fixEncoding(stripAnsi(event.payload.message)),
-          source: event.payload.success ? 'success' : 'error',
+          line: message,
+          source: isSuccess ? 'success' : 'error',
           timestamp: Date.now(),
         });
       });
@@ -97,16 +119,28 @@ function CommandInputField() {
         await invoke('run_powershell_command', { command: exec.command });
       }
     } catch (error: any) {
-      console.error('Failed to execute command:', error);
+      const errorMessage = typeof error === 'string' ? error : error.message || 'Unknown error';
+
+      // Only log as error if it's a real exception, not just command failure
+      if (typeof error === 'string' && error.includes('failed')) {
+        console.log('Command execution completed with some failures:', errorMessage);
+      } else {
+        console.error('Failed to execute command:', error);
+      }
+
       setCommandRunning(false);
       currentUnlisteners.forEach((unlisten) => unlisten());
       currentUnlisteners = [];
-      addCommandOutput({
-        operationId: 'command-execution',
-        line: 'Error: ' + error.message,
-        source: 'error',
-        timestamp: Date.now(),
-      });
+
+      // Only add error if we don't already have output
+      if (exec.output.length === 0) {
+        addCommandOutput({
+          operationId: 'command-execution',
+          line: 'Error: ' + errorMessage,
+          source: 'error',
+          timestamp: Date.now(),
+        });
+      }
     }
   };
 
@@ -117,11 +151,39 @@ function CommandInputField() {
   };
 
   const handleClearOutput = () => {
-    clearCommandOutput();
+    if (clearConfirm()) {
+      // Execute clear
+      if (clearTimer()) {
+        window.clearTimeout(clearTimer()!);
+        setClearTimer(null);
+      }
+      setClearConfirm(false);
+      clearCommandOutput();
+    } else {
+      // First click - show confirmation
+      setClearConfirm(true);
+      const timer = window.setTimeout(() => {
+        setClearConfirm(false);
+        setClearTimer(null);
+      }, 3000);
+      setClearTimer(timer);
+    }
   };
 
   const handleToggleScoopPrefix = () => {
     toggleScoopPrefix();
+  };
+
+  const handleScrollToTop = () => {
+    if (scrollRef) {
+      scrollRef.scrollTop = 0;
+    }
+  };
+
+  const handleScrollToBottom = () => {
+    if (scrollRef) {
+      scrollRef.scrollTop = scrollRef.scrollHeight;
+    }
   };
 
   return (
@@ -176,15 +238,17 @@ function CommandInputField() {
         </button>
       </div>
 
-      {/* 终端模拟显示框 */}
+      {/* Terminal output display */}
       <div class="mt-4">
         <div
           ref={(el) => (scrollRef = el)}
-          class="max-h-60 overflow-y-auto rounded-lg bg-black p-3 font-mono text-sm"
+          class="max-h-60 overflow-y-auto rounded-lg bg-black p-3 text-sm"
+          style="white-space: pre; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
         >
           <For each={exec.output}>
             {(line) => (
               <div
+                style="white-space: pre;"
                 class={
                   line.source === 'stderr' || line.source === 'error'
                     ? 'text-red-500'
@@ -203,17 +267,40 @@ function CommandInputField() {
             <div class="text-gray-500">{t('doctor.commandInput.waitingForCommands')}</div>
           )}
           {exec.isRunning && (
-            <div class="flex items-center text-white">
+            <div style="white-space: pre-wrap; word-break: break-all; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">
               <span class="loading loading-spinner loading-xs mr-2"></span>
               {t('doctor.commandInput.executingCommand')}
             </div>
           )}
-          {/* 占位元素，用于确保滚动到底部 */}
+          {/* Spacer element to ensure scrolling to bottom */}
           <div />
         </div>
-        <div class="mt-2 flex justify-end">
-          <button class="btn btn-xs btn-ghost" onClick={handleClearOutput}>
-            {t('doctor.commandInput.clearOutput')}
+        <div class="mt-2 flex justify-end gap-1">
+          <button
+            class="btn btn-xs btn-circle btn-soft"
+            onClick={handleScrollToTop}
+            title="Scroll to top"
+          >
+            <ChevronUp class="h-3 w-3" />
+          </button>
+          <button
+            class="btn btn-xs btn-circle btn-soft"
+            onClick={handleScrollToBottom}
+            title="Scroll to bottom"
+          >
+            <ChevronDown class="h-3 w-3" />
+          </button>
+          <button
+            classList={{
+              btn: true,
+              'btn-xs': true,
+              'btn-soft': true,
+              'btn-warning': clearConfirm(),
+              'w-16': true,
+            }}
+            onClick={handleClearOutput}
+          >
+            {clearConfirm() ? t('buttons.sure') : t('doctor.commandInput.clearOutput')}
           </button>
         </div>
       </div>

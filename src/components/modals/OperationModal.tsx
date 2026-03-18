@@ -513,7 +513,7 @@ function OperationModal(props: OperationModalProps) {
       <div
         ref={scrollRef}
         class="overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
-        style="white-space: pre-wrap; word-break: break-word;"
+        style="white-space: pre; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
       >
         <For each={currentOperation?.output || []}>
           {(line, index) => (
