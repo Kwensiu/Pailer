@@ -236,23 +236,60 @@ const DebugModal = () => {
             <div class="space-y-4">
               <div class="space-y-2">
                 <h4 class="font-medium">Operation Modal Test</h4>
-                <button
-                  class="btn btn-primary"
-                  onClick={() => {
-                    const id = generateOperationId('test');
-                    setOperationId(id);
-                    addOperation({
-                      id: id,
-                      title: 'Test Operation',
-                      status: OperationStatus.InProgress,
-                      isMinimized: false,
-                      output: [],
-                      isScan: true,
-                    });
-                  }}
-                >
-                  Open Operation Modal
-                </button>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    class="btn btn-primary"
+                    onClick={() => {
+                      const id = generateOperationId('test');
+                      setOperationId(id);
+                      addOperation({
+                        id: id,
+                        title: 'Test Operation',
+                        status: OperationStatus.InProgress,
+                        isMinimized: false,
+                        output: [],
+                        isScan: true,
+                      });
+                    }}
+                  >
+                    Open Operation Modal
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onClick={() => {
+                      const { addOperationOutput, setOperationStatus } = useOperations();
+                      const id = generateOperationId('scroll-test');
+                      setOperationId(id);
+                      addOperation({
+                        id: id,
+                        title: 'Auto-scroll Test',
+                        status: OperationStatus.InProgress,
+                        isMinimized: false,
+                        output: [],
+                        isScan: true,
+                      });
+
+                      // Simulate continuous output for testing auto-scroll
+                      let counter = 0;
+                      const interval = setInterval(() => {
+                        counter++;
+                        addOperationOutput(id, {
+                          operationId: id,
+                          line: `[${counter}] Test line for auto-scroll testing. This is line number ${counter} of the continuous output test.`,
+                          source: 'stdout',
+                        });
+
+                        // Stop after 50 lines
+                        if (counter >= 60) {
+                          clearInterval(interval);
+                          setOperationStatus(id, OperationStatus.Success);
+                        }
+                      }, 100);
+                    }}
+                  >
+                    Test Auto-scroll
+                  </button>
+                </div>
               </div>
 
               <div class="space-y-2">
