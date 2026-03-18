@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/Kwensiu/Pailer/compare/v1.3.0...v1.4.0) (2026-03-18)
+
+
+### Features
+
+* **modal:** implement intelligent scroll management for operation modals ([553c155](https://github.com/Kwensiu/Pailer/commit/553c155ae7a94760f94eebc51f626213264a1516))
+
+
+### Bug Fixes
+
+* **ui:** minor text corrections and icon updates ([66b5365](https://github.com/Kwensiu/Pailer/commit/66b5365acf3eb51e4ed7cb3cdf178bba93143ffb))
+
+
+### Refactoring
+
+* **scroll:** enhance scroll management with terminal controls ([8e17a83](https://github.com/Kwensiu/Pailer/commit/8e17a8318932ef83540a5ce04aaac2009259ac77))
+
 ## [1.3.0](https://github.com/Kwensiu/Pailer/compare/v1.2.0...v1.3.0) (2026-03-17)
 
 
