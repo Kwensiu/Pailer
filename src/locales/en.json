@@ -235,7 +235,7 @@
       "title": "Scoop Cleanup"
     },
     "commandInput": {
-      "clearOutput": "Clear Output",
+      "clearOutput": "Clear",
       "description": "Execute Scoop commands directly from here.",
       "enterCommand": "Enter command (e.g. 'install git')",
       "enterFullCommand": "Enter full command (e.g. 'scoop install git')",

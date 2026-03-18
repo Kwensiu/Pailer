@@ -1,11 +1,11 @@
 /**
  * ScrollManager - Intelligent scroll management component
  *
- * Implements complete scroll functionality for OperationModal:
- * - Auto-scroll: Automatically scroll to bottom when new output appears (when user is within 50px of bottom)
+ * Implements complete scroll functionality for scrollable containers:
+ * - Auto-scroll: Automatically scroll to bottom when new content appears (when user is within 50px of bottom)
  * - User control: Stop auto-follow when user manually scrolls up
- * - Position saving: Save scroll position and bottom state when minimizing
- * - Smart restore: Direct restore for bottom position, smooth scroll from top to saved position for non-bottom
+ * - Position saving: Save scroll position and bottom state when minimizing (optional)
+ * - Smart restore: Direct restore for bottom position, smooth scroll from top to saved position for non-bottom (optional)
  */
 
 import { createSignal, createEffect, onMount, onCleanup } from 'solid-js';
@@ -19,38 +19,57 @@ const CONTENT_SELECTOR = '.overflow-y-auto.p-6';
 
 interface ScrollManagerProps {
   scrollRef: HTMLDivElement | undefined;
-  operationId: string;
+  operationId?: string;
   shouldAutoScroll?: () => boolean;
   setShouldAutoScroll?: (value: boolean) => void;
+  enablePositionSaving?: boolean;
+  contentLength?: number;
+  threshold?: number;
 }
 
 export function useScrollManager(props: ScrollManagerProps) {
   const { updateOperation, operations } = useOperations();
 
-  // Track previous minimized state
+  // Track previous minimized state (only for operation modals)
   const [previousMinimized, setPreviousMinimized] = createSignal<boolean>(false);
   const [isRestoring, setIsRestoring] = createSignal<boolean>(false);
+
+  // Auto-scroll state
+  const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
 
   // Handle scroll events to detect user scrolling
   const handleScroll = (e: Event) => {
     const target = e.target as HTMLElement;
 
-    // Only handle scroll events from the Modal Content area
-    if (!target.matches(CONTENT_SELECTOR)) {
-      return;
-    }
+    // For operation modals, use content selector; for simple usage, use direct ref
+    const isOperationModal = props.operationId !== undefined;
+    const scrollTarget = isOperationModal
+      ? target.matches(CONTENT_SELECTOR)
+        ? target
+        : null
+      : target === props.scrollRef
+        ? target
+        : null;
 
-    const { scrollTop, scrollHeight, clientHeight } = target;
+    if (!scrollTarget) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollTarget;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const threshold = props.threshold || BOTTOM_THRESHOLD;
 
     // If user is more than threshold from bottom, stop auto-scrolling
+    setShouldAutoScroll(distanceFromBottom <= threshold);
+
+    // Call external setShouldAutoScroll if provided
     if (props.setShouldAutoScroll) {
-      props.setShouldAutoScroll(distanceFromBottom <= BOTTOM_THRESHOLD);
+      props.setShouldAutoScroll(distanceFromBottom <= threshold);
     }
   };
 
-  // DOM query function
+  // DOM query function (only for operation modals)
   const getModalContent = (): HTMLElement | null => {
+    if (!props.operationId) return null;
+
     let modalContent = props.scrollRef?.closest(CONTENT_SELECTOR);
 
     if (!modalContent) {
@@ -70,6 +89,8 @@ export function useScrollManager(props: ScrollManagerProps) {
   };
 
   const saveScrollPosition = () => {
+    if (!props.operationId || !props.enablePositionSaving) return;
+
     const modalContent = getModalContent();
 
     if (modalContent) {
@@ -99,6 +120,8 @@ export function useScrollManager(props: ScrollManagerProps) {
 
   // Restore scroll position with animation
   const restoreScrollPosition = () => {
+    if (!props.operationId || !props.enablePositionSaving) return;
+
     const currentOperation = operations()[props.operationId];
 
     if (!currentOperation) return;
@@ -146,13 +169,30 @@ export function useScrollManager(props: ScrollManagerProps) {
 
   // Setup scroll listener and restoration logic
   onMount(() => {
-    document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
-    onCleanup(() => {
-      document.removeEventListener('scroll', handleScroll, { capture: true });
-    });
+    // For operation modals, use document-level scroll listener
+    // For simple components, use direct scroll listener on the element
+    if (props.operationId) {
+      document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+      onCleanup(() => {
+        document.removeEventListener('scroll', handleScroll, { capture: true });
+      });
+    } else {
+      // For simple components, set up listener when scrollRef changes
+      createEffect(() => {
+        const ref = props.scrollRef;
+        if (ref) {
+          ref.addEventListener('scroll', handleScroll, { passive: true });
+          onCleanup(() => {
+            ref.removeEventListener('scroll', handleScroll);
+          });
+        }
+      });
+    }
 
-    // Setup restoration logic
+    // Setup restoration logic (only for operation modals with position saving)
     createEffect(() => {
+      if (!props.operationId || !props.enablePositionSaving) return;
+
       const currentOperation = operations()[props.operationId];
       if (!currentOperation) return;
 
@@ -172,18 +212,24 @@ export function useScrollManager(props: ScrollManagerProps) {
 
     // Setup auto-scroll
     createEffect(() => {
-      const currentOperation = operations()[props.operationId];
-      const outputLength = currentOperation?.output?.length || 0;
+      // For simple usage, use contentLength; for operation modals, use output length
+      const contentLength =
+        props.contentLength !== undefined
+          ? props.contentLength
+          : (() => {
+              const currentOperation = props.operationId ? operations()[props.operationId] : null;
+              return currentOperation?.output?.length || 0;
+            })();
 
-      // Skip auto-scroll during restoration
-      if (isRestoring() || !props.shouldAutoScroll?.() || outputLength === 0) {
+      // Skip auto-scroll during restoration or when disabled
+      if (isRestoring() || !shouldAutoScroll() || contentLength === 0) {
         return;
       }
 
       requestAnimationFrame(() => {
-        const modalContent = getModalContent();
-        if (modalContent) {
-          modalContent.scrollTop = modalContent.scrollHeight;
+        const scrollTarget = props.operationId ? getModalContent() : props.scrollRef;
+        if (scrollTarget) {
+          scrollTarget.scrollTop = scrollTarget.scrollHeight;
         }
       });
     });
