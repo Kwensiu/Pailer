@@ -335,7 +335,7 @@
       "bucket": "Bucket",
       "cannotUnhold": "Hold (Versioned)",
       "changeBucket": "Change Bucket",
-      "ciVersionNote": " (CI version, Scoop may not be able to update automatically)",
+      "ciVersionNote": "(CI version, Scoop may not be able to update automatically)",
       "heldTooltip": "This package is on hold",
       "holdPackage": "Hold Package",
       "name": "Name",
@@ -584,7 +584,7 @@
     "category": {
       "about": "About",
       "automation": "Automation",
-      "management": "Managment",
+      "management": "Management",
       "security": "Security",
       "windowUi": "Window & UI"
     },
@@ -626,7 +626,7 @@
       "detectSuccess": "Scoop path detected successfully!",
       "pathLabel": "Scoop Installation Path",
       "pathPlaceholder": "Enter Scoop path (e.g. C:\\scoop)",
-      "saveError": "Failed to save Scoop path: ",
+      "saveError": "Failed to save Scoop path",
       "saveSuccess": "Scoop path saved and applied successfully!",
       "title": "Scoop Configuration"
     },

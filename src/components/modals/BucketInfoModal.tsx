@@ -16,6 +16,7 @@ import {
   FolderOpen,
   RefreshCw,
   LoaderCircle,
+  GalleryVerticalEnd,
 } from 'lucide-solid';
 import Modal from '../common/Modal';
 import BranchSelector from '../common/BranchSelector';
@@ -502,7 +503,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                             rel="noopener noreferrer"
                             class="link link-primary flex items-center gap-1 text-xs break-all"
                           >
-                            <GitBranch class="h-3 w-3" />
+                            <GalleryVerticalEnd class="h-3 w-3" />
                             {props.searchBucket!.url}
                           </a>
                         </div>
@@ -594,20 +595,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                 <div class="bg-base-content-bg rounded-lg px-6 py-18">
                   <div class="text-center">
                     <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="text-base-content/50 h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                        />
-                      </svg>
+                      <GalleryVerticalEnd class="text-base-content/50 h-6 w-6" />
                     </div>
                     <p class="text-base-content/70 mb-2 whitespace-pre-line">
                       {t('bucketInfo.viewPackagesOnRepository')}

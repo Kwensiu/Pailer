@@ -1,6 +1,6 @@
 import { createSignal, For, Show, createMemo, createEffect, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { Trash2, TriangleAlert, Folder, GitBranch } from 'lucide-solid';
+import { Trash2, TriangleAlert, Folder, GalleryVerticalEnd } from 'lucide-solid';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
@@ -265,7 +265,7 @@ function VersionedAppsManager() {
     <>
       <Card
         title={t('doctor.versionedApps.title')}
-        icon={GitBranch}
+        icon={GalleryVerticalEnd}
         onRefresh={forceRefresh}
         headerAction={
           <div class="flex items-center gap-2">
