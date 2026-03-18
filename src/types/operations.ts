@@ -115,6 +115,8 @@ export interface BaseOperationState {
   result?: OperationResult;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  scrollPosition?: number;
+  wasAtBottom?: boolean;
 }
 
 /**

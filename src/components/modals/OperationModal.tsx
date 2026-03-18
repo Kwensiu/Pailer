@@ -11,6 +11,7 @@ import { t } from '../../i18n';
 import { isErrorLineWithContext } from '../../utils/errorDetection';
 import { stripAnsi } from '../../utils/ansiUtils';
 import Modal from '../common/Modal';
+import { useScrollManager } from '../common/ScrollManager';
 
 // Define VirustotalResult locally since it's not exported from types
 interface VirustotalResult {
@@ -219,8 +220,20 @@ function OperationModal(props: OperationModalProps) {
 
   let scrollRef: HTMLDivElement | undefined;
 
-  // Track previous status to detect changes
   const [previousStatus, setPreviousStatus] = createSignal<OperationStatus | null>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
+
+  // Initialize scroll manager with reactive scrollRef
+  const scrollManager = useScrollManager({
+    get scrollRef() {
+      return scrollRef;
+    },
+    get operationId() {
+      return operationId();
+    },
+    shouldAutoScroll,
+    setShouldAutoScroll,
+  });
 
   // Watch for operation status changes to trigger onOperationFinished
   createEffect(() => {
@@ -382,6 +395,9 @@ function OperationModal(props: OperationModalProps) {
   const handleMinimize = () => {
     const currentOperation = operation();
     if (currentOperation && !currentOperation.isMinimized) {
+      // Save scroll position using scroll manager
+      scrollManager.saveScrollPosition();
+
       // Send minimize state event to backend
       emit('panel-minimize-state', {
         isMinimized: true,
@@ -399,7 +415,7 @@ function OperationModal(props: OperationModalProps) {
       setIsMinimizing(true);
 
       // Use a more robust approach to prevent race conditions
-      const minimizeTimer = setTimeout(() => {
+      setTimeout(() => {
         // Double-check that we're still in a valid state before proceeding
         const op = operation();
         if (op && !op.isMinimized && isMinimizing()) {
@@ -407,9 +423,6 @@ function OperationModal(props: OperationModalProps) {
           toggleMinimize(operationId());
         }
       }, 300);
-
-      // Store timer ID for potential cleanup
-      onCleanup(() => clearTimeout(minimizeTimer));
     } else if (currentOperation) {
       // Send restore state event to backend
       emit('panel-minimize-state', {
@@ -427,34 +440,6 @@ function OperationModal(props: OperationModalProps) {
       toggleMinimize(operationId());
     }
   };
-
-  // Scroll to bottom when new output is added, but only if user is near bottom
-  createEffect(() => {
-    const currentOperation = operation();
-    if (
-      scrollRef &&
-      currentOperation &&
-      currentOperation.output &&
-      currentOperation.output.length > 0
-    ) {
-      // Use requestAnimationFrame to ensure DOM is updated before scrolling
-      requestAnimationFrame(() => {
-        const container = scrollRef!;
-        const scrollTop = container.scrollTop;
-        const scrollHeight = container.scrollHeight;
-        const clientHeight = container.clientHeight;
-
-        // Check if user is near bottom (within 50px of bottom) or if content is short enough to fit entirely
-        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-        const isNearBottom = distanceFromBottom <= 50;
-        const contentFits = scrollHeight <= clientHeight;
-
-        if (isNearBottom || contentFits) {
-          container.scrollTop = scrollHeight;
-        }
-      });
-    }
-  });
 
   const currentOperation = operation();
 
@@ -484,6 +469,8 @@ function OperationModal(props: OperationModalProps) {
       animation="scale"
       zIndex="80"
       isMinimizing={isMinimizing()}
+      class="operation-modal"
+      data-operation-modal={operationId()}
       headerAction={
         <div class="flex justify-end gap-2">
           <button
