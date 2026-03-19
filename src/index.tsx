@@ -1,5 +1,13 @@
 /* @refresh reload */
 import { render } from 'solid-js/web';
 import App from './App';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
-render(() => <App />, document.getElementById('root')!);
+render(
+  () => (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  ),
+  document.getElementById('root')!
+);

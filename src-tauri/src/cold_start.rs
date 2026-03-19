@@ -1,40 +1,24 @@
 use crate::state::AppState;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 
 static COLD_START_DONE: AtomicBool = AtomicBool::new(false);
-static EVENTS_EMITTED: AtomicBool = AtomicBool::new(false);
 
 /// Performs cold start initialization, ensuring it only runs once.
 pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
-    // If already done, just re-emit the success events so late listeners receive them.
+    // If already done, just return
     if COLD_START_DONE.swap(true, Ordering::SeqCst) {
         log::info!("Cold start previously completed.");
-        
-        // Only re-emit events if they haven't been emitted yet
-        if !EVENTS_EMITTED.load(Ordering::SeqCst) {
-            log::info!("Re-emitting ready events.");
-            
-            let app_clone = app.clone();
-            tauri::async_runtime::spawn(async move {
-                // Allow the frontend a moment to register listeners.
-                tokio::time::sleep(Duration::from_millis(500)).await;
-
-                // Emit events with retry logic
-                emit_ready_events_with_retry(&app_clone, true).await;
-                EVENTS_EMITTED.store(true, Ordering::SeqCst);
-            });
-        }
         return;
     }
 
     tauri::async_runtime::spawn(async move {
-        log::info!("Prefetching installed packages during cold start...");
+        log::info!("Starting cold start initialization...");
 
         let state = app.state::<AppState>();
         log::info!("Getting AppState for cold start initialization");
         
+        // Try to prefetch data, but don't block UI if it fails
         match crate::commands::installed::get_installed_packages_full(app.clone(), state).await {
             Ok(pkgs) => {
                 log::info!("Prefetched {} installed packages", pkgs.len());
@@ -42,83 +26,20 @@ pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
                 // Warm the search manifest cache.
                 log::info!("Warming search manifest cache...");
                 if let Err(e) = crate::commands::search::warm_manifest_cache(app.clone()).await {
-                    log::error!("Failed to warm search manifest cache: {}", e);
+                    log::warn!("Failed to warm search manifest cache: {}", e);
                 } else {
                     log::info!("Search manifest cache warmed successfully");
                 }
-
-                // Emit events with retry logic
-                log::info!("Emitting cold start success events");
-                emit_ready_events_with_retry(&app, true).await;
-                EVENTS_EMITTED.store(true, Ordering::SeqCst);
-                log::info!("Cold start initialization completed successfully");
             }
             Err(e) => {
-                log::error!("Failed to prefetch installed packages: {}", e);
-                // On failure, reset the flag to allow a retry on the next page load.
-                COLD_START_DONE.store(false, Ordering::SeqCst);
-                EVENTS_EMITTED.store(false, Ordering::SeqCst);
-
-                // Emit failure events
-                emit_ready_events_with_retry(&app, false).await;
+                log::warn!("Failed to prefetch installed packages: {}", e);
+                log::warn!("This is likely due to Scoop not being configured. UI will still load.");
             }
         }
+
+        // UI loads immediately, no need to emit events anymore
+        log::info!("Cold start initialization completed - UI ready");
     });
-}
-
-/// Emits ready events with exponential backoff retry logic to ensure delivery
-async fn emit_ready_events_with_retry<R: Runtime>(app: &AppHandle<R>, success: bool) {
-    let mut retry_count = 0;
-    let max_retries = 3; // Reduced retries to minimize logging
-
-    while retry_count < max_retries {
-        let delay = if retry_count == 0 {
-            Duration::from_millis(100)
-        } else {
-            // Exponential backoff: 200ms, 400ms, 800ms
-            Duration::from_millis(200 * 2u64.pow(retry_count as u32 - 1))
-        };
-
-        log::info!(
-            "Emitting cold start events (attempt {}/{}) with success={}",
-            retry_count + 1,
-            max_retries,
-            success
-        );
-
-        // Try to emit to main window specifically first
-        let main_result = app.emit_to("main", "cold-start-finished", success);
-        if let Err(e) = &main_result {
-            log::warn!("Failed to emit cold-start-finished to main window: {}", e);
-        }
-
-        // Fallback to global emit if targeting fails
-        if main_result.is_err() {
-            if let Err(e) = app.emit("cold-start-finished", success) {
-                log::error!("Failed to emit cold-start-finished globally: {}", e);
-            }
-        }
-
-        // Same for scoop-ready event
-        let scoop_ready_result = app.emit_to("main", "scoop-ready", success);
-        if let Err(e) = &scoop_ready_result {
-            log::warn!("Failed to emit scoop-ready to main window: {}", e);
-        }
-
-        if scoop_ready_result.is_err() {
-            if let Err(e) = app.emit("scoop-ready", success) {
-                log::error!("Failed to emit scoop-ready globally: {}", e);
-            }
-        }
-
-        // If we're on the last retry, log a warning
-        if retry_count == max_retries - 1 {
-            log::warn!("Final attempt to emit cold start events completed");
-        }
-
-        tokio::time::sleep(delay).await;
-        retry_count += 1;
-    }
 }
 
 /// Returns whether the cold start sequence has completed successfully.

@@ -701,5 +701,28 @@
       "message": "You are running multiple operations simultaneously, which may affect performance and stability. It is recommended to wait for the current operation to complete before starting a new one.",
       "title": "Multi-Instance Operation Warning"
     }
+  },
+  "scoopConfigWizard": {
+    "title": "Configure Scoop Path",
+    "notDetected": "Scoop installation not detected",
+    "configureDescription": "Please configure the Scoop installation path to use Pailer.",
+    "pathLabel": "Scoop Installation Path",
+    "pathPlaceholder": "C:\\Users\\YourName\\scoop",
+    "browse": "Browse",
+    "autoDetect": "Auto-Detect",
+    "detecting": "Detecting...",
+    "validatePath": "Validate Path",
+    "validating": "Validating...",
+    "saveAndContinue": "Save and Continue",
+    "selectDirectory": "Select Scoop Installation Directory",
+    "autoDetectedSuccess": "Auto-detected Scoop at: {{path}}",
+    "autoDetectFailed": "Could not auto-detect Scoop installation. Please select manually.",
+    "enterPath": "Please enter or select a Scoop path",
+    "validationFailed": "Validation failed: {{error}}",
+    "saveFailed": "Failed to save configuration: {{error}}",
+    "commonLocations": "Common Locations",
+    "typicalLocations": "Scoop is typically installed in one of these locations:",
+    "userInstallation": "User installation",
+    "globalInstallation": "Global installation"
   }
 }

@@ -702,5 +702,28 @@ export interface Dict {
       title: string;
     };
   };
+  scoopConfigWizard: {
+    title: string;
+    notDetected: string;
+    configureDescription: string;
+    pathLabel: string;
+    pathPlaceholder: string;
+    browse: string;
+    autoDetect: string;
+    detecting: string;
+    validatePath: string;
+    validating: string;
+    saveAndContinue: string;
+    selectDirectory: string;
+    autoDetectedSuccess: string;
+    autoDetectFailed: string;
+    enterPath: string;
+    validationFailed: string;
+    saveFailed: string;
+    commonLocations: string;
+    typicalLocations: string;
+    userInstallation: string;
+    globalInstallation: string;
+  };
   [key: string]: string | ((...args: any[]) => string) | any;
 }

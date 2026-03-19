@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Runtime};
 use url::Url;
 
+
 #[derive(Debug, Clone)]
 pub struct ScoopAppShortcut {
     pub name: String,

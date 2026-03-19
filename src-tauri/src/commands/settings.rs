@@ -170,7 +170,8 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
     
     // Also update the in-memory app state if it exists
     if let Some(state) = app.try_state::<crate::state::AppState>() {
-        state.set_scoop_path(std::path::PathBuf::from(path));
+        state.set_scoop_path(std::path::PathBuf::from(path.clone()));
+        state.set_scoop_configured(true); // Mark as configured when path is set
     }
     
     // Clear the Scoop root cache to ensure fresh path detection
@@ -179,22 +180,35 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
     Ok(())
 }
 
+/// Validation result for Scoop directory checking
+#[derive(serde::Serialize)]
+pub struct ValidationResult {
+    valid: bool,
+    message: String,
+}
+
 /// Validates if a path is a valid Scoop installation directory
 /// by checking for required subdirectories
-/// Fix: Ensure this command is registered in lib.rs
+/// Returns a ValidationResult with valid flag and message
 #[tauri::command]
-pub fn validate_scoop_directory(path: String) -> Result<bool, String> {
+pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String> {
     use std::path::Path;
     
     let path = Path::new(&path);
     
     // Check if path exists and is a directory
     if !path.exists() {
-        return Ok(false);
+        return Ok(ValidationResult {
+            valid: false,
+            message: "Path does not exist".to_string(),
+        });
     }
     
     if !path.is_dir() {
-        return Ok(false);
+        return Ok(ValidationResult {
+            valid: false,
+            message: "Path is not a directory".to_string(),
+        });
     }
     
     // Check for required Scoop directories
@@ -203,14 +217,30 @@ pub fn validate_scoop_directory(path: String) -> Result<bool, String> {
     let cache_dir = path.join("cache");
     
     if !apps_dir.exists() || !buckets_dir.exists() || !cache_dir.exists() {
-        return Ok(false);
+        let missing = vec![
+            if !apps_dir.exists() { "apps" } else { "" },
+            if !buckets_dir.exists() { "buckets" } else { "" },
+            if !cache_dir.exists() { "cache" } else { "" },
+        ];
+        let missing: Vec<&str> = missing.into_iter().filter(|s| !s.is_empty()).collect();
+        
+        return Ok(ValidationResult {
+            valid: false,
+            message: format!("Missing required directories: {}", missing.join(", ")),
+        });
     }
     
     if !apps_dir.is_dir() || !buckets_dir.is_dir() || !cache_dir.is_dir() {
-        return Ok(false);
+        return Ok(ValidationResult {
+            valid: false,
+            message: "Some required paths are not directories".to_string(),
+        });
     }
     
-    Ok(true)
+    Ok(ValidationResult {
+        valid: true,
+        message: "Valid Scoop installation found".to_string(),
+    })
 }
 
 /// Checks if a directory exists at the given path
@@ -239,8 +269,8 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
                 log::info!("SCOOP environment variable points to existing path");
                 log::debug!("Validating SCOOP environment variable path...");
                 match validate_scoop_directory(scoop_env.clone()) {
-                    Ok(is_valid) => {
-                        if is_valid {
+                    Ok(result) => {
+                        if result.valid {
                             log::info!("✓ Auto-detected valid Scoop installation from SCOOP environment variable: {}", scoop_env);
                             return Ok(scoop_env);
                         } else {
@@ -280,8 +310,8 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
                 } else {
                     log::debug!("Scoop config root_path exists and is a directory, validating...");
                     match validate_scoop_directory(path_str.clone()) {
-                        Ok(is_valid) => {
-                            if is_valid {
+                        Ok(result) => {
+                            if result.valid {
                                 log::info!("✓ Auto-detected valid Scoop installation from config root_path: {}", path_str);
                                 return Ok(path_str);
                             } else {
@@ -338,8 +368,8 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
 
         // Validate if this path is a valid Scoop installation
         match validate_scoop_directory(path_str.clone()) {
-            Ok(is_valid) => {
-                if is_valid {
+            Ok(result) => {
+                if result.valid {
                     log::info!("✓ Auto-detected valid Scoop installation at: {}", path_str);
                     return Ok(path_str);
                 } else {
