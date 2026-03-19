@@ -200,14 +200,14 @@ pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String
     if !path.exists() {
         return Ok(ValidationResult {
             valid: false,
-            message: "Path does not exist".to_string(),
+            message: "scoopConfigWizard.validationPathNotExist".to_string(),
         });
     }
     
     if !path.is_dir() {
         return Ok(ValidationResult {
             valid: false,
-            message: "Path is not a directory".to_string(),
+            message: "scoopConfigWizard.validationPathNotDirectory".to_string(),
         });
     }
     
@@ -226,20 +226,20 @@ pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String
         
         return Ok(ValidationResult {
             valid: false,
-            message: format!("Missing required directories: {}", missing.join(", ")),
+            message: format!("scoopConfigWizard.validationMissingDirectories|{}", missing.join(", ")),
         });
     }
     
     if !apps_dir.is_dir() || !buckets_dir.is_dir() || !cache_dir.is_dir() {
         return Ok(ValidationResult {
             valid: false,
-            message: "Some required paths are not directories".to_string(),
+            message: "scoopConfigWizard.validationPathsNotDirectories".to_string(),
         });
     }
     
     Ok(ValidationResult {
         valid: true,
-        message: "Valid Scoop installation found".to_string(),
+        message: "scoopConfigWizard.validationSuccess".to_string(),
     })
 }
 
@@ -383,7 +383,7 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
     }
 
     log::warn!("Could not auto-detect any valid Scoop installation in common locations");
-    Err("Unable to automatically detect Scoop installation. Please set the path manually in settings.".to_string())
+    Err("scoopConfigWizard.autoDetectFailedSystem".to_string())
 }
 
 /// Checks if a path exists on the filesystem
