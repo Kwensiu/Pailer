@@ -139,21 +139,22 @@ pub fn run() {
             #[cfg(windows)]
             setup_windows_specific(app)?;
 
-            // Resolve Scoop path with proper error handling
-            let scoop_path_result = resolve_scoop_path(app.handle().clone());
-            let scoop_path = match scoop_path_result {
+            // Try to resolve Scoop path, but don't block startup if it fails
+            // Use a default/temporary path and let the frontend handle configuration
+            let (scoop_path, configured) = match resolve_scoop_path(app.handle().clone()) {
                 Ok(path) => {
                     log::info!("Resolved Scoop path: {}", path.display());
-                    path
+                    (path, true)
                 }
                 Err(e) => {
-                    log::error!("Failed to resolve Scoop path during startup: {}", e);
-                    log::error!("Application cannot start without a valid Scoop path. Please configure it in settings.");
-                    return Err(e);
+                    log::warn!("Failed to resolve Scoop path during startup: {}", e);
+                    log::warn!("User will be prompted to configure Scoop path in the frontend.");
+                    // Use a default path but mark as unconfigured
+                    (PathBuf::from("C:\\Scoop"), false)
                 }
             };
 
-            app.manage(state::AppState::new(scoop_path));
+            app.manage(state::AppState::new(scoop_path, configured));
 
             // Show the main application window
             show_main_window(app)?;

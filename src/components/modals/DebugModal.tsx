@@ -4,6 +4,7 @@ import { info, warn, error } from '@tauri-apps/plugin-log';
 import settingsStore from '../../stores/settings';
 import Modal from '../common/Modal';
 import OperationModal from './OperationModal';
+import ScoopConfigWizard from './ScoopConfigWizard';
 import { useOperations } from '../../stores/operations';
 import { toast } from '../common/ToastAlert';
 import { OperationStatus } from '../../types/operations';
@@ -29,7 +30,9 @@ const DebugModal = () => {
 
   // Development-only state for tool tab
   const [operationId, setOperationId] = createSignal<string | undefined>(undefined);
-  const { addOperation, generateOperationId } = useOperations();
+  const [showScoopConfigWizard, setShowScoopConfigWizard] = createSignal(false);
+  const { addOperation, generateOperationId, addOperationOutput, setOperationStatus } =
+    useOperations();
 
   // Memoized tab checks for performance
   const isInfoTab = createMemo(() => activeTab() === 'info');
@@ -257,7 +260,6 @@ const DebugModal = () => {
                   <button
                     class="btn btn-secondary"
                     onClick={() => {
-                      const { addOperationOutput, setOperationStatus } = useOperations();
                       const id = generateOperationId('scroll-test');
                       setOperationId(id);
                       addOperation({
@@ -278,8 +280,6 @@ const DebugModal = () => {
                           line: `[${counter}] Test line for auto-scroll testing. This is line number ${counter} of the continuous output test.`,
                           source: 'stdout',
                         });
-
-                        // Stop after 50 lines
                         if (counter >= 60) {
                           clearInterval(interval);
                           setOperationStatus(id, OperationStatus.Success);
@@ -345,6 +345,20 @@ const DebugModal = () => {
                   Clear All Toasts
                 </button>
               </div>
+
+              <div class="space-y-2">
+                <h4 class="font-medium">Modal Components Test</h4>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    class="btn btn-accent"
+                    onClick={() => {
+                      setShowScoopConfigWizard(true);
+                    }}
+                  >
+                    Open Scoop Config Wizard
+                  </button>
+                </div>
+              </div>
             </div>
           </Show>
         </div>
@@ -357,6 +371,16 @@ const DebugModal = () => {
           title="Test Operation"
           onClose={() => {
             setOperationId(undefined);
+          }}
+        />
+      </Show>
+
+      {/* Scoop Config Wizard for testing - Development Only */}
+      <Show when={import.meta.env.DEV}>
+        <ScoopConfigWizard
+          isOpen={showScoopConfigWizard()}
+          onConfigured={() => {
+            setShowScoopConfigWizard(false);
           }}
         />
       </Show>
