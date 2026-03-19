@@ -22,6 +22,8 @@ pub struct PackageVersionsCache {
 pub struct AppState {
     /// The resolved path to the Scoop installation directory.
     scoop_path: RwLock<PathBuf>,
+    /// Whether Scoop is properly configured
+    scoop_configured: RwLock<bool>,
     /// A cache for the list of installed packages and their fingerprint.
     pub installed_packages: Mutex<Option<InstalledPackagesCache>>,
     /// A cache for package versions, invalidated when installed packages change
@@ -32,9 +34,10 @@ pub struct AppState {
 
 impl AppState {
     /// Creates new application state with the provided Scoop root path.
-    pub fn new(initial_scoop_path: PathBuf) -> Self {
+    pub fn new(initial_scoop_path: PathBuf, configured: bool) -> Self {
         Self {
             scoop_path: RwLock::new(initial_scoop_path),
+            scoop_configured: RwLock::new(configured),
             installed_packages: Mutex::new(None),
             package_versions: Mutex::new(None),
             last_refresh_time: AtomicU64::new(0),
@@ -49,6 +52,11 @@ impl AppState {
     /// Updates the Scoop root path stored in the application state.
     pub fn set_scoop_path(&self, new_path: PathBuf) {
         *self.scoop_path.write().unwrap() = new_path;
+    }
+
+    /// Updates the Scoop configuration status
+    pub fn set_scoop_configured(&self, configured: bool) {
+        *self.scoop_configured.write().unwrap() = configured;
     }
 
     /// Gets the timestamp of the last installed packages refresh in milliseconds
