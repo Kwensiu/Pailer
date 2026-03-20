@@ -425,6 +425,14 @@ export interface Dict {
     viewManifest: string;
     warning: string;
   };
+  pailerUpdate: {
+    error: string;
+    forceUpdateTitle: string;
+    notScoopInstall: string;
+    updateButton: string;
+    updateSteps: string;
+    updateTitle: string;
+  };
   scoopConfigWizard: {
     autoDetect: string;
     autoDetectFailed: string;
@@ -436,16 +444,14 @@ export interface Dict {
     configureDescriptionSuccess: string;
     copied: string;
     customInstallation: string;
-    officialInstallation: string;
     detecting: string;
     enterPath: string;
     globalAppsDirectory: string;
     globalInstallation: string;
     learnMore: string;
-    welcomeTitle: string;
-    welcomeDescription: string;
     notDetected: string;
     notInstalled: string;
+    officialInstallation: string;
     pathLabel: string;
     pathPlaceholder: string;
     powershellInstructions: string;
@@ -460,13 +466,15 @@ export interface Dict {
     validatePath: string;
     validating: string;
     validationFailed: string;
-    validationSuccess: string;
-    validationPathNotExist: string;
-    validationPathNotDirectory: string;
     validationMissingDirectories: string;
+    validationPathNotDirectory: string;
+    validationPathNotExist: string;
     validationPathsNotDirectories: string;
+    validationSuccess: string;
     visitWebsite: string;
     visitWebsiteText: string;
+    welcomeDescription: string;
+    welcomeTitle: string;
   };
   scoopStatus: {
     allGoodMessage: string;

@@ -11,6 +11,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "dev:scoop": "set DEV=1&& pnpm tauri dev",
     "i18n": "make i18n",
     "bump-version": "make bump",
     "format": "make format",

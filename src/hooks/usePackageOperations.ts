@@ -6,6 +6,7 @@ import installedPackagesStore from '../stores/installedPackagesStore';
 import { useOperations } from '../stores/operations';
 import { searchCacheManager } from './useSearchCache';
 import { t } from '../i18n';
+import { toast } from '../components/common/ToastAlert';
 
 interface UsePackageOperationsReturn {
   operationTitle: () => string | null;
@@ -16,11 +17,17 @@ interface UsePackageOperationsReturn {
   handleInstall: (pkg: ScoopPackage) => void;
   handleInstallConfirm: () => void;
   handleUninstall: (pkg: ScoopPackage) => void;
-  handleUpdate: (pkg: ScoopPackage) => void;
-  handleForceUpdate: (pkg: ScoopPackage) => void;
+  handleUpdate: (pkg: ScoopPackage) => Promise<void>;
+  handleForceUpdate: (pkg: ScoopPackage) => Promise<void>;
   handleUpdateAll: () => void;
   closeOperationModal: (wasSuccess: boolean) => void;
   addCloseListener: (handler: (wasSuccess: boolean) => void) => () => void;
+  // Pailer self-update confirmation
+  pailerUpdateConfirmOpen: () => boolean;
+  setPailerUpdateConfirmOpen: (open: boolean) => void;
+  pailerUpdateType: () => 'update' | 'force-update';
+  handlePailerUpdateConfirm: () => Promise<void>;
+  handlePailerUpdateCancel: () => void;
 }
 
 const { addOperation } = useOperations();
@@ -36,6 +43,97 @@ const [currentOperation, setCurrentOperation] = createSignal<{
   id: string; // Simple operation ID to avoid race conditions
 } | null>(null);
 const closeHandlers = new Set<(wasSuccess: boolean) => void>();
+
+// Pailer self-update confirmation state
+const [pailerUpdateConfirmOpen, setPailerUpdateConfirmOpen] = createSignal(false);
+const [pailerUpdateType, setPailerUpdateType] = createSignal<'update' | 'force-update'>('update');
+const [pendingPailerUpdate, setPendingPailerUpdate] = createSignal<(() => Promise<void>) | null>(
+  null
+);
+const [isCheckingSelfUpdate, setIsCheckingSelfUpdate] = createSignal(false);
+
+const checkAndSetupPailerSelfUpdate = async (
+  pkg: ScoopPackage,
+  updateType: 'update' | 'force-update'
+): Promise<boolean> => {
+  // Early return for non-pailer packages
+  if (pkg.name !== 'pailer') {
+    return false;
+  }
+
+  // Prevent concurrent checks but don't block normal flow
+  if (isCheckingSelfUpdate()) {
+    console.debug('Self-update check already in progress, allowing normal update');
+    return false;
+  }
+
+  setIsCheckingSelfUpdate(true);
+
+  try {
+    // Check if self-update is available
+    const canSelfUpdate = await invoke<boolean>('can_self_update');
+
+    if (canSelfUpdate) {
+      console.info(`Pailer self-update (${updateType}): showing confirmation dialog`);
+
+      // Create update function with proper error handling
+      const updateFunction = async () => {
+        try {
+          console.info(`Executing Pailer self-update (${updateType})...`);
+          await invoke('update_pailer_self');
+          console.info('Pailer self-update initiated successfully');
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.error('Failed to execute Pailer self-update:', errorMessage);
+
+          // Show user-friendly error message
+          const userMessage = t('pailerUpdate.error', { error: errorMessage });
+          showErrorNotification(userMessage);
+        }
+      };
+
+      // Set up confirmation dialog
+      setPendingPailerUpdate(() => updateFunction);
+      setPailerUpdateType(updateType);
+      setPailerUpdateConfirmOpen(true);
+
+      return true; // Block normal update flow
+    } else {
+      // Handle non-Scoop installation
+      console.warn('Pailer is not installed via Scoop, cannot use self-update');
+      const message = t('pailerUpdate.notScoopInstall');
+      showWarningNotification(message);
+      return true; // Block normal update flow
+    }
+  } catch (err) {
+    // Handle unexpected errors during capability check
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('Failed to check Pailer self-update capability:', errorMessage);
+
+    // Only block update for critical errors, allow fallback for network/temporary issues
+    const isCriticalError = errorMessage.includes('permission') || errorMessage.includes('access');
+    if (isCriticalError) {
+      const userMessage = t('pailerUpdate.error', { error: errorMessage });
+      showErrorNotification(userMessage);
+      return true; // Block normal update flow for critical errors
+    }
+
+    return false; // Allow normal update flow as fallback for temporary issues
+  } finally {
+    setIsCheckingSelfUpdate(false);
+  }
+};
+
+// Helper functions for notifications using the existing toast system
+const showErrorNotification = (message: string) => {
+  console.error('Pailer Error:', message);
+  toast.error(message);
+};
+
+const showWarningNotification = (message: string) => {
+  console.warn('Pailer Warning:', message);
+  toast.warning(message);
+};
 
 const addCloseListener = (handler: (wasSuccess: boolean) => void) => {
   closeHandlers.add(handler);
@@ -144,13 +242,15 @@ const handleUninstall = (pkg: ScoopPackage) => {
   });
 };
 
-const handleUpdate = (pkg: ScoopPackage) => {
-  // Ensure clean state before starting new operation
+const handleUpdate = async (pkg: ScoopPackage) => {
+  if (await checkAndSetupPailerSelfUpdate(pkg, 'update')) {
+    return;
+  }
+
   setOperationNextStep(null);
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  // Track current operation
   const operationId = `update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
   setCurrentOperation({
     type: 'update',
@@ -180,13 +280,15 @@ const handleUpdate = (pkg: ScoopPackage) => {
   });
 };
 
-const handleForceUpdate = (pkg: ScoopPackage) => {
-  // Ensure clean state before starting new operation
+const handleForceUpdate = async (pkg: ScoopPackage) => {
+  if (await checkAndSetupPailerSelfUpdate(pkg, 'force-update')) {
+    return;
+  }
+
   setOperationNextStep(null);
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  // Track current operation
   const operationId = `force-update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
   setCurrentOperation({
     type: 'update',
@@ -250,6 +352,21 @@ const handleUpdateAll = () => {
   });
 };
 
+const handlePailerUpdateConfirm = async () => {
+  const updateFn = pendingPailerUpdate();
+  if (updateFn) {
+    setPailerUpdateConfirmOpen(false);
+    setPendingPailerUpdate(null);
+    await updateFn();
+  }
+};
+
+const handlePailerUpdateCancel = () => {
+  console.log('Pailer self-update cancelled by user');
+  setPailerUpdateConfirmOpen(false);
+  setPendingPailerUpdate(null);
+};
+
 const closeOperationModal = (wasSuccess: boolean) => {
   console.log('🎯🎯🎯 closeOperationModal FINALLY called with:', { wasSuccess });
 
@@ -296,5 +413,11 @@ export function usePackageOperations(): UsePackageOperationsReturn {
     handleUpdateAll,
     closeOperationModal,
     addCloseListener,
+    // Pailer self-update confirmation
+    pailerUpdateConfirmOpen,
+    setPailerUpdateConfirmOpen,
+    pailerUpdateType,
+    handlePailerUpdateConfirm,
+    handlePailerUpdateCancel,
   };
 }

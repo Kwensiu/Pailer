@@ -1,6 +1,8 @@
 use crate::commands::settings;
 use crate::state::AppState;
 use crate::utils::{get_scoop_app_shortcuts_with_path, launch_scoop_app, ScoopAppShortcut};
+use crate::i18n::{SUPPORTED_LOCALES, DEFAULT_LANGUAGE};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -96,14 +98,77 @@ pub fn setup_system_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 }
 
 fn fetch_current_language(app: &tauri::AppHandle<tauri::Wry>) -> String {
-    settings::get_config_value(
+    // First try to get the language from settings
+    if let Some(Some(lang_value)) = settings::get_config_value(
         app.clone(),
         "settings.language".to_string(),
     )
     .ok()
-    .flatten()
-    .and_then(|v| v.as_str().map(|s| s.to_string()))
-    .unwrap_or_else(|| "en".to_string())
+    {
+        if let Some(lang_str) = lang_value.as_str() {
+            if !lang_str.is_empty() {
+                log::info!("Using language from settings: {}", lang_str);
+                return lang_str.to_string();
+            }
+        }
+    }
+
+    // Fallback to system language detection (matching frontend logic)
+    let system_lang = get_system_language();
+    log::info!("Using detected system language: {}", system_lang);
+    system_lang
+}
+
+fn get_system_language() -> String {
+    // Try to get system locale, similar to frontend's sysLang() function
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Globalization::GetUserDefaultLocaleName;
+        
+        let mut buffer = [0u16; 128];
+        unsafe {
+            let len = GetUserDefaultLocaleName(buffer.as_mut_ptr(), buffer.len() as i32);
+            if len > 0 && len <= buffer.len() as i32 {
+                // Convert UTF-16 to string with bounds checking
+                let len_usize = len as usize;
+                if len_usize > 0 {
+                    let locale_bytes = &buffer[..len_usize - 1]; // -1 to exclude null terminator
+                    let locale_string = String::from_utf16_lossy(locale_bytes);
+                    let lang = locale_string.split('-').next().unwrap_or(DEFAULT_LANGUAGE);
+                    return if SUPPORTED_LOCALES.contains(&lang) {
+                        lang.to_string()
+                    } else {
+                        DEFAULT_LANGUAGE.to_string()
+                    };
+                }
+            }
+        }
+    }
+    
+    // For non-Windows or if detection fails, try environment variables
+    if let Ok(lang) = std::env::var("LANG") {
+        let extracted_lang = lang.split('_').next().unwrap_or(DEFAULT_LANGUAGE);
+        if SUPPORTED_LOCALES.contains(&extracted_lang) {
+            return extracted_lang.to_string();
+        }
+    }
+    
+    // Default fallback
+    DEFAULT_LANGUAGE.to_string()
+}
+
+fn get_default_tray_strings() -> Value {
+    serde_json::json!({
+        "show": "Show Pailer",
+        "hide": "Hide Pailer",
+        "refreshApps": "Refresh Apps",
+        "scoopApps": "Scoop Apps",
+        "quit": "Quit",
+        "notificationTitle": "Pailer - Minimized to Tray",
+        "notificationMessage": "Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior",
+        "closeAndDisable": "Close and Disable Tray",
+        "keepInTray": "Keep in Tray"
+    })
 }
 
 fn build_tray_menu(
@@ -320,7 +385,6 @@ async fn perform_tray_refresh(
     Ok(())
 }
 
-/// Blocking version for use in threads
 pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
     log::info!("Displaying blocking native dialog for tray notification");
 
@@ -329,12 +393,17 @@ pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
     let strings = match crate::i18n::get_tray_locale_strings(&language) {
         Ok(s) => s,
         Err(e) => {
-            log::error!("Failed to get notification strings: {}", e);
-            return;
+            // Check for specific error types more reliably
+            if e.contains("cache miss") || e.contains("No cached strings") {
+                log::debug!("Using default tray strings (cache miss for language: {})", language);
+            } else {
+                log::warn!("Failed to get notification strings: {}, using defaults", e);
+            }
+            get_default_tray_strings()
         }
     };
 
-    // Extract strings with fallbacks
+    // Extract strings (now with local fallback)
     let title = strings
         .get("notificationTitle")
         .and_then(|v| v.as_str())
@@ -342,7 +411,7 @@ pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
     let message = strings
         .get("notificationMessage")
         .and_then(|v| v.as_str())
-        .unwrap_or("Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?");
+        .unwrap_or("Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior");
     let close_button = strings
         .get("closeAndDisable")
         .and_then(|v| v.as_str())

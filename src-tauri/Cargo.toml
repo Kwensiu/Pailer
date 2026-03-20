@@ -53,6 +53,10 @@ url = "2.5"
 lazy_static = "1.4.0"
 tempfile = "3.27"
 
+[features]
+default = []
+dev-self-update = []
+
 [target."cfg(windows)".dependencies]
 windows-dpapi = "0.2.0"
 winreg = "0.56.0"
@@ -62,6 +66,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_UI_Shell",
     "Win32_System_Com",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_Globalization",
 ] }
 lnk = "0.6.3"
 tauri-plugin-updater = "2.7.1"
