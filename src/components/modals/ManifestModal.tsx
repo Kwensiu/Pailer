@@ -1,12 +1,9 @@
 import { createEffect, Show, createSignal } from 'solid-js';
-import hljs from 'highlight.js/lib/core';
-import json from 'highlight.js/lib/languages/json';
 import { Copy, Check } from 'lucide-solid';
 import Modal from '../common/Modal';
 import settingsStore from '../../stores/settings';
 import { t } from '../../i18n';
-
-hljs.registerLanguage('json', json);
+import { highlightJson } from '../../utils/jsonHighlight';
 
 interface ManifestModalProps {
   manifestContent: string | null;
@@ -23,17 +20,26 @@ function ManifestModal(props: ManifestModalProps) {
 
   // Theme-specific colors
   const isDark = () => settings.theme === 'dark';
-  const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
   const buttonTextColor = () =>
     isDark() ? 'text-white/70 hover:text-white' : 'text-base-content/70 hover:text-base-content';
   const buttonBgHover = () => (isDark() ? 'hover:bg-white/10' : 'hover:bg-base-content/10');
 
   createEffect(() => {
     if (props.manifestContent && codeRef) {
-      codeRef.textContent = props.manifestContent;
-      // Remove existing hljs classes to allow re-highlighting
+      // Try to format as JSON if possible, otherwise use as-is
+      try {
+        const parsed = JSON.parse(props.manifestContent);
+        if (typeof parsed === 'object' && parsed !== null) {
+          const highlighted = highlightJson(parsed, isDark() ? 'dark' : 'light');
+          codeRef.innerHTML = highlighted;
+        } else {
+          codeRef.textContent = props.manifestContent;
+        }
+      } catch (error) {
+        codeRef.textContent = props.manifestContent;
+      }
+      // Set classes
       codeRef.className = 'language-json font-mono text-sm leading-relaxed bg-transparent!';
-      hljs.highlightElement(codeRef);
     }
   });
 
@@ -93,10 +99,7 @@ function ManifestModal(props: ManifestModalProps) {
       </Show>
 
       <Show when={props.manifestContent}>
-        <div
-          class="border-base-content/10 group relative overflow-hidden rounded-xl border shadow-inner"
-          style={{ 'background-color': codeBgColor() }}
-        >
+        <div class="border-base-content/10 group bg-base-200 relative overflow-hidden rounded-xl border shadow-inner">
           <div class="absolute top-2 right-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             <button
               class={`btn btn-sm btn-square btn-ghost ${buttonTextColor()} ${buttonBgHover()}`}

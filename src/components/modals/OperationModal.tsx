@@ -9,7 +9,7 @@ import {
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
 import { t } from '../../i18n';
 import { isErrorLineWithContext } from '../../utils/errorDetection';
-import { stripAnsi } from '../../utils/ansiUtils';
+import { ansiToHtml, stripAnsi, hasAnsiCodes } from '../../utils/ansiUtils';
 import Modal from '../common/Modal';
 import { useScrollManager } from '../common/ScrollManager';
 
@@ -23,11 +23,19 @@ const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines
   props
 ) => {
   const cleanLine = stripAnsi(props.line);
+  const hasColors = hasAnsiCodes(props.line);
 
   const urlRegex = /(https?:\/\/[^\s]+)/g;
 
   const isError = isErrorLineWithContext(cleanLine, props.previousLines || [], props.isStderr);
 
+  // Render with ANSI colors preserved
+  if (hasColors) {
+    const htmlContent = ansiToHtml(props.line);
+    return <span class="font-mono" innerHTML={htmlContent} />;
+  }
+
+  // Fallback to original logic for non-colored output
   if (isError) {
     return (
       <span class="font-mono">
@@ -111,8 +119,13 @@ const FormattedErrorMessage: Component<{ message: string }> = (props) => {
   );
 };
 
+const getOperationDisplayName = (operation: any) => {
+  const result = operation?.result;
+  return result?.operationName || result?.operation_name || operation?.title || 'Operation';
+};
+
 const getErrorMessage = (operation: any) => {
-  if (!operation) return t('operation.failed.generic', { defaultValue: 'Operation failed' });
+  if (!operation) return t('operation.failed.generic', { name: 'Operation' });
 
   const result = operation.result;
 
@@ -120,8 +133,8 @@ const getErrorMessage = (operation: any) => {
     return result.message;
   }
 
-  const operationName = result?.operation_name || '';
-  const errorCount = result?.error_count;
+  const operationName = getOperationDisplayName(operation);
+  const errorCount = result?.errorCount ?? result?.error_count;
 
   if (errorCount && errorCount > 0) {
     return t('operation.failed.withErrors', {
@@ -134,8 +147,9 @@ const getErrorMessage = (operation: any) => {
 };
 
 const getSuccessMessage = (operation: any) => {
-  if (!operation)
-    return t('operation.completed', { defaultValue: 'Operation completed successfully' });
+  if (!operation) {
+    return t('operation.completed', { name: 'Operation' });
+  }
 
   const result = operation.result;
 
@@ -143,7 +157,7 @@ const getSuccessMessage = (operation: any) => {
     return result.message;
   }
 
-  const operationName = result?.operation_name || '';
+  const operationName = getOperationDisplayName(operation);
 
   const operationPatterns = [
     { prefix: 'Installing ', key: 'packageInfo.success.install' },
@@ -164,8 +178,7 @@ const getSuccessMessage = (operation: any) => {
   const specialCases = [
     {
       check: (name: string) => name === 'Updating all packages',
-      result: () =>
-        t('operation.updateAllSuccess', { defaultValue: 'All packages updated successfully' }),
+      result: () => t('operation.updateAllSuccess'),
     },
     {
       check: (name: string) => name.startsWith('Switching ') || name.startsWith('Switched '),
@@ -182,15 +195,28 @@ const getSuccessMessage = (operation: any) => {
 
   for (const { check, result } of specialCases) {
     if (check(operationName)) {
-      return (
-        result(operationName) ||
-        t('operation.completed', { defaultValue: 'Operation completed successfully' })
-      );
+      return result(operationName) || t('operation.completed', { name: operationName });
     }
   }
 
-  // Fallback to generic completion message
-  return t('operation.completed', { defaultValue: 'Operation completed successfully' });
+  // Fallback to generic completion message with operation name
+  return t('operation.completed', { name: operationName });
+};
+
+const getWarningMessage = (operation: any) => {
+  if (!operation) {
+    return t('operation.withWarnings', { name: 'Operation' });
+  }
+
+  const result = operation.result;
+
+  if (result?.message) {
+    return result.message;
+  }
+
+  const operationName = getOperationDisplayName(operation);
+
+  return t('operation.withWarnings', { name: operationName });
 };
 
 function OperationModal(props: OperationModalProps) {
@@ -206,6 +232,10 @@ function OperationModal(props: OperationModalProps) {
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
   const [isMinimizing, setIsMinimizing] = createSignal(false);
+
+  const isSuccessfulStatus = (status: OperationStatus | undefined) => {
+    return status === 'success' || status === 'warning';
+  };
 
   const operationId = createMemo(() => {
     if (props.operationId) {
@@ -246,10 +276,16 @@ function OperationModal(props: OperationModalProps) {
     if (
       prevStatus !== null &&
       newStatus !== prevStatus &&
-      (newStatus === 'success' || newStatus === 'error' || newStatus === 'cancelled')
+      (newStatus === 'success' ||
+        newStatus === 'warning' ||
+        newStatus === 'error' ||
+        newStatus === 'cancelled')
     ) {
       if (props.onOperationFinished) {
-        props.onOperationFinished(operationId(), newStatus === 'success');
+        props.onOperationFinished(
+          operationId(),
+          newStatus === 'success' || newStatus === 'warning'
+        );
       }
 
       if (newStatus === 'success' && props.nextStep) {
@@ -267,6 +303,7 @@ function OperationModal(props: OperationModalProps) {
 
     if (
       currentOp.status === 'success' ||
+      currentOp.status === 'warning' ||
       currentOp.status === 'error' ||
       currentOp.status === 'cancelled'
     ) {
@@ -336,15 +373,13 @@ function OperationModal(props: OperationModalProps) {
     }
   });
 
-  const handleCloseOrCancelPanel = (wasSuccessful: boolean) => {
+  const handleCloseOrCancelPanel = (status: OperationStatus | undefined) => {
     setIsClosing(true);
-    setOperationStatus(
-      operationId(),
-      wasSuccessful ? OperationStatus.Success : OperationStatus.Cancelled
-    );
+    const finalStatus = status === 'in-progress' || !status ? OperationStatus.Cancelled : status;
+    setOperationStatus(operationId(), finalStatus);
     setTimeout(() => {
       try {
-        props.onClose(operationId(), wasSuccessful);
+        props.onClose(operationId(), isSuccessfulStatus(finalStatus));
       } catch (error) {
         console.error('Error calling onClose:', error);
       }
@@ -380,8 +415,15 @@ function OperationModal(props: OperationModalProps) {
     if (currentOperation?.status === 'in-progress') {
       handleCancelOperation();
     } else {
-      handleCloseOrCancelPanel(currentOperation?.status === 'success');
+      handleCloseOrCancelPanel(currentOperation?.status);
     }
+  };
+
+  const getOperationResultStatus = (status: OperationStatus) => {
+    if (status === 'success') return 'success';
+    if (status === 'error') return 'error';
+    if (status === 'warning') return 'warning';
+    return 'in-progress';
   };
 
   const getCloseButtonText = () => {
@@ -403,12 +445,7 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: true,
         showIndicator: true,
         title: currentOperation.title,
-        result:
-          currentOperation.status === 'success'
-            ? 'success'
-            : currentOperation.status === 'error'
-              ? 'error'
-              : 'in-progress',
+        result: getOperationResultStatus(currentOperation.status),
       });
 
       // Start minimize animation with proper timing
@@ -429,12 +466,7 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: false,
         showIndicator: false,
         title: currentOperation.title,
-        result:
-          currentOperation.status === 'success'
-            ? 'success'
-            : currentOperation.status === 'error'
-              ? 'error'
-              : 'in-progress',
+        result: getOperationResultStatus(currentOperation.status),
       });
 
       toggleMinimize(operationId());
@@ -454,7 +486,7 @@ function OperationModal(props: OperationModalProps) {
     if (isClosing()) return;
     const currentOperation = operation();
     if (currentOperation) {
-      handleCloseOrCancelPanel(currentOperation.status === 'success');
+      handleCloseOrCancelPanel(currentOperation.status);
     }
   };
 
@@ -500,7 +532,8 @@ function OperationModal(props: OperationModalProps) {
               btn: true,
               'btn-error': currentOperation?.status === 'in-progress',
               'btn-primary': currentOperation?.status === 'success',
-              'btn-warning': currentOperation?.status === 'error',
+              'btn-warning':
+                currentOperation?.status === 'error' || currentOperation?.status === 'warning',
             }}
             onClick={handleMainButtonClick}
           >
@@ -544,6 +577,12 @@ function OperationModal(props: OperationModalProps) {
             <Show when={!currentOperation.result?.message}>
               <span>{getErrorMessage(currentOperation)}</span>
             </Show>
+          </div>
+        </Show>
+
+        <Show when={currentOperation?.status === 'warning'}>
+          <div class="status-alert status-alert-warning rounded-lg!">
+            <span>{getWarningMessage(currentOperation)}</span>
           </div>
         </Show>
 

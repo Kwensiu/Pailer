@@ -3,9 +3,7 @@ import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../types/scoop
 import Modal from '../common/Modal';
 import BucketInfoModal from './BucketInfoModal';
 import { useBuckets } from '../../hooks/useBuckets';
-import hljs from 'highlight.js/lib/core';
-
-import json from 'highlight.js/lib/languages/json';
+import { highlightJson } from '../../utils/jsonHighlight';
 import { Download, Ellipsis, FileText, ExternalLink, Trash2 } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
@@ -13,8 +11,7 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
 import { Dropdown } from '../common/Dropdown';
 import { searchCacheManager } from '../../hooks/useSearchCache';
-
-hljs.registerLanguage('json', json);
+import settingsStore from '../../stores/settings';
 
 interface PackageInfoModalProps {
   pkg?: ScoopPackage | null;
@@ -39,22 +36,37 @@ interface PackageInfoModalProps {
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
 function DetailValue(props: { value: string }) {
+  const { settings } = settingsStore;
+  const isDark = () => settings.theme === 'dark';
+
   const parsed = createMemo(() => {
     try {
-      const p = JSON.parse(props.value);
-      if (p && typeof p === 'object') {
-        return p;
+      // Try to parse as JSON
+      const parsed = JSON.parse(props.value);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return {
+          isJson: true,
+          formatted: highlightJson(parsed, isDark() ? 'dark' : 'light'),
+        };
       }
-    } catch (e) {
-      // Not a JSON object string
+    } catch {
+      // Not JSON, return as-is
     }
-    return null;
+    return {
+      isJson: false,
+      formatted: props.value,
+    };
   });
 
   let codeRef: HTMLElement | undefined;
   createEffect(() => {
     if (parsed() && codeRef) {
-      hljs.highlightElement(codeRef);
+      if (parsed().isJson) {
+        // Use built-in JSON highlighter
+        codeRef.innerHTML = parsed().formatted;
+      } else {
+        codeRef.textContent = parsed().formatted;
+      }
     }
 
     // Cleanup function to prevent memory leaks
@@ -69,12 +81,8 @@ function DetailValue(props: { value: string }) {
   });
 
   return (
-    <Show when={parsed()} fallback={<span class="wrap-break-word">{props.value}</span>}>
-      <pre class="bg-base-100 max-h-60 overflow-y-auto rounded-lg p-2 font-mono text-xs whitespace-pre-wrap">
-        <code ref={codeRef} class="language-json">
-          {JSON.stringify(parsed(), null, 2)}
-        </code>
-      </pre>
+    <Show when={parsed()}>
+      <code ref={codeRef} class="bg-transparent! font-mono text-sm leading-relaxed" />
     </Show>
   );
 }
@@ -328,7 +336,20 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
   createEffect(() => {
     if (props.info?.notes && codeRef) {
-      hljs.highlightElement(codeRef);
+      const { settings } = settingsStore;
+      const isDark = () => settings.theme === 'dark';
+
+      // Try to format as JSON if possible, otherwise use as-is
+      try {
+        const parsed = JSON.parse(props.info.notes);
+        if (typeof parsed === 'object' && parsed !== null) {
+          codeRef.innerHTML = highlightJson(parsed, isDark() ? 'dark' : 'light');
+        } else {
+          codeRef.textContent = props.info.notes;
+        }
+      } catch {
+        codeRef.textContent = props.info.notes;
+      }
 
       // Clean up highlight on effect dispose
       return () => {

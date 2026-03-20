@@ -5,10 +5,11 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 
 use lazy_static::lazy_static;
 use std::sync::RwLock;
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 
 lazy_static! {
     pub static ref POWERSHELL_EXE: RwLock<String> = RwLock::new("auto".to_string());
@@ -18,14 +19,38 @@ pub const EVENT_OUTPUT: &str = "operation-output";
 pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
 
-const STDOUT_ERROR_PATTERNS: &[&str] = &[
-    "error:", "failed", "fatal:", "exception:",
-    "access to the path", "denied", "permission denied",
-    "requires admin", "admin rights",
-    "remove-item", "remove item",
-    "cannot ", "unable to ", "not found",
-];
 
+fn contains_warning_keywords(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    // Keep this intentionally minimal and tool-agnostic.
+    // It is used only to raise a "warning" flag for successful commands.
+    let lower = trimmed.to_lowercase();
+    if lower.starts_with("warn") {
+        return true;
+    }
+    if lower.starts_with("error") {
+        return true;
+    }
+
+    // Common warning/error indicators (case-insensitive)
+    let indicators = [
+        "error:",
+        "warn",
+        "warning",
+        "not found",
+        "failed",
+        "cannot",
+        "unable to",
+        "denied",
+        "permission denied",
+        "access denied",
+    ];
+    indicators.iter().any(|&pat| lower.contains(pat))
+}
 
 /// Represents a line of output from a command, specifying its source (stdout or stderr).
 #[derive(Serialize, Clone)]
@@ -46,6 +71,8 @@ pub struct CommandResult {
     pub operation_name: String,
     #[serde(rename = "errorCount")]
     pub error_count: Option<usize>,
+    #[serde(rename = "warningCount")]
+    pub warning_count: Option<usize>,
     pub timestamp: u64,
 }
 
@@ -63,7 +90,12 @@ pub fn create_powershell_command(command_str: &str) -> Command {
     let mut cmd = Command::new(ps_exe);
 
     let wrapped_command = format!(
-        "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; {}",
+        "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; \
+        $env:TERM = 'xterm-256color'; \
+        $env:FORCE_COLOR = '1'; \
+        if ($PSStyle) {{ $PSStyle.OutputRendering = 'Ansi' }}; \
+        $ErrorView = 'NormalView'; \
+        {}",
         command_str
     );
 
@@ -112,12 +144,12 @@ pub fn is_powershell_available() -> bool {
 /// It also sends any lines that indicate an error to the `error_tx` channel.
 use tokio::io::AsyncRead;
 
-fn spawn_output_stream_handler(
+fn spawn_output_reader(
     stream: impl AsyncRead + Unpin + Send + 'static,
     source: &'static str,
     window: Window,
     output_event: String,
-    error_tx: mpsc::Sender<String>,
+    warning_count: Arc<AtomicUsize>,
     operation_id: String,
 ) {
     let mut reader = BufReader::new(stream).lines();
@@ -127,17 +159,8 @@ fn spawn_output_stream_handler(
         while let Ok(Some(line)) = reader.next_line().await {
             log::debug!("Output line [{}]: {}", source, line);
 
-            let is_error_line = if source == "stderr" {
-                true
-            } else {
-                let lower = line.to_lowercase();
-                STDOUT_ERROR_PATTERNS.iter().any(|&pat| lower.contains(pat))
-            };
-
-            if is_error_line {
-                let _ = error_tx.send(line.clone()).await.map_err(|e| {
-                    log::error!("error_tx send failed: {}", e);
-                });
+            if contains_warning_keywords(&line) {
+                warning_count.fetch_add(1, Ordering::Relaxed);
             }
 
             let _ = window.emit(
@@ -207,31 +230,38 @@ pub async fn run_and_stream_command(
         .take()
         .expect("Child process did not have a handle to stderr");
 
-    let (error_tx, mut error_rx) = mpsc::channel::<String>(100);
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
+    let warning_count = Arc::new(AtomicUsize::new(0));
 
     setup_cancellation_handler(&window, cancel_event, cancel_tx);
 
-    spawn_output_stream_handler(
+    spawn_output_reader(
         stdout,
         "stdout",
         window.clone(),
         output_event.to_string(),
-        error_tx.clone(),
+        warning_count.clone(),
         operation_id.clone(),
     );
-    spawn_output_stream_handler(
+    spawn_output_reader(
         stderr,
         "stderr",
         window.clone(),
         output_event.to_string(),
-        error_tx,
+        warning_count.clone(),
         operation_id.clone(),
     );
 
     tokio::select! {
         status_res = child.wait() => {
-            handle_command_completion(status_res, &operation_name, &window, finished_event, &mut error_rx, operation_id.clone()).await
+            handle_command_completion(
+                status_res,
+                &operation_name,
+                &window,
+                finished_event,
+                warning_count.clone(),
+                operation_id.clone(),
+            ).await
         },
         _ = cancel_rx => {
             handle_cancellation(child, &operation_name, &window, finished_event, operation_id.clone()).await
@@ -245,7 +275,7 @@ async fn handle_command_completion(
     operation_name: &str,
     window: &Window,
     finished_event: &str,
-    error_rx: &mut mpsc::Receiver<String>,
+    warning_count: Arc<AtomicUsize>,
     operation_id: String,
 ) -> Result<(), String> {
     let status = status_res.map_err(|e| {
@@ -256,26 +286,18 @@ async fn handle_command_completion(
     let success = status.success();
     log::info!("[{}] Completed: {} (success: {})", operation_id, operation_name, success);
 
-    // Collect all error messages
-    let mut error_messages = Vec::new();
-    while let Ok(error_line) = error_rx.try_recv() {
-        error_messages.push(error_line);
-    }
+    // Command is successful if process exits with code 0
+    let process_successful = status.success();
 
-    let has_errors = !error_messages.is_empty();
-    let was_successful = status.success() && !has_errors;
-    let error_count = if has_errors { Some(error_messages.len()) } else { None };
+    let warning_count = if process_successful {
+        let count = warning_count.load(Ordering::Relaxed);
+        if count > 0 { Some(count) } else { None }
+    } else {
+        None
+    };
 
-    // Log key error summary only if there are errors
-    if has_errors {
-        log::warn!("[{}] {} errors detected", operation_id, error_messages.len());
-        for (i, msg) in error_messages.iter().take(3).enumerate() {
-            log::warn!("[{}] Error {}: {}", operation_id, i + 1, msg);
-        }
-        if error_messages.len() > 3 {
-            log::warn!("[{}] ... and {} more errors", operation_id, error_messages.len() - 3);
-        }
-    }
+    let was_successful = process_successful;
+    let error_count: Option<usize> = None;
 
     if let Err(e) = window.emit(
         finished_event,
@@ -283,6 +305,7 @@ async fn handle_command_completion(
             success: was_successful,
             operation_name: operation_name.to_string(),
             error_count: error_count,
+            warning_count: warning_count,
             operation_id: operation_id,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -322,6 +345,7 @@ async fn handle_cancellation(
             success: false,
             operation_name: operation_name.to_string(),
             error_count: Some(0), // Cancelled operation, not an error
+            warning_count: Some(0), // No warnings for cancelled operations
             operation_id: operation_id,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

@@ -1,5 +1,5 @@
 import { createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
-import { CircleCheckBig, CircleX, LoaderCircle } from 'lucide-solid';
+import { CircleCheckBig, CircleX, LoaderCircle, AlertTriangle } from 'lucide-solid';
 import { useOperations } from '../../stores/operations';
 import type { MinimizedIndicatorProps } from '../../types/operations';
 import { t } from '../../i18n';
@@ -12,6 +12,8 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
         return <LoaderCircle class="h-4 w-4 animate-spin text-blue-500" />;
       case 'success':
         return <CircleCheckBig class="text-success h-4 w-4" />;
+      case 'warning':
+        return <AlertTriangle class="text-warning h-4 w-4" />;
       case 'error':
         return <CircleX class="text-error h-4 w-4" />;
       case 'cancelled':
@@ -27,6 +29,8 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
         return t('status.inProgress');
       case 'success':
         return t('status.completed');
+      case 'warning':
+        return t('status.warning');
       case 'error':
         return t('status.failed');
       case 'cancelled':

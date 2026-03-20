@@ -23,6 +23,7 @@ export type OutputSource =
 export enum OperationStatus {
   InProgress = 'in-progress',
   Success = 'success',
+  Warning = 'warning',
   Error = 'error',
   Cancelled = 'cancelled',
 }
@@ -86,6 +87,7 @@ export interface OperationResult {
   success: boolean;
   operationName: string;
   errorCount?: number;
+  warningCount?: number;
   message?: string;
   timestamp: Timestamp;
 }

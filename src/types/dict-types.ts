@@ -370,6 +370,7 @@ export interface Dict {
   };
   operation: {
     completed: string;
+    withWarnings: string;
     failed: {
       cancelled: string;
       generic: string;
@@ -738,7 +739,11 @@ export interface Dict {
   };
   status: {
     error: string;
+    completed: string;
+    failed: string;
     inProgress: string;
+    cancelled: string;
+    warning: string;
     loading: string;
   };
   virustotal: {

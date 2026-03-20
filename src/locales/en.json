@@ -369,7 +369,8 @@
     "title": "No packages found"
   },
   "operation": {
-    "completed": "Operation completed successfully",
+    "completed": "{{name}} completed successfully",
+    "withWarnings": "{{name}} completed, but with warnings that require attention",
     "failed": {
       "cancelled": "{{name}} operation cancelled",
       "generic": "{{name}} operation failed",
@@ -738,7 +739,11 @@
   },
   "status": {
     "error": "Error",
+    "completed": "Completed",
+    "failed": "Failed",
     "inProgress": "In Progress",
+    "cancelled": "Cancelled",
+    "warning": "Warning",
     "loading": "Loading..."
   },
   "virustotal": {

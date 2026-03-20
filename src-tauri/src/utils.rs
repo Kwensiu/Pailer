@@ -1,4 +1,5 @@
 use crate::commands::settings;
+use crate::commands::powershell;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
@@ -903,4 +904,33 @@ pub fn extract_bucket_name_from_url(
     } else {
         Err("Could not extract bucket name from URL. Please provide a name.".to_string())
     }
+}
+
+/// Execute a custom command with operation tracking
+#[tauri::command]
+pub async fn execute_custom_command(
+    window: tauri::Window,
+    command: String,
+    operation_id: String,
+) -> Result<(), String> {
+    if !cfg!(debug_assertions) {
+        return Err("Custom command execution is only available in debug builds".to_string());
+    }
+
+    log::info!("[{}] Executing custom command: {}", operation_id, command);
+
+    // Create operation name before moving command
+    let operation_name = format!("Custom Command: {}", command);
+
+    // Use the existing PowerShell execution system
+    powershell::run_and_stream_command(
+        window,
+        command,
+        operation_name,
+        powershell::EVENT_OUTPUT,
+        powershell::EVENT_FINISHED,
+        powershell::EVENT_CANCEL,
+        operation_id,
+    )
+    .await
 }

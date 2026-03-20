@@ -3,10 +3,6 @@ import { BucketInfo } from '../../hooks/useBuckets';
 import { SearchableBucket } from '../../hooks/useBucketSearch';
 import { useBucketInstall } from '../../hooks/useBucketInstall';
 import { clearManifestCache } from '../../hooks/useBuckets';
-import hljs from 'highlight.js/lib/core';
-
-import bash from 'highlight.js/lib/languages/bash';
-import json from 'highlight.js/lib/languages/json';
 import {
   Ellipsis,
   GitBranch,
@@ -24,9 +20,6 @@ import { openUrl, openPath } from '@tauri-apps/plugin-opener';
 import settingsStore from '../../stores/settings';
 import { t } from '../../i18n';
 import { formatBucketDate } from '../../utils/date';
-
-hljs.registerLanguage('bash', bash);
-hljs.registerLanguage('json', json);
 
 interface BucketInfoModalProps {
   bucket: BucketInfo | null;

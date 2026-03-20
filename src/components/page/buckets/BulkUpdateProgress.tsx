@@ -12,7 +12,7 @@ export interface BulkUpdateResult {
 }
 
 export interface BulkUpdateState {
-  status: 'idle' | 'updating' | 'completed' | 'error' | 'cancelled';
+  status: 'idle' | 'updating' | 'completed' | 'warning' | 'error' | 'cancelled';
   current: number;
   total: number;
   message: string;

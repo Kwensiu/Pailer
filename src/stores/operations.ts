@@ -67,19 +67,21 @@ const operationsStore = createRoot(() => {
             const payload = event.payload as any;
             const operationId = payload.operationId ?? payload.operation_id;
 
-            if (operationId && operations[operationId]) {
+            if (operationId) {
               const currentOp = operations[operationId];
-              const currentOutput = currentOp.output || [];
-              const lastLine =
-                currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
+              if (currentOp) {
+                const currentOutput = currentOp.output || [];
+                const lastLine =
+                  currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
 
-              if (lastLine !== payload.line) {
-                addOperationOutput(operationId, {
-                  operationId,
-                  line: payload.line,
-                  source: payload.source,
-                  message: payload.message,
-                });
+                if (lastLine !== payload.line) {
+                  addOperationOutput(operationId, {
+                    operationId,
+                    line: payload.line,
+                    source: payload.source,
+                    message: payload.message,
+                  });
+                }
               }
             }
           });
@@ -110,6 +112,7 @@ const operationsStore = createRoot(() => {
               success: !!payload.success,
               operationName: payload.operationName ?? payload.operation_name ?? '',
               errorCount: payload.errorCount ?? payload.error_count,
+              warningCount: payload.warningCount ?? payload.warning_count,
               message: payload.message,
               timestamp: (() => {
                 const ts = payload.timestamp;
@@ -214,26 +217,37 @@ const operationsStore = createRoot(() => {
       const timestamp = Date.now();
       const newOutput: OperationOutput = { ...output, timestamp };
 
-      setOperations(operationId, 'output', (prev = []) => {
+      setOperations(operationId, 'output', (prev) => {
+        const current = prev || [];
         // Use more reasonable limits to avoid excessive memory usage
         const MAX_OUTPUT_LINES = 500;
         const KEEP_LINES_AFTER_TRIM = 200;
 
-        if (prev.length >= MAX_OUTPUT_LINES) {
+        if (current.length >= MAX_OUTPUT_LINES) {
           // Keep more history to avoid losing important intermediate logs
-          const updated = prev.slice(-KEEP_LINES_AFTER_TRIM);
+          const updated = current.slice(-KEEP_LINES_AFTER_TRIM);
           updated.push(newOutput);
           return updated;
         }
         // Add directly in normal cases
-        return [...prev, newOutput];
+        return [...current, newOutput];
       });
     };
 
     // Set operation result
     const setOperationResult = (operationId: string, result: OperationResult) => {
+      let status: OperationStatusEnum;
+
+      if (!result.success) {
+        status = OperationStatusEnum.Error;
+      } else if (result.warningCount && result.warningCount > 0) {
+        status = OperationStatusEnum.Warning;
+      } else {
+        status = OperationStatusEnum.Success;
+      }
+
       updateOperation(operationId, {
-        status: result.success ? OperationStatusEnum.Success : OperationStatusEnum.Error,
+        status,
         result,
       });
     };
@@ -357,6 +371,7 @@ const operationsStore = createRoot(() => {
       Object.entries(operations).forEach(([id, operation]) => {
         if (
           (operation.status === OperationStatusEnum.Success ||
+            operation.status === OperationStatusEnum.Warning ||
             operation.status === OperationStatusEnum.Error) &&
           now - operation.updatedAt > cleanupThreshold
         ) {

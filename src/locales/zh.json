@@ -369,7 +369,8 @@
     "title": "未找到软件包"
   },
   "operation": {
-    "completed": "操作成功",
+    "completed": "{{name}} 操作成功",
+    "withWarnings": "{{name}} 操作完成，但是存在需要注意的警告信息",
     "failed": {
       "cancelled": "{{name}} 操作已取消",
       "generic": "{{name}} 操作失败",
@@ -738,7 +739,11 @@
   },
   "status": {
     "error": "错误",
+    "completed": "已完成",
+    "failed": "失败",
     "inProgress": "运行中...",
+    "cancelled": "已取消",
+    "warning": "警告",
     "loading": "加载中..."
   },
   "virustotal": {

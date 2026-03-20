@@ -31,6 +31,7 @@ const DebugModal = () => {
   // Development-only state for tool tab
   const [operationId, setOperationId] = createSignal<string | undefined>(undefined);
   const [showScoopConfigWizard, setShowScoopConfigWizard] = createSignal(false);
+  const [customCommand, setCustomCommand] = createSignal('scoop status');
   const { addOperation, generateOperationId, addOperationOutput, setOperationStatus } =
     useOperations();
 
@@ -81,6 +82,40 @@ const DebugModal = () => {
 
     await copyToClipboard(JSON.stringify(data, null, 2));
     info('Full debug data copied to clipboard');
+  };
+
+  const executeCustomCommand = async () => {
+    const command = customCommand().trim();
+    if (!command) {
+      toast.warning('Please enter a command to execute');
+      return;
+    }
+
+    const id = generateOperationId('custom-command');
+    setOperationId(id);
+
+    addOperation({
+      id: id,
+      title: `Custom Command: ${command}`,
+      status: OperationStatus.InProgress,
+      isMinimized: false,
+      output: [],
+      isScan: true,
+    });
+
+    try {
+      await invoke('execute_custom_command', {
+        command: command,
+        operationId: id,
+      });
+    } catch (error) {
+      console.error('Failed to execute custom command:', error);
+      addOperationOutput(id, {
+        operationId: id,
+        line: `Failed to invoke command: ${error}`,
+        source: 'stderr',
+      });
+    }
   };
 
   return (
@@ -237,6 +272,36 @@ const DebugModal = () => {
           {/* Tool Tab - Development Only */}
           <Show when={import.meta.env.DEV && activeTab() === 'tool'}>
             <div class="space-y-4">
+              <div class="space-y-2">
+                <h4 class="font-medium">Custom Command Execution</h4>
+                <div class="space-y-2">
+                  <div class="flex gap-2">
+                    <input
+                      type="text"
+                      class="input input-bordered flex-1 text-sm"
+                      placeholder="Enter command (e.g., scoop status, scoop list)"
+                      value={customCommand()}
+                      onInput={(e) => setCustomCommand(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          executeCustomCommand();
+                        }
+                      }}
+                    />
+                    <button
+                      class="btn btn-primary"
+                      onClick={executeCustomCommand}
+                      disabled={!customCommand().trim()}
+                    >
+                      Execute
+                    </button>
+                  </div>
+                  <div class="text-base-content/60 text-xs">
+                    Examples: scoop status, scoop list, scoop search python, Get-Process
+                  </div>
+                </div>
+              </div>
+
               <div class="space-y-2">
                 <h4 class="font-medium">Operation Modal Test</h4>
                 <div class="grid grid-cols-2 gap-2">
