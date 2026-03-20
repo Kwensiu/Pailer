@@ -17,6 +17,7 @@ pub mod manifest;
 pub mod powershell;
 pub mod scoop;
 pub mod search;
+pub mod self_update;
 pub mod settings;
 pub mod startup;
 pub mod status;

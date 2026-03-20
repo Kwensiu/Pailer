@@ -19,11 +19,6 @@ mod config_keys {
     pub const TRAY_APPS_LIST: &str = "tray.appsList";
 }
 
-// Application constants
-mod app_constants {
-    // No constants needed since we don't use default paths
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Set up panic handler for better crash reporting
@@ -174,6 +169,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::search::search_scoop,
+            commands::self_update::update_pailer_self,
+            commands::self_update::can_self_update,
             commands::installed::get_installed_packages_full,
             commands::installed::refresh_installed_packages,
             commands::installed::get_package_path,

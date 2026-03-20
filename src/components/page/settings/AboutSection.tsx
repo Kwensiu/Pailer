@@ -64,9 +64,12 @@ export default function AboutSection(props: AboutSectionProps) {
             </div>
             <div class="flex items-center">
               {props.isScoopInstalled && (
-                <span class="badge badge-sm badge-info badge-outline mr-2">
+                <button
+                  class="btn btn-xs bg-info/20 text-info border-info/30 hover:bg-info/30 dark:bg-info/30 dark:text-info"
+                  disabled
+                >
                   {t('settings.about.managedByScoop')}
-                </span>
+                </button>
               )}
               {!props.isScoopInstalled && (
                 <>
@@ -103,10 +106,8 @@ export default function AboutSection(props: AboutSectionProps) {
           </div>
 
           {props.isScoopInstalled ? (
-            <div class="alert alert-info text-sm shadow-sm">
-              <span>
-                {t('settings.about.scoopUpdateInstruction', { code: 'scoop update pailer' })}
-              </span>
+            <div class="alert status-alert-info text-sm shadow-sm">
+              <span>{t('settings.about.scoopUpdateInstruction')}</span>
             </div>
           ) : (
             <div class="space-y-4">

@@ -11,7 +11,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   children: any;
   onDelete?: () => void;
-  type?: 'default' | 'version-management' | 'cleanup-all-versions';
+  type?: 'default' | 'version-management' | 'cleanup-all-versions' | 'pailer-update';
 }
 
 // Footer configuration system
@@ -53,6 +53,17 @@ const footerConfigs = {
       </button>
     </div>
   ),
+
+  'pailer-update': (props: ConfirmationModalProps) => (
+    <div class="flex w-full justify-end gap-2">
+      <button class="btn-close-outline flex-1" onClick={props.onCancel}>
+        {props.cancelText || t('buttons.cancel')}
+      </button>
+      <button class="btn btn-info flex-1" onClick={props.onConfirm}>
+        {props.confirmText || t('buttons.confirm')}
+      </button>
+    </div>
+  ),
 } as const;
 
 function ConfirmationModal(props: ConfirmationModalProps) {
@@ -70,7 +81,7 @@ function ConfirmationModal(props: ConfirmationModalProps) {
       class="w-auto! max-w-lg min-w-xs"
       footer={footer()}
     >
-      <div class="space-y-2 py-4">{props.children}</div>
+      <div class="space-y-2">{props.children}</div>
     </Modal>
   );
 }

@@ -20,12 +20,29 @@ pub struct ScoopAppShortcut {
 
 /// Checks if the application is installed via Scoop
 pub fn is_scoop_installation() -> bool {
+    // Development mode override with additional safety checks
+    #[cfg(debug_assertions)]
+    {
+        if std::env::var("DEV").map(|v| v == "1").unwrap_or(false) {
+            // Extra safety: only allow bypass in specific development scenarios
+            if cfg!(feature = "dev-self-update") {
+                log::warn!("⚠️  DEV=1 detected - BYPASSING Scoop installation check!");
+                log::warn!("⚠️  This is a DEVELOPMENT-ONLY feature and should NEVER happen in production!");
+                return true;
+            } else {
+                log::warn!("⚠️  DEV=1 detected but dev-self-update feature not enabled, using normal check");
+            }
+        }
+    }
+    
+    // Original detection logic
     if let Ok(exe_path) = env::current_exe() {
         let path_str = exe_path.to_string_lossy().to_lowercase();
-        let result = path_str.contains("scoop") && path_str.contains("apps") && path_str.contains("pailer");
-        result
+        let is_scoop = path_str.contains("scoop") && path_str.contains("apps") && path_str.contains("pailer");
+        log::debug!("Scoop installation check: path={}, result={}", exe_path.display(), is_scoop);
+        is_scoop
     } else {
-        log::info!("is_scoop_installation check: failed to get current exe path");
+        log::warn!("Failed to get current executable path for Scoop installation check");
         false
     }
 }

@@ -2,25 +2,15 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 
+// Language configuration constants
+pub const SUPPORTED_LOCALES: &[&str] = &["en", "zh"];
+pub const DEFAULT_LANGUAGE: &str = "en";
+
 static TRAY_STRINGS: std::sync::OnceLock<Mutex<HashMap<String, Value>>> = std::sync::OnceLock::new();
 static TRAY_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 fn get_tray_strings_cache() -> &'static Mutex<HashMap<String, Value>> {
     TRAY_STRINGS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn get_default_tray_strings() -> Value {
-    serde_json::json!({
-        "show": "Show Pailer",
-        "hide": "Hide Pailer",
-        "refreshApps": "Refresh Apps",
-        "scoopApps": "Scoop Apps",
-        "quit": "Quit",
-        "notificationTitle": "Pailer - Minimized to Tray",
-        "notificationMessage": "Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior\n\nWhat would you like to do?",
-        "closeAndDisable": "Close and Disable Tray",
-        "keepInTray": "Keep in Tray"
-    })
 }
 
 pub fn get_tray_locale_strings(language: &str) -> Result<Value, String> {
@@ -31,12 +21,12 @@ pub fn get_tray_locale_strings(language: &str) -> Result<Value, String> {
             if let Some(cached) = strings.get(language) {
                 return Ok(cached.clone());
             }
-            log::debug!("No tray strings cached for language: {}, using defaults", language);
-            Ok(get_default_tray_strings())
+            log::debug!("No tray strings cached for language: {}", language);
+            Err("No cached strings found".to_string())
         }
         Err(e) => {
-            log::error!("Failed to acquire tray strings lock: {:?}, using defaults", e);
-            Ok(get_default_tray_strings())
+            log::error!("Failed to acquire tray strings lock: {:?}", e);
+            Err("Failed to acquire lock".to_string())
         }
     }
 }

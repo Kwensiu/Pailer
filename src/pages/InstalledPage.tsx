@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
+import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { useInstalledPackages } from '../hooks/useInstalledPackages';
 import { usePackageOperations } from '../hooks/usePackageOperations';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
@@ -66,7 +67,13 @@ function InstalledPage(props: InstalledPageProps) {
     buckets,
   } = useInstalledPackages();
 
-  const { handleInstall } = usePackageOperations();
+  const {
+    handleInstall,
+    pailerUpdateConfirmOpen,
+    pailerUpdateType,
+    handlePailerUpdateConfirm,
+    handlePailerUpdateCancel,
+  } = usePackageOperations();
 
   const [searchQuery, setSearchQuery] = createSignal<string>(
     sessionStorage.getItem('installedSearchQuery') || ''
@@ -338,6 +345,42 @@ function InstalledPage(props: InstalledPageProps) {
           }}
         />
       </Show>
+
+      {/* Pailer Self-Update Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={pailerUpdateConfirmOpen()}
+        title={t(
+          pailerUpdateType() === 'force-update'
+            ? 'pailerUpdate.forceUpdateTitle'
+            : 'pailerUpdate.updateTitle'
+        )}
+        onConfirm={handlePailerUpdateConfirm}
+        onCancel={handlePailerUpdateCancel}
+        confirmText={t('pailerUpdate.updateButton')}
+        cancelText={t('buttons.cancel')}
+        type="pailer-update"
+      >
+        <div class="space-y-4">
+          <div class="bg-base-200 border-base-300 rounded-lg border p-4">
+            <div class="text-base-content/80 space-y-2 text-sm">
+              <div class="text-base-content/90 mb-3 font-medium">
+                {t('pailerUpdate.updateSteps').split('\n')[0]}
+              </div>
+              <ul class="ml-2 list-inside list-disc space-y-2">
+                {t('pailerUpdate.updateSteps')
+                  .split('\n')
+                  .slice(1)
+                  .map((step: string) => (
+                    <li class="flex items-start gap-2">
+                      <span class="bg-primary/60 mt-2 inline-block h-2 w-2 shrink-0 rounded-full"></span>
+                      <span class="flex-1">{step.replace(/^\d+\.\s*/, '')}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </ConfirmationModal>
     </div>
   );
 }
