@@ -1,4 +1,4 @@
-import { For, Show, Accessor, Setter, createSignal, createEffect, onCleanup } from 'solid-js';
+import { For, Show, createSignal, createEffect, onCleanup, Accessor, Setter } from 'solid-js';
 import {
   Funnel,
   LayoutGrid,
@@ -14,7 +14,7 @@ import { t } from '../../../i18n';
 import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
 import { VersionTypeFilter } from '../../../types/scoop';
 
-const isValidVersionType = (value: string): value is VersionTypeFilter => 
+const isValidVersionType = (value: string): value is VersionTypeFilter =>
   ['all', 'versioned', 'held'].includes(value);
 
 interface InstalledHeaderProps {
@@ -43,9 +43,36 @@ interface InstalledHeaderProps {
 }
 
 function InstalledPageHeader(props: InstalledHeaderProps) {
+  const [filterDropdownOpen, setFilterDropdownOpen] = createSignal(false);
   let searchInputRef: HTMLInputElement | undefined;
   let focusTimeoutId: ReturnType<typeof setTimeout> | undefined;
   const [isExpanded, setIsExpanded] = createSignal(false);
+
+  const handleFilterKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFilterDropdownOpen(!filterDropdownOpen());
+    }
+  };
+
+  const handleFilterClick = () => {
+    setFilterDropdownOpen(!filterDropdownOpen());
+  };
+
+  // Close dropdown when clicking outside
+  createEffect(() => {
+    if (!filterDropdownOpen()) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.filter-dropdown-container')) {
+        setFilterDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClick);
+    onCleanup(() => document.removeEventListener('click', handleClick));
+  });
 
   useGlobalSearchHotkey({
     shouldClear: () => props.searchQuery().length > 0,
@@ -195,62 +222,71 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         {/* Filters and View Toggle Group */}
         <div class="join">
           {/* Filters Dropdown */}
-          <div class="dropdown dropdown-center z-10">
+          <div class="filter-dropdown-container dropdown dropdown-center">
             <button
-              tabindex="0"
               class="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom"
               data-tip={t('installed.header.filter')}
+              onClick={handleFilterClick}
+              onKeyDown={handleFilterKeyDown}
+              aria-expanded={filterDropdownOpen()}
+              aria-haspopup="menu"
             >
               <Funnel class="h-4 w-4" />
             </button>
-            <div tabindex="0" class="mt-2 mr-6 dropdown-content menu z-10 dropdown-filter-menu p-4 bg-base-100 rounded-box border border-base-200 shadow-lg">
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">{t('installed.header.bucketLabel')}</span>
-                </label>
-                <select
-                  class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
-                  value={props.selectedBucket()}
-                  onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
-                >
-                  <For each={props.uniqueBuckets()}>
-                    {(bucket) => (
-                      <option value={bucket}>
-                        {bucket === 'all' ? t('installed.header.allBuckets') : bucket}
-                      </option>
-                    )}
-                  </For>
-                </select>
-              </div>
-              <div class="form-control mt-2">
-                <label class="label">
-                  <span class="label-text">{t('installed.header.versionTypeLabel')}</span>
-                </label>
-                <select
-                  class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
-                  value={props.selectedVersionType()}
-                  onChange={(e) => {
-                    const value = e.currentTarget.value;
-                    if (isValidVersionType(value)) {
-                      props.setSelectedVersionType(value);
-                    }
+            <Show when={filterDropdownOpen()}>
+              <div class="dropdown-content menu bg-base-100 rounded-box border-base-200 mt-3 mr-6 w-50 border p-4 shadow-lg">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
+                      {t('installed.header.bucketLabel')}
+                    </span>
+                  </label>
+                  <select
+                    class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
+                    value={props.selectedBucket()}
+                    onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
+                  >
+                    <For each={props.uniqueBuckets()}>
+                      {(bucket) => (
+                        <option value={bucket}>
+                          {bucket === 'all' ? t('installed.header.allBuckets') : bucket}
+                        </option>
+                      )}
+                    </For>
+                  </select>
+                </div>
+                <div class="form-control mt-3">
+                  <label class="label">
+                    <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
+                      {t('installed.header.versionTypeLabel')}
+                    </span>
+                  </label>
+                  <select
+                    class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
+                    value={props.selectedVersionType()}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      if (isValidVersionType(value)) {
+                        props.setSelectedVersionType(value);
+                      }
+                    }}
+                  >
+                    <option value="all">{t('installed.header.allVersionTypes')}</option>
+                    <option value="versioned">{t('installed.header.versionedSoftware')}</option>
+                    <option value="held">{t('installed.header.heldPackages')}</option>
+                  </select>
+                </div>
+                <button
+                  class="btn btn-soft btn-warning mt-4 h-8 w-full rounded-lg"
+                  onClick={() => {
+                    props.setSelectedBucket('all');
+                    props.setSelectedVersionType('all');
                   }}
                 >
-                  <option value="all">{t('installed.header.allVersionTypes')}</option>
-                  <option value="versioned">{t('installed.header.versionedSoftware')}</option>
-                  <option value="held">{t('installed.header.heldPackages')}</option>
-                </select>
+                  {t('installed.header.resetFilters')}
+                </button>
               </div>
-              <button
-                class="btn btn-soft btn-warning rounded-lg mt-4 w-full h-8"
-                onClick={() => {
-                  props.setSelectedBucket('all');
-                  props.setSelectedVersionType('all');
-                }}
-              >
-                {t('installed.header.resetFilters')}
-              </button>
-            </div>
+            </Show>
           </div>
 
           {/* View Toggle Button */}

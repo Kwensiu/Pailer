@@ -51,18 +51,7 @@ export function Dropdown(props: DropdownProps) {
     }
   };
 
-  const getSizeClass = () => {
-    switch (props.size) {
-      case 'sm':
-        return 'w-40';
-      case 'md':
-        return 'w-52';
-      case 'lg':
-        return 'w-64';
-      default:
-        return '';
-    }
-  };
+  const defaultContentClass = `p-2 border border-base-200 shadow`;
 
   const getAlignClass = (align?: 'start' | 'center' | 'end') => {
     switch (align) {
@@ -76,8 +65,6 @@ export function Dropdown(props: DropdownProps) {
         return 'justify-start';
     }
   };
-
-  const defaultContentClass = `p-2 border border-base-200 shadow ${props.size ? getSizeClass() : ''}`;
 
   const toggleDropdown = () => setIsOpen(!isOpen());
   const closeDropdown = () => setIsOpen(false);

@@ -226,17 +226,19 @@ function InstalledPage(props: InstalledPageProps) {
           <h3 class="mb-2 text-2xl font-bold">{t('noPackagesFound.title')}</h3>
           <p class="text-base-content/70 mb-6 max-w-md text-lg">
             <Show
-              when={
-                searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'
-              }
+              when={searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'}
             >
               {t('noPackagesFound.noMatchCriteria')}
             </Show>
-            <Show when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}>
+            <Show
+              when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}
+            >
               {t('noPackagesFound.noInstalledYet')}
             </Show>
           </p>
-          <Show when={searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'}>
+          <Show
+            when={searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'}
+          >
             <button
               class="btn btn-primary mb-4"
               onClick={() => {
@@ -248,7 +250,9 @@ function InstalledPage(props: InstalledPageProps) {
               {t('noPackagesFound.clearFilters')}
             </button>
           </Show>
-          <Show when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}>
+          <Show
+            when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}
+          >
             <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
               {t('noPackagesFound.browsePackages')}
             </button>
@@ -266,6 +270,7 @@ function InstalledPage(props: InstalledPageProps) {
               onViewInfo={handleFetchPackageInfo}
               onViewInfoForVersions={handleFetchPackageInfoForVersions}
               onUpdate={handleUpdate}
+              onOpenFolder={handleOpenFolder}
               onHold={handleHold}
               onUnhold={handleUnhold}
               onUninstall={handleUninstall}
