@@ -519,19 +519,26 @@ function BucketPage() {
 
       {/* Modals */}
       <Show when={selectedBucket()}>
-        <BucketInfoModal
-          bucket={selectedBucket()!}
-          description={selectedBucketDescription()}
-          manifests={manifests()}
-          manifestsLoading={manifestsLoading()}
-          error={null}
-          searchBucket={selectedSearchBucket() || undefined}
-          onClose={closeModal}
-          onPackageClick={handlePackageClick}
-          onBucketInstalled={handleBucketInstalled}
-          onFetchManifests={(bucketName: string) => handleFetchManifests(bucketName)}
-          onBucketUpdated={handleBucketUpdated}
-        />
+        {(() => {
+          const bucket = selectedBucket()!;
+          const searchBucket = selectedSearchBucket();
+
+          return (
+            <BucketInfoModal
+              bucket={bucket}
+              description={selectedBucketDescription()}
+              manifests={manifests()}
+              manifestsLoading={manifestsLoading()}
+              error={null}
+              searchBucket={searchBucket || undefined}
+              onClose={closeModal}
+              onPackageClick={handlePackageClick}
+              onBucketInstalled={handleBucketInstalled}
+              onFetchManifests={(bucketName: string) => handleFetchManifests(bucketName)}
+              onBucketUpdated={handleBucketUpdated}
+            />
+          );
+        })()}
       </Show>
 
       <PackageInfoModal

@@ -321,29 +321,35 @@ function InstalledPage(props: InstalledPageProps) {
       />
 
       <Show when={selectedBucketForInfo()}>
-        <BucketInfoModal
-          bucket={buckets().find((b: any) => b.name === selectedBucketForInfo()) || null}
-          manifests={bucketManifests()}
-          manifestsLoading={bucketManifestsLoading()}
-          error={bucketManifestsError()}
-          zIndex="z-[70]"
-          fromPackageModal={true}
-          onClose={() => {
-            setSelectedBucketForInfo(null);
-            setBucketManifests([]);
-            setBucketManifestsError(null);
-          }}
-          onPackageClick={async (packageName: string) => {
-            // Use the shared hook for consistent behavior
-            await handleBucketPackageClick(
-              packageName,
-              selectedBucketForInfo()!,
-              async (pkg) => handleFetchPackageInfo(pkg),
-              undefined, // Don't close bucket modal
-              processedPackages() // Pass installed packages list
-            );
-          }}
-        />
+        {(() => {
+          const bucket = buckets().find((b: any) => b.name === selectedBucketForInfo());
+
+          return (
+            <BucketInfoModal
+              bucket={bucket || null}
+              manifests={bucketManifests()}
+              manifestsLoading={bucketManifestsLoading()}
+              error={bucketManifestsError()}
+              zIndex="z-[70]"
+              fromPackageModal={true}
+              onClose={() => {
+                setSelectedBucketForInfo(null);
+                setBucketManifests([]);
+                setBucketManifestsError(null);
+              }}
+              onPackageClick={async (packageName: string) => {
+                // Use the shared hook for consistent behavior
+                await handleBucketPackageClick(
+                  packageName,
+                  selectedBucketForInfo()!,
+                  async (pkg) => handleFetchPackageInfo(pkg),
+                  undefined, // Don't close bucket modal
+                  processedPackages() // Pass installed packages list
+                );
+              }}
+            />
+          );
+        })()}
       </Show>
 
       {/* Pailer Self-Update Confirmation Modal */}

@@ -130,7 +130,7 @@ export interface Dict {
     localDirectory: string;
     name: string;
     noPackagesFound: string;
-    openInExplorer: string;
+    openFolder: string;
     packages: string;
     packagesCount: string;
     path: string;
@@ -155,6 +155,7 @@ export interface Dict {
     copyToClipboard: string;
     delete: string;
     deleteDirectly: string;
+    forceUpdate: string;
     goToBuckets: string;
     install: string;
     later: string;
@@ -370,13 +371,13 @@ export interface Dict {
   };
   operation: {
     completed: string;
-    withWarnings: string;
     failed: {
       cancelled: string;
       generic: string;
       withErrors: string;
     };
     updateAllSuccess: string;
+    withWarnings: string;
   };
   packageInfo: {
     backToBucket: string;
@@ -407,7 +408,7 @@ export interface Dict {
     latestVersion: string;
     license: string;
     name: string;
-    openInExplorer: string;
+    openFolder: string;
     success: {
       forceUpdate: string;
       install: string;
@@ -694,6 +695,7 @@ export interface Dict {
       darkMode: string;
       description: string;
       lightMode: string;
+      systemMode: string;
       title: string;
     };
     title: string;
@@ -738,13 +740,13 @@ export interface Dict {
     };
   };
   status: {
-    error: string;
+    cancelled: string;
     completed: string;
+    error: string;
     failed: string;
     inProgress: string;
-    cancelled: string;
-    warning: string;
     loading: string;
+    warning: string;
   };
   virustotal: {
     apiKeyMissing: string;

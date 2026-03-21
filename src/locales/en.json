@@ -129,8 +129,8 @@
     "loadingPackages": "Loading packages...",
     "localDirectory": "Local Directory",
     "name": "Name",
-    "noPackagesFound": "No packages found",
-    "openInExplorer": "Open in Explorer",
+    "noPackagesFound": "No valid packages found",
+    "openFolder": "Open Folder",
     "packages": "Packages",
     "packagesCount": "packages",
     "path": "Path",
@@ -155,6 +155,7 @@
     "copyToClipboard": "Copy to clipboard",
     "delete": "Delete",
     "deleteDirectly": "Delete Directly",
+    "forceUpdate": "Force Update",
     "goToBuckets": "Go to bucket",
     "install": "Install",
     "later": "Later",
@@ -370,13 +371,13 @@
   },
   "operation": {
     "completed": "{{name}} completed successfully",
-    "withWarnings": "{{name}} completed, but with warnings that require attention",
     "failed": {
       "cancelled": "{{name}} operation cancelled",
       "generic": "{{name}} operation failed",
       "withErrors": "{{name}} operation failed with {{count}} errors"
     },
-    "updateAllSuccess": "All packages updated successfully"
+    "updateAllSuccess": "All packages updated successfully",
+    "withWarnings": "{{name}} completed, but with warnings that require attention"
   },
   "packageInfo": {
     "backToBucket": "Back to Bucket",
@@ -407,7 +408,7 @@
     "latestVersion": "Latest Version",
     "license": "License",
     "name": "Name",
-    "openInExplorer": "Open in Explorer",
+    "openFolder": "Open Folder",
     "success": {
       "forceUpdate": "{{name}} force updated successfully",
       "install": "{{name}} installed successfully",
@@ -739,13 +740,13 @@
     }
   },
   "status": {
-    "error": "Error",
+    "cancelled": "Cancelled",
     "completed": "Completed",
+    "error": "Error",
     "failed": "Failed",
     "inProgress": "In Progress",
-    "cancelled": "Cancelled",
-    "warning": "Warning",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "warning": "Warning"
   },
   "virustotal": {
     "apiKeyMissing": "VirusTotal API key not configured",

@@ -129,8 +129,8 @@
     "loadingPackages": "正在加载软件包...",
     "localDirectory": "本地目录",
     "name": "名称",
-    "noPackagesFound": "未找到软件包",
-    "openInExplorer": "在资源管理器中打开",
+    "noPackagesFound": "未找到有效软件包",
+    "openFolder": "打开文件夹",
     "packages": "软件包",
     "packagesCount": "个软件包",
     "path": "目录",
@@ -155,6 +155,7 @@
     "copyToClipboard": "复制到剪贴板",
     "delete": "删除",
     "deleteDirectly": "直接删除",
+    "forceUpdate": "强制更新",
     "goToBuckets": "转到仓库",
     "install": "安装",
     "later": "稍后",
@@ -370,13 +371,13 @@
   },
   "operation": {
     "completed": "{{name}} 操作成功",
-    "withWarnings": "{{name}} 操作完成，但是存在需要注意的警告信息",
     "failed": {
       "cancelled": "{{name}} 操作已取消",
       "generic": "{{name}} 操作失败",
       "withErrors": "{{name}} 操作失败，遇到 {{count}} 个错误"
     },
-    "updateAllSuccess": "所有软件包更新成功"
+    "updateAllSuccess": "所有软件包更新成功",
+    "withWarnings": "{{name}} 操作完成，但是存在需要注意的警告信息"
   },
   "packageInfo": {
     "backToBucket": "返回仓库",
@@ -407,7 +408,7 @@
     "latestVersion": "最新版本",
     "license": "许可证",
     "name": "软件名",
-    "openInExplorer": "在资源管理器中打开",
+    "openFolder": "打开文件夹",
     "success": {
       "forceUpdate": "{{name}} 强制更新成功",
       "install": "{{name}} 安装成功",
@@ -739,13 +740,13 @@
     }
   },
   "status": {
-    "error": "错误",
+    "cancelled": "已取消",
     "completed": "已完成",
+    "error": "错误",
     "failed": "失败",
     "inProgress": "运行中...",
-    "cancelled": "已取消",
-    "warning": "警告",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "warning": "警告"
   },
   "virustotal": {
     "apiKeyMissing": "未配置 VirusTotal API 密钥",
