@@ -9,12 +9,13 @@ on:
       dry_run:
         description: 'Dry run mode'
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   release-please:
