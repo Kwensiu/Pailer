@@ -1,4 +1,13 @@
-import { For, Show, createMemo, createSignal, Switch, Match } from 'solid-js';
+import {
+  For,
+  Show,
+  createMemo,
+  createSignal,
+  Switch,
+  Match,
+  createEffect,
+  onCleanup,
+} from 'solid-js';
 import { BucketInfo } from '../../hooks/useBuckets';
 import { SearchableBucket } from '../../hooks/useBucketSearch';
 import { useBucketInstall } from '../../hooks/useBucketInstall';
@@ -6,17 +15,18 @@ import { clearManifestCache } from '../../hooks/useBuckets';
 import {
   Ellipsis,
   GitBranch,
-  ExternalLink,
   Download,
   Trash2,
-  FolderOpen,
-  RefreshCw,
   LoaderCircle,
   GalleryVerticalEnd,
+  RefreshCw,
+  FolderOpen,
+  Globe,
 } from 'lucide-solid';
+import { Dropdown, DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
 import BranchSelector from '../common/BranchSelector';
-import { openUrl, openPath } from '@tauri-apps/plugin-opener';
+import { openPath, openUrl } from '@tauri-apps/plugin-opener';
 import settingsStore from '../../stores/settings';
 import { t } from '../../i18n';
 import { formatBucketDate } from '../../utils/date';
@@ -123,6 +133,58 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   const bucketInstall = useBucketInstall();
   const { settings } = settingsStore;
 
+  // State for remove confirmation
+  const [removeConfirm, setRemoveConfirm] = createSignal(false);
+  const [removeTimer, setRemoveTimer] = createSignal<number | null>(null);
+
+  let leftDetailsEl: HTMLDivElement | undefined;
+  const [rightCardHeight, setRightCardHeight] = createSignal<number | undefined>(undefined);
+  let rafId: number | null = null;
+
+  const measureLeftDetailsHeight = () => {
+    if (!leftDetailsEl) return;
+    const height = leftDetailsEl.offsetHeight;
+    setRightCardHeight(height || undefined);
+  };
+
+  const measureNextFrame = () => {
+    // Cancel any pending RAF to prevent race conditions
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+
+    // Double RAF ensures layout/fonts are settled
+    rafId = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        measureLeftDetailsHeight();
+        rafId = null;
+      })
+    );
+  };
+
+  // Re-measure when visible content changes.
+  createEffect(() => {
+    // Track dependencies that actually affect layout
+    props.bucket?.name;
+    props.searchBucket?.name;
+    props.manifestsLoading;
+    props.manifests.length;
+
+    measureNextFrame();
+  });
+
+  const onResize = () => measureNextFrame();
+  window.addEventListener('resize', onResize);
+  onCleanup(() => {
+    window.removeEventListener('resize', onResize);
+    if (removeTimer()) {
+      clearTimeout(removeTimer()!);
+    }
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+  });
+
   const isDark = () => settings.theme === 'dark';
   const BgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
@@ -207,29 +269,6 @@ function BucketInfoModal(props: BucketInfoModalProps) {
     }
   };
 
-  // Handle bucket refresh
-  const handleRefreshBucket = async () => {
-    const name = bucketName();
-    if (!name) return;
-
-    try {
-      const result = await bucketInstall.updateBucket(name);
-
-      if (result.success) {
-        console.log('Bucket refreshed successfully from modal');
-        // Refresh bucket list and manifests
-        props.onBucketInstalled?.();
-        if (props.onFetchManifests) {
-          await props.onFetchManifests(name);
-        }
-      } else {
-        console.error('Bucket refresh failed:', result.message);
-      }
-    } catch (error) {
-      console.error('Failed to refresh bucket:', error);
-    }
-  };
-
   // Handle loading all manifests for large buckets
   const handleLoadAllManifests = () => {
     setShowAllManifests(true);
@@ -259,20 +298,106 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   const orderedDetails = createMemo(() => {
     if (!props.bucket) return [];
 
-    const details: [string, string | number | undefined][] = [
-      [t('bucketInfo.name'), props.bucket.name],
-      [
-        t('bucketInfo.type'),
-        props.bucket.is_git_repo ? t('bucketInfo.gitRepository') : t('bucketInfo.localDirectory'),
-      ],
-      [t('bucketInfo.packages'), props.bucket.manifest_count],
-      [t('bucketInfo.branch'), props.bucket.git_branch],
-      [t('bucketInfo.lastUpdated'), props.bucket.last_updated],
-      [t('bucketInfo.path'), props.bucket.path],
+    const details = [
+      { key: 'name', label: t('bucketInfo.name'), value: props.bucket.name },
+      {
+        key: 'type',
+        label: t('bucketInfo.type'),
+        value: props.bucket.is_git_repo
+          ? t('bucketInfo.gitRepository')
+          : t('bucketInfo.localDirectory'),
+      },
+      { key: 'packages', label: t('bucketInfo.packages'), value: props.bucket.manifest_count },
+      { key: 'branch', label: t('bucketInfo.branch'), value: props.bucket.git_branch },
+      { key: 'lastUpdated', label: t('bucketInfo.lastUpdated'), value: props.bucket.last_updated },
+      { key: 'path', label: t('bucketInfo.path'), value: props.bucket.path },
     ];
 
-    // Filter out undefined values
-    return details.filter(([_, value]) => value !== undefined && value !== null);
+    // Add git_url if it exists
+    if (props.bucket.git_url) {
+      details.push({
+        key: 'repository',
+        label: t('bucketInfo.repository'),
+        value: props.bucket.git_url,
+      });
+    }
+
+    return details.filter((item) => item.value !== undefined && item.value !== null);
+  });
+
+  const searchBucketDetails = createMemo(() => {
+    if (!props.searchBucket) return [];
+
+    const details = [
+      { key: 'name', label: t('bucketInfo.name'), value: props.searchBucket.name },
+      { key: 'type', label: t('bucketInfo.type'), value: t('bucketInfo.gitRepository') },
+      { key: 'packages', label: t('bucketInfo.packages'), value: props.searchBucket.apps },
+      { key: 'repository', label: t('bucketInfo.repository'), value: props.searchBucket.url },
+    ];
+
+    // Add last_updated if it exists and is not 'Unknown'
+    if (props.searchBucket.last_updated && props.searchBucket.last_updated !== 'Unknown') {
+      details.push({
+        key: 'lastUpdated',
+        label: t('bucketInfo.lastUpdated'),
+        value: props.searchBucket.last_updated,
+      });
+    }
+
+    return details.filter((item) => item.value !== undefined && item.value !== null);
+  });
+
+  const menuItems = createMemo(() => {
+    const items: DropdownItem[] = [];
+
+    // Refresh bucket - moved to first position
+    if (isInstalled()) {
+      items.push({
+        label: t('bucketInfo.refreshBucket'),
+        onClick: () => {
+          const name = bucketName();
+          if (name) props.onBucketUpdated?.(name);
+        },
+        icon: RefreshCw,
+      });
+    }
+
+    // Open in Explorer
+    const path = props.bucket?.path;
+    if (path) {
+      items.push({
+        label: t('bucketInfo.openFolder'),
+        onClick: async () => {
+          try {
+            await openPath(path);
+          } catch (error) {
+            console.error('Failed to open folder:', error);
+            // Could show user feedback here if needed
+          }
+        },
+        icon: FolderOpen,
+      });
+    }
+
+    // View on GitHub
+    const url = props.bucket?.git_url || props.searchBucket?.url;
+    items.push({
+      label: t('bucketInfo.viewOnGithub'),
+      onClick: async () => {
+        if (url) {
+          try {
+            await openUrl(url);
+          } catch (error) {
+            console.error('Failed to open URL:', error);
+            // Could show user feedback here if needed
+          }
+        }
+      },
+      icon: Globe,
+      disabled: !url,
+    });
+
+    return items;
   });
 
   const headerAction = (
@@ -280,73 +405,16 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       <Show when={isExternalBucket()}>
         <div class="badge badge-warning badge-sm">{t('bucketInfo.external')}</div>
       </Show>
-      <div class="dropdown dropdown-end">
-        <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-circle">
-          <Ellipsis class="h-5 w-5" />
-        </div>
-        <ul
-          tabindex="0"
-          class="dropdown-content menu bg-base-100 border-base-200 rounded-box z-100 w-52 border p-2 shadow"
-        >
-          <Show when={props.bucket?.path}>
-            <li>
-              <button
-                type="button"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (props.bucket?.path) {
-                    try {
-                      await openPath(props.bucket.path);
-                    } catch (error) {
-                      console.error('Failed to open path:', error);
-                    }
-                  }
-                }}
-              >
-                <FolderOpen class="mr-2 h-4 w-4" />
-                {t('bucketInfo.openInExplorer')}
-              </button>
-            </li>
-          </Show>
-          <Show when={isInstalled()}>
-            <li>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRefreshBucket();
-                }}
-              >
-                <RefreshCw class="mr-2 h-4 w-4" />
-                {t('bucketInfo.refreshBucket')}
-              </button>
-            </li>
-          </Show>
-          <li>
-            <button
-              type="button"
-              onClick={async (e) => {
-                e.stopPropagation();
-                const url = props.bucket?.git_url || props.searchBucket?.url;
-                if (url) {
-                  try {
-                    await openUrl(url);
-                  } catch (error) {
-                    console.error('Failed to open URL:', error);
-                  }
-                }
-              }}
-              disabled={!props.bucket?.git_url && !props.searchBucket?.url}
-              class={
-                !props.bucket?.git_url && !props.searchBucket?.url ? 'text-base-content/50' : ''
-              }
-            >
-              <ExternalLink class="mr-2 h-4 w-4" />
-              {t('bucketInfo.viewOnGithub')}
-            </button>
-          </li>
-        </ul>
-      </div>
+      <Dropdown
+        position="end"
+        size="md"
+        items={menuItems()}
+        trigger={
+          <button class="btn btn-ghost btn-sm btn-circle">
+            <Ellipsis class="h-5 w-5" />
+          </button>
+        }
+      />
     </div>
   );
 
@@ -377,7 +445,26 @@ function BucketInfoModal(props: BucketInfoModalProps) {
         <button
           type="button"
           class="btn btn-error"
-          onClick={handleRemoveBucket}
+          classList={{ 'btn-warning': removeConfirm() }}
+          onClick={() => {
+            if (removeConfirm()) {
+              // Execute remove
+              if (removeTimer()) {
+                window.clearTimeout(removeTimer()!);
+                setRemoveTimer(null);
+              }
+              setRemoveConfirm(false);
+              handleRemoveBucket();
+            } else {
+              // First click - show confirmation
+              setRemoveConfirm(true);
+              const timer = window.setTimeout(() => {
+                setRemoveConfirm(false);
+                setRemoveTimer(null);
+              }, 3000);
+              setRemoveTimer(timer);
+            }
+          }}
           disabled={bucketInstall.isBucketBusy(bucketName())}
         >
           <Show
@@ -385,7 +472,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
             fallback={
               <>
                 <Trash2 class="mr-2 h-4 w-4" />
-                {t('buttons.remove')}
+                {removeConfirm() ? t('buttons.sure') : t('buttons.remove')}
               </>
             }
           >
@@ -454,128 +541,111 @@ function BucketInfoModal(props: BucketInfoModalProps) {
           <div class="flex flex-col gap-6 md:flex-row">
             <div class="flex-1">
               <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('bucketInfo.details')}</h4>
-              <div class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm">
+              <div
+                class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm"
+                ref={(el) => {
+                  leftDetailsEl = el;
+                  measureNextFrame();
+                }}
+              >
                 <Show
                   when={props.bucket && isInstalled()}
                   fallback={
                     // Show basic info for external buckets
                     <Show when={props.searchBucket}>
-                      <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                        <div class="text-base-content/70 col-span-1 font-semibold">
-                          {t('bucketInfo.name')}:
-                        </div>
-                        <div class="col-span-2">{props.searchBucket!.name}</div>
-                      </div>
-                      <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                        <div class="text-base-content/70 col-span-1 font-semibold">
-                          {t('bucketInfo.type')}:
-                        </div>
-                        <div class="col-span-2">{t('bucketInfo.gitRepository')}</div>
-                      </div>
-                      <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                        <div class="text-base-content/70 col-span-1 font-semibold">
-                          {t('bucketInfo.packages')}:
-                        </div>
-                        <div class="col-span-2">
-                          <div class="flex items-center gap-1">
-                            <span class="text-primary font-bold">{props.searchBucket!.apps}</span>
-                            <span class="text-base-content/70 text-xs">
-                              {t('bucketInfo.packagesCount')}
-                            </span>
+                      <For each={searchBucketDetails()}>
+                        {(item) => (
+                          <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
+                            <div class="text-base-content/70 col-span-1 font-semibold">
+                              {item.label}:
+                            </div>
+                            <div class="col-span-2">
+                              <Switch fallback={<DetailValue value={item.value} />}>
+                                <Match when={item.key === 'lastUpdated'}>
+                                  {formatBucketDate(item.value as string)}
+                                </Match>
+                                <Match when={item.key === 'packages'}>
+                                  <div class="flex items-center gap-1">
+                                    <span class="text-primary font-bold">{item.value}</span>
+                                    <span class="text-base-content/70 text-xs">
+                                      {t('bucketInfo.packagesCount')}
+                                    </span>
+                                  </div>
+                                </Match>
+                                <Match when={item.key === 'repository'}>
+                                  <a
+                                    href={item.value as string}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="link link-primary flex items-center gap-1 text-xs break-all"
+                                  >
+                                    <GalleryVerticalEnd class="h-3 w-3" />
+                                    {item.value}
+                                  </a>
+                                </Match>
+                              </Switch>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                        <div class="text-base-content/70 col-span-1 font-semibold">
-                          {t('bucketInfo.repository')}:
-                        </div>
-                        <div class="col-span-2">
-                          <a
-                            href={props.searchBucket!.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="link link-primary flex items-center gap-1 text-xs break-all"
-                          >
-                            <GalleryVerticalEnd class="h-3 w-3" />
-                            {props.searchBucket!.url}
-                          </a>
-                        </div>
-                      </div>
-                      <Show when={props.searchBucket!.last_updated !== 'Unknown'}>
-                        <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                          <div class="text-base-content/70 col-span-1 font-semibold">
-                            {t('bucketInfo.lastUpdated')}:
-                          </div>
-                          <div class="col-span-2">
-                            {formatBucketDate(props.searchBucket!.last_updated)}
-                          </div>
-                        </div>
-                      </Show>
+                        )}
+                      </For>
                     </Show>
                   }
                 >
                   {/* Show detailed info for installed buckets */}
                   <For each={orderedDetails()}>
-                    {([key, value]) => (
+                    {(item) => (
                       <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
                         <div class="text-base-content/70 col-span-1 font-semibold capitalize">
-                          {key.replace(/([A-Z])/g, ' $1')}:
+                          {item.label}:
                         </div>
                         <div class="col-span-2">
-                          <Switch fallback={<DetailValue value={value} />}>
-                            <Match when={key === 'Last Updated'}>
-                              {formatBucketDate(value as string)}
+                          <Switch fallback={<DetailValue value={item.value} />}>
+                            <Match when={item.key === 'lastUpdated'}>
+                              {formatBucketDate(item.value as string)}
                             </Match>
-                            <Match when={key === t('bucketInfo.path')}>
+                            <Match when={item.key === 'path'}>
                               <div
-                                class="link-primary border-bg-primary inline-block cursor-pointer break-all"
+                                class="link-primary border-primary inline-block cursor-pointer break-all"
                                 onClick={async (e) => {
                                   e.stopPropagation();
-                                  if (props.bucket?.path) {
+                                  const path = props.bucket?.path;
+                                  if (path) {
                                     try {
-                                      await openPath(props.bucket.path);
+                                      await openPath(path);
                                     } catch (error) {
                                       console.error('Failed to open path:', error);
                                     }
                                   }
                                 }}
-                                title={t('bucketInfo.openInExplorer')}
+                                title={t('bucketInfo.openFolder')}
                               >
-                                {value}
+                                {item.value}
                               </div>
                             </Match>
-                            <Match when={key === 'Manifests'}>
+                            <Match when={item.key === 'packages'}>
                               <div class="flex items-center gap-1">
-                                <span class="text-primary font-bold">{value}</span>
+                                <span class="text-primary font-bold">{item.value}</span>
                                 <span class="text-base-content/70 text-xs">
                                   {t('bucketInfo.packagesCount')}
                                 </span>
                               </div>
+                            </Match>
+                            <Match when={item.key === 'repository'}>
+                              <a
+                                href={item.value as string}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="link link-primary flex items-center gap-1 text-xs break-all"
+                              >
+                                <GitBranch class="h-3 w-3" />
+                                {item.value}
+                              </a>
                             </Match>
                           </Switch>
                         </div>
                       </div>
                     )}
                   </For>
-
-                  <Show when={props.bucket?.git_url}>
-                    <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
-                      <div class="text-base-content/70 col-span-1 font-semibold">
-                        {t('bucketInfo.repository')}:
-                      </div>
-                      <div class="col-span-2">
-                        <a
-                          href={props.bucket!.git_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="link link-primary flex items-center gap-1 text-xs break-all"
-                        >
-                          <GitBranch class="h-3 w-3" />
-                          {props.bucket!.git_url}
-                        </a>
-                      </div>
-                    </div>
-                  </Show>
                 </Show>
               </div>
             </div>
@@ -585,7 +655,13 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                 <h4 class="mb-3 border-b pb-2 text-lg font-medium">
                   {t('bucketInfo.availablePackages')}
                 </h4>
-                <div class="bg-base-content-bg rounded-lg px-6 py-18">
+                <div
+                  class="bg-base-content-bg flex items-center justify-center overflow-hidden rounded-lg px-6 py-4"
+                  style={{
+                    height: rightCardHeight() ? `${rightCardHeight()}px` : undefined,
+                    'max-height': rightCardHeight() ? `${rightCardHeight()}px` : undefined,
+                  }}
+                >
                   <div class="text-center">
                     <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
                       <GalleryVerticalEnd class="text-base-content/50 h-6 w-6" />
@@ -601,12 +677,37 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                 <Show
                   when={isInstalled() && (props.manifests.length > 0 || props.manifestsLoading)}
                   fallback={
-                    <Show when={props.description && !isInstalled()}>
+                    <Show
+                      when={
+                        isInstalled() && props.manifests.length === 0 && !props.manifestsLoading
+                      }
+                      fallback={
+                        <Show when={props.description && !isInstalled()}>
+                          <h4 class="mb-3 border-b pb-2 text-lg font-medium">
+                            {t('bucketInfo.description')}
+                          </h4>
+                          <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
+                            <p class="text-sm leading-relaxed">{props.description}</p>
+                          </div>
+                        </Show>
+                      }
+                    >
                       <h4 class="mb-3 border-b pb-2 text-lg font-medium">
-                        {t('bucketInfo.description')}
+                        {t('bucketInfo.availablePackages')}
                       </h4>
-                      <div class="rounded-lg p-4" style={{ 'background-color': BgColor() }}>
-                        <p class="text-sm leading-relaxed">{props.description}</p>
+                      <div
+                        class="bg-base-content-bg flex items-center justify-center overflow-hidden rounded-lg px-6 py-4"
+                        style={{
+                          height: rightCardHeight() ? `${rightCardHeight()}px` : undefined,
+                          'max-height': rightCardHeight() ? `${rightCardHeight()}px` : undefined,
+                        }}
+                      >
+                        <div class="text-center">
+                          <div class="bg-base-200 mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full">
+                            <GalleryVerticalEnd class="text-base-content/50 h-6 w-6" />
+                          </div>
+                          <p class="text-base-content/70 mb-2">{t('bucketInfo.noPackagesFound')}</p>
+                        </div>
                       </div>
                     </Show>
                   }
