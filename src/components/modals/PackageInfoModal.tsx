@@ -4,7 +4,15 @@ import Modal from '../common/Modal';
 import BucketInfoModal from './BucketInfoModal';
 import { useBuckets } from '../../hooks/useBuckets';
 import { highlightJson } from '../../utils/jsonHighlight';
-import { Download, Ellipsis, FileText, ExternalLink, Trash2 } from 'lucide-solid';
+import {
+  Download,
+  Ellipsis,
+  FileText,
+  Trash2,
+  FolderOpen,
+  Braces,
+  CircleFadingArrowUp,
+} from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -165,28 +173,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const orderedDetails = createMemo(() => {
     if (!props.info?.details) return [];
 
-    const desiredOrder = [
-      { key: 'Name', label: t('packageInfo.name') },
-      { key: 'Description', label: t('packageInfo.description') },
-      { key: 'Bucket', label: t('packageInfo.bucket') },
-      { key: 'Installed Version', label: t('packageInfo.installedVersion') },
-      { key: 'Latest Version', label: t('packageInfo.latestVersion') },
-      { key: 'Version', label: t('packageInfo.version') },
-      // Add date info based on context
-      ...(props.pkg && props.context === 'installed'
-        ? [{ key: 'Install Date', label: t('packageInfo.installDate') }]
-        : []),
-      ...(props.pkg && props.context === 'search'
-        ? [{ key: 'Update Date', label: t('packageInfo.updateDate') }]
-        : []),
-      { key: 'Includes', label: t('packageInfo.includes') },
-      { key: 'Installed', label: t('packageInfo.installed') },
-      { key: 'Homepage', label: t('packageInfo.homepage') },
-      { key: 'License', label: t('packageInfo.license') },
-    ];
-
     const detailsMap = new Map(props.info.details);
-    const result: [string, string, string][] = []; // [label, value, originalKey]
+    const result: { key: string; label: string; value: string }[] = [];
 
     // If we have updated version info, use the current version from there
     const currentVersionInfo = versionInfo();
@@ -200,15 +188,37 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       }
     }
 
-    for (const { key, label } of desiredOrder) {
+    // Define the order and labels for display
+    const fieldConfig = [
+      { key: 'Name', label: t('packageInfo.name') },
+      { key: 'Description', label: t('packageInfo.description') },
+      { key: 'Bucket', label: t('packageInfo.bucket') },
+      { key: 'Installed Version', label: t('packageInfo.installedVersion') },
+      { key: 'Latest Version', label: t('packageInfo.latestVersion') },
+      { key: 'Version', label: t('packageInfo.version') },
+      { key: 'Includes', label: t('packageInfo.includes') },
+      { key: 'Installed', label: t('packageInfo.installed') },
+      { key: 'Homepage', label: t('packageInfo.homepage') },
+      { key: 'License', label: t('packageInfo.license') },
+    ];
+
+    // Add date fields based on context
+    const allFields =
+      props.pkg && props.context === 'installed'
+        ? [...fieldConfig, { key: 'Install Date', label: t('packageInfo.installDate') }]
+        : props.pkg && props.context === 'search'
+          ? [...fieldConfig, { key: 'Update Date', label: t('packageInfo.updateDate') }]
+          : fieldConfig;
+
+    for (const { key, label } of allFields) {
       if (detailsMap.has(key)) {
-        result.push([label, detailsMap.get(key)!, key]);
+        result.push({ key, label, value: detailsMap.get(key)! });
       } else if (key === 'Install Date' && props.pkg) {
         // Add install date info and format
-        result.push([label, formatDate(props.pkg.updated), 'Install Date']);
+        result.push({ key, label, value: formatDate(props.pkg.updated) });
       } else if (key === 'Update Date' && props.pkg) {
         // Add update date info and format
-        result.push([label, formatDate(props.pkg.updated), 'Update Date']);
+        result.push({ key, label, value: formatDate(props.pkg.updated) });
       }
     }
 
@@ -317,7 +327,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }, 10); // Small delay to ensure the element is rendered first
   };
 
-  // Check if a detail key is version-related
   const isVersionRelated = (key: string) => {
     return ['Version', 'Installed Version'].includes(key);
   };
@@ -556,14 +565,14 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                     }
                   }
                 },
-                icon: FileText,
+                icon: Braces,
               },
             ]
           : []),
         ...(props.pkg?.is_installed
           ? [
               {
-                label: t('packageInfo.openInExplorer'),
+                label: t('packageInfo.openFolder'),
                 onClick: async () => {
                   if (props.pkg) {
                     try {
@@ -576,7 +585,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                     }
                   }
                 },
-                icon: ExternalLink,
+                icon: FolderOpen,
+              },
+            ]
+          : []),
+        ...(props.pkg?.is_installed && props.pkg?.available_version
+          ? [
+              {
+                label: t('buttons.forceUpdate'),
+                onClick: () => {
+                  props.onForceUpdate?.(props.pkg!);
+                },
+                icon: CircleFadingArrowUp,
               },
             ]
           : []),
@@ -781,41 +801,41 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.details')}</h4>
               <div class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm">
                 <For each={orderedDetails()}>
-                  {([label, value, originalKey]) => (
+                  {(item) => (
                     <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
                       <div class="text-base-content/70 col-span-1 font-semibold capitalize">
-                        {label}:
+                        {item.label}:
                       </div>
                       <div class="col-span-2">
-                        <Switch fallback={<DetailValue value={value} />}>
-                          <Match when={originalKey === 'Homepage'}>
+                        <Switch fallback={<DetailValue value={item.value} />}>
+                          <Match when={item.key === 'Homepage'}>
                             <a
-                              href={value}
+                              href={item.value}
                               target="_blank"
                               rel="noopener noreferrer"
                               class="link link-primary break-all"
                             >
-                              {value}
+                              {item.value}
                             </a>
                           </Match>
-                          <Match when={originalKey === 'Bucket'}>
+                          <Match when={item.key === 'Bucket'}>
                             <div
                               class="link-primary tooltip tooltip-top cursor-pointer rounded break-all"
                               data-tip={t('packageInfo.viewBucketInfo')}
-                              onClick={() => handleBucketClick(value)}
+                              onClick={() => handleBucketClick(item.value)}
                             >
-                              {value}
+                              {item.value}
                             </div>
                           </Match>
-                          <Match when={originalKey === 'License'}>
-                            <LicenseValue value={value} />
+                          <Match when={item.key === 'License'}>
+                            <LicenseValue value={item.value} />
                           </Match>
-                          <Match when={originalKey === 'Includes'}>
-                            <IncludesValue value={value} />
+                          <Match when={item.key === 'Includes'}>
+                            <IncludesValue value={item.value} />
                           </Match>
-                          <Match when={isVersionRelated(originalKey)}>
+                          <Match when={isVersionRelated(item.key)}>
                             <div class="flex items-center gap-2">
-                              <DetailValue value={value} />
+                              <DetailValue value={item.value} />
                               <Show
                                 when={
                                   props.pkg?.is_installed &&
@@ -832,20 +852,20 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                               </Show>
                             </div>
                           </Match>
-                          <Match when={originalKey === 'Installed'}>
+                          <Match when={item.key === 'Installed'}>
                             <div
                               class="link-primary tooltip tooltip-top inline-block cursor-pointer break-all"
-                              data-tip={t('packageInfo.openInExplorer')}
+                              data-tip={t('packageInfo.openFolder')}
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 try {
-                                  await openPath(value);
+                                  await openPath(item.value);
                                 } catch (error) {
                                   console.error('Failed to open installed path:', error);
                                 }
                               }}
                             >
-                              {value}
+                              {item.value}
                             </div>
                           </Match>
                         </Switch>
