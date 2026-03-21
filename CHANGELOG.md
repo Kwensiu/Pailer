@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/Kwensiu/Pailer/compare/v1.4.0...v1.5.0) (2026-03-21)
+
+
+### Features
+
+* add ANSI color support and warning detection for operations ([7e2ff02](https://github.com/Kwensiu/Pailer/commit/7e2ff025d1331b723be69a4288f839e90f8d07d6))
+* render ANSI colors in CommandInput temporary output ([ce90b3b](https://github.com/Kwensiu/Pailer/commit/ce90b3bec5d107998b0aca180b2659c1043b4665))
+* **self-update:** add Pailer self-update for Scoop installations ([#82](https://github.com/Kwensiu/Pailer/issues/82)) ([a03cc51](https://github.com/Kwensiu/Pailer/commit/a03cc518322fbcc5aebd35e69867e96387b8f750))
+
+
+### Bug Fixes
+
+* remove PowerShell selector flicker ([ff1d5c4](https://github.com/Kwensiu/Pailer/commit/ff1d5c47d78bad7209b40538273d8cd93c6bb9d6))
+
 ## [1.4.0](https://github.com/Kwensiu/Pailer/compare/v1.3.1...v1.4.0) (2026-03-19)
 
 
