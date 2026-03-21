@@ -2,7 +2,7 @@ import { For, createEffect, createSignal, onCleanup } from 'solid-js';
 import { Terminal, ChevronUp, ChevronDown } from 'lucide-solid';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
-import { stripAnsi } from '../../../utils/ansiUtils';
+import { ansiToHtml, hasAnsiCodes, stripAnsi } from '../../../utils/ansiUtils';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
 import { useOperations } from '../../../stores/operations';
@@ -80,7 +80,7 @@ function CommandInputField() {
       const unlisten: UnlistenFn = await listen('operation-output', (event: any) => {
         const cleanLine = {
           operationId: 'command-execution',
-          line: fixEncoding(stripAnsi(event.payload.line)),
+          line: fixEncoding(event.payload.line),
           source: event.payload.source,
           timestamp: Date.now(),
         };
@@ -259,7 +259,11 @@ function CommandInputField() {
                         : 'text-white'
                 }
               >
-                {line.line}
+                {hasAnsiCodes(line.line) ? (
+                  <span class="font-mono" innerHTML={ansiToHtml(line.line)} />
+                ) : (
+                  line.line
+                )}
               </div>
             )}
           </For>
