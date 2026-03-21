@@ -694,6 +694,7 @@
       "darkMode": "暗色模式",
       "description": "选择您偏好的应用程序主题。",
       "lightMode": "亮色模式",
+      "systemMode": "跟随系统",
       "title": "外观"
     },
     "title": "设置",

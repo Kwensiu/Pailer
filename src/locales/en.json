@@ -694,6 +694,7 @@
       "darkMode": "Dark",
       "description": "Select your preferred application theme.",
       "lightMode": "Light",
+      "systemMode": "System",
       "title": "Appearance"
     },
     "title": "Settings",

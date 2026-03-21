@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, createEffect, onCleanup, For } from 'solid-js';
+import { createSignal, Show, onMount, createEffect, onCleanup, For, createMemo } from 'solid-js';
 import './App.css';
 import './i18n';
 import './styles/minimized-indicator.css';
@@ -29,6 +29,24 @@ import { localStorageUtils } from './hooks/useSearchCache';
 
 function App() {
   const { settings } = settingsStore;
+
+  const [systemPrefersDark, setSystemPrefersDark] = createSignal(false);
+
+  createEffect(() => {
+    const mql = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mql) return;
+
+    const update = () => setSystemPrefersDark(mql.matches);
+    update();
+
+    mql.addEventListener('change', update);
+    onCleanup(() => mql.removeEventListener('change', update));
+  });
+
+  const effectiveTheme = createMemo<'dark' | 'light'>(() => {
+    if (settings.theme === 'system') return systemPrefersDark() ? 'dark' : 'light';
+    return settings.theme;
+  });
 
   // Persist selected view across sessions.
   const [view, setView] = createSignal<View>(settings.defaultLaunchPage);
@@ -163,7 +181,7 @@ function App() {
   });
 
   createEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    document.documentElement.setAttribute('data-theme', effectiveTheme());
   });
 
   // Debug: track state changes (only in development)

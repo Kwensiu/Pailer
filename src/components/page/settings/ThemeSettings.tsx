@@ -16,10 +16,11 @@ function ThemeSettings() {
         onChange: (e) => {
           const newTheme = (e.currentTarget as HTMLSelectElement).value;
           if (newTheme !== settings.theme) {
-            setTheme(newTheme as 'light' | 'dark');
+            setTheme(newTheme as 'light' | 'dark' | 'system');
           }
         },
         options: [
+          { value: 'system', label: t('settings.theme.systemMode') },
           { value: 'light', label: t('settings.theme.lightMode') },
           { value: 'dark', label: t('settings.theme.darkMode') },
         ],

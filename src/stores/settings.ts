@@ -33,7 +33,7 @@ interface Settings {
     silentStartup: boolean;
     trayAppsEnabled: boolean;
   };
-  theme: 'dark' | 'light';
+  theme: 'dark' | 'light' | 'system';
   debug: {
     enabled: boolean;
   };
@@ -74,7 +74,7 @@ const defaultSettings: Settings = {
     silentStartup: false,
     trayAppsEnabled: true,
   },
-  theme: 'dark',
+  theme: 'system',
   debug: {
     enabled: false,
   },
@@ -287,7 +287,7 @@ function createSettingsStore() {
     });
   };
 
-  const setTheme = async (theme: 'dark' | 'light') => {
+  const setTheme = async (theme: 'dark' | 'light' | 'system') => {
     await saveSettings({ theme });
   };
 
