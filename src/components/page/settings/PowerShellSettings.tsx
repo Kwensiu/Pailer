@@ -10,10 +10,6 @@ function PowerShellSettings() {
   const { data: executables, error } = createPowerShellCache();
   const [selected, setSelected] = createSignal(settings.powershell.executable);
 
-  createEffect(() => {
-    setPowershellSettings({ executable: settings.powershell.executable });
-  });
-
   const getLabel = (exe: string) => {
     switch (exe) {
       case 'auto':
@@ -59,7 +55,7 @@ function PowerShellSettings() {
           onChange={async (e) => {
             const newExe = e.target.value;
             // Validate input value is a valid option
-            const validOptions = ['auto', 'pwsh', 'powershell'];
+            const validOptions = currentOptions();
             if (validOptions.includes(newExe)) {
               setSelected(newExe as 'auto' | 'pwsh' | 'powershell');
               setPowershellSettings({ executable: newExe as 'auto' | 'pwsh' | 'powershell' });
