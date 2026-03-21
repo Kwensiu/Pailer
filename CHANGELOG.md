@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/Kwensiu/Pailer/compare/v1.5.0...v1.6.0) (2026-03-21)
+
+
+### Features
+
+* **theme:** add system theme and set as default ([bce848b](https://github.com/Kwensiu/Pailer/commit/bce848b5c797b0ba62353497aa67a531c0b49260))
+
+
+### UI
+
+* add version type filtering and improve dropdown UI consistency ([97fe627](https://github.com/Kwensiu/Pailer/commit/97fe6278836c9f0fd8436b9c8cff7c9e40fef631))
+* Enhance PackageInfoModal with dropdown and force update ([80ae5bf](https://github.com/Kwensiu/Pailer/commit/80ae5bfdd6c66094b5818d3a1f4621ccd7d931be))
+* Redesign BucketInfoModal with enhanced interactions ([3b3e157](https://github.com/Kwensiu/Pailer/commit/3b3e157f11ff3a866a114fd885e7050af2e2b9ca))
+* Refactor Dropdown component with reactive state management ([b5870d5](https://github.com/Kwensiu/Pailer/commit/b5870d5ef45c664f6c633f810b76fa44c083f74e))
+* Update localization and modal rendering consistency ([2246275](https://github.com/Kwensiu/Pailer/commit/22462751d45df2e370ba3d8526087213eff7528c))
+
+
+### Refactoring
+
+* **installed:** implement unified context menu system ([a5b1e72](https://github.com/Kwensiu/Pailer/commit/a5b1e72a71a78915f999d3cbfa2deeae39a1f0dc))
+
 ## [1.5.0](https://github.com/Kwensiu/Pailer/compare/v1.4.0...v1.5.0) (2026-03-21)
 
 
