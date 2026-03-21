@@ -461,7 +461,6 @@ function OperationModal(props: OperationModalProps) {
         }
       }, 300);
     } else if (currentOperation) {
-      // Send restore state event to backend
       emit('panel-minimize-state', {
         isMinimized: false,
         showIndicator: false,

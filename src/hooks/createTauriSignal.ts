@@ -1,10 +1,6 @@
 import { createSignal, createEffect, Signal, createRoot } from 'solid-js';
 import { getSettingsStore } from '../stores/settings';
 
-// Note: We now share the store instance with settings.ts
-// All frontend data is stored in settings.json with namespaced keys
-// Signals use the 'signals.' prefix for their keys
-
 // Cache for signals to ensure same key returns same signal instance
 const signalCache = new Map<string, Signal<any>>();
 

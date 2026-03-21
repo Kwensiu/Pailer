@@ -22,10 +22,6 @@ interface UpdateModalProps {
 }
 
 export default function UpdateModal(props: UpdateModalProps) {
-  // No local state needed - release notes are handled in AboutSection
-
-  // Remove automatic fetching - fetch should happen when update is detected, not when modal opens
-
   const handleGoToRelease = async () => {
     await openUrl('https://github.com/Kwensiu/Pailer/releases');
   };

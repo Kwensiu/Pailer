@@ -53,7 +53,6 @@ function BucketSearch(props: BucketSearchProps) {
       document.activeElement !== inputRef &&
       searchInput().length > 0
     ) {
-      // Only restore focus if we were actively searching and input has content
       setTimeout(() => inputRef?.focus(), 0);
     }
   });
@@ -183,7 +182,6 @@ function BucketSearch(props: BucketSearchProps) {
                     if (searchInput().trim()) {
                       await bucketSearch.searchBuckets(searchInput());
                     }
-                    // Restore focus to input
                     inputRef?.focus();
                   }}
                 >

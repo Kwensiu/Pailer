@@ -56,7 +56,6 @@ class UpdateStore {
           if (cacheAge < 24 * 60 * 60 * 1000) {
             this.updateInfo[1](parsed.data);
             this.updateStatus[1]('available');
-            // Restore release notes if cached
             if (parsed.releaseNotesHtml) {
               this.releaseNotesHtml[1](parsed.releaseNotesHtml);
             }

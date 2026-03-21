@@ -42,7 +42,7 @@ function BranchSelector(props: BranchSelectorProps) {
       return;
     }
 
-    // 生成唯一的操作ID
+    // Generate unique operation ID
     const operationId = `switch-${Date.now()}-${Math.random()}`;
     setCurrentOperationId(operationId);
     setSwitching(true);
@@ -53,9 +53,9 @@ function BranchSelector(props: BranchSelectorProps) {
         branchName: branchName,
       });
 
-      // 检查操作是否仍然有效
+      // Check if operation is still valid
       if (currentOperationId() !== operationId) {
-        return; // 操作已被新的操作取代
+        return; // Operation replaced by new operation
       }
 
       if (result.startsWith('Switched to branch')) {
@@ -71,9 +71,9 @@ function BranchSelector(props: BranchSelectorProps) {
       props.onBranchChanged?.(branchName);
       setIsOpen(false);
     } catch (err) {
-      // 检查操作是否仍然有效
+      // Check if operation is still valid
       if (currentOperationId() !== operationId) {
-        return; // 操作已被新的操作取代
+        return; // Operation replaced by new operation
       }
 
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -88,7 +88,7 @@ function BranchSelector(props: BranchSelectorProps) {
         toast.error(t('bucket.errors.switchBranchFailed', { error: errorMessage }));
       }
     } finally {
-      // 只有当这是当前操作时才重置状态
+      // Reset state only if this is the current operation
       if (currentOperationId() === operationId) {
         setSwitching(false);
         setCurrentOperationId(null);

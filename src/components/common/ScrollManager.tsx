@@ -118,7 +118,6 @@ export function useScrollManager(props: ScrollManagerProps) {
     }
   };
 
-  // Restore scroll position with animation
   const restoreScrollPosition = () => {
     if (!props.operationId || !props.enablePositionSaving) return;
 
@@ -199,9 +198,7 @@ export function useScrollManager(props: ScrollManagerProps) {
       const isMinimized = currentOperation.isMinimized;
       const wasMinimized = previousMinimized();
 
-      // Only restore scroll position when transitioning from minimized to not minimized
       if (wasMinimized && !isMinimized) {
-        // Delay restoration to ensure DOM is fully rendered
         setTimeout(() => {
           restoreScrollPosition();
         }, RESTORE_DELAY);
