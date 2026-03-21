@@ -77,7 +77,7 @@ export function Dropdown(props: DropdownProps) {
     }
   };
 
-  const defaultContentClass = `p-2 border border-base-200 shadow ${getSizeClass()}`;
+  const defaultContentClass = `p-2 border border-base-200 shadow ${props.size ? getSizeClass() : ''}`;
 
   const toggleDropdown = () => setIsOpen(!isOpen());
   const closeDropdown = () => setIsOpen(false);
@@ -127,7 +127,7 @@ export function Dropdown(props: DropdownProps) {
                     }
                   }}
                   disabled={isDisabled}
-                  class={`btn btn-ghost btn-sm w-full rounded-xl ${item.class || ''} ${isDisabled ? 'btn-disabled' : ''} ${getAlignClass(item.align)}`}
+                  class={`btn btn-ghost btn-sm rounded-xl ${item.class || ''} ${isDisabled ? 'btn-disabled' : ''} ${getAlignClass(item.align)}`}
                 >
                   <div class="flex items-center gap-2">
                     <Show when={item.icon}>

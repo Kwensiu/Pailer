@@ -601,7 +601,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
             ]
           : []),
       ]}
-      contentClass="w-52 p-2"
+      contentClass="p-2"
     />
   );
 

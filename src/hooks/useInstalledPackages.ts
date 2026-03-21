@@ -1,6 +1,6 @@
 import { createSignal, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage } from '../types/scoop';
+import { ScoopPackage, VersionTypeFilter } from '../types/scoop';
 import { usePackageOperations } from './usePackageOperations';
 import { usePackageInfo } from './usePackageInfo';
 import { createLocalStorageSignal } from './createLocalStorageSignal';
@@ -9,6 +9,21 @@ import heldStore from '../stores/held';
 import { useBuckets } from './useBuckets';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
+
+const getSortValue = (pkg: ScoopPackage, sortKey: SortKey): string => {
+  switch (sortKey) {
+    case 'name':
+      return (pkg.name || '').toLowerCase();
+    case 'version':
+      return (pkg.version || '').toLowerCase();
+    case 'source':
+      return (pkg.source || '').toLowerCase();
+    case 'updated':
+      return (pkg.updated || '').toLowerCase();
+    default:
+      return '';
+  }
+};
 
 export function useInstalledPackages() {
   const { loading, error, uniqueBuckets, isCheckingForUpdates, fetch, refetch } =
@@ -33,6 +48,10 @@ export function useInstalledPackages() {
   );
   const [selectedBucket, setSelectedBucket] = createLocalStorageSignal<string>(
     'installed-selected-bucket',
+    'all'
+  );
+  const [selectedVersionType, setSelectedVersionType] = createLocalStorageSignal<VersionTypeFilter>(
+    'installed-selected-version-type',
     'all'
   );
 
@@ -136,28 +155,37 @@ export function useInstalledPackages() {
   };
 
   const handleForceRefresh = async () => {
-    console.log('🔄 Force refreshing installed packages...');
     await refetch();
   };
+
+  const hasUpdate = (pkg: ScoopPackage): boolean =>
+    !!pkg.available_version &&
+    !!pkg.name &&
+    !heldStore.isHeld(pkg.name) &&
+    pkg.installation_type === 'standard';
 
   const processedPackages = createMemo(() => {
     let pkgs = [...installedPackagesStore.packages()];
     if (selectedBucket() !== 'all') {
       pkgs = pkgs.filter((p) => p.source === selectedBucket());
     }
+    if (selectedVersionType() === 'versioned') {
+      pkgs = pkgs.filter((p) => p.installation_type === 'versioned');
+    }
+    if (selectedVersionType() === 'held') {
+      pkgs = pkgs.filter((p) => p.name && heldStore.isHeld(p.name));
+    }
     const key = sortKey();
     const direction = sortDirection();
     const sortedPkgs = [...pkgs];
     sortedPkgs.sort((a, b) => {
-      const aHasUpdate =
-        !!a.available_version && !heldStore.isHeld(a.name) && a.installation_type === 'standard';
-      const bHasUpdate =
-        !!b.available_version && !heldStore.isHeld(b.name) && b.installation_type === 'standard';
+      const aHasUpdate = hasUpdate(a);
+      const bHasUpdate = hasUpdate(b);
       if (aHasUpdate && !bHasUpdate) return -1;
       if (!aHasUpdate && bHasUpdate) return 1;
 
-      const valA = (a as any)[key].toLowerCase();
-      const valB = (b as any)[key].toLowerCase();
+      const valA = getSortValue(a, key);
+      const valB = getSortValue(b, key);
       if (valA < valB) return direction === 'asc' ? -1 : 1;
       if (valA > valB) return direction === 'asc' ? 1 : -1;
       return 0;
@@ -165,13 +193,7 @@ export function useInstalledPackages() {
     return sortedPkgs;
   });
 
-  const updatableCount = () =>
-    installedPackagesStore
-      .packages()
-      .filter(
-        (p) =>
-          !!p.available_version && !heldStore.isHeld(p.name) && p.installation_type === 'standard'
-      ).length;
+  const updatableCount = () => installedPackagesStore.packages().filter(hasUpdate).length;
 
   return {
     loading,
@@ -186,6 +208,8 @@ export function useInstalledPackages() {
     sortDirection,
     selectedBucket,
     setSelectedBucket,
+    selectedVersionType,
+    setSelectedVersionType,
     operatingOn,
     scoopStatus,
     statusLoading,

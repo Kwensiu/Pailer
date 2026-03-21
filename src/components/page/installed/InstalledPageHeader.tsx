@@ -12,6 +12,10 @@ import {
 } from 'lucide-solid';
 import { t } from '../../../i18n';
 import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
+import { VersionTypeFilter } from '../../../types/scoop';
+
+const isValidVersionType = (value: string): value is VersionTypeFilter => 
+  ['all', 'versioned', 'held'].includes(value);
 
 interface InstalledHeaderProps {
   updatableCount: Accessor<number>;
@@ -23,6 +27,9 @@ interface InstalledHeaderProps {
   uniqueBuckets: Accessor<string[]>;
   selectedBucket: Accessor<string>;
   setSelectedBucket: Setter<string>;
+
+  selectedVersionType: Accessor<VersionTypeFilter>;
+  setSelectedVersionType: Setter<VersionTypeFilter>;
 
   viewMode: Accessor<'grid' | 'list'>;
   setViewMode: Setter<'grid' | 'list'>;
@@ -188,7 +195,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         {/* Filters and View Toggle Group */}
         <div class="join">
           {/* Filters Dropdown */}
-          <div class="dropdown dropdown-end z-10">
+          <div class="dropdown dropdown-center z-10">
             <button
               tabindex="0"
               class="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom"
@@ -196,13 +203,13 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             >
               <Funnel class="h-4 w-4" />
             </button>
-            <div tabindex="0" class="dropdown-content menu z-10 w-64 p-4">
+            <div tabindex="0" class="mt-2 mr-6 dropdown-content menu z-10 dropdown-filter-menu p-4 bg-base-100 rounded-box border border-base-200 shadow-lg">
               <div class="form-control">
                 <label class="label">
                   <span class="label-text">{t('installed.header.bucketLabel')}</span>
                 </label>
                 <select
-                  class="select select-bordered select-sm bg-base-300"
+                  class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
                   value={props.selectedBucket()}
                   onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
                 >
@@ -215,6 +222,34 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
                   </For>
                 </select>
               </div>
+              <div class="form-control mt-2">
+                <label class="label">
+                  <span class="label-text">{t('installed.header.versionTypeLabel')}</span>
+                </label>
+                <select
+                  class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
+                  value={props.selectedVersionType()}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    if (isValidVersionType(value)) {
+                      props.setSelectedVersionType(value);
+                    }
+                  }}
+                >
+                  <option value="all">{t('installed.header.allVersionTypes')}</option>
+                  <option value="versioned">{t('installed.header.versionedSoftware')}</option>
+                  <option value="held">{t('installed.header.heldPackages')}</option>
+                </select>
+              </div>
+              <button
+                class="btn btn-soft btn-warning rounded-lg mt-4 w-full h-8"
+                onClick={() => {
+                  props.setSelectedBucket('all');
+                  props.setSelectedVersionType('all');
+                }}
+              >
+                {t('installed.header.resetFilters')}
+              </button>
             </div>
           </div>
 

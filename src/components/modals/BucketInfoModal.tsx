@@ -407,7 +407,6 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       </Show>
       <Dropdown
         position="end"
-        size="md"
         items={menuItems()}
         trigger={
           <button class="btn btn-ghost btn-sm btn-circle">

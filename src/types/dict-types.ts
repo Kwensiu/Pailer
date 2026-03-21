@@ -207,6 +207,7 @@ export interface Dict {
     };
     checkup: {
       description: string;
+      runCheckup: string;
       install: string;
       installing: string;
       issuesFound: string;
@@ -323,7 +324,6 @@ export interface Dict {
     header: {
       allBuckets: string;
       bucketLabel: string;
-      checkStatus: string;
       filter: string;
       refresh: string;
       searchPlaceholder: string;
@@ -331,6 +331,11 @@ export interface Dict {
       switchToListView: string;
       title: string;
       updateAll: string;
+      versionTypeLabel: string;
+      allVersionTypes: string;
+      versionedSoftware: string;
+      heldPackages: string;
+      resetFilters: string;
     };
     list: {
       bucket: string;
@@ -340,9 +345,11 @@ export interface Dict {
       heldTooltip: string;
       holdPackage: string;
       name: string;
+      openFolder: string;
       switchVersion: string;
       unholdPackage: string;
       uninstall: string;
+      update: string;
       updateAvailableTooltip: string;
       updated: string;
       version: string;

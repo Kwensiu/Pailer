@@ -207,6 +207,7 @@
     },
     "checkup": {
       "description": "This tool checks for common problems with your Scoop setup.",
+      "runCheckup": "Click the refresh button to run health check",
       "install": "Install",
       "installing": "Installing...",
       "issuesFound": "Issues Found",
@@ -323,14 +324,18 @@
     "header": {
       "allBuckets": "All Buckets",
       "bucketLabel": "Bucket",
-      "checkStatus": "Check Status",
       "filter": "Filter",
       "refresh": "Refresh",
       "searchPlaceholder": "Search by name...",
       "switchToGridView": "Switch to Grid View",
       "switchToListView": "Switch to List View",
       "title": "Packages",
-      "updateAll": "Update All"
+      "updateAll": "Update All",
+      "versionTypeLabel": "Version Type",
+      "allVersionTypes": "All",
+      "versionedSoftware": "Versioned Software",
+      "heldPackages": "Held",
+      "resetFilters": "Reset Filters"
     },
     "list": {
       "bucket": "Bucket",
@@ -340,9 +345,11 @@
       "heldTooltip": "This package is on hold",
       "holdPackage": "Hold Package",
       "name": "Name",
+      "openFolder": "Open Folder",
       "switchVersion": "Switch Version",
       "unholdPackage": "Unhold Package",
       "uninstall": "Uninstall",
+      "update": "Update",
       "updateAvailableTooltip": "Update available: {{version}}",
       "updated": "Updated",
       "version": "Version"

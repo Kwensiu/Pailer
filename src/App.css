@@ -751,8 +751,11 @@ input:focus {
 
 /* Global Dropdown Styles */
 .dropdown-content {
-  min-width: auto !important;
-  width: auto !important;
+  min-width: max-content;
+}
+
+.dropdown-filter-menu {
+  width: 14rem;
 }
 
 .dropdown-content.menu li {

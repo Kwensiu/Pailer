@@ -46,7 +46,7 @@ function Checkup(props: CheckupProps) {
       <Show when={!props.isLoading && !props.error && props.checkupResult.length === 0}>
         <div class="alert alert-info text-sm">
           <TriangleAlert class="h-5 w-5" />
-          <span>点击刷新按钮运行健康检查</span>
+          <span>{t('doctor.checkup.runCheckup')}</span>
         </div>
       </Show>
 

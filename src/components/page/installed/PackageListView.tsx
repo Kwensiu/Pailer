@@ -7,6 +7,7 @@ import {
   Lock,
   RefreshCw,
   ArrowLeftRight,
+  Folder,
 } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
@@ -28,6 +29,7 @@ interface PackageListViewProps {
   onUpdate: (pkg: ScoopPackage) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   onUninstall: (pkg: ScoopPackage) => void;
+  onOpenFolder: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
   isPackageVersioned: (packageName: string) => boolean;
@@ -67,6 +69,8 @@ function PackageListView(props: PackageListViewProps) {
     x: 0,
     y: 0,
   });
+  const [uninstallConfirm, setUninstallConfirm] = createSignal(false);
+  const [uninstallTimer, setUninstallTimer] = createSignal<number | null>(null);
 
   const adjustPosition = (x: number, y: number) => {
     const menuWidth = 200; // Estimated menu width
@@ -85,13 +89,21 @@ function PackageListView(props: PackageListViewProps) {
 
   const closeContextMenu = () => {
     setContextMenuPackage(null);
+    // Reset uninstall confirmation state
+    setUninstallConfirm(false);
+    if (uninstallTimer()) {
+      clearTimeout(uninstallTimer()!);
+      setUninstallTimer(null);
+    }
   };
 
-  // Close context menu when clicking outside
+  // Clean up uninstall timer on unmount
   createEffect(() => {
-    const handleClick = () => closeContextMenu();
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    return () => {
+      if (uninstallTimer()) {
+        clearTimeout(uninstallTimer()!);
+      }
+    };
   });
 
   return (
@@ -135,6 +147,7 @@ function PackageListView(props: PackageListViewProps) {
               {(pkg) => (
                 <tr
                   class="hover:bg-base-200 transition-all duration-200"
+                  classList={{ 'bg-base-200': contextMenuPackage()?.name === pkg.name }}
                   data-no-close-search
                   onDblClick={() => props.onViewInfo(pkg)}
                   onContextMenu={(e) => handleContextMenu(e, pkg)}
@@ -217,11 +230,20 @@ function PackageListView(props: PackageListViewProps) {
 
       {/* Context Menu */}
       <Show when={contextMenuPackage()}>
-        <div
-          class="bg-base-100 rounded-box border-base-200 fixed z-9999 min-w-[150px] border py-2 shadow-lg"
-          style={`left: ${contextMenuPosition().x}px; top: ${contextMenuPosition().y}px;`}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <>
+          <div
+            class="fixed inset-0 z-9998 bg-black/10"
+            onClick={() => closeContextMenu()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              closeContextMenu();
+            }}
+          />
+          <div
+            class="package-context-menu bg-base-100 rounded-box border-base-200 fixed z-9999 min-w-[150px] border py-2 shadow-lg"
+            style={`left: ${contextMenuPosition().x}px; top: ${contextMenuPosition().y}px;`}
+            onClick={(e) => e.stopPropagation()}
+          >
           <Show
             when={
               contextMenuPackage() &&
@@ -238,7 +260,7 @@ function PackageListView(props: PackageListViewProps) {
               >
                 <div class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
                   <Lock class="text-warning h-4 w-4" />
-                  <span>Package on hold</span>
+                  <span>{t('installed.list.heldTooltip')}</span>
                 </div>
               </Show>
             }
@@ -254,6 +276,39 @@ function PackageListView(props: PackageListViewProps) {
               <span>{t('installed.list.holdPackage')}</span>
             </div>
           </Show>
+
+          {/* Update Button - Show for packages that have updates available */}
+          <Show
+            when={
+              contextMenuPackage() &&
+              contextMenuPackage()!.available_version &&
+              !heldStore.isHeld(contextMenuPackage()!.name) &&
+              contextMenuPackage()!.installation_type !== 'custom'
+            }
+          >
+            <div
+              class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
+              onClick={() => {
+                props.onUpdate(contextMenuPackage()!);
+                closeContextMenu();
+              }}
+            >
+              <CircleArrowUp class="h-4 w-4" />
+              <span>{t('installed.list.update')}</span>
+            </div>
+          </Show>
+
+          {/* Open Folder Button */}
+          <div
+            class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
+            onClick={() => {
+              props.onOpenFolder(contextMenuPackage()!);
+              closeContextMenu();
+            }}
+          >
+            <Folder class="h-4 w-4" />
+            <span>{t('installed.list.openFolder')}</span>
+          </div>
 
           <Show when={contextMenuPackage() && props.isPackageVersioned(contextMenuPackage()!.name)}>
             <div
@@ -280,16 +335,33 @@ function PackageListView(props: PackageListViewProps) {
           </div>
 
           <div
-            class="hover:bg-base-200 text-error flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
+            class={`hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm ${uninstallConfirm() ? 'text-warning' : 'text-error'}`}
             onClick={() => {
-              props.onUninstall(contextMenuPackage()!);
-              closeContextMenu();
+              if (uninstallConfirm()) {
+                // Execute uninstall
+                if (uninstallTimer()) {
+                  clearTimeout(uninstallTimer()!);
+                  setUninstallTimer(null);
+                }
+                setUninstallConfirm(false);
+                props.onUninstall(contextMenuPackage()!);
+                closeContextMenu();
+              } else {
+                // First click - show confirmation
+                setUninstallConfirm(true);
+                const timer = window.setTimeout(() => {
+                  setUninstallConfirm(false);
+                  setUninstallTimer(null);
+                }, 3000);
+                setUninstallTimer(timer);
+              }
             }}
           >
             <Trash2 class="h-4 w-4" />
-            <span>{t('installed.list.uninstall')}</span>
+            <span>{uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')}</span>
           </div>
-        </div>
+          </div>
+        </>
       </Show>
     </div>
   );

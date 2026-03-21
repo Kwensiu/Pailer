@@ -11,6 +11,8 @@ export interface ScoopPackage {
   has_multiple_versions: boolean;
 }
 
+export type VersionTypeFilter = 'all' | 'versioned' | 'held';
+
 export interface ScoopInfo {
   details: [string, string][];
   notes: string | null;

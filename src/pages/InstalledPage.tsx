@@ -1,5 +1,6 @@
 import { Show, createSignal, createMemo, createEffect } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
@@ -9,7 +10,7 @@ import { usePackageOperations } from '../hooks/usePackageOperations';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
 import PackageListView from '../components/page/installed/PackageListView';
 import PackageGridView from '../components/page/installed/PackageGridView';
-import { View } from '../types/scoop';
+import { View, ScoopPackage } from '../types/scoop';
 import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
 import { t } from '../i18n';
@@ -34,6 +35,8 @@ function InstalledPage(props: InstalledPageProps) {
     sortDirection,
     selectedBucket,
     setSelectedBucket,
+    selectedVersionType,
+    setSelectedVersionType,
     selectedPackage,
     info,
     operatingOn,
@@ -125,6 +128,15 @@ function InstalledPage(props: InstalledPageProps) {
     setShowStatusModal(true);
   };
 
+  const handleOpenFolder = async (pkg: ScoopPackage) => {
+    try {
+      const packagePath = await invoke<string>('get_package_path', { packageName: pkg.name });
+      await openPath(packagePath);
+    } catch (err) {
+      console.error(`Failed to open folder for ${pkg.name}:`, err);
+    }
+  };
+
   const filteredPackages = createMemo(() => {
     const query = searchQuery().toLowerCase().trim();
     if (!query) return processedPackages();
@@ -154,6 +166,8 @@ function InstalledPage(props: InstalledPageProps) {
         uniqueBuckets={uniqueBuckets}
         selectedBucket={selectedBucket}
         setSelectedBucket={setSelectedBucket}
+        selectedVersionType={selectedVersionType}
+        setSelectedVersionType={setSelectedVersionType}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         viewMode={viewMode}
@@ -211,25 +225,30 @@ function InstalledPage(props: InstalledPageProps) {
           </div>
           <h3 class="mb-2 text-2xl font-bold">{t('noPackagesFound.title')}</h3>
           <p class="text-base-content/70 mb-6 max-w-md text-lg">
-            <Show when={searchQuery() || selectedBucket() !== 'all'}>
+            <Show
+              when={
+                searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'
+              }
+            >
               {t('noPackagesFound.noMatchCriteria')}
             </Show>
-            <Show when={!searchQuery() && selectedBucket() === 'all'}>
+            <Show when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}>
               {t('noPackagesFound.noInstalledYet')}
             </Show>
           </p>
-          <Show when={searchQuery() || selectedBucket() !== 'all'}>
+          <Show when={searchQuery() || selectedBucket() !== 'all' || selectedVersionType() !== 'all'}>
             <button
               class="btn btn-primary mb-4"
               onClick={() => {
                 setSearchQuery('');
                 setSelectedBucket('all');
+                setSelectedVersionType('all');
               }}
             >
               {t('noPackagesFound.clearFilters')}
             </button>
           </Show>
-          <Show when={!searchQuery() && selectedBucket() === 'all'}>
+          <Show when={!searchQuery() && selectedBucket() === 'all' && selectedVersionType() === 'all'}>
             <button class="btn btn-primary" onClick={() => props.onNavigate?.('search')}>
               {t('noPackagesFound.browsePackages')}
             </button>
@@ -269,6 +288,7 @@ function InstalledPage(props: InstalledPageProps) {
             onUnhold={handleUnhold}
             onUninstall={handleUninstall}
             onChangeBucket={handleOpenChangeBucket}
+            onOpenFolder={handleOpenFolder}
             operatingOn={operatingOn}
             isPackageVersioned={isPackageVersioned}
             searchQuery={searchQuery}

@@ -207,6 +207,7 @@
     },
     "checkup": {
       "description": "此工具检查您的 Scoop 设置中的常见问题。",
+      "runCheckup": "点击刷新按钮运行健康检查",
       "install": "安装",
       "installing": "正在安装...",
       "issuesFound": "发现问题",
@@ -323,14 +324,18 @@
     "header": {
       "allBuckets": "所有仓库",
       "bucketLabel": "仓库",
-      "checkStatus": "检查状态",
       "filter": "筛选",
       "refresh": "刷新",
       "searchPlaceholder": "按名称搜索...",
       "switchToGridView": "切换到网格视图",
       "switchToListView": "切换到列表视图",
       "title": "软件",
-      "updateAll": "全部更新"
+      "updateAll": "全部更新",
+      "versionTypeLabel": "版本类型",
+      "allVersionTypes": "全部",
+      "versionedSoftware": "版本化软件",
+      "heldPackages": "已保留",
+      "resetFilters": "重置筛选"
     },
     "list": {
       "bucket": "仓库",
@@ -340,9 +345,11 @@
       "heldTooltip": "此软件包已保留",
       "holdPackage": "保留软件包",
       "name": "名称",
+      "openFolder": "打开文件夹",
       "switchVersion": "切换版本",
       "unholdPackage": "取消保留",
       "uninstall": "卸载",
+      "update": "更新",
       "updateAvailableTooltip": "可用更新：v{{version}}",
       "updated": "更新",
       "version": "版本"
