@@ -224,15 +224,10 @@ body.context-menu-open [data-context-menu-allow='true'] * {
   pointer-events: auto;
 }
 
-/* Kobalte Dropdown Menu */
+/* Floating menu surfaces */
 .dropdown-menu-content {
-  @apply bg-base-100 rounded-box border-base-200 z-50 mt-1 max-h-80 min-w-32 overflow-y-auto border p-2 shadow-lg;
-  transform-origin: var(--kb-menu-content-transform-origin);
-  animation: menu-hide 0.1s ease-in forwards;
-
-  &[data-expanded] {
-    animation: menu-show 0.1s ease-out;
-  }
+  @apply bg-base-100 rounded-box border-base-200 z-50 max-h-80 min-w-32 overflow-y-auto border p-2 shadow-lg;
+  animation: menu-show 0.1s ease-out;
 }
 
 .dropdown-trigger {
@@ -247,10 +242,10 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 }
 
 .dropdown-menu-item {
-  @apply hover:bg-base-200 cursor-pointer rounded-xl;
+  @apply hover:bg-base-200 cursor-pointer rounded-xl border-none bg-transparent;
 }
 
-.dropdown-menu-item[data-disabled] {
+.dropdown-menu-item:disabled {
   @apply cursor-not-allowed opacity-50;
 }
 
@@ -271,17 +266,6 @@ body.context-menu-open [data-context-menu-allow='true'] * {
   to {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-@keyframes menu-hide {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.96);
   }
 }
 

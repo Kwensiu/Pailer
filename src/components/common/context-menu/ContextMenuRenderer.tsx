@@ -38,12 +38,9 @@ export function ContextMenuRenderer(props: ContextMenuRendererProps) {
 
     return (
       <MenuItem
-        onSelect={() => {
-          item.onClick();
-          if (item.closeOnSelect !== false) {
-            props.onClose();
-          }
-        }}
+        onSelect={item.onClick}
+        onClose={props.onClose}
+        closeOnSelect={item.closeOnSelect}
         disabled={disabled}
         class={item.class}
       >

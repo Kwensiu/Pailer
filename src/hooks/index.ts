@@ -1,5 +1,10 @@
 // UI related
-export { createMenuTabNavigation, clearTabbedState } from './ui/useTabNav';
+export {
+  createMenuTabNavigation,
+  createMenuFocusManagement,
+  clearTabbedState,
+} from './ui/useTabNav';
+export { createMenuCloseHandlers } from './ui/useCloseHandlers';
 export { useMultiConfirmAction as useConfirmAction } from './ui/useConfirmAction';
 
 // Storage related

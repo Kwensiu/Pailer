@@ -24,6 +24,11 @@ import {
 import { formatIsoDate } from '../../../utils/date';
 import { useConfirmAction } from '../../../hooks';
 
+type ActiveMenuState = {
+  type: 'dropdown' | 'context';
+  packageName: string;
+} | null;
+
 interface PackageGridViewProps {
   packages: Accessor<DisplayPackage[]>;
   searchQuery: Accessor<string>;
@@ -53,10 +58,9 @@ const PackageCard = (props: {
   onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: string | null;
   isPackageVersioned: (packageName: string) => boolean;
-  isContextMenuActive: (pkgName: string) => boolean;
-  isDropdownOpen: (pkgName: string) => boolean;
+  isMenuActive: (pkgName: string, type?: 'dropdown' | 'context') => boolean;
   onDropdownOpen: (pkgName: string) => void;
-  onDropdownClose: () => void;
+  onDropdownClose: (pkgName: string) => void;
   onContextMenuOpen: (pkg: ScoopPackage, x: number, y: number) => void;
   uninstallConfirm: Accessor<boolean>;
   onUninstallConfirm: (confirm: boolean) => void;
@@ -164,7 +168,7 @@ const PackageCard = (props: {
   };
 
   const isCardActive = () => {
-    return props.isContextMenuActive(pkg.name) || props.isDropdownOpen(pkg.name);
+    return props.isMenuActive(pkg.name);
   };
 
   return (
@@ -256,7 +260,7 @@ const PackageCard = (props: {
             triggerDisabled={props.operatingOn === pkg.name}
             items={items()}
             onOpen={() => props.onDropdownOpen(pkg.name)}
-            onClose={() => props.onDropdownClose()}
+            onClose={() => props.onDropdownClose(pkg.name)}
           />
         </div>
         <p class="text-base-content/70 text-sm">
@@ -279,11 +283,12 @@ function PackageGridView(props: PackageGridViewProps) {
     x: 0,
     y: 0,
   });
-  const [dropdownOpenPackage, setDropdownOpenPackage] = createSignal<string | null>(null);
+  const [activeMenu, setActiveMenu] = createSignal<ActiveMenuState>(null);
   const { confirmingItem, startConfirm, cancelConfirm, isConfirming } = useConfirmAction();
 
   const closeContextMenu = () => {
     setContextMenuPackage(null);
+    setActiveMenu(null);
     cancelConfirm();
   };
 
@@ -296,7 +301,7 @@ function PackageGridView(props: PackageGridViewProps) {
   const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
     setContextMenuPackage(pkg);
     setContextMenuPosition({ x, y });
-    setDropdownOpenPackage(null);
+    setActiveMenu({ type: 'context', packageName: pkg.name });
     cancelConfirm(pkg.name);
   };
 
@@ -326,8 +331,17 @@ function PackageGridView(props: PackageGridViewProps) {
     );
   };
 
-  const handleDropdownClose = () => {
-    setDropdownOpenPackage(null);
+  const isMenuActive = (pkgName: string, type?: 'dropdown' | 'context') => {
+    const current = activeMenu();
+    if (!current || current.packageName !== pkgName) return false;
+    return type ? current.type === type : true;
+  };
+
+  const handleDropdownClose = (pkgName: string) => {
+    setActiveMenu((current) => {
+      if (!current) return current;
+      return current.type === 'dropdown' && current.packageName === pkgName ? null : current;
+    });
   };
 
   return (
@@ -348,11 +362,10 @@ function PackageGridView(props: PackageGridViewProps) {
               onUninstall={props.onUninstall}
               operatingOn={props.operatingOn()}
               isPackageVersioned={props.isPackageVersioned}
-              isContextMenuActive={(pkgName) => contextMenuPackage()?.name === pkgName}
-              isDropdownOpen={(pkgName) => dropdownOpenPackage() === pkgName}
+              isMenuActive={isMenuActive}
               onDropdownOpen={(pkgName) => {
                 setContextMenuPackage(null);
-                setDropdownOpenPackage(pkgName);
+                setActiveMenu({ type: 'dropdown', packageName: pkgName });
               }}
               onDropdownClose={handleDropdownClose}
               onContextMenuOpen={openContextMenu}

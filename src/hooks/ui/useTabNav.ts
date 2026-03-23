@@ -1,5 +1,6 @@
 export interface MenuTabNavOptions {
   getItems: () => HTMLElement[];
+  focusFirst?: () => boolean;
 }
 
 /**
@@ -9,7 +10,7 @@ export interface MenuTabNavOptions {
 export function createMenuTabNavigation(options: MenuTabNavOptions) {
   const { getItems } = options;
 
-  return (e: KeyboardEvent) => {
+  const handleTabNav = (e: KeyboardEvent) => {
     if (e.key !== 'Tab') return;
 
     e.preventDefault();
@@ -56,6 +57,40 @@ export function createMenuTabNavigation(options: MenuTabNavOptions) {
         : idx + 1;
 
     items[nextIdx]?.focus();
+  };
+
+  return handleTabNav;
+}
+
+/**
+ * Creates focus management utilities for menu components
+ * @param contentRef - Reference to the menu content element
+ * @param itemSelector - CSS selector for menu items
+ * @returns Object with getItems, focusFirst, and handleTabNav functions
+ */
+export function createMenuFocusManagement(
+  contentRef: () => HTMLDivElement | undefined,
+  itemSelector: string = '[role="menuitem"]:not([disabled])'
+) {
+  const getItems = () => {
+    return Array.from(contentRef()?.querySelectorAll(itemSelector) ?? []) as HTMLElement[];
+  };
+
+  const focusFirst = () => {
+    const first = getItems()[0];
+    if (!first) return false;
+    first.focus();
+    return true;
+  };
+
+  const handleTabNav = createMenuTabNavigation({
+    getItems,
+  });
+
+  return {
+    getItems,
+    focusFirst,
+    handleTabNav,
   };
 }
 
