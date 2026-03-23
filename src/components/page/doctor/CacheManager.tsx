@@ -8,8 +8,7 @@ import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
 import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { t } from '../../../i18n';
-import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
-import { createTauriSignal } from '../../../hooks/createTauriSignal';
+import { createSessionStorage, createTauriSignal, invalidateCache } from '../../../hooks';
 
 interface CacheEntry {
   name: string;
@@ -44,7 +43,7 @@ function CacheManager() {
     error: cacheError,
     refresh: refreshCache,
     onInvalidate,
-  } = createSessionCache<CacheData>('cacheData', async () => {
+  } = createSessionStorage<CacheData>('cacheData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
     if (!scoopPath) {
       throw new Error('No Scoop path configured. Please configure it in settings.');

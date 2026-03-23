@@ -1,12 +1,12 @@
 import { createSignal, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage, VersionTypeFilter } from '../types/scoop';
-import { usePackageOperations } from './usePackageOperations';
+import { ScoopPackage, VersionTypeFilter } from '../../types/scoop';
+import { usePackageOperations } from './usePackageOps';
 import { usePackageInfo } from './usePackageInfo';
-import { createLocalStorageSignal } from './createLocalStorageSignal';
-import installedPackagesStore from '../stores/installedPackagesStore';
-import heldStore from '../stores/held';
-import { useBuckets } from './useBuckets';
+import { createLocalStorageSignal } from '../storage/createLocalStorageSignal';
+import installedPackagesStore from '../../stores/installedPackagesStore';
+import heldStore from '../../stores/held';
+import { useBuckets } from '../buckets/useBuckets';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 

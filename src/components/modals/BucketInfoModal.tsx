@@ -8,10 +8,10 @@ import {
   createEffect,
   onCleanup,
 } from 'solid-js';
-import { BucketInfo } from '../../hooks/useBuckets';
-import { SearchableBucket } from '../../hooks/useBucketSearch';
-import { useBucketInstall } from '../../hooks/useBucketInstall';
-import { clearManifestCache } from '../../hooks/useBuckets';
+import { BucketInfo } from '../../hooks/buckets/useBuckets';
+import { SearchableBucket } from '../../hooks/buckets/useBucketSearch';
+import { useBucketInstall } from '../../hooks/buckets/useBucketInstall';
+import { clearManifestCache } from '../../hooks/buckets/useBuckets';
 import {
   Ellipsis,
   GitBranch,
@@ -23,7 +23,7 @@ import {
   FolderOpen,
   Globe,
 } from 'lucide-solid';
-import { Dropdown, DropdownItem } from '../common/Dropdown';
+import Dropdown, { type DropdownItem } from '../common/Dropdown';
 import Modal from '../common/Modal';
 import BranchSelector from '../common/BranchSelector';
 import { openPath, openUrl } from '@tauri-apps/plugin-opener';
@@ -408,11 +408,8 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       <Dropdown
         position="end"
         items={menuItems()}
-        trigger={
-          <button class="btn btn-ghost btn-sm btn-circle">
-            <Ellipsis class="h-5 w-5" />
-          </button>
-        }
+        trigger={<Ellipsis class="h-5 w-5" />}
+        triggerClass="btn btn-ghost btn-sm btn-circle"
       />
     </div>
   );

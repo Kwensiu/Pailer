@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from
 import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../types/scoop';
 import Modal from '../common/Modal';
 import BucketInfoModal from './BucketInfoModal';
-import { useBuckets } from '../../hooks/useBuckets';
+import { useBuckets } from '../../hooks/buckets/useBuckets';
 import { highlightJson } from '../../utils/jsonHighlight';
 import {
   Download,
@@ -17,8 +17,8 @@ import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
-import { Dropdown } from '../common/Dropdown';
-import { searchCacheManager } from '../../hooks/useSearchCache';
+import Dropdown from '../common/Dropdown';
+import { searchCacheManager } from '../../hooks/search/useSearchCache';
 import settingsStore from '../../stores/settings';
 
 interface PackageInfoModalProps {
@@ -536,11 +536,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const headerAction = (
     <Dropdown
       position="end"
-      trigger={
-        <button class="btn btn-ghost btn-sm btn-circle">
-          <Ellipsis class="h-5 w-5" />
-        </button>
-      }
+      trigger={<Ellipsis class="h-5 w-5" />}
+      triggerClass="btn btn-ghost btn-sm btn-circle"
       items={[
         {
           label: t('packageInfo.viewManifest'),

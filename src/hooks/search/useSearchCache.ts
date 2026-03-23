@@ -1,5 +1,5 @@
-import { getManifestCache } from './useBuckets';
-import { ScoopPackage } from '../types/scoop';
+import { getManifestCache } from '../buckets/useBuckets';
+import { ScoopPackage } from '../../types/scoop';
 
 // Global search cache manager
 class SearchCacheManager {

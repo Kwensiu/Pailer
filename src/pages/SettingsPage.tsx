@@ -4,7 +4,7 @@ import OperationModal from '../components/modals/OperationModal';
 import * as SC from '../components/page/settings';
 import heldStore from '../stores/held';
 import { t } from '../i18n';
-import { createLocalStorageSignal } from '../hooks/createLocalStorageSignal';
+import { createLocalStorageSignal } from '../hooks';
 
 interface SettingsPageProps {
   activeSection: string;

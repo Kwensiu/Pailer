@@ -7,7 +7,7 @@ import OpenPathButton from '../../common/OpenPathButton';
 import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
 import settingsStore from '../../../stores/settings';
-import { createSessionCache } from '../../../hooks/createSessionStorage';
+import { createSessionStorage } from '../../../hooks';
 
 interface ScoopConfig {
   [key: string]: any;
@@ -29,7 +29,7 @@ function ScoopInfo() {
     refresh,
     updateData,
     onInvalidate,
-  } = createSessionCache<{
+  } = createSessionStorage<{
     config: ScoopConfig | null;
     directory: string | null;
   }>('scoopData', async () => {

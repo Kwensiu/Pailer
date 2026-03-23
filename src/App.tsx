@@ -21,11 +21,11 @@ import { info, error as logError } from '@tauri-apps/plugin-log';
 import { invoke } from '@tauri-apps/api/core';
 import installedPackagesStore from './stores/installedPackagesStore';
 import settingsStore from './stores/settings';
-import { BucketInfo, updateBucketsCache } from './hooks/useBuckets';
+import { BucketInfo, updateBucketsCache } from './hooks/index';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
-import { localStorageUtils } from './hooks/useSearchCache';
+import { localStorageUtils } from './hooks/index';
 
 function App() {
   const { settings } = settingsStore;

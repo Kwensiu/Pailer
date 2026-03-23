@@ -1,5 +1,5 @@
 import { createSignal, createEffect, Signal, createRoot } from 'solid-js';
-import { getSettingsStore } from '../stores/settings';
+import { getSettingsStore } from '../../stores/settings';
 
 // Cache for signals to ensure same key returns same signal instance
 const signalCache = new Map<string, Signal<any>>();

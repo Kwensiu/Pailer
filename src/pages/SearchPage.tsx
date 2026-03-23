@@ -1,14 +1,13 @@
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import OperationModal from '../components/modals/OperationModal';
 
-import { useSearch } from '../hooks/useSearch';
 import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
 import SearchResultsList from '../components/page/search/SearchResultsList';
 
 import { createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { useSearch, createTauriSignal } from '../hooks';
 import { t } from '../i18n';
-import { createTauriSignal } from '../hooks/createTauriSignal';
 import { RefreshCw } from 'lucide-solid';
 
 function SearchPage() {

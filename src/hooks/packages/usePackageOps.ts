@@ -1,12 +1,12 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage } from '../types/scoop';
-import { OperationNextStep, OperationStatus, OperationType } from '../types/operations';
-import installedPackagesStore from '../stores/installedPackagesStore';
-import { useOperations } from '../stores/operations';
-import { searchCacheManager } from './useSearchCache';
-import { t } from '../i18n';
-import { toast } from '../components/common/ToastAlert';
+import { ScoopPackage } from '../../types/scoop';
+import { OperationNextStep, OperationStatus, OperationType } from '../../types/operations';
+import installedPackagesStore from '../../stores/installedPackagesStore';
+import { useOperations } from '../../stores/operations';
+import { searchCacheManager } from '../search/useSearchCache';
+import { t } from '../../i18n';
+import { toast } from '../../components/common/ToastAlert';
 
 interface UsePackageOperationsReturn {
   operationTitle: () => string | null;

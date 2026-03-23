@@ -5,11 +5,11 @@ import {
   type BucketInfo,
   updateBucketsCache,
   clearManifestCache,
-} from '../hooks/useBuckets';
-import { usePackageInfo } from '../hooks/usePackageInfo';
-import { usePackageOperations } from '../hooks/usePackageOperations';
-import { createTauriSignal } from '../hooks/createTauriSignal';
-import { handleBucketPackageClick } from '../hooks/useBucketPackageClick';
+  handleBucketPackageClick,
+} from '../hooks';
+import { usePackageInfo } from '../hooks';
+import { usePackageOperations } from '../hooks';
+import { createTauriSignal } from '../hooks';
 import { ScoopPackage } from '../types/scoop';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
@@ -18,7 +18,7 @@ import BucketSearch from '../components/page/buckets/BucketSearch';
 import BucketGrid from '../components/page/buckets/BucketGrid';
 import BucketSearchResults from '../components/page/buckets/BucketSearchResults';
 import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
-import { SearchableBucket } from '../hooks/useBucketSearch';
+import { SearchableBucket } from '../hooks';
 import { t } from '../i18n';
 
 const UPDATE_RESULT_DISPLAY_DURATION = 2000;

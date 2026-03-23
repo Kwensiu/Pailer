@@ -1,10 +1,10 @@
 import { createSignal, createEffect, on, Setter, onMount, createMemo } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage, ScoopInfo } from '../types/scoop';
-import { usePackageOperations } from './usePackageOperations';
-import { usePackageInfo } from './usePackageInfo';
-import { OperationNextStep } from '../types/operations';
-import { parseSearchFormat, type ParsedSearch } from './useGlobalHotkey';
+import { ScoopPackage, ScoopInfo } from '../../types/scoop';
+import { usePackageOperations } from '../packages/usePackageOps';
+import { usePackageInfo } from '../packages/usePackageInfo';
+import { OperationNextStep } from '../../types/operations';
+import { parseSearchFormat, type ParsedSearch } from '../global/useGlobalHotkey';
 import { useSearchCache, searchCacheManager } from './useSearchCache';
 
 interface UseSearchReturn {

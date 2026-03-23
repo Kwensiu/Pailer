@@ -8,7 +8,7 @@ import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
 import CommandInputField from '../components/page/doctor/CommandInputField';
-import { createSessionCache } from '../hooks/createSessionStorage';
+import { createSessionStorage } from '../hooks';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { t } from '../i18n';
 
@@ -17,7 +17,7 @@ function DoctorPage() {
   const [isGlobalRefreshing, setIsGlobalRefreshing] = createSignal(false);
 
   // Use session cache for checkup data
-  const checkupCache = createSessionCache('checkupData', () =>
+  const checkupCache = createSessionStorage('checkupData', () =>
     invoke<CheckupItem[]>('run_scoop_checkup')
   );
 
