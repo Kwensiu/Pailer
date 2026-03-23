@@ -351,7 +351,7 @@
       "uninstall": "Uninstall",
       "update": "Update",
       "updateAvailableTooltip": "Update available: {{version}}",
-      "updated": "Updated",
+      "updated": "Modified",
       "version": "Version"
     }
   },

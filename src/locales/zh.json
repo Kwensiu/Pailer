@@ -351,7 +351,7 @@
       "uninstall": "卸载",
       "update": "更新",
       "updateAvailableTooltip": "可用更新：v{{version}}",
-      "updated": "更新",
+      "updated": "修改时间",
       "version": "版本"
     }
   },

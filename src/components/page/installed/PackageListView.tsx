@@ -41,8 +41,20 @@ const SortableHeader = (props: {
   onSort: (key: SortKey) => void;
   sortKey: Accessor<SortKey>;
   sortDirection: Accessor<'asc' | 'desc'>;
+  class?: string;
 }) => (
-  <th class="cursor-pointer select-none" onClick={() => props.onSort(props.key)}>
+  <th
+    class={`cursor-pointer select-none ${props.class || ''}`}
+    onClick={() => props.onSort(props.key)}
+    scope="col"
+    aria-sort={
+      props.sortKey() === props.key
+        ? props.sortDirection() === 'asc'
+          ? 'ascending'
+          : 'descending'
+        : 'none'
+    }
+  >
     <div class="flex items-center gap-2">
       {props.title}
       <Show when={props.sortKey() === props.key}>
@@ -119,7 +131,7 @@ function PackageListView(props: PackageListViewProps) {
   return (
     <div class="bg-base-card overflow-hidden rounded-xl shadow-xl">
       <div class="overflow-x-auto">
-        <table class="table">
+        <table class="table w-full table-fixed">
           <thead>
             <tr>
               <SortableHeader
@@ -128,6 +140,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[35%]"
               />
               <SortableHeader
                 key="version"
@@ -135,6 +148,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[20%]"
               />
               <SortableHeader
                 key="source"
@@ -142,6 +156,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[25%]"
               />
               <SortableHeader
                 key="updated"
@@ -149,6 +164,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[20%]"
               />
             </tr>
           </thead>
@@ -176,74 +192,82 @@ function PackageListView(props: PackageListViewProps) {
                   tabIndex={0}
                   aria-label={`${pkg.name} package actions`}
                 >
-                  <td class="max-w-[160px]">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="hover:text-primary cursor-pointer truncate font-medium transition-colors"
-                        onClick={() => props.onViewInfo(pkg)}
-                        title={pkg.name}
-                      >
-                        <HighlightText text={pkg.name} query={props.searchQuery()} />
-                      </div>
-                      <Show
-                        when={
-                          pkg.available_version &&
-                          !heldStore.isHeld(pkg.name) &&
-                          pkg.installation_type !== 'custom'
-                        }
-                      >
+                  <td class="w-[35%]">
+                    <div class="flex min-w-0 items-center gap-2">
+                      <div class="flex min-w-0 items-center gap-1">
                         <div
-                          class="tooltip tooltip-right"
-                          data-tip={
-                            t('installed.list.updateAvailableTooltip', {
-                              version: pkg.available_version,
-                            }) +
-                            (isCiVersion(pkg.available_version || '')
-                              ? t('installed.list.ciVersionNote')
-                              : '')
+                          class="hover:text-primary min-w-0 cursor-pointer truncate font-medium transition-colors"
+                          onClick={() => props.onViewInfo(pkg)}
+                          title={pkg.name}
+                        >
+                          <HighlightText text={pkg.name} query={props.searchQuery()} />
+                        </div>
+                        <Show
+                          when={
+                            pkg.available_version &&
+                            !heldStore.isHeld(pkg.name) &&
+                            pkg.installation_type !== 'custom'
                           }
                         >
-                          <CircleArrowUp
-                            class="text-primary mr-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
-                            onClick={() => props.onUpdate(pkg)}
-                          />
-                        </div>
-                      </Show>
-                      <Show when={pkg.installation_type === 'custom'}>
-                        <div
-                          class="tooltip tooltip-right"
-                          data-tip={t('installed.list.customInstallTooltip')}
-                        >
-                          <Lock class="h-4 w-4 text-cyan-400" />
-                        </div>
-                      </Show>
-                      <Show when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}>
-                        <div
-                          class="tooltip tooltip-right"
-                          data-tip={t('installed.list.heldTooltip')}
-                        >
-                          <Lock class="text-warning h-4 w-4" />
-                        </div>
-                      </Show>
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={
+                              t('installed.list.updateAvailableTooltip', {
+                                version: pkg.available_version,
+                              }) +
+                              (isCiVersion(pkg.available_version || '')
+                                ? t('installed.list.ciVersionNote')
+                                : '')
+                            }
+                          >
+                            <CircleArrowUp
+                              class="text-primary h-4 w-4 cursor-pointer transition-transform hover:scale-125"
+                              onClick={() => props.onUpdate(pkg)}
+                            />
+                          </div>
+                        </Show>
+                        <Show when={pkg.installation_type === 'custom'}>
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={t('installed.list.customInstallTooltip')}
+                          >
+                            <Lock class="h-4 w-4 text-cyan-400" />
+                          </div>
+                        </Show>
+                        <Show when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}>
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={t('installed.list.heldTooltip')}
+                          >
+                            <Lock class="text-warning h-4 w-4" />
+                          </div>
+                        </Show>
+                      </div>
                     </div>
                   </td>
-                  <td class="max-w-[120px] truncate" title={pkg.version}>
-                    <HighlightText text={pkg.version} query={props.searchQuery()} />
+                  <td class="w-[20%]">
+                    <div class="flex items-center h-full truncate" title={pkg.version}>
+                      <HighlightText text={pkg.version} query={props.searchQuery()} />
+                    </div>
                   </td>
-                  <td class="max-w-[150px]">
-                    <span
-                      class="hover:text-primary inline-block max-w-full cursor-pointer truncate font-medium transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        props.onViewBucketInfo(pkg.source);
-                      }}
-                      title={pkg.source}
-                    >
-                      <HighlightText text={pkg.source} query={props.searchQuery()} />
-                    </span>
+                  <td class="w-[25%]">
+                    <div class="flex items-center h-full">
+                      <span
+                        class="hover:text-primary cursor-pointer truncate transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onViewBucketInfo(pkg.source);
+                        }}
+                        title={pkg.source}
+                      >
+                        <HighlightText text={pkg.source} query={props.searchQuery()} />
+                      </span>
+                    </div>
                   </td>
-                  <td class="max-w-[120px] whitespace-nowrap" title={pkg.updated}>
-                    {formatIsoDate(pkg.updated)}
+                  <td class="w-[20%]">
+                    <div class="flex items-center h-full truncate" title={pkg.updated}>
+                      {formatIsoDate(pkg.updated)}
+                    </div>
                   </td>
                 </tr>
               )}

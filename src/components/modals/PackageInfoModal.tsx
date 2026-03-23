@@ -4,6 +4,7 @@ import Modal from '../common/Modal';
 import BucketInfoModal from './BucketInfoModal';
 import { useBuckets } from '../../hooks/buckets/useBuckets';
 import { highlightJson } from '../../utils/jsonHighlight';
+import { getCurrentVersionInstallTime } from '../../hooks/packages/getCurrentInstallTime';
 import {
   Download,
   Ellipsis,
@@ -147,6 +148,15 @@ function LicenseValue(props: { value: string }) {
 function PackageInfoModal(props: PackageInfoModalProps) {
   const { buckets } = useBuckets();
   let codeRef: HTMLElement | undefined;
+  // State for version switching
+  const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
+  const [versionLoading, setVersionLoading] = createSignal(false);
+  const [versionError, setVersionError] = createSignal<string | null>(null);
+  const [switchingVersion, setSwitchingVersion] = createSignal<string | null>(null);
+
+  // State for current version install time
+  const [currentVersionInstallTime, setCurrentVersionInstallTime] = createSignal<string>('');
+
   // Format date display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -214,8 +224,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       if (detailsMap.has(key)) {
         result.push({ key, label, value: detailsMap.get(key)! });
       } else if (key === 'Install Date' && props.pkg) {
-        // Add install date info and format
-        result.push({ key, label, value: formatDate(props.pkg.updated) });
+        // Add install date info using current version install.json time
+        const installTime = currentVersionInstallTime() || props.pkg.updated;
+        result.push({ key, label, value: formatDate(installTime) });
       } else if (key === 'Update Date' && props.pkg) {
         // Add update date info and format
         result.push({ key, label, value: formatDate(props.pkg.updated) });
@@ -224,12 +235,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
     return result;
   });
-
-  // State for version switching
-  const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
-  const [versionLoading, setVersionLoading] = createSignal(false);
-  const [versionError, setVersionError] = createSignal<string | null>(null);
-  const [switchingVersion, setSwitchingVersion] = createSignal<string | null>(null);
 
   // State for manifest modal
   const [manifestContent, setManifestContent] = createSignal<string | null>(null);
@@ -379,6 +384,32 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   });
 
+  // Fetch current version install time for installed packages
+  createEffect(() => {
+    let cancelled = false;
+    const packageName = props.pkg?.name;
+
+    if (!props.pkg?.is_installed || !packageName) {
+      setCurrentVersionInstallTime('');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setCurrentVersionInstallTime('');
+    getCurrentVersionInstallTime(packageName)
+      .then((installTime: string) => {
+        if (!cancelled && props.pkg?.name === packageName) {
+          setCurrentVersionInstallTime(installTime);
+        }
+      })
+      .catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
   // Clear version info when package changes or autoShowVersions becomes false
   createEffect(() => {
     if (!props.autoShowVersions || !props.pkg) {
@@ -393,6 +424,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   createEffect((prevPackageName) => {
     const currentPackageName = props.pkg?.name;
     if (prevPackageName !== undefined && prevPackageName !== currentPackageName) {
+      setCurrentVersionInstallTime('');
       setVersionInfo(null);
       setVersionError(null);
       setVersionLoading(false);

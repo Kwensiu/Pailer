@@ -18,6 +18,16 @@ fn get_path_modification_time(path: &Path) -> u128 {
         .unwrap_or(0)
 }
 
+fn format_modified_time(path: &Path) -> Result<String, String> {
+    let metadata = fs::metadata(path)
+        .map_err(|e| format!("Failed to read metadata for {}: {}", path.display(), e))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Failed to read modified time for {}: {}", path.display(), e))?;
+
+    Ok(DateTime::<Utc>::from(modified).to_rfc3339())
+}
+
 /// Helper to get modification time of an installation directory.
 /// Checks install.json, then manifest.json, then the directory itself.
 fn get_install_modification_time(install_dir: &Path) -> u128 {
@@ -392,12 +402,36 @@ fn determine_bucket(install_manifest: &InstallManifest, scoop_path: &Path, packa
     }
 }
 
-/// Gets the installation/update time from the install root directory.
-fn get_install_time(install_root: &Path) -> String {
-    fs::metadata(install_root)
-        .and_then(|m| m.modified())
-        .map(|t| DateTime::<Utc>::from(t).to_rfc3339())
-        .unwrap_or_default()
+/// Gets the package directory modified time from the package main directory (e.g., D:\Scoop\apps\7zip)
+/// This represents the last time the user interacted with this package (install, update, switch version, etc.)
+fn get_package_directory_modified_time(package_dir: &Path) -> Result<String, String> {
+    format_modified_time(package_dir)
+}
+
+/// Gets the install.json modification time from the current version directory
+/// This represents the actual installation date of the current version
+fn get_current_version_install_date(package_dir: &Path) -> Result<String, String> {
+    let install_root = match locate_install_dir(package_dir) {
+        Ok(dir) => dir,
+        Err(e) => return Err(e),
+    };
+
+    let install_manifest = install_root.join("install.json");
+
+    format_modified_time(&install_manifest)
+}
+
+/// Gets the manifest.json modification time from the current version directory  
+/// This represents the version update date (when this version was last updated/refreshed)
+fn get_current_version_update_date_impl(package_dir: &Path) -> Result<String, String> {
+    let install_root = match locate_install_dir(package_dir) {
+        Ok(dir) => dir,
+        Err(e) => return Err(e),
+    };
+
+    let manifest_path = install_root.join("manifest.json");
+
+    format_modified_time(&manifest_path)
 }
 
 /// Builds a ScoopPackage from the collected information.
@@ -442,7 +476,8 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
     let install_root = locate_install_dir(package_path)?;
     let (manifest, install_manifest) = load_package_info(&install_root, &package_name)?;
     let bucket = determine_bucket(&install_manifest, scoop_path, &package_name);
-    let updated_time = get_install_time(&install_root);
+    let updated_time = get_package_directory_modified_time(package_path)
+        .unwrap_or_default(); // Use package_path (main directory) instead of install_root (current directory)
 
     log::trace!("Determined bucket for package {}: {}", package_name, bucket);
 
@@ -783,4 +818,38 @@ async fn update_package_versions_cache(
         "✓ Package versions cache updated with {} versioned packages",
         versions_count
     );
+}
+
+#[tauri::command]
+pub async fn get_current_version_install_time<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    package_name: String,
+) -> Result<String, String> {
+    let scoop_path = state.scoop_path();
+    let apps_path = scoop_path.join("apps");
+    let package_path = apps_path.join(&package_name);
+    
+    if !package_path.exists() {
+        return Err(format!("Package '{}' not found", package_name));
+    }
+    
+    get_current_version_install_date(&package_path)
+}
+
+#[tauri::command]
+pub async fn get_current_version_update_date<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    package_name: String,
+) -> Result<String, String> {
+    let scoop_path = state.scoop_path();
+    let apps_path = scoop_path.join("apps");
+    let package_path = apps_path.join(&package_name);
+    
+    if !package_path.exists() {
+        return Err(format!("Package '{}' not found", package_name));
+    }
+    
+    get_current_version_update_date_impl(&package_path)
 }
