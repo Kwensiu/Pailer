@@ -33,6 +33,7 @@ export interface DropdownProps {
   contentClass?: string;
   onOpen?: () => void;
   onClose?: () => void;
+  selectMode?: boolean;
 }
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
@@ -123,6 +124,7 @@ export default function Dropdown(props: DropdownProps) {
     if (!open()) {
       clearTabbedState(contentRef, TABBED_ITEM_SELECTOR);
       setFloatingStyle((prev) => ({ ...prev, visibility: 'hidden' }));
+      document.body.classList.remove('context-menu-open');
       return;
     }
 
@@ -153,9 +155,16 @@ export default function Dropdown(props: DropdownProps) {
     document.addEventListener('scroll', handleScroll, true);
     window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('visibilitychange', handleVisChange);
+    document.body.classList.add('context-menu-open');
 
     requestAnimationFrame(() => {
       if (triggerRef && contentRef) {
+        // Match menu width to trigger width on open (only for select mode)
+        if (props.selectMode) {
+          const width = triggerRef.getBoundingClientRect().width;
+          contentRef.style.minWidth = `${width}px`;
+          contentRef.style.width = 'max-content';
+        }
         cleanupAutoUpdate = autoUpdate(triggerRef, contentRef, updatePosition);
       }
       const items = getItems();
@@ -171,6 +180,7 @@ export default function Dropdown(props: DropdownProps) {
       document.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisChange);
+      document.body.classList.remove('context-menu-open');
     });
   });
 

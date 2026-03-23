@@ -1,20 +1,22 @@
-import { House } from 'lucide-solid';
+import { House, Search, FolderOpen, Package, Stethoscope, Settings } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { View } from '../../../types/scoop';
 import { t } from '../../../i18n';
-import { createMemo } from 'solid-js';
+import { createMemo, type Component } from 'solid-js';
 
 function DefaultLaunchPageSettings() {
   const { settings, setDefaultLaunchPage } = settingsStore;
 
-  const pages = createMemo<{ value: View; label: string }[]>(() => [
-    { value: 'search', label: t('settings.defaultLaunchPage.search') },
-    { value: 'bucket', label: t('settings.defaultLaunchPage.buckets') },
-    { value: 'installed', label: t('settings.defaultLaunchPage.installed') },
-    { value: 'doctor', label: t('settings.defaultLaunchPage.doctor') },
-    { value: 'settings', label: t('settings.defaultLaunchPage.settings') },
-  ]);
+  const pages = createMemo<{ value: View; label: string; icon: Component<{ class?: string }> }[]>(
+    () => [
+      { value: 'search', label: t('settings.defaultLaunchPage.search'), icon: Search },
+      { value: 'bucket', label: t('settings.defaultLaunchPage.buckets'), icon: FolderOpen },
+      { value: 'installed', label: t('settings.defaultLaunchPage.installed'), icon: Package },
+      { value: 'doctor', label: t('settings.defaultLaunchPage.doctor'), icon: Stethoscope },
+      { value: 'settings', label: t('settings.defaultLaunchPage.settings'), icon: Settings },
+    ]
+  );
 
   const handlePageChange = async (e: Event) => {
     const target = e.currentTarget as HTMLSelectElement;

@@ -226,12 +226,13 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 
 /* Floating menu surfaces */
 .dropdown-menu-content {
-  @apply bg-base-100 rounded-box border-base-200 z-50 max-h-80 min-w-32 overflow-y-auto border p-2 shadow-lg;
+  @apply bg-base-100 rounded-box border-base-200 z-100 max-h-80 overflow-y-auto border p-2 shadow-lg;
   animation: menu-show 0.1s ease-out;
+  box-sizing: border-box;
 }
 
 .dropdown-trigger {
-  @apply cursor-pointer border-none bg-transparent p-0;
+  @apply cursor-pointer;
 
   &:hover {
     @apply opacity-70;
@@ -251,6 +252,32 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 
 .dropdown-menu-item-content {
   @apply flex w-full items-center gap-2 px-3 py-2 text-sm;
+}
+
+/* Installed package list */
+.package-list-row {
+  @apply cursor-pointer transition-colors;
+
+  &:hover {
+    @apply bg-black/10;
+  }
+}
+
+[data-theme='dark'] .package-list-row:hover {
+  @apply bg-white/10;
+}
+
+.package-list-row-active {
+  @apply cursor-pointer transition-colors;
+}
+
+.package-list-row-active,
+[data-theme='light'] .package-list-row-active {
+  @apply bg-black/10;
+}
+
+[data-theme='dark'] .package-list-row-active {
+  @apply bg-white/10;
 }
 
 /* Context Menu */

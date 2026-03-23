@@ -207,7 +207,6 @@
     },
     "checkup": {
       "description": "此工具检查您的 Scoop 设置中的常见问题。",
-      "runCheckup": "点击刷新按钮运行健康检查",
       "install": "安装",
       "installing": "正在安装...",
       "issuesFound": "发现问题",
@@ -227,6 +226,7 @@
         "windowsDeveloperModeSuggestion": "Windows 开发者模式未启用。相关到符号链接的操作可能因权限不足而失败。请在 Windows 设置中启用它。"
       },
       "noIssues": "检查完成，没有发现问题。",
+      "runCheckup": "点击刷新按钮运行健康检查",
       "scrollToIssues": "滚动到问题",
       "title": "Scoop 健康检查"
     },
@@ -323,19 +323,19 @@
     },
     "header": {
       "allBuckets": "所有仓库",
+      "allVersionTypes": "全部",
       "bucketLabel": "仓库",
       "filter": "筛选",
+      "heldPackages": "已保留",
       "refresh": "刷新",
+      "resetFilters": "重置筛选",
       "searchPlaceholder": "按名称搜索...",
       "switchToGridView": "切换到网格视图",
       "switchToListView": "切换到列表视图",
       "title": "软件",
       "updateAll": "全部更新",
       "versionTypeLabel": "版本类型",
-      "allVersionTypes": "全部",
-      "versionedSoftware": "版本化软件",
-      "heldPackages": "已保留",
-      "resetFilters": "重置筛选"
+      "versionedSoftware": "版本化软件"
     },
     "list": {
       "bucket": "仓库",
@@ -656,7 +656,7 @@
       "buckets": "仓库",
       "description": "选择应用程序启动时显示的页面。",
       "doctor": "诊断",
-      "installed": "已安装",
+      "installed": "软件包",
       "search": "搜索",
       "settings": "设置",
       "title": "默认启动页面"

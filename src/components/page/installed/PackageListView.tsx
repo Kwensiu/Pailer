@@ -156,8 +156,8 @@ function PackageListView(props: PackageListViewProps) {
             <For each={props.packages()}>
               {(pkg) => (
                 <tr
-                  class="cursor-pointer transition-colors hover:bg-black/24"
-                  classList={{ 'bg-black/24': isContextMenuActive(pkg.name) }}
+                  class="package-list-row cursor-pointer transition-colors"
+                  classList={{ 'package-list-row-active': isContextMenuActive(pkg.name) }}
                   data-context-menu-allow="true"
                   data-no-close-search
                   onDblClick={() => props.onViewInfo(pkg)}
