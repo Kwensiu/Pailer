@@ -1,133 +1,193 @@
-import { JSX, Show, For, Component, createSignal, onCleanup, onMount } from 'solid-js';
+import {
+  Show,
+  For,
+  createSignal,
+  createEffect,
+  onCleanup,
+  type Accessor,
+  type Component,
+  type JSX,
+} from 'solid-js';
+import { DropdownMenu } from '@kobalte/core/dropdown-menu';
 import { Dynamic } from 'solid-js/web';
+import { createMenuTabNavigation, clearTabbedState } from '../../hooks/index';
+
+export interface IconProps {
+  class?: string;
+}
 
 export interface DropdownItem {
-  label: string | (() => string);
+  label: Accessor<string> | string;
   onClick: () => void;
-  disabled?: boolean | (() => boolean);
-  icon?: Component<{ class?: string }>;
-  class?: string;
+  icon?: Component<IconProps>;
   align?: 'start' | 'center' | 'end';
+  class?: string;
+  disabled?: Accessor<boolean> | boolean;
+  closeOnSelect?: boolean;
 }
 
 export interface DropdownProps {
-  trigger: JSX.Element;
   items: DropdownItem[];
   position?: 'start' | 'end' | 'center';
+  trigger: JSX.Element;
   class?: string;
+  triggerClass?: string;
+  triggerStyle?: JSX.CSSProperties | string;
+  triggerDisabled?: boolean;
   contentClass?: string;
-  size?: 'sm' | 'md' | 'lg';
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
-export function Dropdown(props: DropdownProps) {
-  const position = props.position || 'end';
-  const [isOpen, setIsOpen] = createSignal(false);
+/**
+ * WAI-ARIA Menu Button with custom focus management.
+ * First Tab shows focus, subsequent Tabs navigate through items.
+ * Uses data-tabbed attribute to track first Tab behavior.
+ */
+const ITEM_SELECTOR = '[role="menuitem"]:not([aria-disabled="true"])';
+const DROPDOWN_ITEM = '[data-dropdown-item="true"]';
+const TABBED_ITEM = `${DROPDOWN_ITEM}[data-tabbed]`;
 
-  // Handle outside click to close dropdown
-  const handleOutsideClick = (e: MouseEvent) => {
-    const dropdown = e.target as HTMLElement;
-    if (!dropdown.closest('.dropdown')) {
-      setIsOpen(false);
-    }
+const getAlignClass = (align?: 'start' | 'center' | 'end') => {
+  switch (align) {
+    case 'center':
+      return 'justify-center';
+    case 'end':
+      return 'justify-end';
+    case 'start':
+    default:
+      return 'justify-start';
+  }
+};
+
+const getPlacement = (position?: 'start' | 'end' | 'center') => {
+  switch (position) {
+    case 'start':
+      return 'bottom-start';
+    case 'center':
+      return 'bottom';
+    case 'end':
+    default:
+      return 'bottom-end';
+  }
+};
+
+export default function Dropdown(props: DropdownProps) {
+  const [open, setOpen] = createSignal(false);
+  let contentRef: HTMLDivElement | undefined;
+
+  const getItems = () => {
+    return Array.from(contentRef?.querySelectorAll(ITEM_SELECTOR) ?? []) as HTMLElement[];
   };
 
-  onMount(() => {
-    document.addEventListener('click', handleOutsideClick);
+  const focusFirst = () => {
+    const first = getItems()[0];
+    if (!first) return false;
+    first.focus();
+    return true;
+  };
+
+  const handleTabNav = createMenuTabNavigation({
+    getItems,
   });
 
-  onCleanup(() => {
-    document.removeEventListener('click', handleOutsideClick);
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      props.onOpen?.();
+    } else {
+      props.onClose?.();
+    }
+  };
+
+  const handleScroll = () => {
+    if (open()) {
+      setOpen(false);
+      props.onClose?.();
+    }
+  };
+
+  createEffect(() => {
+    if (open()) {
+      document.addEventListener('scroll', handleScroll, true);
+    } else {
+      document.removeEventListener('scroll', handleScroll, true);
+      clearTabbedState(contentRef, TABBED_ITEM);
+    }
+
+    onCleanup(() => {
+      document.removeEventListener('scroll', handleScroll, true);
+    });
   });
-
-  const getPositionClass = () => {
-    switch (position) {
-      case 'start':
-        return 'dropdown-start';
-      case 'center':
-        return 'dropdown-center';
-      case 'end':
-      default:
-        return 'dropdown-end';
-    }
-  };
-
-  const defaultContentClass = `p-2 border border-base-200 shadow`;
-
-  const getAlignClass = (align?: 'start' | 'center' | 'end') => {
-    switch (align) {
-      case 'start':
-        return 'justify-start';
-      case 'center':
-        return 'justify-center';
-      case 'end':
-        return 'justify-end';
-      default:
-        return 'justify-start';
-    }
-  };
-
-  const toggleDropdown = () => setIsOpen(!isOpen());
-  const closeDropdown = () => setIsOpen(false);
 
   return (
     <div
-      class={`dropdown custom-dropdown ${getPositionClass()} ${props.class || ''} ${isOpen() ? 'dropdown-open' : ''}`}
+      class={`custom-dropdown-container relative inline-block ${props.class || ''}`}
       onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.stopPropagation()}
     >
-      <button
-        tabindex="0"
-        role="button"
-        class="cursor-pointer border-none bg-transparent p-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleDropdown();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            toggleDropdown();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            closeDropdown();
-          }
-        }}
+      <DropdownMenu
+        open={open()}
+        onOpenChange={handleOpenChange}
+        placement={getPlacement(props.position)}
+        modal={false}
       >
-        {props.trigger}
-      </button>
-      <ul
-        tabindex="0"
-        class={`dropdown-content menu bg-base-100 rounded-box ${props.contentClass || defaultContentClass}`}
-        role="menu"
-      >
-        <For each={props.items}>
-          {(item) => {
-            const isDisabled =
-              typeof item.disabled === 'function' ? item.disabled() : item.disabled;
+        <DropdownMenu.Trigger
+          class={`dropdown-trigger ${props.triggerClass || ''}`}
+          disabled={props.triggerDisabled}
+          style={props.triggerStyle}
+          tabIndex={props.triggerDisabled ? -1 : 0}
+        >
+          {props.trigger}
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            ref={contentRef}
+            data-dropdown-menu-content="true"
+            data-context-menu-allow="true"
+            class={`dropdown-menu-content ${props.contentClass || ''}`}
+            onKeyDown={handleTabNav}
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              requestAnimationFrame(() => {
+                if (!focusFirst()) {
+                  setTimeout(() => focusFirst(), 30);
+                }
+              });
+            }}
+          >
+            <For each={props.items}>
+              {(item) => {
+                const isDisabled =
+                  typeof item.disabled === 'function' ? item.disabled() : item.disabled;
 
-            return (
-              <li role="menuitem">
-                <button
-                  onClick={() => {
-                    if (!isDisabled) {
-                      item.onClick();
-                      closeDropdown();
-                    }
-                  }}
-                  disabled={isDisabled}
-                  class={`btn btn-ghost btn-sm rounded-xl ${item.class || ''} ${isDisabled ? 'btn-disabled' : ''} ${getAlignClass(item.align)}`}
-                >
-                  <div class="flex items-center gap-2">
-                    <Show when={item.icon}>
-                      <Dynamic component={item.icon} class="h-4 w-4" />
-                    </Show>
-                    <span>{typeof item.label === 'function' ? item.label() : item.label}</span>
-                  </div>
-                </button>
-              </li>
-            );
-          }}
-        </For>
-      </ul>
+                return (
+                  <DropdownMenu.Item
+                    data-dropdown-item="true"
+                    class="dropdown-menu-item"
+                    disabled={isDisabled}
+                    closeOnSelect={item.closeOnSelect !== false}
+                    onSelect={() => {
+                      if (!isDisabled) {
+                        item.onClick();
+                      }
+                    }}
+                  >
+                    <div
+                      class={`dropdown-menu-item-content ${item.class || ''} ${getAlignClass(item.align)}`}
+                    >
+                      <Show when={item.icon}>
+                        <Dynamic component={item.icon} class="h-4 w-4" />
+                      </Show>
+                      <span>{typeof item.label === 'function' ? item.label() : item.label}</span>
+                    </div>
+                  </DropdownMenu.Item>
+                );
+              }}
+            </For>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu>
     </div>
   );
 }

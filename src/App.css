@@ -212,82 +212,114 @@ input[class*='focus:'] {
   color: inherit !important;
 }
 
-/* Unified dropdown menu styles */
-.dropdown-menu {
-  @apply bg-base-100 rounded-box border-neutral absolute z-50 w-44 border p-2 shadow;
-  position: fixed !important;
-  > ul {
-    @apply m-0 list-none p-0;
+/* Context menu selective freeze */
+body.context-menu-open * {
+  pointer-events: none;
+}
+
+body.context-menu-open [data-context-menu-root='true'],
+body.context-menu-open [data-context-menu-root='true'] *,
+body.context-menu-open [data-context-menu-allow='true'],
+body.context-menu-open [data-context-menu-allow='true'] * {
+  pointer-events: auto;
+}
+
+/* Kobalte Dropdown Menu */
+.dropdown-menu-content {
+  @apply bg-base-100 rounded-box border-base-200 z-50 mt-1 max-h-80 min-w-32 overflow-y-auto border p-2 shadow-lg;
+  transform-origin: var(--kb-menu-content-transform-origin);
+  animation: menu-hide 0.1s ease-in forwards;
+
+  &[data-expanded] {
+    animation: menu-show 0.1s ease-out;
   }
-  > ul > li {
-    @apply border-0;
+}
+
+.dropdown-trigger {
+  @apply cursor-pointer border-none bg-transparent p-0;
+
+  &:hover {
+    @apply opacity-70;
+  }
+  &:disabled {
+    @apply cursor-not-allowed opacity-50;
   }
 }
 
-/* Custom Dropdown Component Styles */
-.custom-dropdown .dropdown-content {
-  @apply bg-base-100 rounded-box border-base-200 mt-1 border shadow-md;
+.dropdown-menu-item {
+  @apply hover:bg-base-200 cursor-pointer rounded-xl;
 }
 
-/* Custom Dropdown button styles */
-.custom-dropdown .dropdown-content.menu > li > button {
-  @apply m-[-2px]! mb-0.5! justify-start! text-left!;
+.dropdown-menu-item[data-disabled] {
+  @apply cursor-not-allowed opacity-50;
 }
 
-.custom-dropdown .dropdown-content.menu > li:last-child > button {
-  @apply mb-0!;
+.dropdown-menu-item-content {
+  @apply flex w-full items-center gap-2 px-3 py-2 text-sm;
 }
 
-/* Custom Dropdown alignment options */
-.custom-dropdown .dropdown-content.menu > li > button.justify-center {
-  @apply justify-center! text-center!;
+/* Context Menu */
+[data-context-menu-root='true'] {
+  animation: menu-show 0.1s ease-out;
 }
 
-.custom-dropdown .dropdown-content.menu > li > button.justify-end {
-  @apply justify-end! text-right!;
+@keyframes menu-show {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-/* DaisyUI Native Dropdown Fixes */
-.card .dropdown-content {
-  z-index: 9999 !important;
+@keyframes menu-hide {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
-/* Fix dropdown z-index when card is hovered */
-.card:hover .dropdown {
-  z-index: 9999 !important;
+/* DaisyUI Dropdown (used in Card, SearchPage, InstalledPageHeader) */
+.dropdown-content {
+  @apply bg-base-100 rounded-box border-base-200 border shadow-lg;
+  min-width: max-content;
 }
 
-.card:hover .dropdown-content {
-  z-index: 9999 !important;
+.dropdown-content.menu button {
+  @apply w-full justify-center;
 }
 
-/* Ensure badges remain visible when card is hovered */
-.card:hover .badge {
-  z-index: 20 !important;
-}
-
-/* Create proper stacking context for the entire card */
+/* Card stacking context */
 .card {
-  position: relative;
+  @apply relative;
   isolation: isolate;
 }
 
-/* Create proper stacking context for the entire grid */
-.grid {
-  isolation: isolate !important;
-}
-
-/* Ensure dropdown appears above all cards during hover */
 .card:hover {
-  z-index: 10 !important;
+  z-index: 10;
 }
 
-.card:hover .dropdown {
-  z-index: 99999 !important;
+.card:hover .badge {
+  z-index: 20;
 }
 
-.card:hover .dropdown-content {
-  z-index: 99999 !important;
+/* Table row rounded corners - clip tr background via td */
+.table tbody tr:last-child td {
+  overflow: hidden;
+}
+
+.table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 0.75rem;
+}
+
+.table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 0.75rem;
 }
 
 /* Custom background colors */
@@ -747,30 +779,6 @@ input:focus {
   box-shadow: none !important;
   outline: none !important;
   background-color: var(--btn-color, var(--color-base-200)) !important;
-}
-
-/* Global Dropdown Styles */
-.dropdown-content {
-  min-width: max-content;
-}
-
-.dropdown-filter-menu {
-  width: 14rem;
-}
-
-.dropdown-content.menu li {
-  width: 100%;
-}
-
-.dropdown-content.menu button {
-  width: 100%;
-  min-width: max-content;
-  text-align: center;
-  justify-content: center !important;
-}
-
-.dropdown-content.menu button .flex {
-  justify-content: center !important;
 }
 
 /* ResponsiveButton Styles */

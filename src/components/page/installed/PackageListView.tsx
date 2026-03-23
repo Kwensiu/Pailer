@@ -1,20 +1,18 @@
-import { For, Show, createSignal, createEffect, Accessor } from 'solid-js';
-import {
-  CircleArrowUp,
-  Folder,
-  RefreshCw,
-  ArrowLeftRight,
-  Trash2,
-  Lock,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-solid';
+import { For, Show, createSignal, createEffect, onCleanup, Accessor } from 'solid-js';
+import { CircleArrowUp, Lock, ArrowUp, ArrowDown } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
+import type { ContextMenuItem } from '../../../components/common/context-menu';
 import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
+import ContextMenu from '../../../components/common/ContextMenu';
+import {
+  ContextMenuRenderer,
+  createPackageContextMenuItems,
+} from '../../../components/common/context-menu';
+import { useConfirmAction } from '../../../hooks';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -69,45 +67,59 @@ function PackageListView(props: PackageListViewProps) {
     x: 0,
     y: 0,
   });
-
-  const [uninstallConfirm, setUninstallConfirm] = createSignal(false);
-  const [uninstallTimer, setUninstallTimer] = createSignal<number | null>(null);
+  const { confirmingItem, startConfirm, cancelConfirm } = useConfirmAction();
 
   const isContextMenuActive = (pkgName: string) => {
     return contextMenuPackage()?.name === pkgName;
   };
 
-  const adjustPosition = (x: number, y: number) => {
-    const menuWidth = 200; // Estimated menu width
-    const menuHeight = 200; // Estimated menu height
-    const adjustedX = Math.min(x, window.innerWidth - menuWidth);
-    const adjustedY = Math.min(y, window.innerHeight - menuHeight);
-    return { x: Math.max(0, adjustedX), y: Math.max(0, adjustedY) };
-  };
-
   const closeContextMenu = () => {
     setContextMenuPackage(null);
-    // Reset uninstall confirmation state
-    setUninstallConfirm(false);
-    if (uninstallTimer()) {
-      clearTimeout(uninstallTimer()!);
-      setUninstallTimer(null);
-    }
+    cancelConfirm();
   };
 
-  // Clean up uninstall timer on unmount
   createEffect(() => {
-    return () => {
-      if (uninstallTimer()) {
-        clearTimeout(uninstallTimer()!);
-      }
-    };
+    onCleanup(() => {
+      cancelConfirm();
+    });
   });
+
+  const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
+    setContextMenuPackage(pkg);
+    setContextMenuPosition({ x, y });
+    cancelConfirm(pkg.name);
+  };
+
+  const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
+    return createPackageContextMenuItems(
+      pkg,
+      confirmingItem(),
+      props.operatingOn(),
+      props.isPackageVersioned,
+      {
+        onUpdate: props.onUpdate,
+        onOpenFolder: props.onOpenFolder,
+        onViewInfoForVersions: props.onViewInfoForVersions,
+        onChangeBucket: props.onChangeBucket,
+        onHold: props.onHold,
+        onUnhold: props.onUnhold,
+        onUninstall: (pkg) => {
+          if (confirmingItem() === pkg.name) {
+            cancelConfirm(pkg.name);
+            props.onUninstall(pkg);
+            closeContextMenu();
+          } else {
+            startConfirm(pkg.name);
+          }
+        },
+      }
+    );
+  };
 
   return (
     <div class="bg-base-card overflow-hidden rounded-xl shadow-xl">
       <div class="overflow-x-auto">
-        <table class="table-compact my-2 table">
+        <table class="table">
           <thead>
             <tr>
               <SortableHeader
@@ -144,34 +156,21 @@ function PackageListView(props: PackageListViewProps) {
             <For each={props.packages()}>
               {(pkg) => (
                 <tr
-                  class="hover:bg-base-200 transition-all duration-200"
-                  classList={{ 'bg-base-200': isContextMenuActive(pkg.name) }}
+                  class="cursor-pointer transition-colors hover:bg-black/24"
+                  classList={{ 'bg-black/24': isContextMenuActive(pkg.name) }}
+                  data-context-menu-allow="true"
                   data-no-close-search
                   onDblClick={() => props.onViewInfo(pkg)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setContextMenuPackage(pkg);
-                    setContextMenuPosition(adjustPosition(e.clientX, e.clientY));
-                    setUninstallConfirm(false);
-                    if (uninstallTimer()) {
-                      clearTimeout(uninstallTimer()!);
-                      setUninstallTimer(null);
-                    }
+                    openContextMenu(pkg, e.clientX, e.clientY);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
                       e.preventDefault();
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const x = rect.left + rect.width / 2;
-                      const y = rect.top + rect.height / 2;
-                      setContextMenuPackage(pkg);
-                      setContextMenuPosition(adjustPosition(x, y));
-                      setUninstallConfirm(false);
-                      if (uninstallTimer()) {
-                        clearTimeout(uninstallTimer()!);
-                        setUninstallTimer(null);
-                      }
+                      openContextMenu(pkg, rect.left + rect.width / 2, rect.top + rect.height / 2);
                     }
                   }}
                   tabIndex={0}
@@ -253,145 +252,19 @@ function PackageListView(props: PackageListViewProps) {
         </table>
       </div>
 
-      {/* Context Menu */}
-      <Show when={contextMenuPackage()}>
-        <>
-          <div
-            class="fixed inset-0 z-9998 bg-black/10"
-            onClick={() => closeContextMenu()}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              closeContextMenu();
-            }}
+      <ContextMenu
+        isOpen={() => !!contextMenuPackage()}
+        position={contextMenuPosition}
+        onClose={closeContextMenu}
+        ariaLabel="Package actions menu"
+      >
+        <Show when={contextMenuPackage()}>
+          <ContextMenuRenderer
+            items={getContextMenuItems(contextMenuPackage()!)}
+            onClose={closeContextMenu}
           />
-          <div
-            class="package-context-menu bg-base-100 rounded-box border-base-200 fixed z-9999 min-w-[150px] border py-2 shadow-lg"
-            style={`left: ${contextMenuPosition().x}px; top: ${contextMenuPosition().y}px;`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Update Button */}
-            <Show
-              when={
-                contextMenuPackage() &&
-                contextMenuPackage()!.available_version &&
-                !heldStore.isHeld(contextMenuPackage()!.name) &&
-                contextMenuPackage()!.installation_type !== 'custom'
-              }
-            >
-              <div
-                class="hover:bg-base-200 text-info flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onUpdate(contextMenuPackage()!);
-                  closeContextMenu();
-                }}
-              >
-                <CircleArrowUp class="h-4 w-4" />
-                <span>{t('installed.list.update')}</span>
-              </div>
-            </Show>
-
-            {/* Open Folder Button */}
-            <div
-              class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-              onClick={() => {
-                props.onOpenFolder(contextMenuPackage()!);
-                closeContextMenu();
-              }}
-            >
-              <Folder class="h-4 w-4" />
-              <span>{t('installed.list.openFolder')}</span>
-            </div>
-
-            <Show
-              when={contextMenuPackage() && props.isPackageVersioned(contextMenuPackage()!.name)}
-            >
-              <div
-                class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onViewInfoForVersions(contextMenuPackage()!);
-                  closeContextMenu();
-                }}
-              >
-                <RefreshCw class="h-4 w-4" />
-                <span>{t('installed.list.switchVersion')}</span>
-              </div>
-            </Show>
-
-            <div
-              class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-              onClick={() => {
-                props.onChangeBucket(contextMenuPackage()!);
-                closeContextMenu();
-              }}
-            >
-              <ArrowLeftRight class="h-4 w-4" />
-              <span>{t('installed.list.changeBucket')}</span>
-            </div>
-
-            {/* Hold Package */}
-            <Show
-              when={
-                contextMenuPackage() &&
-                !heldStore.isHeld(contextMenuPackage()!.name) &&
-                contextMenuPackage()!.installation_type !== 'custom'
-              }
-              fallback={
-                <Show
-                  when={
-                    contextMenuPackage() &&
-                    heldStore.isHeld(contextMenuPackage()!.name) &&
-                    contextMenuPackage()!.installation_type !== 'custom'
-                  }
-                >
-                  <div class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
-                    <Lock class="text-warning h-4 w-4" />
-                    <span>{t('installed.list.heldTooltip')}</span>
-                  </div>
-                </Show>
-              }
-            >
-              <div
-                class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onHold(contextMenuPackage()!.name);
-                  closeContextMenu();
-                }}
-              >
-                <Lock class="h-4 w-4" />
-                <span>{t('installed.list.holdPackage')}</span>
-              </div>
-            </Show>
-
-            {/* Uninstall Button */}
-            <div
-              class={`hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm ${uninstallConfirm() ? 'text-warning' : 'text-error'}`}
-              onClick={() => {
-                if (uninstallConfirm()) {
-                  // Execute uninstall
-                  if (uninstallTimer()) {
-                    clearTimeout(uninstallTimer()!);
-                    setUninstallTimer(null);
-                  }
-                  setUninstallConfirm(false);
-                  props.onUninstall(contextMenuPackage()!);
-                  closeContextMenu();
-                } else {
-                  // Show confirmation
-                  setUninstallConfirm(true);
-                  const timer = window.setTimeout(() => {
-                    setUninstallConfirm(false);
-                    setUninstallTimer(null);
-                  }, 2000);
-                  setUninstallTimer(timer);
-                }
-              }}
-            >
-              <Trash2 class="h-4 w-4" />
-              <span>{uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')}</span>
-            </div>
-          </div>
-        </>
-      </Show>
+        </Show>
+      </ContextMenu>
     </div>
   );
 }
