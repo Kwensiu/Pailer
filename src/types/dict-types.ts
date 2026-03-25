@@ -486,6 +486,11 @@ export interface Dict {
     };
     title: string;
   };
+  manifest: {
+    title: string;
+    urlError: string;
+    openFailed: string;
+  };
   search: {
     bar: {
       clearSearch: string;
@@ -517,9 +522,13 @@ export interface Dict {
     refreshResults: string;
     results: {
       copyCommand: string;
+      copied: string;
       customInstall: string;
       installed: string;
       multipleVersionsInstalled: string;
+      toggleDetails: string;
+      viewCommits: string;
+      viewManifest: string;
       noPackagesFound: string;
       pageInfo: string;
       versionedSupport: string;

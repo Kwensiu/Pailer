@@ -1,12 +1,15 @@
 import PackageInfoModal from '../components/modals/PackageInfoModal';
+import ManifestModal from '../components/modals/ManifestModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import OperationModal from '../components/modals/OperationModal';
 
 import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
 import SearchResultsList from '../components/page/search/SearchResultsList';
+import Dropdown from '../components/common/Dropdown';
 
 import { createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 import { useSearch, createTauriSignal } from '../hooks';
 import { useBuckets, type BucketInfo } from '../hooks/buckets/useBuckets';
 import { searchCacheManager } from '../hooks/search/useSearchCache';
@@ -51,16 +54,23 @@ function SearchPage() {
   const [bucketInfoLoading, setBucketInfoLoading] = createSignal(false);
   const [bucketInfoError, setBucketInfoError] = createSignal<string | null>(null);
   const [bucketGitUrlMap, setBucketGitUrlMap] = createSignal<Map<string, string>>(new Map());
+  const [bucketGitBranchMap, setBucketGitBranchMap] = createSignal<Map<string, string>>(new Map());
+  const [manifestPackage, setManifestPackage] = createSignal<string | null>(null);
+  const [manifestSource, setManifestSource] = createSignal<string | null>(null);
+  const [manifestContent, setManifestContent] = createSignal<string | null>(null);
+  const [manifestLoading, setManifestLoading] = createSignal(false);
+  const [manifestError, setManifestError] = createSignal<string | null>(null);
 
   const { getBucketInfo, buckets, fetchBuckets } = useBuckets();
 
-  // 复用 useSearch 的 AbortController 模式
+  // AbortController instances for request cancellation
   let currentBucketController: AbortController | null = null;
+  let currentManifestController: AbortController | null = null;
 
-  // 集成全局缓存管理（复用 SearchCacheManager 模式）
+  // Bucket info cache for performance optimization
   const bucketInfoCache = new Map<string, { info: BucketInfo; timestamp: number }>();
-  const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
-  const MAX_CACHE_SIZE = 50; // 限制缓存大小
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
+  const MAX_CACHE_SIZE = 50; // Maximum cache entries limit
 
   onMount(async () => {
     restoreSearchResults();
@@ -79,12 +89,17 @@ function SearchPage() {
   createEffect(() => {
     const allBuckets = buckets();
     const urlMap = new Map<string, string>();
+    const branchMap = new Map<string, string>();
     allBuckets.forEach((bucket) => {
       if (bucket.git_url) {
         urlMap.set(bucket.name, bucket.git_url);
       }
+      if (bucket.git_branch) {
+        branchMap.set(bucket.name, bucket.git_branch);
+      }
     });
     setBucketGitUrlMap(urlMap);
+    setBucketGitBranchMap(branchMap);
   });
 
   // Reset pagination to first page when results or tabs change
@@ -160,6 +175,57 @@ function SearchPage() {
     }
   };
 
+  const closeManifestModal = () => {
+    if (currentManifestController) {
+      currentManifestController.abort();
+      currentManifestController = null;
+    }
+    setManifestPackage(null);
+    setManifestSource(null);
+    setManifestContent(null);
+    setManifestLoading(false);
+    setManifestError(null);
+  };
+
+  const handleViewManifest = async (pkg: { name: string; source: string }) => {
+    // Abort previous manifest request to prevent race conditions
+    if (currentManifestController) {
+      currentManifestController.abort();
+      currentManifestController = null;
+    }
+
+    setManifestPackage(pkg.name);
+    setManifestSource(pkg.source);
+    setManifestLoading(true);
+    setManifestError(null);
+    setManifestContent(null);
+
+    currentManifestController = new AbortController();
+    const { signal } = currentManifestController;
+
+    try {
+      const result = await invoke<string>('get_package_manifest', {
+        packageName: pkg.name,
+        bucket: pkg.source,
+      });
+      // Early return if request was aborted
+      if (signal.aborted) return;
+
+      setManifestContent(result);
+    } catch (error) {
+      // Ignore errors from cancelled requests
+      if (signal.aborted) return;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setManifestError(errorMsg);
+      console.error(`Failed to fetch manifest for ${pkg.name}:`, errorMsg);
+    } finally {
+      if (!signal.aborted) {
+        setManifestLoading(false);
+        currentManifestController = null;
+      }
+    }
+  };
+
   const handleCloseBucketModal = () => {
     if (currentBucketController) {
       currentBucketController.abort();
@@ -170,10 +236,10 @@ function SearchPage() {
     setBucketInfoError(null);
   };
 
-  // 监听全局缓存失效（复用 SearchCacheManager 模式）
+  // Listen to global cache invalidation events
   onMount(() => {
     const unsubscribe = searchCacheManager.subscribe(() => {
-      // 清理 bucket 缓存
+      // Clear bucket cache when global cache is invalidated
       bucketInfoCache.clear();
     });
 
@@ -191,12 +257,41 @@ function SearchPage() {
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top after page change with delay for DOM updates
+    setTimeout(() => {
+      // Try the main scroll container first (common in Tauri apps)
+      const scrollContainer = document.querySelector('.overflow-y-auto') as HTMLElement;
+      if (scrollContainer && typeof scrollContainer.scrollTo === 'function') {
+        try {
+          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        } catch (error) {
+          // Silently fail and try window
+        }
+      }
+      // Fallback to window scroll
+      if (typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (error) {
+          // Ignore scroll errors
+        }
+      }
+    }, 50);
+  };
+
   onCleanup(() => {
     cleanup();
-    // 清理 bucket 请求（复用 useSearch 模式）
+    // Clean up ongoing requests to prevent memory leaks
     if (currentBucketController) {
       currentBucketController.abort();
       currentBucketController = null;
+    }
+    if (currentManifestController) {
+      currentManifestController.abort();
+      currentManifestController = null;
     }
   });
 
@@ -218,7 +313,7 @@ function SearchPage() {
         </div>
 
         {/* Tabs and bucket filter on the same line */}
-        <div class="mb-6 flex items-center justify-between">
+        <div class="my-6 flex items-center justify-between">
           <div class="flex-1">
             <SearchResultsTabs
               activeTab={activeTab}
@@ -227,24 +322,23 @@ function SearchPage() {
               includesCount={binaryResults().length}
             />
           </div>
-          <div class="dropdown">
-            <div tabindex="0" role="button" class="select select-bordered select-md min-w-40">
-              {bucketFilter() || t('search.filter.allBuckets')}
-            </div>
-            <ul
-              tabindex="0"
-              class="dropdown-content menu bg-base-100 rounded-box border-base-300 z-1 mt-1.5 w-full border p-1 shadow"
-            >
-              <li>
-                <a onClick={() => setBucketFilter('')}>{t('search.filter.allBuckets')}</a>
-              </li>
-              {uniqueBuckets().map((bucket) => (
-                <li>
-                  <a onClick={() => setBucketFilter(bucket)}>{bucket}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Dropdown
+            position="end"
+            selectMode
+            trigger={<span>{bucketFilter() || t('search.filter.allBuckets')}</span>}
+            triggerClass="select select-bordered select-md min-w-40 justify-start"
+            contentClass="min-w-40"
+            items={[
+              {
+                label: t('search.filter.allBuckets'),
+                onClick: () => setBucketFilter(''),
+              },
+              ...uniqueBuckets().map((bucket) => ({
+                label: bucket,
+                onClick: () => setBucketFilter(bucket),
+              })),
+            ]}
+          />
         </div>
 
         {/* Empty state when no search term */}
@@ -281,6 +375,7 @@ function SearchPage() {
             searchTerm={searchTerm()}
             activeTab={activeTab()}
             onViewInfo={fetchPackageInfo}
+            onViewManifest={handleViewManifest}
             onInstall={handleInstall}
             onViewBucket={handleViewBucket}
             onPackageStateChanged={() => {
@@ -288,8 +383,9 @@ function SearchPage() {
               // The actual refresh will happen in closeOperationModal when the operation completes
             }}
             currentPage={currentPage()}
-            onPageChange={setCurrentPage}
+            onPageChange={handlePageChange}
             bucketGitUrlMap={bucketGitUrlMap()}
+            bucketGitBranchMap={bucketGitBranchMap()}
           />
         </Show>
       </div>
@@ -308,6 +404,23 @@ function SearchPage() {
           // This will be called when install/uninstall buttons are clicked
           // The actual refresh will happen in closeOperationModal when the operation completes
         }}
+        bucketGitUrl={bucketGitUrlMap().get(selectedPackage()?.source ?? '') ?? null}
+        bucketGitBranch={bucketGitBranchMap().get(selectedPackage()?.source ?? '') ?? null}
+      />
+      <ManifestModal
+        packageName={manifestPackage() ?? ''}
+        manifestContent={manifestContent()}
+        loading={manifestLoading()}
+        error={manifestError()}
+        onClose={closeManifestModal}
+        bucketGitUrl={(() => {
+          const source = manifestSource();
+          return source ? (bucketGitUrlMap().get(source) ?? null) : null;
+        })()}
+        bucketGitBranch={(() => {
+          const source = manifestSource();
+          return source ? (bucketGitBranchMap().get(source) ?? null) : null;
+        })()}
       />
       <OperationModal
         title={operationTitle()}

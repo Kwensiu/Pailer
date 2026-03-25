@@ -39,7 +39,7 @@ function createInstalledPackagesStore() {
   const fetchVersionedPackages = async () => {
     try {
       const versioned = await invoke<string[]>('get_versioned_packages', {
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
       setVersionedPackages(versioned);
     } catch (err) {

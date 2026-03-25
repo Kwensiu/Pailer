@@ -10,7 +10,7 @@ interface SearchResultsTabsProps {
 
 function SearchResultsTabs(props: SearchResultsTabsProps) {
   return (
-    <div class="tabs tabs-border mt-4">
+    <div class="tabs tabs-border">
       <a
         class="tab"
         classList={{ 'tab-active': props.activeTab() === 'packages' }}

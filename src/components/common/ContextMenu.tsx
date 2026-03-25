@@ -1,4 +1,4 @@
-import { Show, createEffect, onCleanup, type Accessor, type JSX } from 'solid-js';
+import { Show, createEffect, createSignal, onCleanup, type Accessor, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { computePosition, flip, shift } from '@floating-ui/dom';
 import { createMenuFocusManagement, clearTabbedState } from '../../hooks/index';
@@ -25,8 +25,16 @@ export interface ContextMenuProps {
 export default function ContextMenu(props: ContextMenuProps) {
   const close = () => props.onClose();
   let contentRef: HTMLDivElement | undefined;
+  let rafId: number | undefined;
 
   const { handleTabNav } = createMenuFocusManagement(() => contentRef);
+
+  onCleanup(() => {
+    if (rafId !== undefined) {
+      window.cancelAnimationFrame(rafId);
+      rafId = undefined;
+    }
+  });
 
   const updatePosition = async () => {
     if (!contentRef) return;
@@ -57,7 +65,7 @@ export default function ContextMenu(props: ContextMenuProps) {
 
   createEffect(() => {
     if (props.isOpen()) {
-      requestAnimationFrame(() => {
+      rafId = window.requestAnimationFrame(() => {
         updatePosition();
         const items = Array.from(
           contentRef?.querySelectorAll('[role="menuitem"]:not([disabled])') ?? []
@@ -197,18 +205,63 @@ export interface SubMenuProps {
 }
 
 export function SubMenu(props: SubMenuProps) {
+  const [isOpen, setIsOpen] = createSignal(false);
+  let triggerRef: HTMLDivElement | undefined;
+  let submenuRef: HTMLDivElement | undefined;
+
+  const focusFirstSubItem = () => {
+    const first = submenuRef?.querySelector('[role="menuitem"]:not([disabled])') as
+      | HTMLElement
+      | undefined;
+    first?.focus();
+  };
+
   return (
-    <div class="group relative">
+    <div
+      class="group relative"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
       <div
+        ref={triggerRef}
         class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-        role="presentation"
+        role="menuitem"
+        tabIndex={0}
+        aria-haspopup="menu"
+        aria-expanded={isOpen()}
+        onClick={() => setIsOpen((value) => !value)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(true);
+            queueMicrotask(focusFirstSubItem);
+          } else if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+            triggerRef?.focus();
+          }
+        }}
       >
         {props.trigger}
         <span class="ml-auto text-xs">▶</span>
       </div>
-      <div class="bg-base-100 border-base-200 absolute top-0 left-full hidden min-w-[150px] border py-2 shadow-lg group-hover:block">
-        {props.children}
-      </div>
+      <Show when={isOpen()}>
+        <div
+          ref={submenuRef}
+          class="bg-base-100 border-base-200 absolute top-0 left-full min-w-[150px] border py-2 shadow-lg"
+          role="menu"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+              e.preventDefault();
+              setIsOpen(false);
+              triggerRef?.focus();
+            }
+          }}
+        >
+          {props.children}
+        </div>
+      </Show>
     </div>
   );
 }

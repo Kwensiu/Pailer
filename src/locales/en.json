@@ -486,6 +486,11 @@
     },
     "title": "Scoop Status"
   },
+  "manifest": {
+    "title": "Manifest File",
+    "urlError": "Failed to build manifest URL",
+    "openFailed": "Failed to open manifest URL"
+  },
   "search": {
     "bar": {
       "clearSearch": "Clear search",
@@ -517,9 +522,13 @@
     "refreshResults": "Refresh",
     "results": {
       "copyCommand": "Copy command",
+      "copied": "Copied to clipboard",
       "customInstall": "Custom install",
       "installed": "Installed",
       "multipleVersionsInstalled": "Multiple versions installed",
+      "toggleDetails": "Toggle package details",
+      "viewCommits": "View commit history",
+      "viewManifest": "View manifest file",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
       "pageInfo": "Page {{current}} / {{total}}",
       "versionedSupport": "Versioned support",

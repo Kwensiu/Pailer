@@ -1,16 +1,25 @@
-import { Show, createSignal } from 'solid-js';
+import { Show, createSignal, onCleanup } from 'solid-js';
 import { Download, Copy, Check, Home, BadgeInfo, FileText, Package } from 'lucide-solid';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { ScoopPackage } from '../../../types/scoop';
 import { t } from '../../../i18n';
 import HighlightText from '../../common/HighlightText';
+import { toast } from '../../common/ToastAlert';
+import {
+  buildManifestFileUrl,
+  buildManifestCommitUrl,
+  detectDefaultBranch,
+} from '../../../utils/manifestUrl';
 
 interface SearchResultCardProps {
   pkg: ScoopPackage;
   searchTerm: string;
   onViewInfo: (pkg: ScoopPackage) => void;
+  onViewManifest?: (pkg: ScoopPackage) => void;
   onInstall: (pkg: ScoopPackage) => void;
   onViewBucket?: (bucketName: string) => void;
   bucketGitUrl?: string;
+  bucketGitBranch?: string | null;
 }
 
 function SearchResultCard(props: SearchResultCardProps) {
@@ -18,12 +27,46 @@ function SearchResultCard(props: SearchResultCardProps) {
 
   const [copiedCommand, setCopiedCommand] = createSignal<string | null>(null);
   const [isExpanded, setIsExpanded] = createSignal(false);
+  let copiedResetTimeout: number | undefined;
+
+  onCleanup(() => {
+    if (copiedResetTimeout !== undefined) {
+      window.clearTimeout(copiedResetTimeout);
+      copiedResetTimeout = undefined;
+    }
+  });
+
+  const manifestBranch = () => detectDefaultBranch(props.bucketGitBranch);
+
+  const manifestFileUrl = () =>
+    buildManifestFileUrl(props.bucketGitUrl, props.pkg.name, manifestBranch());
+
+  const manifestCommitUrl = () =>
+    buildManifestCommitUrl(props.bucketGitUrl, props.pkg.name, manifestBranch());
+
+  const openCommitUrl = async () => {
+    const url = manifestCommitUrl();
+    if (!url) return;
+
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error('Failed to open commit URL:', error);
+    }
+  };
 
   const copyToClipboard = async (text: string, commandId: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedCommand(commandId);
-      setTimeout(() => setCopiedCommand(null), 2000);
+      toast.success(t('search.results.copied'));
+      if (copiedResetTimeout !== undefined) {
+        window.clearTimeout(copiedResetTimeout);
+      }
+      copiedResetTimeout = window.setTimeout(() => {
+        copiedResetTimeout = undefined;
+        setCopiedCommand(null);
+      }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -32,6 +75,11 @@ function SearchResultCard(props: SearchResultCardProps) {
   const installCommand = () => `scoop install ${props.pkg.source}/${props.pkg.name}`;
   const bucketAddCommand = () => {
     return props.bucketGitUrl ? `scoop bucket add ${props.pkg.source} ${props.bucketGitUrl}` : '';
+  };
+
+  const combinedCommands = () => {
+    const commands = [bucketAddCommand(), installCommand()].filter(Boolean);
+    return commands.join('\n');
   };
 
   const getRelativeTime = (dateString: string) => {
@@ -56,16 +104,34 @@ function SearchResultCard(props: SearchResultCardProps) {
     setIsExpanded(!isExpanded());
   };
 
+  const toggleExpandedFromKeyboard = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsExpanded(!isExpanded());
+    }
+  };
+
   return (
     <div class="group bg-base-card hover:border-base-300 mb-4 overflow-hidden rounded-2xl shadow-sm transition-all duration-200 hover:shadow-lg">
       <div
-        class="border-base-200/80 bg-base-100/30 hover:bg-base-100/50 cursor-pointer rounded-2xl border px-5 py-4 transition-colors"
+        class="border-base-200/80 bg-base-100/30 hover:bg-base-100/50 focus-visible:ring-primary/40 cursor-pointer rounded-2xl border px-5 py-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        tabIndex={0}
+        role="button"
+        aria-expanded={isExpanded()}
+        aria-label={t('search.results.toggleDetails')}
         onClick={(e) => {
           // Only expand/collapse when clicking non-interactive elements
           if ((e.target as HTMLElement).closest('button, a, input, select, textarea')) {
             return;
           }
           toggleExpanded(e);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleExpandedFromKeyboard(e);
+          }
         }}
       >
         <div class="flex items-center justify-between gap-4">
@@ -76,18 +142,20 @@ function SearchResultCard(props: SearchResultCardProps) {
 
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <h3
-                  class="text-base-content cursor-pointer truncate text-lg font-bold tracking-tight"
+                <button
+                  type="button"
+                  class="text-base-content hover:bg-base-content/10 hover:text-primary focus-visible:ring-primary/40 cursor-pointer truncate rounded-md px-2 py-0.5 text-lg font-bold tracking-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                   onClick={(e) => {
                     e.stopPropagation();
                     props.onViewInfo(props.pkg);
                   }}
+                  title={props.pkg.name}
                 >
                   <HighlightText text={props.pkg.name} query={props.searchTerm} />
-                </h3>
-                <span class="text-base-content/60 text-base">in</span>
-                <span
-                  class="bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer rounded-lg px-2 py-1 font-semibold transition-colors"
+                </button>
+                <button
+                  type="button"
+                  class="bg-primary/10 text-primary hover:bg-primary/20 focus-visible:ring-primary/40 cursor-pointer rounded-lg px-2 py-1 font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                   onClick={(e) => {
                     e.stopPropagation();
                     props.onViewBucket?.(props.pkg.source);
@@ -95,7 +163,7 @@ function SearchResultCard(props: SearchResultCardProps) {
                   title={t('search.results.viewBucket')}
                 >
                   <HighlightText text={props.pkg.source} query={props.searchTerm} />
-                </span>
+                </button>
               </div>
             </div>
           </div>
@@ -108,14 +176,35 @@ function SearchResultCard(props: SearchResultCardProps) {
             </Show>
             <div class="bg-base-200/60 text-base-content/60 flex items-center gap-2 rounded-full px-2 py-1 text-xs">
               <Show when={props.pkg.updated}>
-                <span>{getRelativeTime(props.pkg.updated)}</span>
+                <button
+                  type="button"
+                  class="hover:text-primary cursor-pointer transition-colors hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void openCommitUrl();
+                  }}
+                  title={manifestCommitUrl() ? t('search.results.viewCommits') : undefined}
+                >
+                  {getRelativeTime(props.pkg.updated)}
+                </button>
               </Show>
               <span class="text-base-content/30">|</span>
-              <span>v{props.pkg.version}</span>
+              <button
+                type="button"
+                class="hover:text-primary cursor-pointer transition-colors hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onViewManifest?.(props.pkg);
+                }}
+                title={manifestFileUrl() ? t('search.results.viewManifest') : undefined}
+              >
+                v{props.pkg.version}
+              </button>
             </div>
             <Show when={!isInstalled()}>
               <button
                 class="btn btn-primary btn-square btn-sm rounded-xl"
+                aria-label={t('search.results.install')}
                 onClick={(e) => {
                   e.stopPropagation();
                   props.onInstall(props.pkg);
@@ -129,13 +218,13 @@ function SearchResultCard(props: SearchResultCardProps) {
       </div>
 
       <div
-        class="grid transition-all duration-300 ease-in-out"
+        class="grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-in-out"
         style={{
           'grid-template-rows': isExpanded() ? '1fr' : '0fr',
           opacity: isExpanded() ? '1' : '0',
         }}
       >
-        <div class="min-h-0 overflow-hidden">
+        <div class="min-h-0 overflow-hidden" aria-hidden={!isExpanded()} inert={!isExpanded()}>
           <div class="grid grid-cols-1 px-5 py-4 lg:grid-cols-5 lg:gap-4">
             <div class="space-y-3 lg:col-span-3">
               <Show when={props.pkg.info}>
@@ -153,9 +242,7 @@ function SearchResultCard(props: SearchResultCardProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       class="text-primary hover:text-primary/80 cursor-pointer transition-colors hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {props.pkg.homepage}
                     </a>
@@ -199,25 +286,102 @@ function SearchResultCard(props: SearchResultCardProps) {
             <div class="lg:col-span-2">
               <div class="border-base-200/80 bg-base-100/50 space-y-3 rounded-2xl border p-3">
                 <Show when={bucketAddCommand()}>
-                  <div class="border-base-200 bg-base-200/60 flex items-center gap-2 rounded-xl border px-3 py-2">
-                    <span class="text-base-content/50 shrink-0 font-mono text-xs">&gt;</span>
-                    <input
-                      type="text"
-                      readonly
-                      value={bucketAddCommand()}
-                      class="text-base-content min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                  <div class="grid grid-cols-[1fr_auto] items-stretch gap-x-3 gap-y-0">
+                    <div class="space-y-3">
+                      <div class="border-base-200 bg-base-200/60 flex items-center gap-2 rounded-xl border px-3 py-2">
+                        <span class="text-base-content/50 shrink-0 font-mono text-xs">&gt;</span>
+                        <input
+                          type="text"
+                          readonly
+                          value={bucketAddCommand()}
+                          class="text-base-content min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          class="btn btn-ghost btn-xs btn-square shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(bucketAddCommand(), 'bucket-add');
+                          }}
+                          title={t('search.results.copyCommand')}
+                        >
+                          <Show
+                            when={copiedCommand() === 'bucket-add'}
+                            fallback={<Copy class="h-4 w-4 shrink-0" />}
+                          >
+                            <Check class="text-success h-4 w-4 shrink-0" />
+                          </Show>
+                        </button>
+                      </div>
+
+                      <div class="border-base-200 bg-base-200/60 flex items-center gap-2 rounded-xl border px-3 py-2">
+                        <span class="text-base-content/50 shrink-0 font-mono text-xs">&gt;</span>
+                        <input
+                          type="text"
+                          readonly
+                          value={installCommand()}
+                          class="text-base-content min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          class="btn btn-ghost btn-xs btn-square shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(installCommand(), 'install');
+                          }}
+                          title={t('search.results.copyCommand')}
+                        >
+                          <Show
+                            when={copiedCommand() === 'install'}
+                            fallback={<Copy class="h-4 w-4 shrink-0" />}
+                          >
+                            <Check class="text-success h-4 w-4 shrink-0" />
+                          </Show>
+                        </button>
+                      </div>
+                    </div>
+
                     <button
-                      class="btn btn-ghost btn-xs btn-square shrink-0"
+                      class="btn btn-ghost btn-sm hover:bg-base-200 border-base-200 bg-base-200/60 row-span-2 h-full min-h-0 w-9 self-stretch rounded-xl border"
                       onClick={(e) => {
                         e.stopPropagation();
-                        copyToClipboard(bucketAddCommand(), 'bucket-add');
+                        copyToClipboard(combinedCommands(), 'all');
                       }}
                       title={t('search.results.copyCommand')}
                     >
                       <Show
-                        when={copiedCommand() === 'bucket-add'}
+                        when={copiedCommand() === 'all'}
+                        fallback={<Copy class="h-4 w-4 shrink-0" />}
+                      >
+                        <Check class="text-success h-4 w-4 shrink-0" />
+                      </Show>
+                    </button>
+                  </div>
+                </Show>
+
+                <Show when={!bucketAddCommand()}>
+                  <div class="grid grid-cols-[1fr_auto] gap-3">
+                    <div class="border-base-200 bg-base-200/60 flex items-center gap-2 rounded-xl border px-3 py-2">
+                      <span class="text-base-content/50 shrink-0 font-mono text-xs">&gt;</span>
+                      <input
+                        type="text"
+                        readonly
+                        value={installCommand()}
+                        class="text-base-content min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    <button
+                      class="btn btn-ghost btn-sm h-full min-h-[3.1rem] w-10 self-stretch rounded-xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(installCommand(), 'install');
+                      }}
+                      title={t('search.results.copyCommand')}
+                    >
+                      <Show
+                        when={copiedCommand() === 'install'}
                         fallback={<Copy class="h-4 w-4" />}
                       >
                         <Check class="text-success h-4 w-4" />
@@ -225,29 +389,6 @@ function SearchResultCard(props: SearchResultCardProps) {
                     </button>
                   </div>
                 </Show>
-
-                <div class="border-base-200 bg-base-200/60 flex items-center gap-2 rounded-xl border px-3 py-2">
-                  <span class="text-base-content/50 shrink-0 font-mono text-xs">&gt;</span>
-                  <input
-                    type="text"
-                    readonly
-                    value={installCommand()}
-                    class="text-base-content min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    class="btn btn-ghost btn-xs btn-square shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(installCommand(), 'install');
-                    }}
-                    title={t('search.results.copyCommand')}
-                  >
-                    <Show when={copiedCommand() === 'install'} fallback={<Copy class="h-4 w-4" />}>
-                      <Check class="text-success h-4 w-4" />
-                    </Show>
-                  </button>
-                </div>
               </div>
             </div>
           </div>

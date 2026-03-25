@@ -41,6 +41,8 @@ interface PackageInfoModalProps {
   context?: 'installed' | 'search'; // Add context property to distinguish page source
   onBucketClick?: (bucketName: string) => void; // Add callback for bucket name clicks
   fromPackageModal?: boolean; // Whether this modal is opened from another PackageInfoModal
+  bucketGitUrl?: string | null;
+  bucketGitBranch?: string | null;
 }
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
@@ -485,7 +487,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     try {
       const result = await invoke<VersionedPackageInfo>('get_package_versions', {
         packageName: pkg.name,
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
       setVersionInfo(result);
       setVersionLoading(false);
@@ -503,7 +505,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       await invoke<string>('switch_package_version', {
         packageName: pkg.name,
         targetVersion,
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
 
       // Refresh version info after switching
@@ -1006,6 +1008,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               loading={manifestLoading()}
               error={manifestError()}
               onClose={closeManifestModal}
+              bucketGitUrl={props.bucketGitUrl}
+              bucketGitBranch={props.bucketGitBranch}
             />
           </div>
         </Show>

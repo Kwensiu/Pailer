@@ -40,7 +40,7 @@
 
   --light-icon: oklch(70% 0.12 232.661);
 
-  --dark-base-50: oklch(0.35 0.02 254.72);
+  --dark-base-50: oklch(0.37 0.02 254.72);
   --dark-base-100: oklch(0.325 0.018 253.82);
   --dark-base-150: oklch(0.311 0.015 252.92);
   --dark-base-175: oklch(0.293 0.014 252.55);
@@ -356,11 +356,13 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 
 /* Bucket card variants */
 .card-bucket.light {
-  @apply border-base-300 border hover:shadow-md;
+  @apply shadow-md inset-shadow-2xs hover:shadow-lg;
+  background-color: var(--color-base-50);
 }
 
 .card-bucket.dark {
-  @apply border-base-200 border hover:shadow-md;
+  @apply shadow-md inset-shadow-2xs hover:shadow-lg;
+  background-color: var(--color-base-50);
 }
 
 /* Icon color utility */
