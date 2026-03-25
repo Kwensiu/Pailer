@@ -10,6 +10,7 @@ import {
 import { usePackageInfo } from '../hooks';
 import { usePackageOperations } from '../hooks';
 import { createTauriSignal } from '../hooks';
+import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { ScoopPackage } from '../types/scoop';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
@@ -368,6 +369,7 @@ function BucketPage() {
     console.log(`Bucket updated: ${bucketName}, new branch: ${newBranch || 'unknown'}`);
 
     clearManifestCache(bucketName);
+    searchCacheManager.invalidateCache();
 
     const currentBucket = selectedBucket();
     if (currentBucket && currentBucket.name === bucketName) {

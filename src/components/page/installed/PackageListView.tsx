@@ -234,7 +234,9 @@ function PackageListView(props: PackageListViewProps) {
                             <Lock class="h-4 w-4 text-cyan-400" />
                           </div>
                         </Show>
-                        <Show when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}>
+                        <Show
+                          when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}
+                        >
                           <div
                             class="tooltip tooltip-right shrink-0"
                             data-tip={t('installed.list.heldTooltip')}
@@ -246,12 +248,12 @@ function PackageListView(props: PackageListViewProps) {
                     </div>
                   </td>
                   <td class="w-[20%]">
-                    <div class="flex items-center h-full truncate" title={pkg.version}>
+                    <div class="flex h-full items-center truncate" title={pkg.version}>
                       <HighlightText text={pkg.version} query={props.searchQuery()} />
                     </div>
                   </td>
                   <td class="w-[25%]">
-                    <div class="flex items-center h-full">
+                    <div class="flex h-full items-center">
                       <span
                         class="hover:text-primary cursor-pointer truncate transition-colors"
                         onClick={(e) => {
@@ -265,7 +267,7 @@ function PackageListView(props: PackageListViewProps) {
                     </div>
                   </td>
                   <td class="w-[20%]">
-                    <div class="flex items-center h-full truncate" title={pkg.updated}>
+                    <div class="flex h-full items-center truncate" title={pkg.updated}>
                       {formatIsoDate(pkg.updated)}
                     </div>
                   </td>

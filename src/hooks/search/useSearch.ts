@@ -1,4 +1,12 @@
-import { createSignal, createEffect, on, Setter, onMount, createMemo } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  on,
+  onCleanup,
+  onMount,
+  type Setter,
+} from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ScoopPackage, ScoopInfo } from '../../types/scoop';
 import { usePackageOperations } from '../packages/usePackageOps';
@@ -128,8 +136,7 @@ export function useSearch(): UseSearchReturn {
       setCacheVersion((v) => v + 1);
     });
 
-    // Return cleanup function
-    return unsubscribe;
+    onCleanup(unsubscribe);
   });
 
   // Memoized check for cached results

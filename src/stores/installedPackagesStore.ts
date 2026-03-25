@@ -30,6 +30,7 @@ function createInstalledPackagesStore() {
       );
     } catch (err) {
       console.error('Failed to check for updates:', err);
+      setError('Failed to check for updates');
     } finally {
       setIsCheckingForUpdates(false);
     }

@@ -10,13 +10,15 @@ interface SearchResultsListProps {
   activeTab: 'packages' | 'includes';
   onViewInfo: (pkg: ScoopPackage) => void;
   onInstall: (pkg: ScoopPackage) => void;
-  onPackageStateChanged?: () => void; // Callback for when package state changes
+  onViewBucket?: (bucketName: string) => void;
+  onPackageStateChanged?: () => void;
   currentPage: number;
   onPageChange: (page: number) => void;
+  bucketGitUrlMap?: Map<string, string>;
 }
 
 function SearchResultsList(props: SearchResultsListProps) {
-  const ITEMS_PER_PAGE = 8;
+  const ITEMS_PER_PAGE = 10;
 
   const totalPages = () => Math.ceil(props.results.length / ITEMS_PER_PAGE);
 
@@ -47,6 +49,8 @@ function SearchResultsList(props: SearchResultsListProps) {
               searchTerm={props.searchTerm}
               onViewInfo={props.onViewInfo}
               onInstall={props.onInstall}
+              onViewBucket={props.onViewBucket}
+              bucketGitUrl={props.bucketGitUrlMap?.get(pkg.source)}
             />
           )}
         </For>

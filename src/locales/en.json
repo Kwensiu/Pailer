@@ -1,13 +1,4 @@
 {
-  "common": {
-    "time": {
-      "today": "Today",
-      "yesterday": "Yesterday",
-      "daysAgo": "{{days}} days ago",
-      "monthsAgo": "{{months}} months ago",
-      "yearsAgo": "{{years}} years ago"
-    }
-  },
   "app": {
     "buckets": "Buckets",
     "doctor": "Doctor",
@@ -26,17 +17,7 @@
       "view": "View"
     },
     "errors": {
-      "branchNotFound": "Branch '{{branchName}}' not found: {{error}}",
-      "branchNotFoundAnywhere": "Branch '{{branchName}}' not found locally or remotely: {{error}}",
-      "bucketNotFound": "Bucket '{{bucketName}}' does not exist",
-      "checkoutFailed": "Failed to checkout tree: {{error}}",
-      "commitGetFailed": "Failed to get commit: {{error}}",
       "fetchBranchesFailed": "Failed to fetch branches: {{error}}",
-      "gitReferencesFailed": "Failed to get references: {{error}}",
-      "gitRepoOpenFailed": "Failed to open git repository: {{error}}",
-      "headNoTarget": "Cannot update HEAD: reference {{referenceName}} has no target",
-      "headUpdateFailed": "Failed to update HEAD reference: {{error}}",
-      "repoStatusFailed": "Failed to get repository status: {{error}}",
       "switchBranchFailed": "Failed to switch branch: {{error}}",
       "switchBranchSuccess": "Switched to branch '{{branch}}'",
       "uncommittedChanges": "Cannot switch branch: repository has uncommitted changes. Please commit or stash your changes first."
@@ -113,7 +94,6 @@
       "viewDetails": "View bucket details"
     },
     "update": {
-      "actualUpdates": "Updated {{added}} new, {{modified}} modified, {{removed}} removed manifests",
       "hasUncommittedChanges": "Cannot update bucket '{{bucket}}': repository has uncommitted changes. Please commit or stash your changes first.",
       "success": "Successfully updated bucket '{{bucket}}' with {{count}} manifests",
       "upToDate": "Bucket '{{bucket}}' is already up to date"
@@ -182,6 +162,15 @@
     "updateAll": "Update All",
     "view": "View"
   },
+  "common": {
+    "time": {
+      "daysAgo": "{{days}} days ago",
+      "monthsAgo": "{{months}} months ago",
+      "today": "Today",
+      "yearsAgo": "{{years}} years ago",
+      "yesterday": "Yesterday"
+    }
+  },
   "doctor": {
     "addShimModal": {
       "addShim": "Add Shim",
@@ -199,7 +188,6 @@
       "confirmDeletion": "Confirm Deletion",
       "deleteAll": "Are you sure you want to delete all {{count}} cache files?",
       "deleteFiles": "Are you sure you want to delete {{count}} cache files involving {{packageCount}} packages?",
-      "deletePartialSuccess": "Successfully processed {{success}} files, failed to process {{failure}} files.",
       "filterPlaceholder": "Search cache files...",
       "name": "Name",
       "noCachedFiles": "There are no cached package files to manage.",
@@ -216,7 +204,6 @@
     },
     "checkup": {
       "description": "This tool checks for common problems with your Scoop setup.",
-      "runCheckup": "Click the refresh button to run health check",
       "install": "Install",
       "installing": "Installing...",
       "issuesFound": "Issues Found",
@@ -235,7 +222,7 @@
         "windowsDeveloperModeEnabled": "Windows Developer Mode is enabled",
         "windowsDeveloperModeSuggestion": "Windows Developer Mode is not enabled. Operations relevant to symlinks may fail without proper rights. Please enable it in the Windows Settings."
       },
-      "noIssues": "Checkup completed successfully. No issues found.",
+      "runCheckup": "Click the refresh button to run health check",
       "scrollToIssues": "Scroll to issues",
       "title": "Scoop Health Check"
     },
@@ -247,7 +234,6 @@
     },
     "commandInput": {
       "clearOutput": "Clear",
-      "description": "Execute Scoop commands directly from here.",
       "enterCommand": "Enter command (e.g. 'install git')",
       "enterFullCommand": "Enter full command (e.g. 'scoop install git')",
       "executingCommand": "Executing command...",
@@ -332,19 +318,19 @@
     },
     "header": {
       "allBuckets": "All Buckets",
+      "allVersionTypes": "All",
       "bucketLabel": "Bucket",
       "filter": "Filter",
+      "heldPackages": "Held",
       "refresh": "Refresh",
+      "resetFilters": "Reset Filters",
       "searchPlaceholder": "Search by name...",
       "switchToGridView": "Switch to Grid View",
       "switchToListView": "Switch to List View",
       "title": "Packages",
       "updateAll": "Update All",
       "versionTypeLabel": "Version Type",
-      "allVersionTypes": "All",
-      "versionedSoftware": "Versioned Software",
-      "heldPackages": "Held",
-      "resetFilters": "Reset Filters"
+      "versionedSoftware": "Versioned Software"
     },
     "list": {
       "bucket": "Bucket",
@@ -373,9 +359,6 @@
     "title": "Manifest:"
   },
   "messages": {
-    "initTimeout": "Initialization is taking longer than expected.",
-    "initTimeoutReason": "This might be due to a slow system or Scoop configuration issue.",
-    "initTimeoutShow": "Initialization timed out. Showing interface anyway...",
     "loading": "Getting things ready..."
   },
   "noPackagesFound": {
@@ -388,7 +371,6 @@
   "operation": {
     "completed": "{{name}} completed successfully",
     "failed": {
-      "cancelled": "{{name}} operation cancelled",
       "generic": "{{name}} operation failed",
       "withErrors": "{{name}} operation failed with {{count}} errors"
     },
@@ -401,10 +383,8 @@
     "changeBucket": "Change Bucket",
     "changeBucketFor": "Change bucket for {{name}}",
     "close": "Close",
-    "confirmDeleteVersion": "Are you sure you want to delete version v{{version}}? This action cannot be undone.",
     "current": "Current",
     "debugStructure": "Debug Structure",
-    "deleteVersion": "Delete Version",
     "description": "Description",
     "details": "Details",
     "ensureSoftwarePresent": "Ensure the software package is present in the target repository",
@@ -457,17 +437,12 @@
     "autoDetectFailedSystem": "Unable to automatically detect Scoop installation. Please set the path manually in settings.",
     "autoDetectedSuccess": "Detected path: {{path}}",
     "browse": "Browse",
-    "commonLocations": "Common Locations",
-    "configureDescription": "Please configure the Scoop installation path to use Pailer.",
-    "configureDescriptionSuccess": "Scoop installation detected and validated. Click 'Save and Continue' to proceed.",
     "copied": "Copied",
     "customInstallation": "Install to Other Drive",
     "detecting": "Detecting...",
     "enterPath": "Please enter or select a Scoop path",
     "globalAppsDirectory": "Global Directory",
-    "globalInstallation": "Global installation",
     "learnMore": " to learn more about installation",
-    "notDetected": "Scoop installation not detected",
     "notInstalled": "About Scoop Installation",
     "officialInstallation": "Official Installation",
     "pathLabel": "Scoop Installation Path",
@@ -479,8 +454,6 @@
     "scoopDirectory": "Scoop Directory",
     "selectDirectory": "Select Scoop Installation Directory",
     "title": "Configure Scoop Path",
-    "typicalLocations": "Scoop is typically installed in one of these locations:",
-    "userInstallation": "User installation",
     "validatePath": "Validate Path",
     "validating": "Validating...",
     "validationFailed": "Validation failed: {{error}}",
@@ -519,6 +492,11 @@
       "placeholder": "Search for apps from local Buckets",
       "searchHelp": "Search help"
     },
+    "bucketInfo": {
+      "loadFailed": "Failed to load bucket info",
+      "loading": "Loading bucket information...",
+      "notFound": "Bucket not found or failed to load bucket info"
+    },
     "emptyState": {
       "description": "Search through packages from your local Scoop buckets",
       "title": "Search for Applications"
@@ -538,15 +516,14 @@
     },
     "refreshResults": "Refresh",
     "results": {
-      "fromBucket": "from bucket: {{bucket}}",
       "copyCommand": "Copy command",
       "customInstall": "Custom install",
       "installed": "Installed",
       "multipleVersionsInstalled": "Multiple versions installed",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
       "pageInfo": "Page {{current}} / {{total}}",
-      "quickInstall": "Quick install",
-      "versionedSupport": "Versioned support"
+      "versionedSupport": "Versioned support",
+      "viewBucket": "View bucket details"
     },
     "tabs": {
       "includes": "Includes",
@@ -771,8 +748,6 @@
     "warning": "Warning"
   },
   "virustotal": {
-    "apiKeyMissing": "VirusTotal API key not configured",
-    "detectionsFound": "Threats found for {{name}}",
     "noThreats": "No threats found for {{name}}"
   },
   "warnings": {
