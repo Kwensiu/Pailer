@@ -76,7 +76,7 @@ function SearchPage() {
 
   return (
     <div class="p-4">
-      <div class="mx-auto max-w-3xl">
+      <div class="mx-auto max-w-7xl">
         <div class="mb-4 flex items-center gap-2">
           <div class="flex-1">
             <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
@@ -123,7 +123,7 @@ function SearchPage() {
 
         {/* Empty state when no search term */}
         <Show when={!searchTerm().trim()}>
-          <div class="flex flex-col items-center justify-center pt-12 text-center">
+          <div class="flex flex-col items-center justify-center text-center min-h-[calc(100vh-12rem)] -mt-[10%]">
             <div class="bg-base-300 mb-6 rounded-full p-4">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

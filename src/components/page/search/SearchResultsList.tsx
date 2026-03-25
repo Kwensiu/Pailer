@@ -1,8 +1,7 @@
 import { For, Show } from 'solid-js';
 import { ScoopPackage } from '../../../types/scoop';
-import { Download } from 'lucide-solid';
 import { t } from '../../../i18n';
-import HighlightText from '../../common/HighlightText';
+import SearchResultCard from './SearchResultCard';
 
 interface SearchResultsListProps {
   loading: boolean;
@@ -43,45 +42,12 @@ function SearchResultsList(props: SearchResultsListProps) {
       <div class="min-h-0 space-y-4">
         <For each={paginatedResults()}>
           {(pkg) => (
-            <div
-              class="card bg-base-card transform cursor-pointer shadow-sm transition-all duration-200 hover:scale-101"
-              onClick={() => props.onViewInfo(pkg)}
-            >
-              <div class="card-body">
-                <div class="flex items-start justify-between">
-                  <div class="min-w-0 grow">
-                    <h3 class="card-title truncate">
-                      <HighlightText text={pkg.name} query={props.searchTerm} />
-                    </h3>
-                    <p class="truncate">
-                      {t('search.results.fromBucket').replace('{{bucket}}', '')}
-                      <HighlightText text={pkg.source} query={props.searchTerm} />
-                    </p>
-                  </div>
-                  <div class="ml-4 flex shrink-0 items-center gap-2 text-right">
-                    <span class="badge badge-primary badge-soft whitespace-nowrap">
-                      {pkg.version}
-                    </span>
-                    {pkg.is_installed ? (
-                      <span class="badge badge-success whitespace-nowrap">Installed</span>
-                    ) : (
-                      <button
-                        class="btn btn-sm btn-ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          props.onInstall(pkg);
-                        }}
-                      >
-                        <Download class="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <Show when={pkg.info}>
-                  <p class="text-base-content/70 mt-2 line-clamp-2 overflow-hidden">{pkg.info}</p>
-                </Show>
-              </div>
-            </div>
+            <SearchResultCard
+              pkg={pkg}
+              searchTerm={props.searchTerm}
+              onViewInfo={props.onViewInfo}
+              onInstall={props.onInstall}
+            />
           )}
         </For>
       </div>

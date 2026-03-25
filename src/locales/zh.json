@@ -1,4 +1,13 @@
 {
+  "common": {
+    "time": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "daysAgo": "{{days}} 天前",
+      "monthsAgo": "{{months}} 个月前",
+      "yearsAgo": "{{years}} 年前"
+    }
+  },
   "app": {
     "buckets": "仓库",
     "doctor": "诊断",
@@ -530,8 +539,14 @@
     "refreshResults": "刷新",
     "results": {
       "fromBucket": "仓库：{{bucket}}",
+      "copyCommand": "复制命令",
+      "customInstall": "自定义安装",
+      "installed": "已安装",
+      "multipleVersionsInstalled": "多版本已安装",
       "noPackagesFound": "没有找到 {{type}} \"{{query}}\"",
-      "pageInfo": "第 {{current}} / {{total}} 页"
+      "pageInfo": "第 {{current}} / {{total}} 页",
+      "quickInstall": "快速安装",
+      "versionedSupport": "多版本支持"
     },
     "tabs": {
       "includes": "包含",

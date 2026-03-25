@@ -1,4 +1,13 @@
 {
+  "common": {
+    "time": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{days}} days ago",
+      "monthsAgo": "{{months}} months ago",
+      "yearsAgo": "{{years}} years ago"
+    }
+  },
   "app": {
     "buckets": "Buckets",
     "doctor": "Doctor",
@@ -530,8 +539,14 @@
     "refreshResults": "Refresh",
     "results": {
       "fromBucket": "from bucket: {{bucket}}",
+      "copyCommand": "Copy command",
+      "customInstall": "Custom install",
+      "installed": "Installed",
+      "multipleVersionsInstalled": "Multiple versions installed",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
-      "pageInfo": "Page {{current}} / {{total}}"
+      "pageInfo": "Page {{current}} / {{total}}",
+      "quickInstall": "Quick install",
+      "versionedSupport": "Versioned support"
     },
     "tabs": {
       "includes": "Includes",

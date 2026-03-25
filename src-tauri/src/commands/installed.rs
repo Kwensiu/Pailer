@@ -1,5 +1,5 @@
 //! Command for fetching all installed Scoop packages from the filesystem.
-use crate::models::{InstallManifest, PackageManifest, ScoopPackage};
+use crate::models::{InstallManifest, PackageManifest, ScoopPackage, parse_notes_field};
 use crate::state::{AppState, InstalledPackagesCache};
 use chrono::{DateTime, Utc};
 use rayon::prelude::*;
@@ -58,7 +58,7 @@ fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> 
         for bucket_entry in buckets.flatten() {
             if bucket_entry.path().is_dir() {
                 let bucket_name = bucket_entry.file_name().to_string_lossy().to_string();
-                // Look in the correct path: buckets/{bucket}/bucket/{package}.json
+                // Check bucket path: buckets/{bucket}/bucket/{package}.json
                 let manifest_path = bucket_entry
                     .path()
                     .join("bucket")
@@ -216,10 +216,20 @@ fn load_manifests_with_fallback(
     let manifest = if manifest_path.exists() {
         let manifest_content = fs::read_to_string(&manifest_path)
             .map_err(|e| format!("Failed to read manifest.json for {}: {}", package_name, e))?;
-        serde_json::from_str(&manifest_content)
-            .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?
+        
+        // Parse JSON and extract all fields including new homepage, license, notes fields
+        let json: serde_json::Value = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?;
+        
+        PackageManifest {
+            version: json.get("version").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+            description: json.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            homepage: json.get("homepage").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            license: json.get("license").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            notes: parse_notes_field(&json),
+        }
     } else {
-        // Return error if manifest doesn't exist - this matches old version behavior
+        // Return error if manifest doesn't exist
         return Err(format!("Failed to read manifest.json for {}: file not found", package_name));
     };
 
@@ -236,7 +246,7 @@ fn load_manifests_with_fallback(
         serde_json::from_str(&install_manifest_content)
             .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?
     } else {
-        // Return error if install.json doesn't exist - this matches old version behavior
+        // Return error if install.json doesn't exist
         return Err(format!("Failed to read install.json for {}: file not found", package_name));
     };
 
@@ -246,9 +256,9 @@ fn load_manifests_with_fallback(
 
 /// Attempts to extract version information from directory structure or files.
 fn extract_version_from_directory(install_root: &Path) -> Option<String> {
-    // Try to get version from parent directory name (version directories)
+    // Try to get version from parent directory name
     if let Some(dir_name) = install_root.file_name().and_then(|n| n.to_str()) {
-        // Check if directory name looks like a version (e.g., "1.2.3")
+        // Check if directory name looks like a version
         if is_valid_version_string(dir_name) {
             return Some(dir_name.to_string());
         }
@@ -273,7 +283,7 @@ fn extract_version_from_directory(install_root: &Path) -> Option<String> {
                                 .and_then(|n| n.to_str())
                                 .unwrap_or("unknown");
                             log::warn!("Failed to parse JSON file in package {}: {}", package_name, e);
-                            // Continue processing other files, don't return error
+                            // Continue processing other files
                         }
                     }
                 }
@@ -290,7 +300,7 @@ fn is_valid_version_string(s: &str) -> bool {
         return false;
     }
     
-    // Simple validation: contains at least one digit and no invalid characters
+    // Simple validation: contains digits and no invalid characters
     let has_digit = s.chars().any(|c| c.is_ascii_digit());
     let has_invalid_chars = s.chars().any(|c| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '_');
     
@@ -331,7 +341,7 @@ fn has_installation_evidence(install_root: &Path) -> bool {
             .any(|entry| {
                 let path = entry.path();
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                    // Common executable file extensions
+                    // Common executable extensions
                     matches!(ext.to_lowercase().as_str(), "exe" | "cmd" | "bat" | "ps1" | "lnk")
                 } else {
                     false
@@ -450,6 +460,9 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         updated: updated_time,
         is_installed: true,
         info: manifest.description.unwrap_or_default(),
+        homepage: manifest.homepage,
+        license: manifest.license,
+        notes: manifest.notes,
         match_source: crate::models::MatchSource::default(),
         installation_type,
         has_multiple_versions: has_version_dirs,

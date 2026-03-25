@@ -47,7 +47,8 @@ function SettingsPage(props: SettingsPageProps) {
 
   return (
     <>
-      <div class="p-6">
+      <div class="mx-auto max-w-7xl">
+        <div class="p-6">
         <h1 class="mb-4 text-3xl font-bold">{t('settings.title')}</h1>
         {/* Tab Navigation */}
         <div role="tablist" aria-label="Settings Sections" class="tabs tabs-border mb-6">
@@ -115,6 +116,7 @@ function SettingsPage(props: SettingsPageProps) {
             <SC.AppDataManagement />
           </Show>
         </div>
+      </div>
       </div>
       <OperationModal title={operationTitle()} onClose={handleCloseOperationModal} />
     </>

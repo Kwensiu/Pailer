@@ -16,10 +16,10 @@ interface ManifestModalProps {
 function ManifestModal(props: ManifestModalProps) {
   let codeRef: HTMLElement | undefined;
   const [copied, setCopied] = createSignal(false);
-  const { settings } = settingsStore;
+  const { effectiveTheme } = settingsStore;
 
   // Theme-specific colors
-  const isDark = () => settings.theme === 'dark';
+  const isDark = () => effectiveTheme() === 'dark';
   const buttonTextColor = () =>
     isDark() ? 'text-white/70 hover:text-white' : 'text-base-content/70 hover:text-base-content';
   const buttonBgHover = () => (isDark() ? 'hover:bg-white/10' : 'hover:bg-base-content/10');
@@ -112,7 +112,7 @@ function ManifestModal(props: ManifestModalProps) {
             </button>
           </div>
           <div class="custom-scrollbar max-h-[65vh] overflow-y-auto">
-            <pre class="m-0 p-4">
+            <pre class="p-4">
               <code
                 ref={codeRef}
                 class="language-json bg-transparent! font-mono text-sm leading-relaxed"

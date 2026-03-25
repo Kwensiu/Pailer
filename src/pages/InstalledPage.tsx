@@ -154,7 +154,8 @@ function InstalledPage(props: InstalledPageProps) {
   });
 
   return (
-    <div class="p-6">
+    <div class="mx-auto max-w-7xl">
+      <div class="p-6">
       <InstalledPageHeader
         updatableCount={updatableCount}
         onUpdateAll={handleUpdateAll}
@@ -410,6 +411,7 @@ function InstalledPage(props: InstalledPageProps) {
           </div>
         </div>
       </ConfirmationModal>
+      </div>
     </div>
   );
 }
