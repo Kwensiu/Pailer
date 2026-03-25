@@ -1,5 +1,5 @@
 //! Command for fetching all installed Scoop packages from the filesystem.
-use crate::models::{InstallManifest, PackageManifest, ScoopPackage};
+use crate::models::{InstallManifest, PackageManifest, ScoopPackage, parse_notes_field};
 use crate::state::{AppState, InstalledPackagesCache};
 use chrono::{DateTime, Utc};
 use rayon::prelude::*;
@@ -16,6 +16,16 @@ fn get_path_modification_time(path: &Path) -> u128 {
         .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+fn format_modified_time(path: &Path) -> Result<String, String> {
+    let metadata = fs::metadata(path)
+        .map_err(|e| format!("Failed to read metadata for {}: {}", path.display(), e))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Failed to read modified time for {}: {}", path.display(), e))?;
+
+    Ok(DateTime::<Utc>::from(modified).to_rfc3339())
 }
 
 /// Helper to get modification time of an installation directory.
@@ -48,7 +58,7 @@ fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> 
         for bucket_entry in buckets.flatten() {
             if bucket_entry.path().is_dir() {
                 let bucket_name = bucket_entry.file_name().to_string_lossy().to_string();
-                // Look in the correct path: buckets/{bucket}/bucket/{package}.json
+                // Check bucket path: buckets/{bucket}/bucket/{package}.json
                 let manifest_path = bucket_entry
                     .path()
                     .join("bucket")
@@ -206,10 +216,20 @@ fn load_manifests_with_fallback(
     let manifest = if manifest_path.exists() {
         let manifest_content = fs::read_to_string(&manifest_path)
             .map_err(|e| format!("Failed to read manifest.json for {}: {}", package_name, e))?;
-        serde_json::from_str(&manifest_content)
-            .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?
+        
+        // Parse JSON and extract all fields including new homepage, license, notes fields
+        let json: serde_json::Value = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Failed to parse manifest.json for {}: {}", package_name, e))?;
+        
+        PackageManifest {
+            version: json.get("version").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+            description: json.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            homepage: json.get("homepage").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            license: json.get("license").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            notes: parse_notes_field(&json),
+        }
     } else {
-        // Return error if manifest doesn't exist - this matches old version behavior
+        // Return error if manifest doesn't exist
         return Err(format!("Failed to read manifest.json for {}: file not found", package_name));
     };
 
@@ -226,7 +246,7 @@ fn load_manifests_with_fallback(
         serde_json::from_str(&install_manifest_content)
             .map_err(|e| format!("Failed to parse install.json for {}: {}", package_name, e))?
     } else {
-        // Return error if install.json doesn't exist - this matches old version behavior
+        // Return error if install.json doesn't exist
         return Err(format!("Failed to read install.json for {}: file not found", package_name));
     };
 
@@ -236,9 +256,9 @@ fn load_manifests_with_fallback(
 
 /// Attempts to extract version information from directory structure or files.
 fn extract_version_from_directory(install_root: &Path) -> Option<String> {
-    // Try to get version from parent directory name (version directories)
+    // Try to get version from parent directory name
     if let Some(dir_name) = install_root.file_name().and_then(|n| n.to_str()) {
-        // Check if directory name looks like a version (e.g., "1.2.3")
+        // Check if directory name looks like a version
         if is_valid_version_string(dir_name) {
             return Some(dir_name.to_string());
         }
@@ -263,7 +283,7 @@ fn extract_version_from_directory(install_root: &Path) -> Option<String> {
                                 .and_then(|n| n.to_str())
                                 .unwrap_or("unknown");
                             log::warn!("Failed to parse JSON file in package {}: {}", package_name, e);
-                            // Continue processing other files, don't return error
+                            // Continue processing other files
                         }
                     }
                 }
@@ -280,7 +300,7 @@ fn is_valid_version_string(s: &str) -> bool {
         return false;
     }
     
-    // Simple validation: contains at least one digit and no invalid characters
+    // Simple validation: contains digits and no invalid characters
     let has_digit = s.chars().any(|c| c.is_ascii_digit());
     let has_invalid_chars = s.chars().any(|c| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '_');
     
@@ -321,7 +341,7 @@ fn has_installation_evidence(install_root: &Path) -> bool {
             .any(|entry| {
                 let path = entry.path();
                 if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                    // Common executable file extensions
+                    // Common executable extensions
                     matches!(ext.to_lowercase().as_str(), "exe" | "cmd" | "bat" | "ps1" | "lnk")
                 } else {
                     false
@@ -392,12 +412,36 @@ fn determine_bucket(install_manifest: &InstallManifest, scoop_path: &Path, packa
     }
 }
 
-/// Gets the installation/update time from the install root directory.
-fn get_install_time(install_root: &Path) -> String {
-    fs::metadata(install_root)
-        .and_then(|m| m.modified())
-        .map(|t| DateTime::<Utc>::from(t).to_rfc3339())
-        .unwrap_or_default()
+/// Gets the package directory modified time from the package main directory (e.g., D:\Scoop\apps\7zip)
+/// This represents the last time the user interacted with this package (install, update, switch version, etc.)
+fn get_package_directory_modified_time(package_dir: &Path) -> Result<String, String> {
+    format_modified_time(package_dir)
+}
+
+/// Gets the install.json modification time from the current version directory
+/// This represents the actual installation date of the current version
+fn get_current_version_install_date(package_dir: &Path) -> Result<String, String> {
+    let install_root = match locate_install_dir(package_dir) {
+        Ok(dir) => dir,
+        Err(e) => return Err(e),
+    };
+
+    let install_manifest = install_root.join("install.json");
+
+    format_modified_time(&install_manifest)
+}
+
+/// Gets the manifest.json modification time from the current version directory  
+/// This represents the version update date (when this version was last updated/refreshed)
+fn get_current_version_update_date_impl(package_dir: &Path) -> Result<String, String> {
+    let install_root = match locate_install_dir(package_dir) {
+        Ok(dir) => dir,
+        Err(e) => return Err(e),
+    };
+
+    let manifest_path = install_root.join("manifest.json");
+
+    format_modified_time(&manifest_path)
 }
 
 /// Builds a ScoopPackage from the collected information.
@@ -416,6 +460,9 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         updated: updated_time,
         is_installed: true,
         info: manifest.description.unwrap_or_default(),
+        homepage: manifest.homepage,
+        license: manifest.license,
+        notes: manifest.notes,
         match_source: crate::models::MatchSource::default(),
         installation_type,
         has_multiple_versions: has_version_dirs,
@@ -442,7 +489,8 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
     let install_root = locate_install_dir(package_path)?;
     let (manifest, install_manifest) = load_package_info(&install_root, &package_name)?;
     let bucket = determine_bucket(&install_manifest, scoop_path, &package_name);
-    let updated_time = get_install_time(&install_root);
+    let updated_time = get_package_directory_modified_time(package_path)
+        .unwrap_or_default(); // Use package_path (main directory) instead of install_root (current directory)
 
     log::trace!("Determined bucket for package {}: {}", package_name, bucket);
 
@@ -783,4 +831,38 @@ async fn update_package_versions_cache(
         "✓ Package versions cache updated with {} versioned packages",
         versions_count
     );
+}
+
+#[tauri::command]
+pub async fn get_current_version_install_time<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    package_name: String,
+) -> Result<String, String> {
+    let scoop_path = state.scoop_path();
+    let apps_path = scoop_path.join("apps");
+    let package_path = apps_path.join(&package_name);
+    
+    if !package_path.exists() {
+        return Err(format!("Package '{}' not found", package_name));
+    }
+    
+    get_current_version_install_date(&package_path)
+}
+
+#[tauri::command]
+pub async fn get_current_version_update_date<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    package_name: String,
+) -> Result<String, String> {
+    let scoop_path = state.scoop_path();
+    let apps_path = scoop_path.join("apps");
+    let package_path = apps_path.join(&package_name);
+    
+    if !package_path.exists() {
+        return Err(format!("Package '{}' not found", package_name));
+    }
+    
+    get_current_version_update_date_impl(&package_path)
 }

@@ -186,7 +186,7 @@ function TraySettings() {
         console.error('Failed to save selected apps:', error);
         // Revert UI state to what it was when save started
         setSelectedApps(currentStateAtSave);
-        // TODO: Show proper error notification instead of alert
+        // FIXME: Replace alert with proper error notification
         alert(`Failed to save tray apps: ${error}`);
       }
     }, 300); // 300ms debounce

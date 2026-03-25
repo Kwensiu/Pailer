@@ -1,9 +1,12 @@
 import { createEffect, Show, createSignal } from 'solid-js';
-import { Copy, Check } from 'lucide-solid';
+import { Copy, Check, Github } from 'lucide-solid';
+import { toast } from '../common/ToastAlert';
 import Modal from '../common/Modal';
 import settingsStore from '../../stores/settings';
 import { t } from '../../i18n';
 import { highlightJson } from '../../utils/jsonHighlight';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { buildManifestFileUrl } from '../../utils/manifestUrl';
 
 interface ManifestModalProps {
   manifestContent: string | null;
@@ -11,18 +14,35 @@ interface ManifestModalProps {
   error: string | null;
   onClose: () => void;
   packageName: string;
+  bucketGitUrl?: string | null;
+  bucketGitBranch?: string | null;
 }
 
 function ManifestModal(props: ManifestModalProps) {
   let codeRef: HTMLElement | undefined;
   const [copied, setCopied] = createSignal(false);
-  const { settings } = settingsStore;
+  const { effectiveTheme } = settingsStore;
 
   // Theme-specific colors
-  const isDark = () => settings.theme === 'dark';
+  const isDark = () => effectiveTheme() === 'dark';
   const buttonTextColor = () =>
     isDark() ? 'text-white/70 hover:text-white' : 'text-base-content/70 hover:text-base-content';
   const buttonBgHover = () => (isDark() ? 'hover:bg-white/10' : 'hover:bg-base-content/10');
+
+  const openManifestUrl = async () => {
+    const url = buildManifestFileUrl(props.bucketGitUrl, props.packageName, props.bucketGitBranch);
+    if (!url) {
+      toast.error(t('manifest.urlError'));
+      return;
+    }
+
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error('Failed to open manifest URL:', error);
+      toast.error(t('manifest.openFailed'));
+    }
+  };
 
   createEffect(() => {
     if (props.manifestContent && codeRef) {
@@ -65,11 +85,19 @@ function ManifestModal(props: ManifestModalProps) {
       size="large"
       animation="scale"
       class="bg-base-100"
-      zIndex="z-61" //Above PackageInfoModal(z-60)
+      zIndex="z-61"
       footer={
-        <button class="btn-close-outline" data-modal-close>
-          {t('buttons.close')}
-        </button>
+        <div class="flex w-full items-center justify-between gap-2">
+          <Show when={props.bucketGitUrl}>
+            <button class="btn btn-soft btn-primary" onClick={openManifestUrl}>
+              <Github class="h-4 w-4 shrink-0" />
+              GitHub
+            </button>
+          </Show>
+          <button class="btn-close-outline ml-auto" data-modal-close>
+            {t('buttons.close')}
+          </button>
+        </div>
       }
     >
       <Show when={props.loading}>
@@ -112,7 +140,7 @@ function ManifestModal(props: ManifestModalProps) {
             </button>
           </div>
           <div class="custom-scrollbar max-h-[65vh] overflow-y-auto">
-            <pre class="m-0 p-4">
+            <pre class="p-4">
               <code
                 ref={codeRef}
                 class="language-json bg-transparent! font-mono text-sm leading-relaxed"

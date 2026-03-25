@@ -1,6 +1,6 @@
 import { createSignal, onMount, onCleanup, JSX, Show } from 'solid-js';
 import { ChevronDown } from 'lucide-solid';
-import { Dropdown } from './Dropdown';
+import Dropdown from './Dropdown';
 
 interface ResponsiveButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
   children: JSX.Element | JSX.Element[];
@@ -54,15 +54,10 @@ export function ResponsiveButton(props: ResponsiveButtonProps) {
       >
         <Dropdown
           position="center"
-          trigger={
-            <label
-              tabindex="0"
-              class={`btn btn-sm ${buttonClass || ''} ${isDisabled() ? 'btn-disabled cursor-not-allowed' : ''}`}
-              style={collapsedButtonWidth ? { width: collapsedButtonWidth } : {}}
-            >
-              <ChevronDown class="h-4 w-4" />
-            </label>
-          }
+          trigger={<ChevronDown class="h-4 w-4" />}
+          triggerClass={`btn btn-sm ${buttonClass || ''} ${isDisabled() ? 'btn-disabled cursor-not-allowed' : ''}`}
+          triggerStyle={collapsedButtonWidth ? { width: collapsedButtonWidth } : {}}
+          triggerDisabled={isDisabled()}
           items={menuItems || []}
         />
       </Show>

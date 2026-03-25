@@ -1,4 +1,4 @@
-import { Sun, Moon } from 'lucide-solid';
+import { Sun, Moon, Monitor } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
@@ -20,9 +20,9 @@ function ThemeSettings() {
           }
         },
         options: [
-          { value: 'system', label: t('settings.theme.systemMode') },
-          { value: 'light', label: t('settings.theme.lightMode') },
-          { value: 'dark', label: t('settings.theme.darkMode') },
+          { value: 'system', label: t('settings.theme.systemMode'), icon: Monitor },
+          { value: 'light', label: t('settings.theme.lightMode'), icon: Sun },
+          { value: 'dark', label: t('settings.theme.darkMode'), icon: Moon },
         ],
       }}
     />

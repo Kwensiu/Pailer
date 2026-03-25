@@ -8,7 +8,7 @@ import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
 import CommandInputField from '../components/page/doctor/CommandInputField';
-import { createSessionCache } from '../hooks/createSessionStorage';
+import { createSessionStorage } from '../hooks';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import { t } from '../i18n';
 
@@ -17,7 +17,7 @@ function DoctorPage() {
   const [isGlobalRefreshing, setIsGlobalRefreshing] = createSignal(false);
 
   // Use session cache for checkup data
-  const checkupCache = createSessionCache('checkupData', () =>
+  const checkupCache = createSessionStorage('checkupData', () =>
     invoke<CheckupItem[]>('run_scoop_checkup')
   );
 
@@ -120,41 +120,43 @@ function DoctorPage() {
 
   return (
     <>
-      <div class="p-6">
-        <div class="mb-7 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <h1 class="text-3xl font-bold">{t('doctor.title')}</h1>
-            <button
-              class="btn btn-soft btn-circle btn-sm"
-              onClick={refreshAllDoctorData}
-              disabled={isGlobalRefreshing()}
-              title={t('doctor.refreshAll')}
-            >
-              <RefreshCw class={`h-4 w-4 ${isGlobalRefreshing() ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-          <div class="flex items-center gap-2">
-            <Show when={hasIssues()}>
+      <div class="mx-auto max-w-7xl">
+        <div class="p-6">
+          <div class="mb-7 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <h1 class="text-3xl font-bold">{t('doctor.title')}</h1>
               <button
-                class="btn btn-warning btn-md"
-                onClick={scrollToCheckup}
-                title={t('doctor.checkup.scrollToIssues')}
+                class="btn btn-soft btn-circle btn-sm"
+                onClick={refreshAllDoctorData}
+                disabled={isGlobalRefreshing()}
+                title={t('doctor.refreshAll')}
               >
-                <TriangleAlert class="mr-1 h-4 w-4" />
-                {t('doctor.checkup.issuesFound')}
+                <RefreshCw class={`h-4 w-4 ${isGlobalRefreshing() ? 'animate-spin' : ''}`} />
               </button>
-            </Show>
+            </div>
+            <div class="flex items-center gap-2">
+              <Show when={hasIssues()}>
+                <button
+                  class="btn btn-warning btn-md"
+                  onClick={scrollToCheckup}
+                  title={t('doctor.checkup.scrollToIssues')}
+                >
+                  <TriangleAlert class="mr-1 h-4 w-4" />
+                  {t('doctor.checkup.issuesFound')}
+                </button>
+              </Show>
+            </div>
           </div>
-        </div>
 
-        <div class="space-y-8">
-          <ScoopInfo />
-          <CommandInputField />
-          <ScoopProxySettings />
-          <CacheManager />
-          <VersionedAppsManager />
-          <ShimManager />
-          <div ref={checkupRef}>{checkupComponent}</div>
+          <div class="space-y-8">
+            <ScoopInfo />
+            <CommandInputField />
+            <ScoopProxySettings />
+            <CacheManager />
+            <VersionedAppsManager />
+            <ShimManager />
+            <div ref={checkupRef}>{checkupComponent}</div>
+          </div>
         </div>
       </div>
     </>

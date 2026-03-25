@@ -2,8 +2,9 @@ import { For, Show, createEffect, createSignal, createMemo, Switch, Match } from
 import { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../types/scoop';
 import Modal from '../common/Modal';
 import BucketInfoModal from './BucketInfoModal';
-import { useBuckets } from '../../hooks/useBuckets';
+import { useBuckets } from '../../hooks/buckets/useBuckets';
 import { highlightJson } from '../../utils/jsonHighlight';
+import { getCurrentVersionInstallTime } from '../../hooks/packages/getCurrentInstallTime';
 import {
   Download,
   Ellipsis,
@@ -17,8 +18,8 @@ import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
-import { Dropdown } from '../common/Dropdown';
-import { searchCacheManager } from '../../hooks/useSearchCache';
+import Dropdown from '../common/Dropdown';
+import { searchCacheManager } from '../../hooks/search/useSearchCache';
 import settingsStore from '../../stores/settings';
 
 interface PackageInfoModalProps {
@@ -40,6 +41,8 @@ interface PackageInfoModalProps {
   context?: 'installed' | 'search'; // Add context property to distinguish page source
   onBucketClick?: (bucketName: string) => void; // Add callback for bucket name clicks
   fromPackageModal?: boolean; // Whether this modal is opened from another PackageInfoModal
+  bucketGitUrl?: string | null;
+  bucketGitBranch?: string | null;
 }
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
@@ -147,6 +150,15 @@ function LicenseValue(props: { value: string }) {
 function PackageInfoModal(props: PackageInfoModalProps) {
   const { buckets } = useBuckets();
   let codeRef: HTMLElement | undefined;
+  // State for version switching
+  const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
+  const [versionLoading, setVersionLoading] = createSignal(false);
+  const [versionError, setVersionError] = createSignal<string | null>(null);
+  const [switchingVersion, setSwitchingVersion] = createSignal<string | null>(null);
+
+  // State for current version install time
+  const [currentVersionInstallTime, setCurrentVersionInstallTime] = createSignal<string>('');
+
   // Format date display
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -214,8 +226,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       if (detailsMap.has(key)) {
         result.push({ key, label, value: detailsMap.get(key)! });
       } else if (key === 'Install Date' && props.pkg) {
-        // Add install date info and format
-        result.push({ key, label, value: formatDate(props.pkg.updated) });
+        // Add install date info using current version install.json time
+        const installTime = currentVersionInstallTime() || props.pkg.updated;
+        result.push({ key, label, value: formatDate(installTime) });
       } else if (key === 'Update Date' && props.pkg) {
         // Add update date info and format
         result.push({ key, label, value: formatDate(props.pkg.updated) });
@@ -224,12 +237,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
     return result;
   });
-
-  // State for version switching
-  const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
-  const [versionLoading, setVersionLoading] = createSignal(false);
-  const [versionError, setVersionError] = createSignal<string | null>(null);
-  const [switchingVersion, setSwitchingVersion] = createSignal<string | null>(null);
 
   // State for manifest modal
   const [manifestContent, setManifestContent] = createSignal<string | null>(null);
@@ -379,6 +386,32 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   });
 
+  // Fetch current version install time for installed packages
+  createEffect(() => {
+    let cancelled = false;
+    const packageName = props.pkg?.name;
+
+    if (!props.pkg?.is_installed || !packageName) {
+      setCurrentVersionInstallTime('');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setCurrentVersionInstallTime('');
+    getCurrentVersionInstallTime(packageName)
+      .then((installTime: string) => {
+        if (!cancelled && props.pkg?.name === packageName) {
+          setCurrentVersionInstallTime(installTime);
+        }
+      })
+      .catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
   // Clear version info when package changes or autoShowVersions becomes false
   createEffect(() => {
     if (!props.autoShowVersions || !props.pkg) {
@@ -393,6 +426,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   createEffect((prevPackageName) => {
     const currentPackageName = props.pkg?.name;
     if (prevPackageName !== undefined && prevPackageName !== currentPackageName) {
+      setCurrentVersionInstallTime('');
       setVersionInfo(null);
       setVersionError(null);
       setVersionLoading(false);
@@ -453,7 +487,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     try {
       const result = await invoke<VersionedPackageInfo>('get_package_versions', {
         packageName: pkg.name,
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
       setVersionInfo(result);
       setVersionLoading(false);
@@ -471,7 +505,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       await invoke<string>('switch_package_version', {
         packageName: pkg.name,
         targetVersion,
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
 
       // Refresh version info after switching
@@ -536,11 +570,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const headerAction = (
     <Dropdown
       position="end"
-      trigger={
-        <button class="btn btn-ghost btn-sm btn-circle">
-          <Ellipsis class="h-5 w-5" />
-        </button>
-      }
+      trigger={<Ellipsis class="h-5 w-5" />}
+      triggerClass="btn btn-ghost btn-sm btn-circle"
       items={[
         {
           label: t('packageInfo.viewManifest'),
@@ -977,6 +1008,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               loading={manifestLoading()}
               error={manifestError()}
               onClose={closeManifestModal}
+              bucketGitUrl={props.bucketGitUrl}
+              bucketGitBranch={props.bucketGitBranch}
             />
           </div>
         </Show>

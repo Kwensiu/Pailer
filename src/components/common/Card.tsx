@@ -2,6 +2,7 @@ import { Component, JSX, Show, createSignal, createEffect, onMount } from 'solid
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw, Folder } from 'lucide-solid';
 import { t } from '../../i18n';
+import Dropdown from '../common/Dropdown';
 
 interface CardProps {
   title: string | JSX.Element;
@@ -12,7 +13,7 @@ interface CardProps {
   headerSelect?: {
     value: string;
     onChange: (e: Event) => void;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; icon?: Component<{ class?: string }> }[];
   };
   onRefresh?: () => void;
   refreshTooltip?: string;
@@ -27,6 +28,31 @@ export default function Card(props: CardProps) {
   const [contentHeight, setContentHeight] = createSignal(0);
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
   let contentRef: HTMLDivElement | undefined;
+
+  const headerSelectSelectedLabel = () => {
+    const headerSelect = props.headerSelect;
+    if (!headerSelect) return 'Select';
+
+    return headerSelect.options.find((o) => o.value === headerSelect.value)?.label || 'Select';
+  };
+
+  const headerSelectItems = () => {
+    const headerSelect = props.headerSelect;
+    if (!headerSelect) return [];
+
+    return headerSelect.options.map((option) => ({
+      label: option.label,
+      icon: option.icon,
+      onClick: () => {
+        const event = new Event('change', { bubbles: true });
+        Object.defineProperty(event, 'currentTarget', {
+          value: { value: option.value },
+          writable: false,
+        });
+        headerSelect.onChange(event);
+      },
+    }));
+  };
 
   onMount(() => {
     if (props.conditionalContent?.condition && contentRef) {
@@ -88,34 +114,14 @@ export default function Card(props: CardProps) {
           {/* Header Actions */}
           <div class="flex items-center gap-2">
             <Show when={props.headerSelect}>
-              {/* Dropdown Select */}
-              <div class="dropdown">
-                <div tabindex="0" role="button" class="select select-bordered select-sm min-w-35">
-                  {props.headerSelect!.options.find((o) => o.value === props.headerSelect!.value)
-                    ?.label || 'Select'}
-                </div>
-                <ul
-                  tabindex="0"
-                  class="dropdown-content menu bg-base-100 rounded-box border-base-300 z-1 mt-1.5 w-full border p-2"
-                >
-                  {props.headerSelect!.options.map((option) => (
-                    <li>
-                      <a
-                        onClick={() => {
-                          const event = new Event('change', { bubbles: true });
-                          Object.defineProperty(event, 'currentTarget', {
-                            value: { value: option.value },
-                            writable: false,
-                          });
-                          props.headerSelect!.onChange(event);
-                        }}
-                      >
-                        {option.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Select Dropdown */}
+              <Dropdown
+                items={headerSelectItems()}
+                position="end"
+                trigger={headerSelectSelectedLabel()}
+                triggerClass="select select-bordered select-sm min-w-35 text-start border border-base-300 bg-base-200/50"
+                selectMode={true}
+              />
             </Show>
             <Show when={props.headerAction && !props.headerSelect}>
               {/* Custom Action */}

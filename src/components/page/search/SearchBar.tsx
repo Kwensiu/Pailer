@@ -1,7 +1,7 @@
 import { Accessor, Setter, Show, createSignal } from 'solid-js';
 import { CircleQuestionMark, Search, X } from 'lucide-solid';
 import { t } from '../../../i18n';
-import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
+import { useGlobalSearchHotkey } from '../../../hooks';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 
 interface SearchBarProps {

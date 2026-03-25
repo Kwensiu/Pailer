@@ -1,6 +1,6 @@
 import { Show, For, createSignal, onMount, onCleanup } from 'solid-js';
 import { RefreshCw } from 'lucide-solid';
-import { BucketInfo } from '../../../hooks/useBuckets';
+import { BucketInfo } from '../../../hooks';
 import BucketCard from './BucketCard';
 import { t } from '../../../i18n';
 
