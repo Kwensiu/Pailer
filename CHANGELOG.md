@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/Kwensiu/Pailer/compare/v1.6.0...v1.7.0) (2026-03-25)
+
+
+### Features
+
+* improve UI and improve search UX ([#94](https://github.com/Kwensiu/Pailer/issues/94)) ([e403657](https://github.com/Kwensiu/Pailer/commit/e4036572c4261b90e0f59266e411d828f076ff0c))
+
 ## [1.6.0](https://github.com/Kwensiu/Pailer/compare/v1.5.0...v1.6.0) (2026-03-21)
 
 
