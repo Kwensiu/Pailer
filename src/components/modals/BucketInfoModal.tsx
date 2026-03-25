@@ -33,8 +33,10 @@ import { formatBucketDate } from '../../utils/date';
 
 interface BucketInfoModalProps {
   bucket: BucketInfo | null;
+  bucketName?: string;
   manifests: string[];
   manifestsLoading: boolean;
+  loading?: boolean;
   error: string | null;
   description?: string; // Optional description for external/search buckets
   searchBucket?: SearchableBucket; // For external buckets from search
@@ -173,10 +175,17 @@ function BucketInfoModal(props: BucketInfoModalProps) {
     measureNextFrame();
   });
 
-  const onResize = () => measureNextFrame();
-  window.addEventListener('resize', onResize);
+  // Use createEffect cleanup function to ensure proper event listener management
+  createEffect(() => {
+    const onResize = () => measureNextFrame();
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+    };
+  });
+
   onCleanup(() => {
-    window.removeEventListener('resize', onResize);
     if (removeTimer()) {
       clearTimeout(removeTimer()!);
     }
@@ -189,6 +198,8 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   const BgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
   const bucketName = () => props.bucket?.name || props.searchBucket?.name || '';
+  const modalBucketName = () =>
+    props.bucket?.name || props.searchBucket?.name || props.bucketName || '';
   const isExternalBucket = () => !props.bucket && !!props.searchBucket;
 
   // State for handling large manifest lists
@@ -484,16 +495,13 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   );
 
   return (
-    <Show when={!!props.bucket || !!props.searchBucket}>
+    <Show when={!!props.bucket || !!props.searchBucket || !!props.bucketName}>
       <Modal
-        isOpen={!!props.bucket || !!props.searchBucket}
+        isOpen={!!props.bucket || !!props.searchBucket || !!props.bucketName}
         onClose={props.onClose}
         title={
           <span class="flex items-center gap-2">
-            {t('bucketInfo.bucket')}:{' '}
-            <span class="text-info font-mono">
-              {props.bucket?.name || props.searchBucket?.name}
-            </span>
+            {t('bucketInfo.bucket')}: <span class="text-info font-mono">{modalBucketName()}</span>
             <Show when={props.bucket?.is_git_repo && props.bucket?.name}>
               {(() => {
                 const bucket = props.bucket!;
@@ -531,6 +539,12 @@ function BucketInfoModal(props: BucketInfoModalProps) {
               />
             </svg>
             <span>{props.error}</span>
+          </div>
+        </Show>
+        <Show when={props.loading}>
+          <div class="flex items-center gap-2 py-4">
+            <span class="loading loading-spinner loading-sm" />
+            <span class="text-base-content/70 text-sm">{t('bucketInfo.loading')}</span>
           </div>
         </Show>
         <Show when={props.bucket || props.searchBucket}>
