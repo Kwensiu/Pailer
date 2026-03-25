@@ -2,7 +2,7 @@ import { Keyboard } from 'lucide-solid';
 import SettingsToggle from '../../common/SettingsToggle';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
-import { createTauriSignal } from '../../../hooks/createTauriSignal';
+import { createTauriSignal } from '../../../hooks';
 
 export default function HotkeySettings() {
   const [isGlobalHotkeyEnabled, setIsGlobalHotkeyEnabled] = createTauriSignal<boolean>(

@@ -1,6 +1,6 @@
 //! Commands for searching Scoop packages.
 use crate::commands::installed::get_installed_packages_full;
-use crate::models::{MatchSource, ScoopPackage, SearchResult};
+use crate::models::{MatchSource, ScoopPackage, SearchResult, parse_notes_field};
 use crate::state::AppState;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
@@ -88,11 +88,26 @@ fn parse_package_from_manifest(path: &Path) -> Option<ScoopPackage> {
         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
         .unwrap_or_default();
 
+    let homepage = json
+        .get("homepage")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let license = json
+        .get("license")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let notes = parse_notes_field(&json);
+
     Some(ScoopPackage {
         name: file_name,
         version,
         source: bucket,
         updated,
+        homepage,
+        license,
+        notes,
         match_source: MatchSource::Name,
         ..Default::default()
     })
@@ -152,16 +167,16 @@ pub async fn search_scoop<R: tauri::Runtime>(
         manifest_paths_clone
             .par_iter()
             .filter_map(|path| {
-                // Check if the file name (package name) matches first
+                // Check if file name matches first
                 let file_name = path.file_stem().and_then(|s| s.to_str())?;
                 let name_matches = pattern.is_match(file_name);
 
-                // Determine if the search term matches one of the binaries declared in the manifest.
-                // We only do this expensive parse if the package name itself did **not** match.
+                // Determine if search term matches binaries in manifest
+                // Only do expensive parse if package name didn't match
                 let match_source = if name_matches {
                     MatchSource::Name
                 } else {
-                    // Load and inspect the manifest's `bin` field
+                    // Load and inspect manifest's bin field
                     let content = std::fs::read_to_string(path).ok()?;
                     let json: Value = serde_json::from_str(&content).ok()?;
 
@@ -180,7 +195,7 @@ pub async fn search_scoop<R: tauri::Runtime>(
                                 _ => false,
                             }),
                             Value::Object(obj) => {
-                                // Very uncommon, but treat similarly to array/object case
+                                // Treat similarly to array/object case
                                 obj.keys().any(|k| pattern.is_match(k))
                                     || obj
                                         .values()
@@ -210,7 +225,7 @@ pub async fn search_scoop<R: tauri::Runtime>(
     .await
     .map_err(|e| e.to_string())?;
 
-    // Determine which of the found packages are already installed.
+    // Determine which packages are already installed
     let state = app.state::<AppState>();
     if let Ok(installed_pkgs) = get_installed_packages_full(app.clone(), state).await {
         let installed_set: HashSet<String> = installed_pkgs

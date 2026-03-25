@@ -1,7 +1,5 @@
 import { For, Show } from 'solid-js';
-import { SearchableBucket } from '../../../hooks/useBucketSearch';
-import { BucketInfo } from '../../../hooks/useBuckets';
-import { useBucketInstall } from '../../../hooks/useBucketInstall';
+import { SearchableBucket, BucketInfo, useBucketInstall } from '../../../hooks';
 import {
   ExternalLink,
   Star,

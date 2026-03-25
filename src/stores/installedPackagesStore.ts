@@ -30,6 +30,7 @@ function createInstalledPackagesStore() {
       );
     } catch (err) {
       console.error('Failed to check for updates:', err);
+      setError('Failed to check for updates');
     } finally {
       setIsCheckingForUpdates(false);
     }
@@ -38,7 +39,7 @@ function createInstalledPackagesStore() {
   const fetchVersionedPackages = async () => {
     try {
       const versioned = await invoke<string[]>('get_versioned_packages', {
-        global: false, // TODO: Add support for global packages
+        global: false, // Global packages not yet supported
       });
       setVersionedPackages(versioned);
     } catch (err) {

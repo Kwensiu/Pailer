@@ -190,7 +190,6 @@ function CommandInputField() {
     <Card
       title={t('doctor.commandInput.title')}
       icon={Terminal}
-      // description={t('doctor.commandInput.description')}
       additionalContent={t('doctor.commandInput.switchInputMode')}
     >
       <div class="join w-full">

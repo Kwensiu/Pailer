@@ -1,5 +1,6 @@
-import { getManifestCache } from './useBuckets';
-import { ScoopPackage } from '../types/scoop';
+import { onCleanup } from 'solid-js';
+import { getManifestCache } from '../buckets/useBuckets';
+import { ScoopPackage } from '../../types/scoop';
 
 // Global search cache manager
 class SearchCacheManager {
@@ -170,16 +171,43 @@ const getSearchCache = (bucketName: string, searchTerm: string): SearchCache | n
 
 // Set search cache to localStorage
 const setSearchCache = (bucketName: string, searchTerm: string, packages: ScoopPackage[]): void => {
+  const cache: SearchCache = {
+    packages,
+    timestamp: Date.now(),
+    searchTerm,
+  };
+  const cacheKey = getSearchCacheKey(bucketName, searchTerm);
+
   try {
-    const cache: SearchCache = {
-      packages,
-      timestamp: Date.now(),
-      searchTerm,
-    };
-    const cacheKey = getSearchCacheKey(bucketName, searchTerm);
     localStorage.setItem(cacheKey, JSON.stringify(cache));
   } catch (error) {
     console.error('Failed to set search cache:', error);
+
+    // Proactively handle quota exceeded with graceful degradation
+    if (error instanceof Error && error.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded, cleaning up old cache entries');
+
+      // Clean up expired cache entries first
+      localStorageUtils.cleanupOldCache();
+
+      // Retry writing after cleanup
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(cache));
+        console.log('Successfully wrote cache after cleanup');
+      } catch (retryError) {
+        // If still failing, limit cache size and retry
+        console.warn('Still failing after cleanup, limiting cache size');
+        localStorageUtils.limitCacheSize(Math.floor(localStorageUtils.getStorageSize() * 0.8));
+
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(cache));
+          console.log('Successfully wrote cache after size limit');
+        } catch (finalError) {
+          console.error('Failed to write cache even after cleanup and size limit:', finalError);
+          // Final failure: disable cache instead of crashing
+        }
+      }
+    }
   }
 };
 
@@ -218,9 +246,11 @@ export function useSearchCache(): UseSearchCacheReturn {
       localStorageUtils.limitCacheSize();
 
       // Listen for cache invalidation events
-      searchCacheManager.subscribe(() => {
+      const unsubscribe = searchCacheManager.subscribe(() => {
         console.log('Search cache invalidated by package operation');
       });
+
+      onCleanup(unsubscribe);
     } catch (error) {
       console.warn('Failed to clean up localStorage cache:', error);
     }

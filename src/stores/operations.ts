@@ -1,6 +1,6 @@
 import { createStore } from 'solid-js/store';
 import { createEffect, createMemo, onCleanup, createRoot } from 'solid-js';
-import { createTauriSignal } from '../hooks/createTauriSignal';
+import { createTauriSignal } from '../hooks/storage/createTauriSignal';
 import type {
   BaseOperationState,
   OperationState,
@@ -14,7 +14,7 @@ import type {
 import { OperationStatus as OperationStatusEnum } from '../types/operations';
 import { OperationType } from '../types/operations';
 import installedPackagesStore from './installedPackagesStore';
-import { searchCacheManager } from '../hooks/useSearchCache';
+import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { listen } from '@tauri-apps/api/event';
 
 // Command execution state interface

@@ -11,7 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-solid';
 import { t } from '../../../i18n';
-import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
+import { useGlobalSearchHotkey } from '../../../hooks';
 import { VersionTypeFilter } from '../../../types/scoop';
 
 const isValidVersionType = (value: string): value is VersionTypeFilter =>

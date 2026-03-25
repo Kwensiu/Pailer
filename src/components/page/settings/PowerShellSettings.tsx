@@ -2,12 +2,15 @@ import { Terminal } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import Card from '../../common/Card';
 import { createSignal, createEffect } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
 import { t } from '../../../i18n';
-import { createPowerShellCache } from '../../../hooks/createSessionStorage';
+import { createSessionStorage } from '../../../hooks';
 
 function PowerShellSettings() {
   const { settings, setPowershellSettings } = settingsStore;
-  const { data: executables, error } = createPowerShellCache();
+  const { data: executables, error } = createSessionStorage('powershell_executables_cache', () =>
+    invoke<string[]>('get_available_powershell_executables')
+  );
   const [selected, setSelected] = createSignal(settings.powershell.executable);
 
   const getLabel = (exe: string) => {

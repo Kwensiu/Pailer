@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage, ScoopInfo } from '../types/scoop';
+import { ScoopPackage, ScoopInfo } from '../../types/scoop';
 
 interface UsePackageInfoReturn {
   selectedPackage: () => ScoopPackage | null;

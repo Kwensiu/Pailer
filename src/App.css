@@ -40,7 +40,7 @@
 
   --light-icon: oklch(70% 0.12 232.661);
 
-  --dark-base-50: oklch(0.35 0.02 254.72);
+  --dark-base-50: oklch(0.37 0.02 254.72);
   --dark-base-100: oklch(0.325 0.018 253.82);
   --dark-base-150: oklch(0.311 0.015 252.92);
   --dark-base-175: oklch(0.293 0.014 252.55);
@@ -212,82 +212,125 @@ input[class*='focus:'] {
   color: inherit !important;
 }
 
-/* Unified dropdown menu styles */
-.dropdown-menu {
-  @apply bg-base-100 rounded-box border-neutral absolute z-50 w-44 border p-2 shadow;
-  position: fixed !important;
-  > ul {
-    @apply m-0 list-none p-0;
+/* Context menu selective freeze */
+body.context-menu-open * {
+  pointer-events: none;
+}
+
+body.context-menu-open [data-context-menu-root='true'],
+body.context-menu-open [data-context-menu-root='true'] *,
+body.context-menu-open [data-context-menu-allow='true'],
+body.context-menu-open [data-context-menu-allow='true'] * {
+  pointer-events: auto;
+}
+
+/* Floating menu surfaces */
+.dropdown-menu-content {
+  @apply bg-base-100 rounded-box border-base-200 z-100 max-h-80 overflow-y-auto border p-2 shadow-lg;
+  animation: menu-show 0.1s ease-out;
+  box-sizing: border-box;
+}
+
+.dropdown-trigger {
+  @apply cursor-pointer;
+
+  &:hover {
+    @apply opacity-70;
   }
-  > ul > li {
-    @apply border-0;
+  &:disabled {
+    @apply cursor-not-allowed opacity-50;
   }
 }
 
-/* Custom Dropdown Component Styles */
-.custom-dropdown .dropdown-content {
-  @apply bg-base-100 rounded-box border-base-200 mt-1 border shadow-md;
+.dropdown-menu-item {
+  @apply hover:bg-base-200 cursor-pointer rounded-xl border-none bg-transparent;
 }
 
-/* Custom Dropdown button styles */
-.custom-dropdown .dropdown-content.menu > li > button {
-  @apply m-[-2px]! mb-0.5! justify-start! text-left!;
+.dropdown-menu-item:disabled {
+  @apply cursor-not-allowed opacity-50;
 }
 
-.custom-dropdown .dropdown-content.menu > li:last-child > button {
-  @apply mb-0!;
+.dropdown-menu-item-content {
+  @apply flex w-full items-center gap-2 px-3 py-2 text-sm;
 }
 
-/* Custom Dropdown alignment options */
-.custom-dropdown .dropdown-content.menu > li > button.justify-center {
-  @apply justify-center! text-center!;
+/* Installed package list */
+.package-list-row {
+  @apply cursor-pointer transition-colors;
+
+  &:hover {
+    @apply bg-black/10;
+  }
 }
 
-.custom-dropdown .dropdown-content.menu > li > button.justify-end {
-  @apply justify-end! text-right!;
+[data-theme='dark'] .package-list-row:hover {
+  @apply bg-white/10;
 }
 
-/* DaisyUI Native Dropdown Fixes */
-.card .dropdown-content {
-  z-index: 9999 !important;
+.package-list-row-active {
+  @apply cursor-pointer transition-colors;
 }
 
-/* Fix dropdown z-index when card is hovered */
-.card:hover .dropdown {
-  z-index: 9999 !important;
+.package-list-row-active,
+[data-theme='light'] .package-list-row-active {
+  @apply bg-black/10;
 }
 
-.card:hover .dropdown-content {
-  z-index: 9999 !important;
+[data-theme='dark'] .package-list-row-active {
+  @apply bg-white/10;
 }
 
-/* Ensure badges remain visible when card is hovered */
-.card:hover .badge {
-  z-index: 20 !important;
+/* Context Menu */
+[data-context-menu-root='true'] {
+  animation: menu-show 0.1s ease-out;
 }
 
-/* Create proper stacking context for the entire card */
+@keyframes menu-show {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* DaisyUI Dropdown (used in Card, SearchPage, InstalledPageHeader) */
+.dropdown-content {
+  @apply bg-base-100 rounded-box border-base-200 border shadow-lg;
+  min-width: max-content;
+}
+
+.dropdown-content.menu button {
+  @apply w-full justify-center;
+}
+
+/* Card stacking context */
 .card {
-  position: relative;
+  @apply relative;
   isolation: isolate;
 }
 
-/* Create proper stacking context for the entire grid */
-.grid {
-  isolation: isolate !important;
-}
-
-/* Ensure dropdown appears above all cards during hover */
 .card:hover {
-  z-index: 10 !important;
+  z-index: 10;
 }
 
-.card:hover .dropdown {
-  z-index: 99999 !important;
+.card:hover .badge {
+  z-index: 20;
 }
 
-.card:hover .dropdown-content {
-  z-index: 99999 !important;
+/* Table row rounded corners - clip tr background via td */
+.table tbody tr:last-child td {
+  overflow: hidden;
+}
+
+.table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 0.75rem;
+}
+
+.table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 0.75rem;
 }
 
 /* Custom background colors */
@@ -313,11 +356,13 @@ input[class*='focus:'] {
 
 /* Bucket card variants */
 .card-bucket.light {
-  @apply border-base-300 border hover:shadow-md;
+  @apply shadow-md inset-shadow-2xs hover:shadow-lg;
+  background-color: var(--color-base-50);
 }
 
 .card-bucket.dark {
-  @apply border-base-200 border hover:shadow-md;
+  @apply shadow-md inset-shadow-2xs hover:shadow-lg;
+  background-color: var(--color-base-50);
 }
 
 /* Icon color utility */
@@ -747,30 +792,6 @@ input:focus {
   box-shadow: none !important;
   outline: none !important;
   background-color: var(--btn-color, var(--color-base-200)) !important;
-}
-
-/* Global Dropdown Styles */
-.dropdown-content {
-  min-width: max-content;
-}
-
-.dropdown-filter-menu {
-  width: 14rem;
-}
-
-.dropdown-content.menu li {
-  width: 100%;
-}
-
-.dropdown-content.menu button {
-  width: 100%;
-  min-width: max-content;
-  text-align: center;
-  justify-content: center !important;
-}
-
-.dropdown-content.menu button .flex {
-  justify-content: center !important;
 }
 
 /* ResponsiveButton Styles */

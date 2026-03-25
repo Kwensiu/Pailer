@@ -9,6 +9,9 @@ export interface ScoopPackage {
   available_version?: string;
   installation_type: 'standard' | 'versioned' | 'custom';
   has_multiple_versions: boolean;
+  homepage?: string;
+  license?: string;
+  notes?: string;
 }
 
 export type VersionTypeFilter = 'all' | 'versioned' | 'held';

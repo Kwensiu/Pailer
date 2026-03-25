@@ -1,4 +1,4 @@
-import { createRoot } from 'solid-js';
+import { createRoot, createMemo, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Store } from '@tauri-apps/plugin-store';
 import { invoke } from '@tauri-apps/api/core';
@@ -358,8 +358,30 @@ function createSettingsStore() {
     await saveSettings(newCoreSettings);
   };
 
+  // Compute effective theme (resolve 'system' to actual dark/light)
+  const getSystemTheme = () => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia?.('prefers-color-scheme: dark')?.matches ?? false;
+  };
+
+  const [systemPrefersDark, setSystemPrefersDark] = createSignal(getSystemTheme());
+
+  if (typeof window !== 'undefined') {
+    const mediaQuery = window.matchMedia?.('prefers-color-scheme: dark');
+    if (mediaQuery) {
+      const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+      mediaQuery.addEventListener('change', handler);
+    }
+  }
+
+  const effectiveTheme = createMemo<'dark' | 'light'>(() => {
+    if (settings.theme === 'system') return systemPrefersDark() ? 'dark' : 'light';
+    return settings.theme;
+  });
+
   return {
     settings,
+    effectiveTheme,
     setVirusTotalSettings,
     setWindowSettings,
     setDebugSettings,

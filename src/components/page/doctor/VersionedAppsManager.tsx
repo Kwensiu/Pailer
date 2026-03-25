@@ -7,7 +7,7 @@ import OpenPathButton from '../../common/OpenPathButton';
 import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
-import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
+import { createSessionStorage, invalidateCache } from '../../../hooks';
 
 interface VersionedAppsData {
   apps: VersionedApp[];
@@ -35,7 +35,7 @@ function VersionedAppsManager() {
     error: dataError,
     refresh: refreshVersionedApps,
     onInvalidate,
-  } = createSessionCache<VersionedAppsData>('versionedAppsData', async () => {
+  } = createSessionStorage<VersionedAppsData>('versionedAppsData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
     if (!scoopPath) {
       throw new Error('No Scoop path configured. Please configure it in settings.');
