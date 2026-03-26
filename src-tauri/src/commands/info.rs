@@ -95,25 +95,50 @@ fn parse_manifest_details(json_value: &Value) -> (Vec<(String, String)>, Option<
 pub fn get_package_info(
     state: State<'_, AppState>,
     package_name: String,
+    bucket: Option<String>,
 ) -> Result<ScoopInfo, String> {
     log::info!("Fetching info for package: {}", package_name);
 
     let scoop_dir = state.scoop_path();
-    
-    // Try to get bucket info from install.json first
+
+    let requested_bucket = bucket
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty() && *value != "None")
+        .map(|value| value.to_string());
+
     let installed_bucket = get_installed_package_bucket(&scoop_dir, &package_name);
-    
-    // Use installed bucket if available, otherwise search all buckets
-    let (manifest_path, bucket_name) = if let Some(ref bucket) = installed_bucket {
-        // Try to find package manifest in installed bucket first
-        match utils::locate_package_manifest(&scoop_dir, &package_name, Some(bucket.clone())) {
+
+    // When the caller provides a bucket, treat it as the source of truth and avoid
+    // falling back to any other bucket. This prevents cross-bucket ambiguity for
+    // packages that share the same name.
+    let (manifest_path, bucket_name) = if let Some(ref bucket_name) = requested_bucket {
+        match utils::locate_package_manifest(&scoop_dir, &package_name, Some(bucket_name.clone())) {
             Ok(result) => result,
-            // If not found in installed bucket, fall back to searching all buckets
-            Err(_) => utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+            Err(err) => {
+                if installed_bucket.as_deref() == Some(bucket_name.as_str()) {
+                    locate_installed_manifest(&scoop_dir, &package_name).ok_or(err)?
+                } else {
+                    return Err(err);
+                }
+            }
         }
     } else {
-        // For non-installed packages, search all buckets
-        utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+        // Use installed bucket if available, otherwise search all buckets
+        if let Some(ref installed_bucket_name) = installed_bucket {
+            match utils::locate_package_manifest(
+                &scoop_dir,
+                &package_name,
+                Some(installed_bucket_name.clone()),
+            ) {
+                Ok(result) => result,
+                // If not found in installed bucket, fall back to searching all buckets
+                Err(_) => utils::locate_package_manifest(&scoop_dir, &package_name, None)?,
+            }
+        } else {
+            // For non-installed packages, search all buckets
+            utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+        }
     };
 
     let manifest_content = fs::read_to_string(&manifest_path)
@@ -127,8 +152,8 @@ pub fn get_package_info(
     // Remove "Version" entry since we'll add more specific version info
     details.retain(|(key, _)| key != "Version");
 
-    // Add bucket information - prefer installed bucket
-    let display_bucket = installed_bucket.unwrap_or(bucket_name);
+    // Add bucket information - prefer the explicit request when available.
+    let display_bucket = requested_bucket.unwrap_or(bucket_name);
     details.push(("Bucket".to_string(), display_bucket));
 
     let installed_dir = scoop_dir.join("apps").join(&package_name).join("current");
@@ -205,4 +230,25 @@ fn get_installed_package_bucket(scoop_dir: &std::path::Path, package_name: &str)
     }
     
     None
+}
+
+fn locate_installed_manifest(
+    scoop_dir: &std::path::Path,
+    package_name: &str,
+) -> Option<(std::path::PathBuf, String)> {
+    let installed_manifest_path = scoop_dir
+        .join("apps")
+        .join(package_name)
+        .join("current")
+        .join("manifest.json");
+
+    if !installed_manifest_path.exists() {
+        return None;
+    }
+
+    let bucket_name = get_installed_package_bucket(scoop_dir, package_name)
+        .map(|bucket| format!("{} (missing)", bucket))
+        .unwrap_or_else(|| "Installed (Bucket missing)".to_string());
+
+    Some((installed_manifest_path, bucket_name))
 }

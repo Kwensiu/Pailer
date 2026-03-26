@@ -266,22 +266,30 @@ export async function handleBucketPackageClick(
   closeBucketModal?: () => void,
   installedPackages?: ScoopPackage[] // Optional list of installed packages to check
 ) {
-  // Check if package is already installed
-  const installedPkg = installedPackages?.find((p) => p.name === packageName);
+  // Only treat the package as installed when the installed source matches the clicked bucket.
+  const installedPkg = installedPackages?.find(
+    (p) => p.name === packageName && p.source === bucketName
+  );
 
   // Create package object with correct installation status
-  const pkg: ScoopPackage = installedPkg || {
-    name: packageName,
-    version: '', // Will be fetched by package info
-    source: bucketName,
-    updated: '', // Will be fetched by package info
-    is_installed: !!installedPkg,
-    info: '', // Will be fetched by package info
-    match_source: 'name',
-    available_version: undefined,
-    installation_type: 'standard',
-    has_multiple_versions: false,
-  };
+  const pkg: ScoopPackage = installedPkg
+    ? {
+        ...installedPkg,
+        source: bucketName,
+        is_installed: true,
+      }
+    : {
+        name: packageName,
+        version: '', // Will be fetched by package info
+        source: bucketName,
+        updated: '', // Will be fetched by package info
+        is_installed: false,
+        info: '', // Will be fetched by package info
+        match_source: 'name',
+        available_version: undefined,
+        installation_type: 'standard',
+        has_multiple_versions: false,
+      };
 
   // Fetch package info (this will open the PackageInfoModal)
   await fetchPackageInfo(pkg);

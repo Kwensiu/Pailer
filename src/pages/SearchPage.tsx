@@ -413,6 +413,7 @@ function SearchPage() {
         loading={manifestLoading()}
         error={manifestError()}
         onClose={closeManifestModal}
+        bucketSource={manifestSource()}
         bucketGitUrl={(() => {
           const source = manifestSource();
           return source ? (bucketGitUrlMap().get(source) ?? null) : null;

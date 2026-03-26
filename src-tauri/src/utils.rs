@@ -384,6 +384,11 @@ fn locate_package_manifest_impl(
             if let Ok(found) = search_buckets(specific_bucket_path) {
                 return Ok(found);
             }
+
+            return Err(format!(
+                "Package '{}' not found in bucket '{}'.",
+                package_name, source
+            ));
         }
     }
 

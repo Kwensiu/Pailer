@@ -577,7 +577,9 @@ function BucketPage() {
                       term: currentSelected.name,
                     }
                   );
-                  const match = response.packages.find((p) => p.name === currentSelected.name);
+                  const match = response.packages.find(
+                    (p) => p.name === currentSelected.name && p.source === currentSelected.source
+                  );
                   if (match) {
                     packageInfo.updateSelectedPackage(match);
                   }

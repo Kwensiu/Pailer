@@ -242,6 +242,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const [manifestContent, setManifestContent] = createSignal<string | null>(null);
   const [manifestLoading, setManifestLoading] = createSignal(false);
   const [manifestError, setManifestError] = createSignal<string | null>(null);
+  const packageKey = () => (props.pkg ? `${props.pkg.name}::${props.pkg.source}` : null);
 
   // State for version switcher sidebar
   const [showVersionSwitcher, setShowVersionSwitcher] = createSignal(false);
@@ -422,15 +423,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   });
 
-  // Clear info when switching to a different package
-  createEffect((prevPackageName) => {
-    const currentPackageName = props.pkg?.name;
-    if (prevPackageName !== undefined && prevPackageName !== currentPackageName) {
+  // Clear transient state when switching to a different package identity.
+  createEffect((prevPackageKey) => {
+    const currentPackageKey = packageKey();
+    if (prevPackageKey !== undefined && prevPackageKey !== currentPackageKey) {
       setCurrentVersionInstallTime('');
       setVersionInfo(null);
       setVersionError(null);
       setVersionLoading(false);
       setSwitchingVersion(null);
+      setManifestContent(null);
+      setManifestError(null);
+      setManifestLoading(false);
       // Reset uninstall confirmation state when switching packages
       setUninstallConfirm(false);
       if (uninstallTimer()) {
@@ -450,7 +454,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         setDeleteVersionTimer(null);
       }
     }
-    return currentPackageName;
+    return currentPackageKey;
   });
 
   const fetchManifest = async (pkg: ScoopPackage) => {
@@ -1008,6 +1012,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
               loading={manifestLoading()}
               error={manifestError()}
               onClose={closeManifestModal}
+              bucketSource={props.pkg?.source}
               bucketGitUrl={props.bucketGitUrl}
               bucketGitBranch={props.bucketGitBranch}
             />
