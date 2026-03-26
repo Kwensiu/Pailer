@@ -14,6 +14,7 @@ interface ManifestModalProps {
   error: string | null;
   onClose: () => void;
   packageName: string;
+  bucketSource?: string | null;
   bucketGitUrl?: string | null;
   bucketGitBranch?: string | null;
 }
@@ -78,9 +79,15 @@ function ManifestModal(props: ManifestModalProps) {
       isOpen={isOpen()}
       onClose={props.onClose}
       title={
-        <>
-          {t('manifestModal.title')} <span class="text-info font-mono">{props.packageName}</span>
-        </>
+        <div class="flex min-w-0 items-center gap-2">
+          <span>{t('manifestModal.title')}</span>
+          <span class="text-info min-w-0 truncate font-mono">{props.packageName}</span>
+          <Show when={props.bucketSource}>
+            <span class="bg-base-200 text-base-content/70 ring-base-content/10 inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset">
+              {props.bucketSource}
+            </span>
+          </Show>
+        </div>
       }
       size="large"
       animation="scale"

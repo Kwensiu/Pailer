@@ -379,7 +379,9 @@ export function useSearch(): UseSearchReturn {
       // Update selectedPackage if it exists
       const currentSelected = packageInfo.selectedPackage();
       if (currentSelected) {
-        const updatedPackage = results().find((p) => p.name === currentSelected.name);
+        const updatedPackage = results().find(
+          (p) => p.name === currentSelected.name && p.source === currentSelected.source
+        );
         if (updatedPackage) {
           packageInfo.updateSelectedPackage(updatedPackage);
         }
