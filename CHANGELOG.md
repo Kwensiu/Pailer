@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1](https://github.com/Kwensiu/Pailer/compare/v1.7.0...v1.7.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* use detached cmd for scoop self-update ([#96](https://github.com/Kwensiu/Pailer/issues/96)) ([e491248](https://github.com/Kwensiu/Pailer/commit/e4912482f3208cae26b53e3a3e9da113459713ce))
+
 ## [1.7.0](https://github.com/Kwensiu/Pailer/compare/v1.6.0...v1.7.0) (2026-03-25)
 
 
