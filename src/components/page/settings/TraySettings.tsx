@@ -256,6 +256,8 @@ function TraySettings() {
             class={`overflow-hidden transition-all duration-300 ease-in-out ${
               settings.window.trayAppsEnabled ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
             }`}
+            aria-hidden={!settings.window.trayAppsEnabled}
+            inert={!settings.window.trayAppsEnabled}
           >
             <div class="divider my-4"></div>
             <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">

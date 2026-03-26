@@ -13,6 +13,7 @@ import {
 import { t } from '../../../i18n';
 import { useGlobalSearchHotkey } from '../../../hooks';
 import { VersionTypeFilter } from '../../../types/scoop';
+import Dropdown from '../../common/Dropdown';
 
 const isValidVersionType = (value: string): value is VersionTypeFilter =>
   ['all', 'versioned', 'held'].includes(value);
@@ -43,36 +44,9 @@ interface InstalledHeaderProps {
 }
 
 function InstalledPageHeader(props: InstalledHeaderProps) {
-  const [filterDropdownOpen, setFilterDropdownOpen] = createSignal(false);
   let searchInputRef: HTMLInputElement | undefined;
   let focusTimeoutId: ReturnType<typeof setTimeout> | undefined;
   const [isExpanded, setIsExpanded] = createSignal(false);
-
-  const handleFilterKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      setFilterDropdownOpen(!filterDropdownOpen());
-    }
-  };
-
-  const handleFilterClick = () => {
-    setFilterDropdownOpen(!filterDropdownOpen());
-  };
-
-  // Close dropdown when clicking outside
-  createEffect(() => {
-    if (!filterDropdownOpen()) return;
-
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.filter-dropdown-container')) {
-        setFilterDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('click', handleClick);
-    onCleanup(() => document.removeEventListener('click', handleClick));
-  });
 
   useGlobalSearchHotkey({
     shouldClear: () => props.searchQuery().length > 0,
@@ -134,12 +108,15 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
           'pointer-events': isExpanded() ? 'auto' : 'none',
           position: 'relative',
         }}
+        aria-hidden={!isExpanded()}
+        inert={!isExpanded()}
       >
         <input
           ref={searchInputRef}
           type="text"
           placeholder={t('installed.header.searchPlaceholder')}
           class="input input-bordered join-item bg-base-200 w-full"
+          tabindex={isExpanded() ? 0 : -1}
           value={props.searchQuery()}
           onInput={(e) => props.setSearchQuery(e.currentTarget.value)}
           onKeyDown={(e) => {
@@ -222,72 +199,67 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         {/* Filters and View Toggle Group */}
         <div class="join">
           {/* Filters Dropdown */}
-          <div class="filter-dropdown-container dropdown dropdown-center">
+          <Dropdown
+            class="filter-dropdown-container"
+            position="end"
+            variant="panel"
+            trigger={<Funnel class="h-4 w-4" />}
+            triggerClass="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom"
+            triggerProps={{ 'data-tip': t('installed.header.filter') }}
+            triggerAriaLabel={t('installed.header.filter')}
+            contentClass="mt-3 mr-6  p-4"
+          >
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
+                  {t('installed.header.bucketLabel')}
+                </span>
+              </label>
+              <select
+                class="select select-bordered select-sm bg-base-300 min-w-35 rounded-lg"
+                value={props.selectedBucket()}
+                onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
+              >
+                <For each={props.uniqueBuckets()}>
+                  {(bucket) => (
+                    <option value={bucket}>
+                      {bucket === 'all' ? t('installed.header.allBuckets') : bucket}
+                    </option>
+                  )}
+                </For>
+              </select>
+            </div>
+            <div class="form-control mt-3">
+              <label class="label">
+                <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
+                  {t('installed.header.versionTypeLabel')}
+                </span>
+              </label>
+              <select
+                class="select select-bordered select-sm bg-base-300 min-w-35 rounded-lg"
+                value={props.selectedVersionType()}
+                onChange={(e) => {
+                  const value = e.currentTarget.value;
+                  if (isValidVersionType(value)) {
+                    props.setSelectedVersionType(value);
+                  }
+                }}
+              >
+                <option value="all">{t('installed.header.allVersionTypes')}</option>
+                <option value="versioned">{t('installed.header.versionedSoftware')}</option>
+                <option value="held">{t('installed.header.heldPackages')}</option>
+              </select>
+            </div>
             <button
-              class="join-item btn btn-soft bg-base-100 tooltip tooltip-bottom"
-              data-tip={t('installed.header.filter')}
-              onClick={handleFilterClick}
-              onKeyDown={handleFilterKeyDown}
-              aria-expanded={filterDropdownOpen()}
-              aria-haspopup="menu"
+              class="btn btn-soft btn-warning mt-4 h-8 rounded-lg"
+              onClick={() => {
+                props.setSelectedBucket('all');
+                props.setSelectedVersionType('all');
+              }}
             >
-              <Funnel class="h-4 w-4" />
+              {t('installed.header.resetFilters')}
             </button>
-            <Show when={filterDropdownOpen()}>
-              <div class="dropdown-content menu bg-base-100 rounded-box border-base-200 mt-3 mr-6 w-50 border p-4 shadow-lg">
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
-                      {t('installed.header.bucketLabel')}
-                    </span>
-                  </label>
-                  <select
-                    class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
-                    value={props.selectedBucket()}
-                    onChange={(e) => props.setSelectedBucket(e.currentTarget.value)}
-                  >
-                    <For each={props.uniqueBuckets()}>
-                      {(bucket) => (
-                        <option value={bucket}>
-                          {bucket === 'all' ? t('installed.header.allBuckets') : bucket}
-                        </option>
-                      )}
-                    </For>
-                  </select>
-                </div>
-                <div class="form-control mt-3">
-                  <label class="label">
-                    <span class="label-text text-base-content/80 ml-1 text-sm font-semibold">
-                      {t('installed.header.versionTypeLabel')}
-                    </span>
-                  </label>
-                  <select
-                    class="select select-bordered select-sm bg-base-300 w-full rounded-lg"
-                    value={props.selectedVersionType()}
-                    onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      if (isValidVersionType(value)) {
-                        props.setSelectedVersionType(value);
-                      }
-                    }}
-                  >
-                    <option value="all">{t('installed.header.allVersionTypes')}</option>
-                    <option value="versioned">{t('installed.header.versionedSoftware')}</option>
-                    <option value="held">{t('installed.header.heldPackages')}</option>
-                  </select>
-                </div>
-                <button
-                  class="btn btn-soft btn-warning mt-4 h-8 w-full rounded-lg"
-                  onClick={() => {
-                    props.setSelectedBucket('all');
-                    props.setSelectedVersionType('all');
-                  }}
-                >
-                  {t('installed.header.resetFilters')}
-                </button>
-              </div>
-            </Show>
-          </div>
+          </Dropdown>
 
           {/* View Toggle Button */}
           <button

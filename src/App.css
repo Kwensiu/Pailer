@@ -201,12 +201,6 @@ input[class*='focus:'] {
   --tw-ring-color: transparent;
 }
 
-/* Remove focus styles from select elements */
-.select:focus,
-.select:focus-within {
-  outline: none !important;
-}
-
 /* Custom Utility Classes */
 .label {
   color: inherit !important;
@@ -227,6 +221,12 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 /* Floating menu surfaces */
 .dropdown-menu-content {
   @apply bg-base-100 rounded-box border-base-200 z-100 max-h-80 overflow-y-auto border p-2 shadow-lg;
+  animation: menu-show 0.1s ease-out;
+  box-sizing: border-box;
+}
+
+.dropdown-panel-content {
+  @apply bg-base-100 rounded-box border-base-200 z-100 overflow-y-auto border shadow-lg;
   animation: menu-show 0.1s ease-out;
   box-sizing: border-box;
 }

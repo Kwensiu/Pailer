@@ -144,7 +144,7 @@ export default function BucketAutoUpdateSettings() {
     >
       <div class="flex flex-col gap-2">
         {INTERVAL_OPTIONS.map((opt) => (
-          <label class="bg-base-200 border-base-300 hover:border-base-content/70 flex w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2 transition-colors">
+          <label class="bg-base-200 border-base-300 hover:border-base-content/70 focus-within:border-info focus-within:ring-info/25 flex w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2 transition-colors focus-within:ring-2">
             <div class="flex flex-col">
               <span class="text-sm font-medium">{t(opt.label)}</span>
               <span class="text-[10px] opacity-70">{t(opt.description)}</span>
@@ -163,7 +163,7 @@ export default function BucketAutoUpdateSettings() {
       </div>
 
       {/* Custom interval */}
-      <div class="bg-base-200 border-base-300 hover:border-base-content/60 rounded-md border p-3 transition-colors">
+      <div class="bg-base-200 border-base-300 hover:border-base-content/60 focus-within:border-info focus-within:ring-info/25 rounded-md border p-3 transition-colors focus-within:ring-2">
         <label class="mb-3 flex cursor-pointer items-center justify-between">
           <div>
             <span class="text-xs font-semibold tracking-wide uppercase opacity-90">
