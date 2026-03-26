@@ -354,6 +354,11 @@
     "description": "Select your preferred language for the application interface.",
     "title": "Language"
   },
+  "manifest": {
+    "openFailed": "Failed to open manifest URL",
+    "title": "Manifest File",
+    "urlError": "Failed to build manifest URL"
+  },
   "manifestModal": {
     "loading": "Loading manifest...",
     "title": "Manifest:"
@@ -404,6 +409,7 @@
     "latestVersion": "Latest Version",
     "license": "License",
     "name": "Name",
+    "notes": "Notes",
     "openFolder": "Open Folder",
     "success": {
       "forceUpdate": "{{name}} force updated successfully",
@@ -486,11 +492,6 @@
     },
     "title": "Scoop Status"
   },
-  "manifest": {
-    "title": "Manifest File",
-    "urlError": "Failed to build manifest URL",
-    "openFailed": "Failed to open manifest URL"
-  },
   "search": {
     "bar": {
       "clearSearch": "Clear search",
@@ -521,18 +522,18 @@
     },
     "refreshResults": "Refresh",
     "results": {
-      "copyCommand": "Copy command",
       "copied": "Copied to clipboard",
+      "copyCommand": "Copy command",
       "customInstall": "Custom install",
       "installed": "Installed",
       "multipleVersionsInstalled": "Multiple versions installed",
-      "toggleDetails": "Toggle package details",
-      "viewCommits": "View commit history",
-      "viewManifest": "View manifest file",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
       "pageInfo": "Page {{current}} / {{total}}",
+      "toggleDetails": "Toggle package details",
       "versionedSupport": "Versioned support",
-      "viewBucket": "View bucket details"
+      "viewBucket": "View bucket details",
+      "viewCommits": "View commit history",
+      "viewManifest": "View manifest file"
     },
     "tabs": {
       "includes": "Includes",

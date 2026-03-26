@@ -47,8 +47,7 @@ interface PackageInfoModalProps {
 
 // Component to render detail values. If it's a JSON string of an object/array, it pretty-prints and highlights it.
 function DetailValue(props: { value: string }) {
-  const { settings } = settingsStore;
-  const isDark = () => settings.theme === 'dark';
+  const { effectiveTheme } = settingsStore;
 
   const parsed = createMemo(() => {
     try {
@@ -57,7 +56,7 @@ function DetailValue(props: { value: string }) {
       if (typeof parsed === 'object' && parsed !== null) {
         return {
           isJson: true,
-          formatted: highlightJson(parsed, isDark() ? 'dark' : 'light'),
+          formatted: highlightJson(parsed, effectiveTheme() === 'dark' ? 'dark' : 'light'),
         };
       }
     } catch {
@@ -149,7 +148,6 @@ function LicenseValue(props: { value: string }) {
 
 function PackageInfoModal(props: PackageInfoModalProps) {
   const { buckets } = useBuckets();
-  let codeRef: HTMLElement | undefined;
   // State for version switching
   const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | null>(null);
   const [versionLoading, setVersionLoading] = createSignal(false);
@@ -350,35 +348,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   // State for delete version confirmation
   const [deleteVersionConfirm, setDeleteVersionConfirm] = createSignal<string | null>(null);
   const [deleteVersionTimer, setDeleteVersionTimer] = createSignal<number | null>(null);
-
-  createEffect(() => {
-    if (props.info?.notes && codeRef) {
-      const { settings } = settingsStore;
-      const isDark = () => settings.theme === 'dark';
-
-      // Try to format as JSON if possible, otherwise use as-is
-      try {
-        const parsed = JSON.parse(props.info.notes);
-        if (typeof parsed === 'object' && parsed !== null) {
-          codeRef.innerHTML = highlightJson(parsed, isDark() ? 'dark' : 'light');
-        } else {
-          codeRef.textContent = props.info.notes;
-        }
-      } catch {
-        codeRef.textContent = props.info.notes;
-      }
-
-      // Clean up highlight on effect dispose
-      return () => {
-        if (codeRef && codeRef.firstChild) {
-          // Remove all child nodes instead of setting innerHTML
-          while (codeRef.firstChild) {
-            codeRef.removeChild(codeRef.firstChild);
-          }
-        }
-      };
-    }
-  });
 
   // Auto-fetch version info for versioned packages
   createEffect(() => {
@@ -839,7 +808,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                   {(item) => (
                     <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
                       <div class="text-base-content/70 col-span-1 font-semibold capitalize">
-                        {item.label}:
+                        {item.key}:
                       </div>
                       <div class="col-span-2">
                         <Switch fallback={<DetailValue value={item.value} />}>
@@ -910,6 +879,17 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 </For>
               </div>
             </div>
+
+            <Show when={props.info?.notes}>
+              <div class="min-w-0 flex-1">
+                <h4 class="mb-3 border-b pb-2 text-lg font-medium">{t('packageInfo.notes')}</h4>
+                <div class="border-base-content/10 bg-base-200 overflow-hidden rounded-xl border shadow-inner">
+                  <pre class="m-0 max-h-[32rem] overflow-auto p-4 wrap-break-word whitespace-pre-wrap">
+                    <DetailValue value={props.info?.notes ?? ''} />
+                  </pre>
+                </div>
+              </div>
+            </Show>
 
             {/* Floating Version Switcher */}
             <Show when={showVersionSwitcher() || animatingOut()}>

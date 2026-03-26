@@ -354,6 +354,11 @@
     "description": "选择您偏好的应用程序界面语言 | Language",
     "title": "语言"
   },
+  "manifest": {
+    "openFailed": "打开清单 URL 失败",
+    "title": "清单文件",
+    "urlError": "构建清单 URL 失败"
+  },
   "manifestModal": {
     "loading": "加载 Manifest...",
     "title": "Manifest:"
@@ -404,6 +409,7 @@
     "latestVersion": "最新版本",
     "license": "许可证",
     "name": "软件名",
+    "notes": "备注",
     "openFolder": "打开文件夹",
     "success": {
       "forceUpdate": "{{name}} 强制更新成功",
@@ -486,11 +492,6 @@
     },
     "title": "Scoop 状态"
   },
-  "manifest": {
-    "title": "清单文件",
-    "urlError": "构建清单 URL 失败",
-    "openFailed": "打开清单 URL 失败"
-  },
   "search": {
     "bar": {
       "clearSearch": "清除搜索",
@@ -521,18 +522,18 @@
     },
     "refreshResults": "刷新",
     "results": {
-      "copyCommand": "复制命令",
       "copied": "已复制到剪贴板",
+      "copyCommand": "复制命令",
       "customInstall": "自定义安装",
       "installed": "已安装",
       "multipleVersionsInstalled": "多版本已安装",
-      "toggleDetails": "切换包详情",
-      "viewCommits": "查看提交历史",
-      "viewManifest": "查看清单文件",
       "noPackagesFound": "没有找到 {{type}} \"{{query}}\"",
       "pageInfo": "第 {{current}} / {{total}} 页",
+      "toggleDetails": "切换包详情",
       "versionedSupport": "多版本支持",
-      "viewBucket": "查看仓库详情"
+      "viewBucket": "查看仓库详情",
+      "viewCommits": "查看提交历史",
+      "viewManifest": "查看清单文件"
     },
     "tabs": {
       "includes": "包含",
