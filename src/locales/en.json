@@ -143,7 +143,6 @@
     "confirm": "Confirm",
     "copyToClipboard": "Copy to clipboard",
     "delete": "Delete",
-    "deleteDirectly": "Delete Directly",
     "forceUpdate": "Force Update",
     "goToBuckets": "Go to bucket",
     "install": "Install",
@@ -186,12 +185,17 @@
       "actionCannotBeUndone": "This action cannot be undone.",
       "cacheIsEmpty": "Cache is Empty",
       "confirmDeletion": "Confirm Deletion",
+      "confirmScoopCacheRm": "Confirm using Scoop cache rm",
       "deleteAll": "Are you sure you want to delete all {{count}} cache files?",
-      "deleteFiles": "Are you sure you want to delete {{count}} cache files involving {{packageCount}} packages?",
+      "deleteFiles": "Delete {{count}} cache files?",
       "filterPlaceholder": "Search cache files...",
       "name": "Name",
       "noCachedFiles": "There are no cached package files to manage.",
       "openCacheDirectory": "Open Cache Directory",
+      "scoopCacheRmButton": "Run Scoop cache rm to cleanup",
+      "scoopCacheRmDescription": "Run Scoop cache rm for {{packageCount}} packages.",
+      "scoopCacheRmWarning": "This deletes all cache for those packages.",
+      "selectedPackages": "{{count}} packages selected",
       "settings": {
         "preserveVersioned": "Preserve versioned download cache",
         "preserveVersionedDescription": "Hide cache files that exist locally for versioned installations",
@@ -229,7 +233,7 @@
     "cleanup": {
       "cleanupOldVersions": "Cleanup Old Versions",
       "cleanupOutdatedCache": "Cleanup Outdated Cache",
-      "description": "Free up disk space by removing old package versions and outdated download caches (this will ignore auto-cleanup constraints).",
+      "description": "Free up disk space by removing old package versions and stale download cache (this will ignore auto-cleanup constraints).",
       "title": "Scoop Cleanup"
     },
     "commandInput": {
@@ -586,12 +590,12 @@
     },
     "autoCleanup": {
       "cleanOldVersions": "Clean Old Versions",
-      "cleanOldVersionsDescription": "Keep only the most recent versions of packages. Versioned installs (using @version) are always preserved.",
+      "cleanOldVersionsDescription": "Keep the latest {{count}} versions of packages and their corresponding old folders.\nVersioned installs (using @version) are always preserved.",
       "cleanOutdatedCache": "Clean Outdated Cache",
-      "cleanOutdatedCacheDescription": "Remove stale downloaded artifacts that are no longer needed, freeing disk space.",
+      "cleanOutdatedCacheDescription": "Remove stale download cache that is no longer needed, freeing disk space.",
       "description": "Automatically tidy up old package versions and outdated cache assets after install, update, or uninstall operations.",
       "title": "Auto Cleanup",
-      "versionsToKeep": "Versions to Keep: {{count}}"
+      "versionsToKeep": "Old Versions to Keep: {{count}}"
     },
     "bucketAutoUpdate": {
       "active": "Active: {{interval}}",
