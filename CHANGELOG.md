@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2](https://github.com/Kwensiu/Pailer/compare/v1.7.1...v1.7.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* bucket-specific package info and manifest state ([#99](https://github.com/Kwensiu/Pailer/issues/99)) ([0b8fc97](https://github.com/Kwensiu/Pailer/commit/0b8fc977404c61d61a8713a46c6e1e47ae12994a))
+* re-add package notes and use effective theme for JSON details ([55b6bd5](https://github.com/Kwensiu/Pailer/commit/55b6bd569a95244958d506f7a93f235105e6e5f7))
+
+
+### Refactoring
+
+* improve focus handling and collapsible card interactions ([#100](https://github.com/Kwensiu/Pailer/issues/100)) ([7c52995](https://github.com/Kwensiu/Pailer/commit/7c529957a4979b5f55eb31c1ebe0f530966a9423))
+
 ## [1.7.1](https://github.com/Kwensiu/Pailer/compare/v1.7.0...v1.7.1) (2026-03-26)
 
 
