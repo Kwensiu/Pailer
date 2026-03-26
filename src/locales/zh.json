@@ -143,7 +143,6 @@
     "confirm": "确认",
     "copyToClipboard": "复制到剪贴板",
     "delete": "删除",
-    "deleteDirectly": "直接删除",
     "forceUpdate": "强制更新",
     "goToBuckets": "转到仓库",
     "install": "安装",
@@ -186,12 +185,17 @@
       "actionCannotBeUndone": "此操作无法撤销。",
       "cacheIsEmpty": "缓存为空",
       "confirmDeletion": "确认删除",
+      "confirmScoopCacheRm": "使用 \"scoop cache rm\" 命令删除",
       "deleteAll": "确定要删除全部 {{count}} 个缓存文件吗？",
-      "deleteFiles": "确定要删除 {{count}} 个缓存文件吗？涉及 {{packageCount}} 个软件包。",
+      "deleteFiles": "删除 {{count}} 个缓存文件？",
       "filterPlaceholder": "搜索缓存文件...",
       "name": "名称",
       "noCachedFiles": "没有找到缓存文件",
       "openCacheDirectory": "打开缓存目录",
+      "scoopCacheRmButton": "使用 \"scoop cache rm\" 命令删除",
+      "scoopCacheRmDescription": "将对 {{packageCount}} 个软件包执行 \"scoop cache rm\" 命令",
+      "scoopCacheRmWarning": "这会删除这些软件包的全部缓存。",
+      "selectedPackages": "涉及 {{count}} 个软件包",
       "settings": {
         "preserveVersioned": "保留版本化下载缓存",
         "preserveVersionedDescription": "隐藏版本化安装中本地已存在的缓存",
@@ -228,8 +232,8 @@
     },
     "cleanup": {
       "cleanupOldVersions": "清理所有旧版本",
-      "cleanupOutdatedCache": "清理过时下载缓存",
-      "description": "通过删除旧版本和过时的下载缓存来释放磁盘空间（这将忽略自动清理约束）。",
+      "cleanupOutdatedCache": "清理过时缓存",
+      "description": "通过删除旧版本和不再需要的下载缓存来释放磁盘空间（这将忽略自动清理约束）。",
       "title": "Scoop 清理"
     },
     "commandInput": {
@@ -586,12 +590,12 @@
     },
     "autoCleanup": {
       "cleanOldVersions": "清理所有旧版本",
-      "cleanOldVersionsDescription": "仅保留最新版本的软件包。版本化安装（使用 @version）始终保留。",
+      "cleanOldVersionsDescription": "将保留软件包最近的 {{count}} 个版本及对应的 old 文件夹，\n版本化安装的软件包始终保留。",
       "cleanOutdatedCache": "清理过时缓存",
-      "cleanOutdatedCacheDescription": "删除不再需要的陈旧下载工件，释放磁盘空间。",
+      "cleanOutdatedCacheDescription": "删除不再需要的过时下载缓存，释放磁盘空间。",
       "description": "在安装、更新或卸载操作后，自动清理旧版本的软件包和过时的缓存资源。",
       "title": "自动清理",
-      "versionsToKeep": "保留版本数：{{count}}"
+      "versionsToKeep": "保留旧版本数：{{count}}"
     },
     "bucketAutoUpdate": {
       "active": "当前：{{interval}}",

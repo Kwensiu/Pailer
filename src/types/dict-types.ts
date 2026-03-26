@@ -143,7 +143,6 @@ export interface Dict {
     confirm: string;
     copyToClipboard: string;
     delete: string;
-    deleteDirectly: string;
     forceUpdate: string;
     goToBuckets: string;
     install: string;
@@ -186,12 +185,17 @@ export interface Dict {
       actionCannotBeUndone: string;
       cacheIsEmpty: string;
       confirmDeletion: string;
+      confirmScoopCacheRm: string;
       deleteAll: string;
       deleteFiles: string;
       filterPlaceholder: string;
       name: string;
       noCachedFiles: string;
       openCacheDirectory: string;
+      scoopCacheRmButton: string;
+      scoopCacheRmDescription: string;
+      scoopCacheRmWarning: string;
+      selectedPackages: string;
       settings: {
         preserveVersioned: string;
         preserveVersionedDescription: string;

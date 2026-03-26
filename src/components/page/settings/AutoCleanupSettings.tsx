@@ -10,6 +10,7 @@ function AutoCleanupSettings() {
   const [localVersionCount, setLocalVersionCount] = createSignal(
     settings.cleanup.preserveVersionCount
   );
+  const versionsToKeep = () => localVersionCount() + 1;
 
   const handleVersionCountChange = async (e: Event) => {
     const value = parseInt((e.target as HTMLInputElement).value);
@@ -44,8 +45,10 @@ function AutoCleanupSettings() {
                     <Sparkles class="text-primary mr-2 h-4 w-4" />
                     {t('settings.autoCleanup.cleanOldVersions')}
                   </h3>
-                  <p class="text-base-content/60 mt-1 text-xs">
-                    {t('settings.autoCleanup.cleanOldVersionsDescription')}
+                  <p class="text-base-content/60 mt-1 text-xs whitespace-pre-line">
+                    {t('settings.autoCleanup.cleanOldVersionsDescription', {
+                      count: versionsToKeep(),
+                    })}
                   </p>
                 </div>
                 <input
