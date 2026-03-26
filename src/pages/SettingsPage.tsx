@@ -54,15 +54,17 @@ function SettingsPage(props: SettingsPageProps) {
           <div role="tablist" aria-label="Settings Sections" class="tabs tabs-border mb-6">
             <For each={TABS}>
               {(tab) => (
-                <a
+                <button
+                  type="button"
                   class="tab"
                   classList={{ 'tab-active': activeTab() === tab.key }}
                   onClick={() => setActiveTab(tab.key)}
                   role="tab"
                   aria-selected={activeTab() === tab.key}
+                  tabindex={0}
                 >
                   {t(tab.labelkey)}
-                </a>
+                </button>
               )}
             </For>
           </div>

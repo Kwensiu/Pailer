@@ -22,22 +22,31 @@ export interface DropdownItem {
   closeOnSelect?: boolean;
 }
 
+type DropdownTriggerProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> &
+  Partial<Record<`data-${string}`, string | number | boolean | undefined>>;
+
 export interface DropdownProps {
-  items: DropdownItem[];
+  items?: DropdownItem[];
+  children?: JSX.Element;
   position?: 'start' | 'end' | 'center';
   trigger: JSX.Element;
   class?: string;
   triggerClass?: string;
   triggerStyle?: JSX.CSSProperties | string;
+  triggerProps?: DropdownTriggerProps;
+  triggerAriaLabel?: string;
   triggerDisabled?: boolean;
   contentClass?: string;
   onOpen?: () => void;
   onClose?: () => void;
   selectMode?: boolean;
+  variant?: 'menu' | 'panel';
 }
 
 const ITEM_SELECTOR = '[role="menuitem"]:not([disabled])';
 const TABBED_ITEM_SELECTOR = '[data-dropdown-item="true"][data-tabbed]';
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const getPlacement = (position?: 'start' | 'end' | 'center') => {
   switch (position) {
@@ -74,6 +83,9 @@ export default function Dropdown(props: DropdownProps) {
   let triggerRef: HTMLButtonElement | undefined;
   let contentRef: HTMLDivElement | undefined;
 
+  const isPanelVariant = () => props.variant === 'panel';
+  const hasMenuItems = () => (props.items?.length ?? 0) > 0 && !isPanelVariant();
+
   const close = () => {
     if (!open()) return;
     setOpen(false);
@@ -96,6 +108,64 @@ export default function Dropdown(props: DropdownProps) {
 
   const getItems = () => {
     return Array.from(contentRef?.querySelectorAll(ITEM_SELECTOR) ?? []) as HTMLButtonElement[];
+  };
+
+  const getFocusableElements = () => {
+    return Array.from(contentRef?.querySelectorAll(FOCUSABLE_SELECTOR) ?? []) as HTMLElement[];
+  };
+
+  const focusInitialContent = () => {
+    if (hasMenuItems()) {
+      const items = getItems();
+      if (items.length > 0) {
+        items[0].focus();
+        return;
+      }
+    }
+
+    const firstFocusable = getFocusableElements()[0];
+    if (firstFocusable) {
+      firstFocusable.focus();
+      return;
+    }
+
+    contentRef?.focus();
+  };
+
+  const focusMenuItem = (index: number) => {
+    const items = getItems();
+    if (items.length === 0) return;
+
+    const nextIndex = ((index % items.length) + items.length) % items.length;
+    items[nextIndex]?.focus();
+  };
+
+  const handleMenuArrowNav = (e: KeyboardEvent) => {
+    if (!hasMenuItems()) return;
+
+    const items = getItems();
+    if (items.length === 0) return;
+
+    const currentIndex = items.findIndex((item) => item === document.activeElement);
+    const resolvedIndex = currentIndex === -1 ? 0 : currentIndex;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      focusMenuItem(resolvedIndex + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      focusMenuItem(resolvedIndex - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      e.stopPropagation();
+      focusMenuItem(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      e.stopPropagation();
+      focusMenuItem(items.length - 1);
+    }
   };
 
   const handleTabNav = createMenuTabNavigation({
@@ -160,17 +230,14 @@ export default function Dropdown(props: DropdownProps) {
     requestAnimationFrame(() => {
       if (triggerRef && contentRef) {
         // Match menu width to trigger width on open (only for select mode)
-        if (props.selectMode) {
+        if (props.selectMode && hasMenuItems()) {
           const width = triggerRef.getBoundingClientRect().width;
           contentRef.style.minWidth = `${width}px`;
           contentRef.style.width = 'max-content';
         }
         cleanupAutoUpdate = autoUpdate(triggerRef, contentRef, updatePosition);
       }
-      const items = getItems();
-      if (items.length > 0) {
-        items[0].focus();
-      }
+      focusInitialContent();
     });
 
     onCleanup(() => {
@@ -187,12 +254,14 @@ export default function Dropdown(props: DropdownProps) {
   return (
     <div class={`custom-dropdown-container relative inline-block ${props.class || ''}`}>
       <button
+        {...props.triggerProps}
         ref={triggerRef}
         type="button"
         class={`dropdown-trigger ${props.triggerClass || ''}`}
         style={props.triggerStyle}
         disabled={props.triggerDisabled}
-        aria-haspopup="menu"
+        aria-label={props.triggerAriaLabel}
+        aria-haspopup={hasMenuItems() ? 'menu' : undefined}
         aria-expanded={open()}
         onClick={(e) => {
           e.stopPropagation();
@@ -208,7 +277,7 @@ export default function Dropdown(props: DropdownProps) {
           } else if (e.key === 'Escape') {
             e.preventDefault();
             close();
-          } else if (e.key === 'Tab' && open()) {
+          } else if (e.key === 'Tab' && open() && hasMenuItems()) {
             e.preventDefault();
             const items = getItems();
             if (items.length > 0) {
@@ -222,57 +291,71 @@ export default function Dropdown(props: DropdownProps) {
       </button>
       <Show when={open()}>
         <Portal>
+          {/* Menu-style dropdown keeps list navigation behavior, panel-style dropdown allows custom nested content. */}
           <div
             ref={contentRef}
             data-dropdown-menu-content="true"
             data-context-menu-allow="true"
-            class={`dropdown-menu-content flex flex-col ${props.contentClass || ''}`}
+            class={`${
+              isPanelVariant() ? 'dropdown-panel-content' : 'dropdown-menu-content'
+            } flex flex-col ${props.contentClass || ''}`}
             style={floatingStyle()}
-            role="menu"
+            role={isPanelVariant() ? undefined : 'menu'}
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
-              if (e.key === 'Tab') {
-                handleTabNav(e);
-              } else if (e.key === 'Escape') {
+              if (e.key === 'Escape') {
                 e.preventDefault();
                 close();
                 triggerRef?.focus();
+                return;
+              }
+
+              if (!hasMenuItems()) {
+                return;
+              }
+
+              if (e.key === 'Tab') {
+                handleTabNav(e);
+              } else {
+                handleMenuArrowNav(e);
               }
             }}
           >
-            <For each={props.items}>
-              {(item) => {
-                const isDisabled =
-                  typeof item.disabled === 'function' ? item.disabled() : item.disabled;
+            <Show when={hasMenuItems()} fallback={props.children}>
+              <For each={props.items}>
+                {(item) => {
+                  const isDisabled =
+                    typeof item.disabled === 'function' ? item.disabled() : item.disabled;
 
-                return (
-                  <button
-                    type="button"
-                    data-dropdown-item="true"
-                    class={`dropdown-menu-item ${item.class || ''}`}
-                    disabled={isDisabled}
-                    role="menuitem"
-                    aria-disabled={isDisabled ? 'true' : 'false'}
-                    onClick={() => {
-                      if (isDisabled) return;
-                      item.onClick();
-                      if (item.closeOnSelect !== false) {
-                        close();
-                      }
-                    }}
-                  >
-                    <div class={`dropdown-menu-item-content ${getAlignClass(item.align)}`}>
-                      <Show when={item.icon}>
-                        <Dynamic component={item.icon} class="h-4 w-4" />
-                      </Show>
-                      <span>{typeof item.label === 'function' ? item.label() : item.label}</span>
-                    </div>
-                  </button>
-                );
-              }}
-            </For>
+                  return (
+                    <button
+                      type="button"
+                      data-dropdown-item="true"
+                      class={`dropdown-menu-item ${item.class || ''}`}
+                      disabled={isDisabled}
+                      role="menuitem"
+                      aria-disabled={isDisabled ? 'true' : 'false'}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        item.onClick();
+                        if (item.closeOnSelect !== false) {
+                          close();
+                        }
+                      }}
+                    >
+                      <div class={`dropdown-menu-item-content ${getAlignClass(item.align)}`}>
+                        <Show when={item.icon}>
+                          <Dynamic component={item.icon} class="h-4 w-4" />
+                        </Show>
+                        <span>{typeof item.label === 'function' ? item.label() : item.label}</span>
+                      </div>
+                    </button>
+                  );
+                }}
+              </For>
+            </Show>
           </div>
         </Portal>
       </Show>

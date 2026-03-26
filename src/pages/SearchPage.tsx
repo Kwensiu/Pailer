@@ -6,7 +6,6 @@ import OperationModal from '../components/modals/OperationModal';
 import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
 import SearchResultsList from '../components/page/search/SearchResultsList';
-import Dropdown from '../components/common/Dropdown';
 
 import { createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
@@ -17,6 +16,7 @@ import { t } from '../i18n';
 import { RefreshCw } from 'lucide-solid';
 
 function SearchPage() {
+  const ITEMS_PER_PAGE = 8;
   const {
     searchTerm,
     setSearchTerm,
@@ -282,6 +282,59 @@ function SearchPage() {
     }, 50);
   };
 
+  onMount(() => {
+    const handleArrowPagination = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      const hasBlockingOverlayOpen =
+        document.body.classList.contains('context-menu-open') ||
+        document.querySelector('.modal.modal-open') !== null;
+
+      if (hasBlockingOverlayOpen) {
+        return;
+      }
+
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTypingTarget =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable;
+
+      if (isTypingTarget || target?.closest('[data-pagination-editor]')) {
+        return;
+      }
+
+      const totalPages = Math.ceil(resultsToShow().length / ITEMS_PER_PAGE);
+      if (totalPages <= 1) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' && currentPage() > 1) {
+        event.preventDefault();
+        handlePageChange(currentPage() - 1);
+      }
+
+      if (event.key === 'ArrowRight' && currentPage() < totalPages) {
+        event.preventDefault();
+        handlePageChange(currentPage() + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleArrowPagination);
+
+    onCleanup(() => {
+      window.removeEventListener('keydown', handleArrowPagination);
+    });
+  });
+
   onCleanup(() => {
     cleanup();
     // Clean up ongoing requests to prevent memory leaks
@@ -322,23 +375,19 @@ function SearchPage() {
               includesCount={binaryResults().length}
             />
           </div>
-          <Dropdown
-            position="end"
-            selectMode
-            trigger={<span>{bucketFilter() || t('search.filter.allBuckets')}</span>}
-            triggerClass="select select-bordered select-md min-w-40 justify-start"
-            contentClass="min-w-40"
-            items={[
-              {
-                label: t('search.filter.allBuckets'),
-                onClick: () => setBucketFilter(''),
-              },
-              ...uniqueBuckets().map((bucket) => ({
-                label: bucket,
-                onClick: () => setBucketFilter(bucket),
-              })),
-            ]}
-          />
+          <div class="form-control">
+            <select
+              class="select select-bordered select-md bg-base-100 w-full min-w-40"
+              value={bucketFilter() || ''}
+              onChange={(e) => setBucketFilter(e.currentTarget.value)}
+              aria-label={t('search.filter.allBuckets')}
+            >
+              <option value="">{t('search.filter.allBuckets')}</option>
+              {uniqueBuckets().map((bucket) => (
+                <option value={bucket}>{bucket}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Empty state when no search term */}

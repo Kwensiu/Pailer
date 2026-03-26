@@ -1,4 +1,4 @@
-import { Component, JSX, Show, createSignal, createEffect, onMount } from 'solid-js';
+import { Component, JSX, Show, createSignal, onMount } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw, Folder } from 'lucide-solid';
 import { t } from '../../i18n';
@@ -25,9 +25,7 @@ interface CardProps {
 }
 
 export default function Card(props: CardProps) {
-  const [contentHeight, setContentHeight] = createSignal(0);
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
-  let contentRef: HTMLDivElement | undefined;
 
   const headerSelectSelectedLabel = () => {
     const headerSelect = props.headerSelect;
@@ -55,15 +53,11 @@ export default function Card(props: CardProps) {
   };
 
   onMount(() => {
-    if (props.conditionalContent?.condition && contentRef) {
-      const prevSibling = contentRef.previousElementSibling as HTMLElement;
-      const marginTop = parseFloat(getComputedStyle(prevSibling).marginTop) || 0;
-      const marginBottom = parseFloat(getComputedStyle(prevSibling).marginBottom) || 0;
-      setContentHeight(contentRef.scrollHeight + marginTop + marginBottom);
-      setTimeout(() => setTransitionEnabled(true), 0);
-    } else {
+    // Defer transitions until after first paint so initially expanded cards
+    // do not animate open during reload or hydration.
+    requestAnimationFrame(() => {
       setTransitionEnabled(true);
-    }
+    });
   });
 
   const descriptionId =
@@ -75,27 +69,6 @@ export default function Card(props: CardProps) {
     typeof props.title === 'string' && props.additionalContent
       ? `card-additional-${props.title.replace(/\s+/g, '-').toLowerCase()}`
       : undefined;
-
-  createEffect(() => {
-    if (props.conditionalContent?.condition) {
-      setTimeout(() => {
-        if (contentRef) {
-          const updateHeight = () => {
-            const prevSibling = contentRef.previousElementSibling as HTMLElement;
-            const marginTop = parseFloat(getComputedStyle(prevSibling).marginTop) || 0;
-            const marginBottom = parseFloat(getComputedStyle(prevSibling).marginBottom) || 0;
-            setContentHeight(contentRef.scrollHeight + marginTop + marginBottom);
-          };
-          updateHeight();
-          const observer = new ResizeObserver(updateHeight);
-          observer.observe(contentRef);
-          return () => observer.disconnect();
-        }
-      }, 10);
-    } else {
-      setContentHeight(0);
-    }
-  });
 
   return (
     <section
@@ -170,22 +143,24 @@ export default function Card(props: CardProps) {
           <div
             role="region"
             aria-expanded={props.conditionalContent!.condition}
+            aria-hidden={!props.conditionalContent!.condition}
+            inert={!props.conditionalContent!.condition}
+            class="grid overflow-hidden"
             style={{
-              'max-height': `${contentHeight()}px`,
+              'grid-template-rows': props.conditionalContent!.condition ? '1fr' : '0fr',
               opacity: props.conditionalContent!.condition ? '1' : '0',
-              overflow: 'hidden',
+              'pointer-events': props.conditionalContent!.condition ? 'auto' : 'none',
               transition: transitionEnabled()
-                ? 'max-height 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s'
+                ? 'grid-template-rows 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s'
                 : 'none',
             }}
           >
-            <div class="my-2"></div>
-            {/* Conditional Content Inner */}
-            <div
-              ref={contentRef}
-              class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm"
-            >
-              {props.conditionalContent!.children}
+            <div class="min-h-0 overflow-hidden">
+              <div class="my-2"></div>
+              {/* Conditional Content Inner */}
+              <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">
+                {props.conditionalContent!.children}
+              </div>
             </div>
           </div>
         </Show>

@@ -10,21 +10,29 @@ interface SearchResultsTabsProps {
 
 function SearchResultsTabs(props: SearchResultsTabsProps) {
   return (
-    <div class="tabs tabs-border">
-      <a
+    <div role="tablist" aria-label="Search Result Tabs" class="tabs tabs-border">
+      <button
+        type="button"
         class="tab"
         classList={{ 'tab-active': props.activeTab() === 'packages' }}
         onClick={() => props.setActiveTab('packages')}
+        role="tab"
+        aria-selected={props.activeTab() === 'packages'}
+        tabindex={0}
       >
         {t('search.tabs.packages')} ({props.packageCount})
-      </a>
-      <a
+      </button>
+      <button
+        type="button"
         class="tab"
         classList={{ 'tab-active': props.activeTab() === 'includes' }}
         onClick={() => props.setActiveTab('includes')}
+        role="tab"
+        aria-selected={props.activeTab() === 'includes'}
+        tabindex={0}
       >
         {t('search.tabs.includes')} ({props.includesCount})
-      </a>
+      </button>
     </div>
   );
 }
