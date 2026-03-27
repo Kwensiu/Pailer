@@ -84,6 +84,9 @@ jobs:
             Write-Host "🔓 Non-release mode: Code signing disabled"
           }
           
+          # 清零 sccache 统计
+          sccache --zero-stats
+          
           $start = Get-Date
           
           # 根据测试模式选择构建命令
@@ -107,6 +110,10 @@ jobs:
           $duration = ($end - $start).TotalSeconds
           echo "time=$duration" >> $env:GITHUB_OUTPUT
           echo "🧊 Cold build time ($testMode): $duration seconds"
+          
+          # 显示 sccache 统计
+          Write-Host "📊 sccache statistics (cold build):"
+          sccache --show-stats
 
   warm-build:
     needs: cold-build
@@ -176,6 +183,9 @@ jobs:
             Write-Host "🔓 Non-release mode: Code signing disabled"
           }
           
+          # 清零 sccache 统计
+          sccache --zero-stats
+          
           $start = Get-Date
           
           # 根据测试模式选择构建命令
@@ -199,6 +209,10 @@ jobs:
           $duration = ($end - $start).TotalSeconds
           echo "time=$duration" >> $env:GITHUB_OUTPUT
           echo "🔥 Warm build time ($testMode): $duration seconds"
+          
+          # 显示 sccache 统计
+          Write-Host "📊 sccache statistics (warm build):"
+          sccache --show-stats
         env:
           RUSTC_WRAPPER: sccache
           SCCACHE_DIR: C:\sccache
