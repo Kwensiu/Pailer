@@ -185,7 +185,7 @@ function App() {
     document.documentElement.setAttribute('data-theme', effectiveTheme());
   });
 
-  if (process.env.NODE_ENV === 'development') {
+  if (import.meta.env.DEV) {
     createEffect(() => {
       console.log('App State:', {
         scoopConfigured: scoopConfigured(),
