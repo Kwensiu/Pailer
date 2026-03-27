@@ -42,8 +42,11 @@ importers:
         specifier: ^3.3.2
         version: 3.3.3
       lucide-solid:
-        specifier: ^0.577.0
-        version: 0.577.0(solid-js@1.9.11)
+        specifier: ^1.0.1
+        version: 1.0.1(solid-js@1.9.11)
+      simple-icons:
+        specifier: ^16.13.0
+        version: 16.13.0
       solid-js:
         specifier: ^1.9.11
         version: 1.9.11
@@ -895,8 +898,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-solid@0.577.0:
-    resolution: {integrity: sha512-r/rsauBlyNjFlUhXCkD544tOH1GgcFFupw9oP2zZT4BiFkHoO3MTr12QfKBrS5zCRIhktc/qY2tRr925hFlNuQ==}
+  lucide-solid@1.0.1:
+    resolution: {integrity: sha512-fpo0UmEHdEmdvydbFS9lQUqQ9rqSqWXMY4w3n9tVr9FqBBWJB0YI/lTMSxCspHs706ZzHIS/1YEnDhLOIP+m+A==}
     peerDependencies:
       solid-js: ^1.4.7
 
@@ -1010,6 +1013,10 @@ packages:
   seroval@1.5.1:
     resolution: {integrity: sha512-OwrZRZAfhHww0WEnKHDY8OM0U/Qs8OTfIDWhUD4BLpNJUfXK4cGmjiagGze086m+mhI+V2nD0gfbHEnJjb9STA==}
     engines: {node: '>=10'}
+
+  simple-icons@16.13.0:
+    resolution: {integrity: sha512-N4AMZvFERU5YLEtUudtUesiM2H4O5xQ9qfS3K0oOV5II5KVtxOUAlmZ7KqBgiTSGBgCVkuLD/Z9dJKBtnI3kKQ==}
+    engines: {node: '>=0.12.18'}
 
   solid-js@1.9.11:
     resolution: {integrity: sha512-WEJtcc5mkh/BnHA6Yrg4whlF8g6QwpmXXRg4P2ztPmcKeHHlH4+djYecBLhSpecZY2RRECXYUwIc/C2r3yzQ4Q==}
@@ -1742,7 +1749,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-solid@0.577.0(solid-js@1.9.11):
+  lucide-solid@1.0.1(solid-js@1.9.11):
     dependencies:
       solid-js: 1.9.11
 
@@ -1818,6 +1825,8 @@ snapshots:
       seroval: 1.5.1
 
   seroval@1.5.1: {}
+
+  simple-icons@16.13.0: {}
 
   solid-js@1.9.11:
     dependencies:

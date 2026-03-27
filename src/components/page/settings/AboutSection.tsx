@@ -1,4 +1,4 @@
-import { Download, RefreshCw, Github, MessagesSquare, CircleDot } from 'lucide-solid';
+import { Download, RefreshCw, MessagesSquare, CircleDot } from 'lucide-solid';
 import { createSignal } from 'solid-js';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import pkgJson from '../../../../package.json';
@@ -6,6 +6,7 @@ import { t } from '../../../i18n';
 import UpdateModal from './UpdateModal';
 import { updateStore } from '../../../stores/updateStore';
 import settingsStore from '../../../stores/settings';
+import GithubIcon from '../../common/icons/GithubIcon';
 
 export interface AboutSectionRef {
   checkForUpdates: (manual: boolean) => Promise<void>;
@@ -179,7 +180,7 @@ export default function AboutSection(props: AboutSectionProps) {
             class="btn btn-outline btn-primary hover:bg-primary hover:text-base-100 transition-all"
             onClick={() => openUrl('https://github.com/Kwensiu/Pailer').catch(console.error)}
           >
-            <Github class="h-5 w-5" />
+            <GithubIcon class="h-5 w-5" />
             {t('settings.about.goToProject')}
           </button>
           <button

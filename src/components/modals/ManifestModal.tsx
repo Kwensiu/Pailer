@@ -1,5 +1,5 @@
 import { createEffect, Show, createSignal } from 'solid-js';
-import { Copy, Check, Github } from 'lucide-solid';
+import { Copy, Check } from 'lucide-solid';
 import { toast } from '../common/ToastAlert';
 import Modal from '../common/Modal';
 import settingsStore from '../../stores/settings';
@@ -7,6 +7,7 @@ import { t } from '../../i18n';
 import { highlightJson } from '../../utils/jsonHighlight';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { buildManifestFileUrl } from '../../utils/manifestUrl';
+import GithubIcon from '../common/icons/GithubIcon';
 
 interface ManifestModalProps {
   manifestContent: string | null;
@@ -97,7 +98,7 @@ function ManifestModal(props: ManifestModalProps) {
         <div class="flex w-full items-center justify-between gap-2">
           <Show when={props.bucketGitUrl}>
             <button class="btn btn-soft btn-primary" onClick={openManifestUrl}>
-              <Github class="h-4 w-4 shrink-0" />
+              <GithubIcon class="h-4 w-4 shrink-0" />
               GitHub
             </button>
           </Show>
