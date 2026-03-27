@@ -65,17 +65,17 @@ fn build_scoop_cmd(
         }
         ScoopOp::Update => {
             let pkg = package.ok_or("A package name is required to update.")?;
-            format!("scoop update {}", pkg)
+            format!("function global:is_scoop_outdated {{ return $false }}; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update {}", pkg)
         }
         ScoopOp::UpdateForce => {
             let pkg = package.ok_or("A package name is required to force update.")?;
-            format!("scoop update {} --force", pkg)
+            format!("function global:is_scoop_outdated {{ return $false }}; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update {} --force", pkg)
         }
         ScoopOp::ClearCache => {
             let pkg = package.ok_or("A package name is required to clear the cache.")?;
             format!("scoop cache rm {}", pkg)
         }
-        ScoopOp::UpdateAll => "scoop update *".to_string(),
+        ScoopOp::UpdateAll => "function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *".to_string(),
     };
 
     Ok(command)

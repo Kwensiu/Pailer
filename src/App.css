@@ -234,9 +234,6 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 .dropdown-trigger {
   @apply cursor-pointer;
 
-  &:hover {
-    @apply opacity-70;
-  }
   &:disabled {
     @apply cursor-not-allowed opacity-50;
   }

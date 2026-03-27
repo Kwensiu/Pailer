@@ -10,6 +10,11 @@ on:
         description: 'Version number (e.g. 1.0.0)'
         required: true
         type: string
+      dry_run:
+        description: 'Dry Run'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -21,16 +26,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -40,6 +35,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache Rust toolchain and dependencies
         uses: actions/cache@v4
@@ -50,7 +47,6 @@ jobs:
             C:\Users\runneradmin\.cargo\registry\index
             C:\Users\runneradmin\.cargo\registry\cache
             C:\Users\runneradmin\.cargo\git\db
-            C:\sccache_bin
           key: ${{ runner.os }}-rust-${{ hashFiles('src-tauri/Cargo.lock', '**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-rust-
@@ -85,17 +81,23 @@ jobs:
           restore-keys: |
             sccache-${{ runner.os }}-
 
-      - name: Cache sccache and Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: 'src-tauri -> target'
-          cache-all-crates: true
-          cache-on-failure: true
-
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: 'Dry Run - Stage 1/2: Build and Package Tauri App'
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: pnpm tauri build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RUSTC_WRAPPER: sccache
+          SCCACHE_DIR: C:\sccache
+          SCCACHE_CACHE_SIZE: 2G
+          SCCACHE_IDLE_TIMEOUT: 0
+
       - name: Build & Upload Setup
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -113,7 +115,32 @@ jobs:
         run: sccache --stop-server || true
         shell: pwsh
 
+      - name: 'Dry Run - Stage 2/2: Verify Build Artifacts'
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        shell: pwsh
+        run: |
+          Write-Host "🔎 Verifying dry run outputs..."
+
+          $exePath = "src-tauri/target/release/Pailer.exe"
+          if (Test-Path $exePath) {
+            Write-Host "✅ Dry run artifact found: $exePath"
+          } else {
+            Write-Error "Dry run artifact missing: $exePath"
+            exit 1
+          }
+
+          $bundlePath = Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 10
+          if ($bundlePath) {
+            Write-Host "✅ Dry run bundle artifacts detected"
+            $bundlePath | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Warning "No bundle artifacts detected in dry run output"
+          }
+
+          Write-Host "✅ Dry run verification completed"
+
       - name: Distribute Portable EXE
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

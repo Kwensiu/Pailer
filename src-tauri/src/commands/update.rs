@@ -77,7 +77,7 @@ pub async fn update_all_packages_headless(
     use tokio::io::AsyncReadExt;
 
     log::info!("(Headless) Updating all packages");
-    let mut cmd = powershell::create_powershell_command("scoop update *");
+    let mut cmd = powershell::create_powershell_command("function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *");
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn scoop update *: {}", e))?;
