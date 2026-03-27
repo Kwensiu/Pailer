@@ -27,16 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -46,6 +36,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache Rust toolchain and dependencies
         uses: actions/cache@v4
@@ -56,7 +48,6 @@ jobs:
             C:\Users\runneradmin\.cargo\registry\index
             C:\Users\runneradmin\.cargo\registry\cache
             C:\Users\runneradmin\.cargo\git\db
-            C:\sccache_bin
           key: ${{ runner.os }}-rust-${{ hashFiles('src-tauri/Cargo.lock', '**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-rust-
@@ -90,13 +81,6 @@ jobs:
           key: sccache-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
             sccache-${{ runner.os }}-
-
-      - name: Cache sccache and Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: 'src-tauri -> target'
-          cache-all-crates: true
-          cache-on-failure: true
 
       - name: Install project dependencies
         run: pnpm install --frozen-lockfile
