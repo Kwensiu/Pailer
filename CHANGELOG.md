@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3](https://github.com/Kwensiu/Pailer/compare/v1.7.2...v1.7.3) (2026-03-27)
+
+
+### Bug Fixes
+
+* **ui:** improve theme handling and consolidate doctor module translations ([f81225d](https://github.com/Kwensiu/Pailer/commit/f81225d696b0a11570aa45e3f6582c6b0664a270))
+
+
+### Refactoring
+
+* enhance auto cleanup and improve cache management UI ([#102](https://github.com/Kwensiu/Pailer/issues/102)) ([6b5cebe](https://github.com/Kwensiu/Pailer/commit/6b5cebe4885a4495b0937b226cbb8b8c6a8c0d62))
+
 ## [1.7.2](https://github.com/Kwensiu/Pailer/compare/v1.7.1...v1.7.2) (2026-03-26)
 
 
