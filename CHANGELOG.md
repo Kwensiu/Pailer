@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4](https://github.com/Kwensiu/Pailer/compare/v1.7.3...v1.7.4) (2026-03-27)
+
+
+### Performance
+
+* **utils:** avoid unnecessary shortcut name replacement ([4835608](https://github.com/Kwensiu/Pailer/commit/48356086c64db2cbbad07422b06a95aee18d562b))
+
+
+### Refactoring
+
+* **installed:** simplify scoop update flow ([5131901](https://github.com/Kwensiu/Pailer/commit/51319016faf622e9ed4314894641365ca3dd5f3e))
+
 ## [1.7.3](https://github.com/Kwensiu/Pailer/compare/v1.7.2...v1.7.3) (2026-03-27)
 
 
