@@ -3,6 +3,7 @@
 // make the types easier to test.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 // -----------------------------------------------------------------------------
 // MatchSource
@@ -52,6 +53,12 @@ pub struct ScoopPackage {
     pub updated: String,
     pub is_installed: bool,
     pub info: String,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
     #[serde(default)]
     pub match_source: MatchSource,
     /// Installation type based on bucket source
@@ -120,6 +127,12 @@ pub struct PackageManifest {
     pub description: Option<String>,
     #[serde(default = "default_version")]
     pub version: String,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 fn default_version() -> String {
@@ -129,4 +142,28 @@ fn default_version() -> String {
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct InstallManifest {
     pub bucket: Option<String>,
+}
+
+// -----------------------------------------------------------------------------
+// Utility Functions
+// -----------------------------------------------------------------------------
+
+/// Parses the notes field from a JSON value, handling different data types.
+/// Notes can be a string, array of strings, or any other JSON value.
+pub fn parse_notes_field(json: &Value) -> Option<String> {
+    json.get("notes").map(|value| match value {
+        Value::Array(arr) => arr
+            .iter()
+            .map(|v| {
+                if let Some(s) = v.as_str() {
+                    s.to_string()
+                } else {
+                    v.to_string().trim_matches('"').to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        Value::String(s) => s.to_string(),
+        _ => value.to_string().trim_matches('"').to_string(),
+    })
 }

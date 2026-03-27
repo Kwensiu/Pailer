@@ -1,6 +1,6 @@
 import { createSignal, createEffect, on, createResource, Resource } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { t } from '../i18n';
+import { t } from '../../i18n';
 
 export interface SearchableBucket {
   name: string;

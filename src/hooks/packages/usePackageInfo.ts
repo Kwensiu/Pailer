@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ScoopPackage, ScoopInfo } from '../types/scoop';
+import { ScoopPackage, ScoopInfo } from '../../types/scoop';
 
 interface UsePackageInfoReturn {
   selectedPackage: () => ScoopPackage | null;
@@ -18,8 +18,10 @@ export function usePackageInfo(): UsePackageInfoReturn {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
+  const packageKey = (pkg: ScoopPackage | null) => (pkg ? `${pkg.name}::${pkg.source}` : null);
+
   const fetchPackageInfo = async (pkg: ScoopPackage) => {
-    if (selectedPackage()?.name === pkg.name) {
+    if (packageKey(selectedPackage()) === packageKey(pkg)) {
       closeModal();
       return;
     }
@@ -32,6 +34,7 @@ export function usePackageInfo(): UsePackageInfoReturn {
     try {
       const infoResponse = await invoke<ScoopInfo>('get_package_info', {
         packageName: pkg.name,
+        bucket: pkg.source,
       });
       setInfo(infoResponse);
     } catch (err) {
@@ -49,8 +52,8 @@ export function usePackageInfo(): UsePackageInfoReturn {
   };
 
   const updateSelectedPackage = (pkg: ScoopPackage) => {
-    // Only update if it's the same package (by name)
-    if (selectedPackage()?.name === pkg.name) {
+    // Only update if it's the same package (by name + bucket)
+    if (packageKey(selectedPackage()) === packageKey(pkg)) {
       setSelectedPackage(pkg);
     }
   };

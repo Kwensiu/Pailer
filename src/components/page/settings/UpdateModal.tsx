@@ -1,11 +1,11 @@
 import { Show } from 'solid-js';
 import { Update } from '@tauri-apps/plugin-updater';
-import { Github } from 'lucide-solid';
 import Modal from '../../common/Modal';
 import { t } from '../../../i18n';
 import '../../../styles/github-markdown.css';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import DOMPurify from 'dompurify';
+import GithubIcon from '../../common/icons/GithubIcon';
 
 interface UpdateModalProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export default function UpdateModal(props: UpdateModalProps) {
       footer={
         <div class="flex w-full justify-between">
           <button class="btn btn-circle btn-ghost" onClick={handleGoToRelease}>
-            <Github class="h-6 w-6" />
+            <GithubIcon class="h-6 w-6" />
           </button>
           <div class="flex gap-2">
             <button class="btn btn-soft" onClick={props.onCancel} disabled={props.isDownloading}>

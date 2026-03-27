@@ -1,6 +1,6 @@
 import { Accessor, Show, createSignal, createEffect } from 'solid-js';
 import { Search, X, TriangleAlert, LoaderCircle } from 'lucide-solid';
-import { useBucketSearch } from '../../../hooks/useBucketSearch';
+import { useBucketSearch } from '../../../hooks';
 import { t } from '../../../i18n';
 
 interface BucketSearchProps {

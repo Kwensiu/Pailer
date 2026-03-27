@@ -10,7 +10,7 @@ const themes = {
     stringColor: '#a5d6ff',
     valueColor: '#79c0ff',
     linkColor: '#4493f8',
-    punctuationColor: '#ffffff',
+    punctuationColor: '#c9d1d9',
   },
   light: {
     keyColor: '#0550ae',
@@ -42,9 +42,27 @@ function linkifyEscapedText(escaped: string, linkColor: string): string {
   return out;
 }
 
+function resolveTheme(theme: 'dark' | 'light' | 'system'): 'dark' | 'light' {
+  if (theme !== 'system') return theme;
+
+  if (typeof window !== 'undefined') {
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+    if (typeof prefersDark === 'boolean') {
+      return prefersDark ? 'dark' : 'light';
+    }
+
+    const dataTheme = document.documentElement.getAttribute('data-theme');
+    if (dataTheme === 'dark' || dataTheme === 'light') {
+      return dataTheme;
+    }
+  }
+
+  return 'dark';
+}
+
 // Fast JSON highlighter: single pass, no post-processing replaces (prevents nested span corruption)
-export function highlightJson(json: any, theme: 'dark' | 'light' = 'dark'): string {
-  const colors = themes[theme];
+export function highlightJson(json: any, theme: 'dark' | 'light' | 'system' = 'dark'): string {
+  const colors = themes[resolveTheme(theme)];
   const jsonString = typeof json === 'string' ? json : JSON.stringify(json, null, 2);
 
   let i = 0;

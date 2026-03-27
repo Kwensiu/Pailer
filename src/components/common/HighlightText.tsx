@@ -32,7 +32,7 @@ const HighlightText = (props: HighlightTextProps) => {
         parts.push(props.text.slice(lastIndex, match.index));
       }
       // Add highlighted match text
-      parts.push(<strong class="text-primary font-bold">{match[0]}</strong>);
+      parts.push(<strong class="text-info font-bold">{match[0]}</strong>);
       lastIndex = match.index + match[0].length;
 
       // Prevent infinite loop caused by zero-length matches

@@ -17,17 +17,7 @@ export interface Dict {
       view: string;
     };
     errors: {
-      branchNotFound: string;
-      branchNotFoundAnywhere: string;
-      bucketNotFound: string;
-      checkoutFailed: string;
-      commitGetFailed: string;
       fetchBranchesFailed: string;
-      gitReferencesFailed: string;
-      gitRepoOpenFailed: string;
-      headNoTarget: string;
-      headUpdateFailed: string;
-      repoStatusFailed: string;
       switchBranchFailed: string;
       switchBranchSuccess: string;
       uncommittedChanges: string;
@@ -104,7 +94,6 @@ export interface Dict {
       viewDetails: string;
     };
     update: {
-      actualUpdates: string;
       hasUncommittedChanges: string;
       success: string;
       upToDate: string;
@@ -154,7 +143,6 @@ export interface Dict {
     confirm: string;
     copyToClipboard: string;
     delete: string;
-    deleteDirectly: string;
     forceUpdate: string;
     goToBuckets: string;
     install: string;
@@ -173,6 +161,15 @@ export interface Dict {
     updateAll: string;
     view: string;
   };
+  common: {
+    time: {
+      daysAgo: string;
+      monthsAgo: string;
+      today: string;
+      yearsAgo: string;
+      yesterday: string;
+    };
+  };
   doctor: {
     addShimModal: {
       addShim: string;
@@ -185,16 +182,18 @@ export interface Dict {
       title: string;
     };
     cacheManager: {
-      actionCannotBeUndone: string;
       cacheIsEmpty: string;
       confirmDeletion: string;
+      confirmScoopCacheRm: string;
       deleteAll: string;
       deleteFiles: string;
-      deletePartialSuccess: string;
       filterPlaceholder: string;
       name: string;
       noCachedFiles: string;
       openCacheDirectory: string;
+      scoopCacheRmDescription: string;
+      scoopCacheRmWarning: string;
+      selectedPackages: string;
       settings: {
         preserveVersioned: string;
         preserveVersionedDescription: string;
@@ -207,7 +206,6 @@ export interface Dict {
     };
     checkup: {
       description: string;
-      runCheckup: string;
       install: string;
       installing: string;
       issuesFound: string;
@@ -226,7 +224,7 @@ export interface Dict {
         windowsDeveloperModeEnabled: string;
         windowsDeveloperModeSuggestion: string;
       };
-      noIssues: string;
+      runCheckup: string;
       scrollToIssues: string;
       title: string;
     };
@@ -238,7 +236,6 @@ export interface Dict {
     };
     commandInput: {
       clearOutput: string;
-      description: string;
       enterCommand: string;
       enterFullCommand: string;
       executingCommand: string;
@@ -249,6 +246,9 @@ export interface Dict {
       switchInputMode: string;
       title: string;
       waitingForCommands: string;
+    };
+    common: {
+      actionCannotBeUndone: string;
     };
     proxySettings: {
       clearSuccess: string;
@@ -323,19 +323,19 @@ export interface Dict {
     };
     header: {
       allBuckets: string;
+      allVersionTypes: string;
       bucketLabel: string;
       filter: string;
+      heldPackages: string;
       refresh: string;
+      resetFilters: string;
       searchPlaceholder: string;
       switchToGridView: string;
       switchToListView: string;
       title: string;
       updateAll: string;
       versionTypeLabel: string;
-      allVersionTypes: string;
       versionedSoftware: string;
-      heldPackages: string;
-      resetFilters: string;
     };
     list: {
       bucket: string;
@@ -359,14 +359,16 @@ export interface Dict {
     description: string;
     title: string;
   };
+  manifest: {
+    openFailed: string;
+    title: string;
+    urlError: string;
+  };
   manifestModal: {
     loading: string;
     title: string;
   };
   messages: {
-    initTimeout: string;
-    initTimeoutReason: string;
-    initTimeoutShow: string;
     loading: string;
   };
   noPackagesFound: {
@@ -379,7 +381,6 @@ export interface Dict {
   operation: {
     completed: string;
     failed: {
-      cancelled: string;
       generic: string;
       withErrors: string;
     };
@@ -392,10 +393,8 @@ export interface Dict {
     changeBucket: string;
     changeBucketFor: string;
     close: string;
-    confirmDeleteVersion: string;
     current: string;
     debugStructure: string;
-    deleteVersion: string;
     description: string;
     details: string;
     ensureSoftwarePresent: string;
@@ -415,6 +414,7 @@ export interface Dict {
     latestVersion: string;
     license: string;
     name: string;
+    notes: string;
     openFolder: string;
     success: {
       forceUpdate: string;
@@ -448,17 +448,12 @@ export interface Dict {
     autoDetectFailedSystem: string;
     autoDetectedSuccess: string;
     browse: string;
-    commonLocations: string;
-    configureDescription: string;
-    configureDescriptionSuccess: string;
     copied: string;
     customInstallation: string;
     detecting: string;
     enterPath: string;
     globalAppsDirectory: string;
-    globalInstallation: string;
     learnMore: string;
-    notDetected: string;
     notInstalled: string;
     officialInstallation: string;
     pathLabel: string;
@@ -470,8 +465,6 @@ export interface Dict {
     scoopDirectory: string;
     selectDirectory: string;
     title: string;
-    typicalLocations: string;
-    userInstallation: string;
     validatePath: string;
     validating: string;
     validationFailed: string;
@@ -510,6 +503,11 @@ export interface Dict {
       placeholder: string;
       searchHelp: string;
     };
+    bucketInfo: {
+      loadFailed: string;
+      loading: string;
+      notFound: string;
+    };
     emptyState: {
       description: string;
       title: string;
@@ -529,9 +527,18 @@ export interface Dict {
     };
     refreshResults: string;
     results: {
-      fromBucket: string;
+      copied: string;
+      copyCommand: string;
+      customInstall: string;
+      installed: string;
+      multipleVersionsInstalled: string;
       noPackagesFound: string;
       pageInfo: string;
+      toggleDetails: string;
+      versionedSupport: string;
+      viewBucket: string;
+      viewCommits: string;
+      viewManifest: string;
     };
     tabs: {
       includes: string;
@@ -756,8 +763,6 @@ export interface Dict {
     warning: string;
   };
   virustotal: {
-    apiKeyMissing: string;
-    detectionsFound: string;
     noThreats: string;
   };
   warnings: {

@@ -1,4 +1,4 @@
-import { For, Show, createSignal, Accessor, createMemo } from 'solid-js';
+import { For, Show, createSignal, Accessor, createMemo, createEffect, onCleanup } from 'solid-js';
 import {
   CircleArrowUp,
   Folder,
@@ -11,12 +11,23 @@ import {
 } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
+import type { ContextMenuItem } from '../../../components/common/context-menu';
 import heldStore from '../../../stores/held';
 import { t } from '../../../i18n';
 import HighlightText from '../../common/HighlightText';
-import { Dropdown } from '../../common/Dropdown';
-import ContextMenu, { ContextMenuItem } from '../../common/ContextMenu';
+import Dropdown, { type DropdownItem } from '../../common/Dropdown';
+import ContextMenu from '../../common/ContextMenu';
+import {
+  ContextMenuRenderer,
+  createPackageContextMenuItems,
+} from '../../../components/common/context-menu';
 import { formatIsoDate } from '../../../utils/date';
+import { useConfirmAction } from '../../../hooks';
+
+type ActiveMenuState = {
+  type: 'dropdown' | 'context';
+  packageName: string;
+} | null;
 
 interface PackageGridViewProps {
   packages: Accessor<DisplayPackage[]>;
@@ -40,21 +51,73 @@ const PackageCard = (props: {
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
   onUpdate: (pkg: ScoopPackage) => void;
+  onOpenFolder: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
   onUninstall: (pkg: ScoopPackage) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: string | null;
   isPackageVersioned: (packageName: string) => boolean;
-  onContextMenu: (e: MouseEvent, pkg: ScoopPackage) => void;
-  onKeyDown: (e: KeyboardEvent, pkg: ScoopPackage) => void;
-  isContextMenuActive: (pkgName: string) => boolean;
+  isMenuActive: (pkgName: string, type?: 'dropdown' | 'context') => boolean;
+  onDropdownOpen: (pkgName: string) => void;
+  onDropdownClose: (pkgName: string) => void;
+  onContextMenuOpen: (pkg: ScoopPackage, x: number, y: number) => void;
+  uninstallConfirm: Accessor<boolean>;
+  onUninstallConfirm: (confirm: boolean) => void;
 }) => {
   const { pkg } = props;
 
   const items = createMemo(() => {
-    const baseItems = [
-      {
+    const result: DropdownItem[] = [];
+
+    // Update (only when available and not held and not custom)
+    if (
+      pkg.available_version &&
+      !heldStore.isHeld(pkg.name) &&
+      pkg.installation_type !== 'custom'
+    ) {
+      result.push({
+        label: t('installed.list.update'),
+        onClick: () => props.onUpdate(pkg),
+        disabled: () => false,
+        icon: CircleArrowUp,
+        align: 'start' as const,
+        class: 'text-info',
+      });
+    }
+
+    // Open folder
+    result.push({
+      label: t('installed.list.openFolder'),
+      onClick: () => props.onOpenFolder(pkg),
+      disabled: () => false,
+      icon: Folder,
+      align: 'start' as const,
+    });
+
+    // Switch version (only for versioned apps)
+    if (props.isPackageVersioned(pkg.name)) {
+      result.push({
+        label: t('installed.list.switchVersion'),
+        onClick: () => props.onViewInfoForVersions(pkg),
+        disabled: () => false,
+        icon: RefreshCw,
+        align: 'start' as const,
+      });
+    }
+
+    // Change bucket
+    result.push({
+      label: t('installed.list.changeBucket'),
+      onClick: () => props.onChangeBucket(pkg),
+      disabled: () => props.operatingOn === pkg.name,
+      icon: ArrowLeftRight,
+      align: 'start' as const,
+    });
+
+    // Hold/Unhold (only for non-custom installations)
+    if (pkg.installation_type !== 'custom') {
+      result.push({
         label: () => {
           if (props.operatingOn === pkg.name) return t('installed.list.processing');
           if (props.isPackageVersioned(pkg.name)) return t('installed.list.cannotUnhold');
@@ -72,34 +135,29 @@ const PackageCard = (props: {
         disabled: () => props.operatingOn === pkg.name || props.isPackageVersioned(pkg.name),
         icon: heldStore.isHeld(pkg.name) ? LockOpen : Lock,
         align: 'start' as const,
-      },
-      {
-        label: t('installed.list.changeBucket'),
-        onClick: () => props.onChangeBucket(pkg),
-        disabled: () => props.operatingOn === pkg.name,
-        icon: ArrowLeftRight,
-        align: 'start' as const,
-      },
-      {
-        label: t('installed.list.uninstall'),
-        onClick: () => props.onUninstall(pkg),
-        disabled: () => props.operatingOn === pkg.name,
-        icon: Trash2,
-        align: 'start' as const,
-      },
-    ];
-
-    if (props.isPackageVersioned(pkg.name)) {
-      baseItems.splice(1, 0, {
-        label: t('installed.list.switchVersion'),
-        onClick: () => props.onViewInfoForVersions(pkg),
-        disabled: () => false,
-        icon: RefreshCw,
-        align: 'start' as const,
       });
     }
 
-    return baseItems;
+    // Uninstall with confirmation
+    const uninstallClass = props.uninstallConfirm() ? 'text-warning' : 'text-error';
+    result.push({
+      label: () => (props.uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')),
+      onClick: () => {
+        if (props.uninstallConfirm()) {
+          props.onUninstallConfirm(false);
+          props.onUninstall(pkg);
+        } else {
+          props.onUninstallConfirm(true);
+        }
+      },
+      disabled: () => props.operatingOn === pkg.name,
+      icon: Trash2,
+      align: 'start' as const,
+      class: uninstallClass,
+      closeOnSelect: props.uninstallConfirm(),
+    });
+
+    return result;
   });
 
   // Detect if it's a CI version (beta/alpha/rc followed by additional suffix)
@@ -109,19 +167,38 @@ const PackageCard = (props: {
     );
   };
 
+  const isCardActive = () => {
+    return props.isMenuActive(pkg.name);
+  };
+
   return (
     <div
-      class="card bg-base-card hover:bg-base-content-bg transform cursor-pointer shadow-md transition-all hover:scale-101"
-      classList={{ 'bg-base-content-bg scale-101': props.isContextMenuActive(pkg.name) }}
+      class={`card bg-base-card transform cursor-pointer shadow-md transition-all hover:scale-101 ${
+        isCardActive() ? 'bg-base-content-bg z-50 scale-101' : ''
+      }`}
+      data-context-menu-allow="true"
       onClick={() => props.onViewInfo(pkg)}
-      onContextMenu={(e) => props.onContextMenu(e, pkg)}
-      onKeyDown={(e) => props.onKeyDown(e, pkg)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onContextMenuOpen(pkg, e.clientX, e.clientY);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+          e.preventDefault();
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          props.onContextMenuOpen(pkg, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        }
+      }}
       tabIndex={0}
       aria-label={`${pkg.name} package actions`}
-      aria-haspopup="menu"
       data-no-close-search
     >
-      <div class="card-body">
+      <div
+        class={`card-body rounded-2xl transition-colors hover:bg-white/4 ${
+          isCardActive() ? 'bg-white/4' : ''
+        }`}
+      >
         <div class="mb-2 flex items-start justify-between">
           <div class="min-w-0 flex-1">
             <h2 class="card-title">
@@ -178,15 +255,12 @@ const PackageCard = (props: {
           </div>
           <Dropdown
             position="end"
-            trigger={
-              <button
-                class="btn btn-ghost btn-xs btn-circle bg-base-content-bg"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Ellipsis class="h-4 w-4" />
-              </button>
-            }
+            trigger={<Ellipsis class="h-4 w-4" />}
+            triggerClass="btn btn-ghost btn-xs btn-circle bg-base-content-bg"
+            triggerDisabled={props.operatingOn === pkg.name}
             items={items()}
+            onOpen={() => props.onDropdownOpen(pkg.name)}
+            onClose={() => props.onDropdownClose(pkg.name)}
           />
         </div>
         <p class="text-base-content/70 text-sm">
@@ -209,52 +283,65 @@ function PackageGridView(props: PackageGridViewProps) {
     x: 0,
     y: 0,
   });
-  const [uninstallConfirm, setUninstallConfirm] = createSignal(false);
-  const [uninstallTimer, setUninstallTimer] = createSignal<number | null>(null);
-
-  const adjustPosition = (x: number, y: number) => {
-    const defaultWidth = 200;
-    const defaultHeight = 200;
-
-    const menuEl = document.querySelector('[role="menu"]') as HTMLElement;
-    const menuWidth = menuEl?.offsetWidth || defaultWidth;
-    const menuHeight = menuEl?.offsetHeight || defaultHeight;
-
-    const adjustedX = Math.min(x, window.innerWidth - menuWidth);
-    const adjustedY = Math.min(y, window.innerHeight - menuHeight);
-    return { x: Math.max(0, adjustedX), y: Math.max(0, adjustedY) };
-  };
-
-  const handleContextMenu = (e: MouseEvent, pkg: ScoopPackage) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenuPackage(pkg);
-    setContextMenuPosition(adjustPosition(e.clientX, e.clientY));
-    setUninstallConfirm(false);
-    if (uninstallTimer()) {
-      clearTimeout(uninstallTimer()!);
-      setUninstallTimer(null);
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent, pkg: ScoopPackage) => {
-    if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
-      e.preventDefault();
-      const target = e.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-      handleContextMenu(new MouseEvent('contextmenu', { clientX: x, clientY: y }), pkg);
-    }
-  };
+  const [activeMenu, setActiveMenu] = createSignal<ActiveMenuState>(null);
+  const { confirmingItem, startConfirm, cancelConfirm, isConfirming } = useConfirmAction();
 
   const closeContextMenu = () => {
     setContextMenuPackage(null);
-    setUninstallConfirm(false);
-    if (uninstallTimer()) {
-      clearTimeout(uninstallTimer()!);
-      setUninstallTimer(null);
-    }
+    setActiveMenu(null);
+    cancelConfirm();
+  };
+
+  createEffect(() => {
+    onCleanup(() => {
+      cancelConfirm();
+    });
+  });
+
+  const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
+    setContextMenuPackage(pkg);
+    setContextMenuPosition({ x, y });
+    setActiveMenu({ type: 'context', packageName: pkg.name });
+    cancelConfirm(pkg.name);
+  };
+
+  const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
+    return createPackageContextMenuItems(
+      pkg,
+      confirmingItem(),
+      props.operatingOn(),
+      props.isPackageVersioned,
+      {
+        onUpdate: props.onUpdate,
+        onOpenFolder: props.onOpenFolder,
+        onViewInfoForVersions: props.onViewInfoForVersions,
+        onChangeBucket: props.onChangeBucket,
+        onHold: props.onHold,
+        onUnhold: props.onUnhold,
+        onUninstall: (pkg) => {
+          if (confirmingItem() === pkg.name) {
+            cancelConfirm(pkg.name);
+            props.onUninstall(pkg);
+            closeContextMenu();
+          } else {
+            startConfirm(pkg.name);
+          }
+        },
+      }
+    );
+  };
+
+  const isMenuActive = (pkgName: string, type?: 'dropdown' | 'context') => {
+    const current = activeMenu();
+    if (!current || current.packageName !== pkgName) return false;
+    return type ? current.type === type : true;
+  };
+
+  const handleDropdownClose = (pkgName: string) => {
+    setActiveMenu((current) => {
+      if (!current) return current;
+      return current.type === 'dropdown' && current.packageName === pkgName ? null : current;
+    });
   };
 
   return (
@@ -269,14 +356,23 @@ function PackageGridView(props: PackageGridViewProps) {
               onViewInfoForVersions={props.onViewInfoForVersions}
               onUpdate={props.onUpdate}
               onHold={props.onHold}
+              onOpenFolder={props.onOpenFolder}
               onUnhold={props.onUnhold}
-              onUninstall={props.onUninstall}
               onChangeBucket={props.onChangeBucket}
+              onUninstall={props.onUninstall}
               operatingOn={props.operatingOn()}
               isPackageVersioned={props.isPackageVersioned}
-              onContextMenu={handleContextMenu}
-              onKeyDown={handleKeyDown}
-              isContextMenuActive={(pkgName) => contextMenuPackage()?.name === pkgName}
+              isMenuActive={isMenuActive}
+              onDropdownOpen={(pkgName) => {
+                setContextMenuPackage(null);
+                setActiveMenu({ type: 'dropdown', packageName: pkgName });
+              }}
+              onDropdownClose={handleDropdownClose}
+              onContextMenuOpen={openContextMenu}
+              uninstallConfirm={() => isConfirming(pkg.name)}
+              onUninstallConfirm={(confirm) =>
+                confirm ? startConfirm(pkg.name) : cancelConfirm(pkg.name)
+              }
             />
           )}
         </For>
@@ -288,110 +384,12 @@ function PackageGridView(props: PackageGridViewProps) {
         onClose={closeContextMenu}
         ariaLabel="Package actions menu"
       >
-        <Show
-          when={
-            contextMenuPackage() &&
-            contextMenuPackage()!.available_version &&
-            !heldStore.isHeld(contextMenuPackage()!.name) &&
-            contextMenuPackage()!.installation_type !== 'custom'
-          }
-        >
-          <ContextMenuItem
-            onSelect={() => {
-              props.onUpdate(contextMenuPackage()!);
-              closeContextMenu();
-            }}
-            class="text-info"
-          >
-            <CircleArrowUp class="text-info h-4 w-4" />
-            <span>{t('installed.list.update')}</span>
-          </ContextMenuItem>
+        <Show when={contextMenuPackage()}>
+          <ContextMenuRenderer
+            items={getContextMenuItems(contextMenuPackage()!)}
+            onClose={closeContextMenu}
+          />
         </Show>
-
-        <ContextMenuItem
-          onSelect={() => {
-            props.onOpenFolder(contextMenuPackage()!);
-            closeContextMenu();
-          }}
-        >
-          <Folder class="h-4 w-4" />
-          <span>{t('installed.list.openFolder')}</span>
-        </ContextMenuItem>
-
-        <Show when={contextMenuPackage() && props.isPackageVersioned(contextMenuPackage()!.name)}>
-          <ContextMenuItem
-            onSelect={() => {
-              props.onViewInfoForVersions(contextMenuPackage()!);
-              closeContextMenu();
-            }}
-          >
-            <RefreshCw class="h-4 w-4" />
-            <span>{t('installed.list.switchVersion')}</span>
-          </ContextMenuItem>
-        </Show>
-
-        <ContextMenuItem
-          onSelect={() => {
-            props.onChangeBucket(contextMenuPackage()!);
-            closeContextMenu();
-          }}
-        >
-          <ArrowLeftRight class="h-4 w-4" />
-          <span>{t('installed.list.changeBucket')}</span>
-        </ContextMenuItem>
-
-        <Show when={contextMenuPackage() && contextMenuPackage()!.installation_type !== 'custom'}>
-          <Show
-            when={!heldStore.isHeld(contextMenuPackage()!.name)}
-            fallback={
-              <ContextMenuItem
-                onSelect={() => {
-                  props.onUnhold(contextMenuPackage()!.name);
-                  closeContextMenu();
-                }}
-              >
-                <LockOpen class="h-4 w-4" />
-                <span>{t('installed.list.unholdPackage')}</span>
-              </ContextMenuItem>
-            }
-          >
-            <ContextMenuItem
-              onSelect={() => {
-                props.onHold(contextMenuPackage()!.name);
-                closeContextMenu();
-              }}
-            >
-              <Lock class="h-4 w-4" />
-              <span>{t('installed.list.holdPackage')}</span>
-            </ContextMenuItem>
-          </Show>
-        </Show>
-
-        <ContextMenuItem
-          onSelect={() => {
-            if (uninstallConfirm()) {
-              if (uninstallTimer()) {
-                clearTimeout(uninstallTimer()!);
-                setUninstallTimer(null);
-              }
-              setUninstallConfirm(false);
-              props.onUninstall(contextMenuPackage()!);
-              closeContextMenu();
-            } else {
-              setUninstallConfirm(true);
-              const timer = window.setTimeout(() => {
-                setUninstallConfirm(false);
-                setUninstallTimer(null);
-              }, 3000);
-              setUninstallTimer(timer);
-            }
-          }}
-          class={uninstallConfirm() ? 'text-warning' : 'text-error'}
-          ariaLabel={uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')}
-        >
-          <Trash2 class="h-4 w-4" />
-          <span>{uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')}</span>
-        </ContextMenuItem>
       </ContextMenu>
     </>
   );

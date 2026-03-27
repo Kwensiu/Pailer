@@ -1,8 +1,9 @@
 //! Commands for cleaning up Scoop apps and cache.
+use crate::commands::auto_cleanup;
 use crate::commands::installed::get_installed_packages_full;
 use crate::commands::powershell;
 use crate::state::AppState;
-use tauri::{AppHandle, Runtime, State, Window};
+use tauri::{AppHandle, Emitter, Runtime, State, Window};
 
 /// Runs a specific Scoop cleanup command and streams its output.
 ///
@@ -45,56 +46,7 @@ pub async fn cleanup_all_apps<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Running cleanup of old app versions");
-
-    // Get all installed packages to identify versioned installs
-    let installed_packages_result = get_installed_packages_full(app, state.clone()).await;
-    
-    let installed_packages = match installed_packages_result {
-        Ok(packages) => {
-            log::info!("Successfully retrieved {} installed packages", packages.len());
-            packages
-        },
-        Err(e) => {
-            log::error!("Failed to retrieve installed packages: {}", e);
-            return Err(format!("Failed to retrieve installed packages: {}", e));
-        }
-    };
-
-    let versioned_count = installed_packages
-        .iter()
-        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
-        .count();
-
-    if versioned_count > 0 {
-        log::warn!(
-            "Found {} versioned/custom installs. These will be EXCLUDED from cleanup to preserve specific versions.", 
-            versioned_count
-        );
-
-        let regular_packages: Vec<String> = installed_packages
-            .iter()
-            .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
-            .map(|pkg| pkg.name.clone())
-            .collect();
-
-        if regular_packages.is_empty() {
-            log::info!("All packages are versioned installs - no cleanup needed");
-            return Ok(());
-        }
-
-        let packages_str = regular_packages.join(" ");
-        let command = format!("scoop cleanup {}", packages_str);
-
-        log::info!(
-            "Running selective cleanup for {} regular packages",
-            regular_packages.len()
-        );
-        run_cleanup_command(window, &command, "Cleanup Old App Versions", "cleanup-apps").await
-    } else {
-        log::info!("No versioned installs found - running standard cleanup");
-        run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions", "cleanup-apps").await
-    }
+    cleanup_all_apps_smart(window, app, state, Some(true)).await
 }
 
 /// Cleans up cache for specific packages using scoop cache rm.
@@ -108,11 +60,21 @@ pub async fn remove_cache_for_specific_packages(
     if package_names.is_empty() {
         return Ok(());
     }
-    
-    let packages_str = package_names.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(" ");
-    let command = format!("scoop cache rm {}", packages_str);
-    
-    run_cleanup_command(window, &command, "Cleanup Specific Packages Cache", "cache-specific").await
+
+    let commands = build_cache_rm_commands(&package_names);
+    let operation_name = "Cleanup Specific Packages Cache";
+
+    for (index, command) in commands.iter().enumerate() {
+        let operation_id = if commands.len() == 1 {
+            "cache-specific".to_string()
+        } else {
+            format!("cache-specific-{}", index + 1)
+        };
+
+        run_cleanup_command(window.clone(), command, operation_name, &operation_id).await?;
+    }
+
+    Ok(())
 }
 
 /// Cleans up all cache using scoop cache rm * command.
@@ -180,18 +142,63 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
                 return Ok(());
             }
 
-            // Clean up only regular packages
-            let packages_str = regular_packages.join(" ");
-            let command = format!("scoop cleanup {}", packages_str);
-
             log::info!(
-                "Running selective cleanup for {} regular packages",
+                "Running shared smart cleanup for {} regular packages",
                 regular_packages.len()
             );
-            run_cleanup_command(window, &command, "Cleanup Old App Versions", "cleanup-apps").await
+
+            emit_cleanup_line(
+                &window,
+                "cleanup-apps",
+                format!(
+                    "Running smart cleanup for {} regular packages...",
+                    regular_packages.len()
+                ),
+            );
+
+            let result = auto_cleanup::cleanup_old_versions_for_packages(
+                &state.scoop_path(),
+                &regular_packages,
+                0,
+            )
+            .await;
+
+            finish_cleanup_operation(
+                &window,
+                "cleanup-apps",
+                "Cleanup Old App Versions",
+                result,
+            )
         } else {
             log::info!("No versioned installs found - running standard cleanup");
-            run_cleanup_command(window, "scoop cleanup --all", "Cleanup Old App Versions", "cleanup-apps").await
+
+            let installed_packages: Vec<String> = installed_packages
+                .iter()
+                .map(|pkg| pkg.name.clone())
+                .collect();
+
+            emit_cleanup_line(
+                &window,
+                "cleanup-apps",
+                format!(
+                    "Running smart cleanup for {} installed packages...",
+                    installed_packages.len()
+                ),
+            );
+
+            let result = auto_cleanup::cleanup_old_versions_for_packages(
+                &state.scoop_path(),
+                &installed_packages,
+                0,
+            )
+            .await;
+
+            finish_cleanup_operation(
+                &window,
+                "cleanup-apps",
+                "Cleanup Old App Versions",
+                result,
+            )
         }
     } else {
         log::warn!("Running FORCE cleanup of ALL app versions (including versioned installs)");
@@ -202,6 +209,88 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
             "cleanup-force",
         )
         .await
+    }
+}
+
+fn build_cache_rm_commands(package_names: &[String]) -> Vec<String> {
+    let max_command_length = 6000;
+    let base_command = "scoop cache rm";
+    let mut chunks: Vec<Vec<String>> = Vec::new();
+    let mut current_chunk = Vec::new();
+    let mut current_length = base_command.len();
+
+    for package_name in package_names {
+        let quoted_package = auto_cleanup::quote_powershell_arg(package_name);
+        let next_length = current_length + quoted_package.len() + 1;
+
+        if !current_chunk.is_empty() && next_length > max_command_length {
+            chunks.push(current_chunk);
+            current_chunk = Vec::new();
+            current_length = base_command.len();
+        }
+
+        current_length += quoted_package.len() + 1;
+        current_chunk.push(quoted_package);
+    }
+
+    if !current_chunk.is_empty() {
+        chunks.push(current_chunk);
+    }
+
+    chunks
+        .into_iter()
+        .map(|chunk| format!("{} {}", base_command, chunk.join(" ")))
+        .collect()
+}
+
+fn emit_cleanup_line(window: &Window, operation_id: &str, line: String) {
+    if let Err(error) = window.emit(
+        powershell::EVENT_OUTPUT,
+        powershell::StreamOutput {
+            operation_id: operation_id.to_string(),
+            line,
+            source: "stdout".to_string(),
+        },
+    ) {
+        log::warn!("Failed to emit cleanup output: {}", error);
+    }
+}
+
+fn finish_cleanup_operation(
+    window: &Window,
+    operation_id: &str,
+    operation_name: &str,
+    result: Result<(), String>,
+) -> Result<(), String> {
+    let (success, error_message) = match result {
+        Ok(()) => (true, None),
+        Err(error) => (false, Some(error)),
+    };
+
+    if let Some(error_message) = &error_message {
+        emit_cleanup_line(window, operation_id, format!("Error: {}", error_message));
+    }
+
+    if let Err(error) = window.emit(
+        powershell::EVENT_FINISHED,
+        powershell::CommandResult {
+            success,
+            operation_id: operation_id.to_string(),
+            operation_name: operation_name.to_string(),
+            error_count: if success { None } else { Some(1) },
+            warning_count: None,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+        },
+    ) {
+        log::warn!("Failed to emit cleanup finished event: {}", error);
+    }
+
+    match error_message {
+        Some(error_message) => Err(error_message),
+        None => Ok(()),
     }
 }
 
@@ -254,9 +343,9 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
         return Ok(());
     }
 
-    // Build the scoop cleanup cache command for specific packages
+    // Build the scoop cache rm command for specific packages
     let packages_str = safe_packages.join(" ");
-    let command = format!("scoop cleanup {} --cache", packages_str);
+    let command = format!("scoop cache rm {}", packages_str);
 
     log::info!("Running cache cleanup for packages: {}", packages_str);
     run_cleanup_command(window, &command, "Cleanup Outdated App Caches", "cleanup-cache").await

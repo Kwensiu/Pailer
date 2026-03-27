@@ -1,6 +1,7 @@
 //! Command for fetching detailed information about a Scoop package.
 use crate::state::AppState;
 use crate::utils;
+use crate::models::parse_notes_field;
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -51,7 +52,7 @@ fn format_bin_value(value: &Value) -> String {
             .filter_map(|item| match item {
                 Value::String(s) => Some(s.clone()),
                 Value::Array(sub) => {
-                    // First element is the executable path, second (optionally) alias.
+                    // First element is executable path, second is alias
                     sub.get(1)
                         .or_else(|| sub.get(0))
                         .and_then(|v| v.as_str())
@@ -70,25 +71,12 @@ fn format_bin_value(value: &Value) -> String {
 /// Parses the JSON manifest content into a structured format for display.
 fn parse_manifest_details(json_value: &Value) -> (Vec<(String, String)>, Option<String>) {
     let mut details = vec![];
-    let mut notes = None;
+    let notes = parse_notes_field(json_value);
 
     if let Some(obj) = json_value.as_object() {
         for (key, value) in obj {
             if key == "notes" {
-                notes = Some(match value {
-                    Value::Array(arr) => arr
-                        .iter()
-                        .map(|v| {
-                            if let Some(s) = v.as_str() {
-                                s.to_string()
-                            } else {
-                                v.to_string().trim_matches('"').to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                    _ => format_json_value(value),
-                });
+                continue; // Skip notes as it's handled separately
             } else if key == "bin" {
                 let formatted_value = format_bin_value(value);
                 details.push(("Includes".to_string(), formatted_value));
@@ -107,25 +95,50 @@ fn parse_manifest_details(json_value: &Value) -> (Vec<(String, String)>, Option<
 pub fn get_package_info(
     state: State<'_, AppState>,
     package_name: String,
+    bucket: Option<String>,
 ) -> Result<ScoopInfo, String> {
     log::info!("Fetching info for package: {}", package_name);
 
     let scoop_dir = state.scoop_path();
-    
-    // Try to get bucket info from install.json first (for installed packages)
+
+    let requested_bucket = bucket
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty() && *value != "None")
+        .map(|value| value.to_string());
+
     let installed_bucket = get_installed_package_bucket(&scoop_dir, &package_name);
-    
-    // Use the installed bucket if available, otherwise search all buckets
-    let (manifest_path, bucket_name) = if let Some(ref bucket) = installed_bucket {
-        // Try to find the package manifest in the installed bucket first
-        match utils::locate_package_manifest(&scoop_dir, &package_name, Some(bucket.clone())) {
+
+    // When the caller provides a bucket, treat it as the source of truth and avoid
+    // falling back to any other bucket. This prevents cross-bucket ambiguity for
+    // packages that share the same name.
+    let (manifest_path, bucket_name) = if let Some(ref bucket_name) = requested_bucket {
+        match utils::locate_package_manifest(&scoop_dir, &package_name, Some(bucket_name.clone())) {
             Ok(result) => result,
-            // If not found in the installed bucket, fall back to searching all buckets
-            Err(_) => utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+            Err(err) => {
+                if installed_bucket.as_deref() == Some(bucket_name.as_str()) {
+                    locate_installed_manifest(&scoop_dir, &package_name).ok_or(err)?
+                } else {
+                    return Err(err);
+                }
+            }
         }
     } else {
-        // For non-installed packages or when bucket info is not available, search all buckets
-        utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+        // Use installed bucket if available, otherwise search all buckets
+        if let Some(ref installed_bucket_name) = installed_bucket {
+            match utils::locate_package_manifest(
+                &scoop_dir,
+                &package_name,
+                Some(installed_bucket_name.clone()),
+            ) {
+                Ok(result) => result,
+                // If not found in installed bucket, fall back to searching all buckets
+                Err(_) => utils::locate_package_manifest(&scoop_dir, &package_name, None)?,
+            }
+        } else {
+            // For non-installed packages, search all buckets
+            utils::locate_package_manifest(&scoop_dir, &package_name, None)?
+        }
     };
 
     let manifest_content = fs::read_to_string(&manifest_path)
@@ -136,11 +149,11 @@ pub fn get_package_info(
 
     let (mut details, notes) = parse_manifest_details(&json_value);
     
-    // Remove the "Version" entry from details since we'll add more specific version info
+    // Remove "Version" entry since we'll add more specific version info
     details.retain(|(key, _)| key != "Version");
 
-    // Add bucket information - prefer installed bucket if available
-    let display_bucket = installed_bucket.unwrap_or(bucket_name);
+    // Add bucket information - prefer the explicit request when available.
+    let display_bucket = requested_bucket.unwrap_or(bucket_name);
     details.push(("Bucket".to_string(), display_bucket));
 
     let installed_dir = scoop_dir.join("apps").join(&package_name).join("current");
@@ -150,9 +163,9 @@ pub fn get_package_info(
             installed_dir.to_string_lossy().to_string(),
         ));
 
-        // Read the installed manifest to get the actual installed version
+        // Read installed manifest to get actual installed version
         if let Some(installed_version) = get_installed_version(&scoop_dir, &package_name) {
-            // Get the latest version from the bucket manifest
+            // Get latest version from bucket manifest
             if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
                 details.push(("Installed Version".to_string(), installed_version.to_string()));
                 details.push(("Latest Version".to_string(), latest_version.to_string()));
@@ -161,7 +174,7 @@ pub fn get_package_info(
             }
         }
     } else {
-        // For non-installed packages, show the version as "Latest Version"
+        // For non-installed packages, show version as "Latest Version"
         if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
             details.push(("Latest Version".to_string(), latest_version.to_string()));
         }
@@ -169,7 +182,7 @@ pub fn get_package_info(
 
     details.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Prepend the package name to the details list for consistent display order.
+    // Prepend package name to details list for consistent display order
     let mut ordered_details = vec![("Name".to_string(), package_name.clone())];
     ordered_details.append(&mut details);
 
@@ -217,4 +230,25 @@ fn get_installed_package_bucket(scoop_dir: &std::path::Path, package_name: &str)
     }
     
     None
+}
+
+fn locate_installed_manifest(
+    scoop_dir: &std::path::Path,
+    package_name: &str,
+) -> Option<(std::path::PathBuf, String)> {
+    let installed_manifest_path = scoop_dir
+        .join("apps")
+        .join(package_name)
+        .join("current")
+        .join("manifest.json");
+
+    if !installed_manifest_path.exists() {
+        return None;
+    }
+
+    let bucket_name = get_installed_package_bucket(scoop_dir, package_name)
+        .map(|bucket| format!("{} (missing)", bucket))
+        .unwrap_or_else(|| "Installed (Bucket missing)".to_string());
+
+    Some((installed_manifest_path, bucket_name))
 }

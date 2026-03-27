@@ -1,20 +1,18 @@
-import { For, Show, createSignal, createEffect, Accessor } from 'solid-js';
-import {
-  CircleArrowUp,
-  Folder,
-  RefreshCw,
-  ArrowLeftRight,
-  Trash2,
-  Lock,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-solid';
+import { For, Show, createSignal, createEffect, onCleanup, Accessor } from 'solid-js';
+import { CircleArrowUp, Lock, ArrowUp, ArrowDown } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
+import type { ContextMenuItem } from '../../../components/common/context-menu';
 import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
+import ContextMenu from '../../../components/common/ContextMenu';
+import {
+  ContextMenuRenderer,
+  createPackageContextMenuItems,
+} from '../../../components/common/context-menu';
+import { useConfirmAction } from '../../../hooks';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -43,8 +41,20 @@ const SortableHeader = (props: {
   onSort: (key: SortKey) => void;
   sortKey: Accessor<SortKey>;
   sortDirection: Accessor<'asc' | 'desc'>;
+  class?: string;
 }) => (
-  <th class="cursor-pointer select-none" onClick={() => props.onSort(props.key)}>
+  <th
+    class={`cursor-pointer select-none ${props.class || ''}`}
+    onClick={() => props.onSort(props.key)}
+    scope="col"
+    aria-sort={
+      props.sortKey() === props.key
+        ? props.sortDirection() === 'asc'
+          ? 'ascending'
+          : 'descending'
+        : 'none'
+    }
+  >
     <div class="flex items-center gap-2">
       {props.title}
       <Show when={props.sortKey() === props.key}>
@@ -69,45 +79,59 @@ function PackageListView(props: PackageListViewProps) {
     x: 0,
     y: 0,
   });
-
-  const [uninstallConfirm, setUninstallConfirm] = createSignal(false);
-  const [uninstallTimer, setUninstallTimer] = createSignal<number | null>(null);
+  const { confirmingItem, startConfirm, cancelConfirm } = useConfirmAction();
 
   const isContextMenuActive = (pkgName: string) => {
     return contextMenuPackage()?.name === pkgName;
   };
 
-  const adjustPosition = (x: number, y: number) => {
-    const menuWidth = 200; // Estimated menu width
-    const menuHeight = 200; // Estimated menu height
-    const adjustedX = Math.min(x, window.innerWidth - menuWidth);
-    const adjustedY = Math.min(y, window.innerHeight - menuHeight);
-    return { x: Math.max(0, adjustedX), y: Math.max(0, adjustedY) };
-  };
-
   const closeContextMenu = () => {
     setContextMenuPackage(null);
-    // Reset uninstall confirmation state
-    setUninstallConfirm(false);
-    if (uninstallTimer()) {
-      clearTimeout(uninstallTimer()!);
-      setUninstallTimer(null);
-    }
+    cancelConfirm();
   };
 
-  // Clean up uninstall timer on unmount
   createEffect(() => {
-    return () => {
-      if (uninstallTimer()) {
-        clearTimeout(uninstallTimer()!);
-      }
-    };
+    onCleanup(() => {
+      cancelConfirm();
+    });
   });
+
+  const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
+    setContextMenuPackage(pkg);
+    setContextMenuPosition({ x, y });
+    cancelConfirm(pkg.name);
+  };
+
+  const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
+    return createPackageContextMenuItems(
+      pkg,
+      confirmingItem(),
+      props.operatingOn(),
+      props.isPackageVersioned,
+      {
+        onUpdate: props.onUpdate,
+        onOpenFolder: props.onOpenFolder,
+        onViewInfoForVersions: props.onViewInfoForVersions,
+        onChangeBucket: props.onChangeBucket,
+        onHold: props.onHold,
+        onUnhold: props.onUnhold,
+        onUninstall: (pkg) => {
+          if (confirmingItem() === pkg.name) {
+            cancelConfirm(pkg.name);
+            props.onUninstall(pkg);
+            closeContextMenu();
+          } else {
+            startConfirm(pkg.name);
+          }
+        },
+      }
+    );
+  };
 
   return (
     <div class="bg-base-card overflow-hidden rounded-xl shadow-xl">
       <div class="overflow-x-auto">
-        <table class="table-compact my-2 table">
+        <table class="table w-full table-fixed">
           <thead>
             <tr>
               <SortableHeader
@@ -116,6 +140,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[35%]"
               />
               <SortableHeader
                 key="version"
@@ -123,6 +148,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[20%]"
               />
               <SortableHeader
                 key="source"
@@ -130,6 +156,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[25%]"
               />
               <SortableHeader
                 key="updated"
@@ -137,6 +164,7 @@ function PackageListView(props: PackageListViewProps) {
                 onSort={props.onSort}
                 sortKey={props.sortKey}
                 sortDirection={props.sortDirection}
+                class="w-[20%]"
               />
             </tr>
           </thead>
@@ -144,107 +172,104 @@ function PackageListView(props: PackageListViewProps) {
             <For each={props.packages()}>
               {(pkg) => (
                 <tr
-                  class="hover:bg-base-200 transition-all duration-200"
-                  classList={{ 'bg-base-200': isContextMenuActive(pkg.name) }}
+                  class="package-list-row cursor-pointer transition-colors"
+                  classList={{ 'package-list-row-active': isContextMenuActive(pkg.name) }}
+                  data-context-menu-allow="true"
                   data-no-close-search
                   onDblClick={() => props.onViewInfo(pkg)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setContextMenuPackage(pkg);
-                    setContextMenuPosition(adjustPosition(e.clientX, e.clientY));
-                    setUninstallConfirm(false);
-                    if (uninstallTimer()) {
-                      clearTimeout(uninstallTimer()!);
-                      setUninstallTimer(null);
-                    }
+                    openContextMenu(pkg, e.clientX, e.clientY);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
                       e.preventDefault();
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      const x = rect.left + rect.width / 2;
-                      const y = rect.top + rect.height / 2;
-                      setContextMenuPackage(pkg);
-                      setContextMenuPosition(adjustPosition(x, y));
-                      setUninstallConfirm(false);
-                      if (uninstallTimer()) {
-                        clearTimeout(uninstallTimer()!);
-                        setUninstallTimer(null);
-                      }
+                      openContextMenu(pkg, rect.left + rect.width / 2, rect.top + rect.height / 2);
                     }
                   }}
                   tabIndex={0}
                   aria-label={`${pkg.name} package actions`}
                 >
-                  <td class="max-w-[160px]">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="hover:text-primary cursor-pointer truncate font-medium transition-colors"
-                        onClick={() => props.onViewInfo(pkg)}
-                        title={pkg.name}
-                      >
-                        <HighlightText text={pkg.name} query={props.searchQuery()} />
-                      </div>
-                      <Show
-                        when={
-                          pkg.available_version &&
-                          !heldStore.isHeld(pkg.name) &&
-                          pkg.installation_type !== 'custom'
-                        }
-                      >
+                  <td class="w-[35%]">
+                    <div class="flex min-w-0 items-center gap-2">
+                      <div class="flex min-w-0 items-center gap-1">
                         <div
-                          class="tooltip tooltip-right"
-                          data-tip={
-                            t('installed.list.updateAvailableTooltip', {
-                              version: pkg.available_version,
-                            }) +
-                            (isCiVersion(pkg.available_version || '')
-                              ? t('installed.list.ciVersionNote')
-                              : '')
+                          class="hover:text-primary min-w-0 cursor-pointer truncate font-medium transition-colors"
+                          onClick={() => props.onViewInfo(pkg)}
+                          title={pkg.name}
+                        >
+                          <HighlightText text={pkg.name} query={props.searchQuery()} />
+                        </div>
+                        <Show
+                          when={
+                            pkg.available_version &&
+                            !heldStore.isHeld(pkg.name) &&
+                            pkg.installation_type !== 'custom'
                           }
                         >
-                          <CircleArrowUp
-                            class="text-primary mr-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
-                            onClick={() => props.onUpdate(pkg)}
-                          />
-                        </div>
-                      </Show>
-                      <Show when={pkg.installation_type === 'custom'}>
-                        <div
-                          class="tooltip tooltip-right"
-                          data-tip={t('installed.list.customInstallTooltip')}
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={
+                              t('installed.list.updateAvailableTooltip', {
+                                version: pkg.available_version,
+                              }) +
+                              (isCiVersion(pkg.available_version || '')
+                                ? t('installed.list.ciVersionNote')
+                                : '')
+                            }
+                          >
+                            <CircleArrowUp
+                              class="text-primary h-4 w-4 cursor-pointer transition-transform hover:scale-125"
+                              onClick={() => props.onUpdate(pkg)}
+                            />
+                          </div>
+                        </Show>
+                        <Show when={pkg.installation_type === 'custom'}>
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={t('installed.list.customInstallTooltip')}
+                          >
+                            <Lock class="h-4 w-4 text-cyan-400" />
+                          </div>
+                        </Show>
+                        <Show
+                          when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}
                         >
-                          <Lock class="h-4 w-4 text-cyan-400" />
-                        </div>
-                      </Show>
-                      <Show when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}>
-                        <div
-                          class="tooltip tooltip-right"
-                          data-tip={t('installed.list.heldTooltip')}
-                        >
-                          <Lock class="text-warning h-4 w-4" />
-                        </div>
-                      </Show>
+                          <div
+                            class="tooltip tooltip-right shrink-0"
+                            data-tip={t('installed.list.heldTooltip')}
+                          >
+                            <Lock class="text-warning h-4 w-4" />
+                          </div>
+                        </Show>
+                      </div>
                     </div>
                   </td>
-                  <td class="max-w-[120px] truncate" title={pkg.version}>
-                    <HighlightText text={pkg.version} query={props.searchQuery()} />
+                  <td class="w-[20%]">
+                    <div class="flex h-full items-center truncate" title={pkg.version}>
+                      <HighlightText text={pkg.version} query={props.searchQuery()} />
+                    </div>
                   </td>
-                  <td class="max-w-[150px]">
-                    <span
-                      class="hover:text-primary inline-block max-w-full cursor-pointer truncate font-medium transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        props.onViewBucketInfo(pkg.source);
-                      }}
-                      title={pkg.source}
-                    >
-                      <HighlightText text={pkg.source} query={props.searchQuery()} />
-                    </span>
+                  <td class="w-[25%]">
+                    <div class="flex h-full items-center">
+                      <span
+                        class="hover:text-primary cursor-pointer truncate transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onViewBucketInfo(pkg.source);
+                        }}
+                        title={pkg.source}
+                      >
+                        <HighlightText text={pkg.source} query={props.searchQuery()} />
+                      </span>
+                    </div>
                   </td>
-                  <td class="max-w-[120px] whitespace-nowrap" title={pkg.updated}>
-                    {formatIsoDate(pkg.updated)}
+                  <td class="w-[20%]">
+                    <div class="flex h-full items-center truncate" title={pkg.updated}>
+                      {formatIsoDate(pkg.updated)}
+                    </div>
                   </td>
                 </tr>
               )}
@@ -253,145 +278,19 @@ function PackageListView(props: PackageListViewProps) {
         </table>
       </div>
 
-      {/* Context Menu */}
-      <Show when={contextMenuPackage()}>
-        <>
-          <div
-            class="fixed inset-0 z-9998 bg-black/10"
-            onClick={() => closeContextMenu()}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              closeContextMenu();
-            }}
+      <ContextMenu
+        isOpen={() => !!contextMenuPackage()}
+        position={contextMenuPosition}
+        onClose={closeContextMenu}
+        ariaLabel="Package actions menu"
+      >
+        <Show when={contextMenuPackage()}>
+          <ContextMenuRenderer
+            items={getContextMenuItems(contextMenuPackage()!)}
+            onClose={closeContextMenu}
           />
-          <div
-            class="package-context-menu bg-base-100 rounded-box border-base-200 fixed z-9999 min-w-[150px] border py-2 shadow-lg"
-            style={`left: ${contextMenuPosition().x}px; top: ${contextMenuPosition().y}px;`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Update Button */}
-            <Show
-              when={
-                contextMenuPackage() &&
-                contextMenuPackage()!.available_version &&
-                !heldStore.isHeld(contextMenuPackage()!.name) &&
-                contextMenuPackage()!.installation_type !== 'custom'
-              }
-            >
-              <div
-                class="hover:bg-base-200 text-info flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onUpdate(contextMenuPackage()!);
-                  closeContextMenu();
-                }}
-              >
-                <CircleArrowUp class="h-4 w-4" />
-                <span>{t('installed.list.update')}</span>
-              </div>
-            </Show>
-
-            {/* Open Folder Button */}
-            <div
-              class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-              onClick={() => {
-                props.onOpenFolder(contextMenuPackage()!);
-                closeContextMenu();
-              }}
-            >
-              <Folder class="h-4 w-4" />
-              <span>{t('installed.list.openFolder')}</span>
-            </div>
-
-            <Show
-              when={contextMenuPackage() && props.isPackageVersioned(contextMenuPackage()!.name)}
-            >
-              <div
-                class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onViewInfoForVersions(contextMenuPackage()!);
-                  closeContextMenu();
-                }}
-              >
-                <RefreshCw class="h-4 w-4" />
-                <span>{t('installed.list.switchVersion')}</span>
-              </div>
-            </Show>
-
-            <div
-              class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-              onClick={() => {
-                props.onChangeBucket(contextMenuPackage()!);
-                closeContextMenu();
-              }}
-            >
-              <ArrowLeftRight class="h-4 w-4" />
-              <span>{t('installed.list.changeBucket')}</span>
-            </div>
-
-            {/* Hold Package */}
-            <Show
-              when={
-                contextMenuPackage() &&
-                !heldStore.isHeld(contextMenuPackage()!.name) &&
-                contextMenuPackage()!.installation_type !== 'custom'
-              }
-              fallback={
-                <Show
-                  when={
-                    contextMenuPackage() &&
-                    heldStore.isHeld(contextMenuPackage()!.name) &&
-                    contextMenuPackage()!.installation_type !== 'custom'
-                  }
-                >
-                  <div class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm">
-                    <Lock class="text-warning h-4 w-4" />
-                    <span>{t('installed.list.heldTooltip')}</span>
-                  </div>
-                </Show>
-              }
-            >
-              <div
-                class="hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm"
-                onClick={() => {
-                  props.onHold(contextMenuPackage()!.name);
-                  closeContextMenu();
-                }}
-              >
-                <Lock class="h-4 w-4" />
-                <span>{t('installed.list.holdPackage')}</span>
-              </div>
-            </Show>
-
-            {/* Uninstall Button */}
-            <div
-              class={`hover:bg-base-200 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm ${uninstallConfirm() ? 'text-warning' : 'text-error'}`}
-              onClick={() => {
-                if (uninstallConfirm()) {
-                  // Execute uninstall
-                  if (uninstallTimer()) {
-                    clearTimeout(uninstallTimer()!);
-                    setUninstallTimer(null);
-                  }
-                  setUninstallConfirm(false);
-                  props.onUninstall(contextMenuPackage()!);
-                  closeContextMenu();
-                } else {
-                  // Show confirmation
-                  setUninstallConfirm(true);
-                  const timer = window.setTimeout(() => {
-                    setUninstallConfirm(false);
-                    setUninstallTimer(null);
-                  }, 2000);
-                  setUninstallTimer(timer);
-                }
-              }}
-            >
-              <Trash2 class="h-4 w-4" />
-              <span>{uninstallConfirm() ? t('buttons.sure') : t('installed.list.uninstall')}</span>
-            </div>
-          </div>
-        </>
-      </Show>
+        </Show>
+      </ContextMenu>
     </div>
   );
 }

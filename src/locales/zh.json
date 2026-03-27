@@ -17,17 +17,7 @@
       "view": "查看"
     },
     "errors": {
-      "branchNotFound": "分支 '{{branchName}}' 未找到：{{error}}",
-      "branchNotFoundAnywhere": "分支 '{{branchName}}' 在本地和远程都未找到：{{error}}",
-      "bucketNotFound": "仓库 '{{bucketName}}' 不存在",
-      "checkoutFailed": "检出树失败：{{error}}",
-      "commitGetFailed": "获取提交失败：{{error}}",
       "fetchBranchesFailed": "获取分支失败：{{error}}",
-      "gitReferencesFailed": "获取引用失败：{{error}}",
-      "gitRepoOpenFailed": "打开 git 仓库失败：{{error}}",
-      "headNoTarget": "无法更新 HEAD：引用 {{referenceName}} 没有目标",
-      "headUpdateFailed": "更新 HEAD 引用失败：{{error}}",
-      "repoStatusFailed": "获取仓库状态失败：{{error}}",
       "switchBranchFailed": "切换分支失败：{{error}}",
       "switchBranchSuccess": "已切换到分支 '{{branch}}'",
       "uncommittedChanges": "无法切换分支：仓库有未提交的更改。请先提交或暂存您的更改。"
@@ -104,7 +94,6 @@
       "viewDetails": "查看详情"
     },
     "update": {
-      "actualUpdates": "更新了 {{added}} 个新增，{{modified}} 个修改，{{removed}} 个删除的清单",
       "hasUncommittedChanges": "无法更新仓库 '{{bucket}}'：仓库有未提交的更改。请先提交或暂存您的更改。",
       "success": "成功更新仓库 '{{bucket}}'，包含 {{count}} 个清单",
       "upToDate": "仓库 '{{bucket}}' 已是最新版本"
@@ -154,7 +143,6 @@
     "confirm": "确认",
     "copyToClipboard": "复制到剪贴板",
     "delete": "删除",
-    "deleteDirectly": "直接删除",
     "forceUpdate": "强制更新",
     "goToBuckets": "转到仓库",
     "install": "安装",
@@ -173,6 +161,15 @@
     "updateAll": "全部更新",
     "view": "查看"
   },
+  "common": {
+    "time": {
+      "daysAgo": "{{days}} 天前",
+      "monthsAgo": "{{months}} 个月前",
+      "today": "今天",
+      "yearsAgo": "{{years}} 年前",
+      "yesterday": "昨天"
+    }
+  },
   "doctor": {
     "addShimModal": {
       "addShim": "添加 Shim",
@@ -185,16 +182,18 @@
       "title": "添加新的 Shim"
     },
     "cacheManager": {
-      "actionCannotBeUndone": "此操作无法撤销。",
       "cacheIsEmpty": "缓存为空",
       "confirmDeletion": "确认删除",
+      "confirmScoopCacheRm": "使用 Scoop 命令删除",
       "deleteAll": "确定要删除全部 {{count}} 个缓存文件吗？",
-      "deleteFiles": "确定要删除 {{count}} 个缓存文件吗？涉及 {{packageCount}} 个软件包。",
-      "deletePartialSuccess": "成功处理 {{success}} 个文件，失败 {{failure}} 个文件。",
+      "deleteFiles": "删除 {{count}} 个缓存文件？",
       "filterPlaceholder": "搜索缓存文件...",
       "name": "名称",
       "noCachedFiles": "没有找到缓存文件",
       "openCacheDirectory": "打开缓存目录",
+      "scoopCacheRmDescription": "将对 {{packageCount}} 个软件包执行 \"scoop cache rm\" 命令",
+      "scoopCacheRmWarning": "这会删除这些软件包的全部缓存。",
+      "selectedPackages": "涉及 {{count}} 个软件包",
       "settings": {
         "preserveVersioned": "保留版本化下载缓存",
         "preserveVersionedDescription": "隐藏版本化安装中本地已存在的缓存",
@@ -207,7 +206,6 @@
     },
     "checkup": {
       "description": "此工具检查您的 Scoop 设置中的常见问题。",
-      "runCheckup": "点击刷新按钮运行健康检查",
       "install": "安装",
       "installing": "正在安装...",
       "issuesFound": "发现问题",
@@ -226,19 +224,18 @@
         "windowsDeveloperModeEnabled": "Windows 开发者模式已启用",
         "windowsDeveloperModeSuggestion": "Windows 开发者模式未启用。相关到符号链接的操作可能因权限不足而失败。请在 Windows 设置中启用它。"
       },
-      "noIssues": "检查完成，没有发现问题。",
+      "runCheckup": "点击刷新按钮运行健康检查",
       "scrollToIssues": "滚动到问题",
       "title": "Scoop 健康检查"
     },
     "cleanup": {
       "cleanupOldVersions": "清理所有旧版本",
-      "cleanupOutdatedCache": "清理过时下载缓存",
-      "description": "通过删除旧版本和过时的下载缓存来释放磁盘空间（这将忽略自动清理约束）。",
+      "cleanupOutdatedCache": "清理过时缓存",
+      "description": "通过删除旧版本和不再需要的下载缓存来释放磁盘空间（这将忽略自动清理约束）。",
       "title": "Scoop 清理"
     },
     "commandInput": {
       "clearOutput": "清除输出",
-      "description": "直接从此处执行 Scoop 命令。",
       "enterCommand": "输入命令（例如：'install git'）",
       "enterFullCommand": "输入完整命令（例如：'scoop install git'）",
       "executingCommand": "正在执行命令...",
@@ -249,6 +246,9 @@
       "switchInputMode": "　　↓　点击此处切换输入模式。",
       "title": "Scoop 命令",
       "waitingForCommands": "等待命令输入..."
+    },
+    "common": {
+      "actionCannotBeUndone": "此操作无法撤销"
     },
     "proxySettings": {
       "clearSuccess": "Scoop 代理清除成功！",
@@ -323,19 +323,19 @@
     },
     "header": {
       "allBuckets": "所有仓库",
+      "allVersionTypes": "全部",
       "bucketLabel": "仓库",
       "filter": "筛选",
+      "heldPackages": "已保留",
       "refresh": "刷新",
+      "resetFilters": "重置筛选",
       "searchPlaceholder": "按名称搜索...",
       "switchToGridView": "切换到网格视图",
       "switchToListView": "切换到列表视图",
       "title": "软件",
       "updateAll": "全部更新",
       "versionTypeLabel": "版本类型",
-      "allVersionTypes": "全部",
-      "versionedSoftware": "版本化软件",
-      "heldPackages": "已保留",
-      "resetFilters": "重置筛选"
+      "versionedSoftware": "版本化软件"
     },
     "list": {
       "bucket": "仓库",
@@ -351,7 +351,7 @@
       "uninstall": "卸载",
       "update": "更新",
       "updateAvailableTooltip": "可用更新：v{{version}}",
-      "updated": "更新",
+      "updated": "修改时间",
       "version": "版本"
     }
   },
@@ -359,14 +359,16 @@
     "description": "选择您偏好的应用程序界面语言 | Language",
     "title": "语言"
   },
+  "manifest": {
+    "openFailed": "打开清单 URL 失败",
+    "title": "清单文件",
+    "urlError": "构建清单 URL 失败"
+  },
   "manifestModal": {
     "loading": "加载 Manifest...",
     "title": "Manifest:"
   },
   "messages": {
-    "initTimeout": "初始化时间比预期长。",
-    "initTimeoutReason": "这可能是由于系统缓慢或 Scoop 配置问题。",
-    "initTimeoutShow": "初始化超时。无论如何显示界面...",
     "loading": "正在准备启动..."
   },
   "noPackagesFound": {
@@ -379,7 +381,6 @@
   "operation": {
     "completed": "{{name}} 操作成功",
     "failed": {
-      "cancelled": "{{name}} 操作已取消",
       "generic": "{{name}} 操作失败",
       "withErrors": "{{name}} 操作失败，遇到 {{count}} 个错误"
     },
@@ -392,10 +393,8 @@
     "changeBucket": "更换仓库",
     "changeBucketFor": "更改 {{name}} 的仓库",
     "close": "关闭",
-    "confirmDeleteVersion": "确定要删除版本 v{{version}} 吗？此操作无法撤销。",
     "current": "当前版本",
     "debugStructure": "调试结构",
-    "deleteVersion": "删除版本",
     "description": "描述",
     "details": "详细信息",
     "ensureSoftwarePresent": "确保目标仓库中存在该软件包",
@@ -415,6 +414,7 @@
     "latestVersion": "最新版本",
     "license": "许可证",
     "name": "软件名",
+    "notes": "备注",
     "openFolder": "打开文件夹",
     "success": {
       "forceUpdate": "{{name}} 强制更新成功",
@@ -448,17 +448,12 @@
     "autoDetectFailedSystem": "无法自动检测 Scoop 安装。请在设置中手动设置路径。",
     "autoDetectedSuccess": "检测到路径：{{path}}",
     "browse": "浏览",
-    "commonLocations": "常见位置",
-    "configureDescription": "请配置 Scoop 安装路径以使用 Pailer。",
-    "configureDescriptionSuccess": "检测到并验证了 Scoop 安装。点击\"保存并继续\"以继续。",
     "copied": "已复制",
     "customInstallation": "安装到其他盘符",
     "detecting": "检测中...",
     "enterPath": "请输入或选择 Scoop 路径",
     "globalAppsDirectory": "全局应用目录",
-    "globalInstallation": "全局安装",
     "learnMore": " 了解更多安装信息",
-    "notDetected": "未检测到 Scoop 安装",
     "notInstalled": "关于 Scoop 安装",
     "officialInstallation": "官方安装方式",
     "pathLabel": "Scoop 安装路径",
@@ -470,8 +465,6 @@
     "scoopDirectory": "Scoop 目录",
     "selectDirectory": "选择 Scoop 安装目录",
     "title": "配置 Scoop 路径",
-    "typicalLocations": "Scoop 通常安装在以下位置之一：",
-    "userInstallation": "用户安装",
     "validatePath": "验证路径",
     "validating": "验证中...",
     "validationFailed": "验证失败：{{error}}",
@@ -510,6 +503,11 @@
       "placeholder": "搜索本地仓库中的应用程序",
       "searchHelp": "搜索帮助"
     },
+    "bucketInfo": {
+      "loadFailed": "加载仓库信息失败",
+      "loading": "正在加载仓库信息...",
+      "notFound": "未找到仓库或加载仓库信息失败"
+    },
     "emptyState": {
       "description": "搜索您本地 Scoop 仓库中的软件包",
       "title": "搜索应用程序"
@@ -529,9 +527,18 @@
     },
     "refreshResults": "刷新",
     "results": {
-      "fromBucket": "仓库：{{bucket}}",
+      "copied": "已复制到剪贴板",
+      "copyCommand": "复制命令",
+      "customInstall": "自定义安装",
+      "installed": "已安装",
+      "multipleVersionsInstalled": "多版本已安装",
       "noPackagesFound": "没有找到 {{type}} \"{{query}}\"",
-      "pageInfo": "第 {{current}} / {{total}} 页"
+      "pageInfo": "第 {{current}} / {{total}} 页",
+      "toggleDetails": "切换包详情",
+      "versionedSupport": "多版本支持",
+      "viewBucket": "查看仓库详情",
+      "viewCommits": "查看提交历史",
+      "viewManifest": "查看清单文件"
     },
     "tabs": {
       "includes": "包含",
@@ -584,12 +591,12 @@
     },
     "autoCleanup": {
       "cleanOldVersions": "清理所有旧版本",
-      "cleanOldVersionsDescription": "仅保留最新版本的软件包。版本化安装（使用 @version）始终保留。",
+      "cleanOldVersionsDescription": "将保留软件包最近的 {{count}} 个版本及对应的 old 文件夹，\n版本化安装的软件包始终保留。",
       "cleanOutdatedCache": "清理过时缓存",
-      "cleanOutdatedCacheDescription": "删除不再需要的陈旧下载工件，释放磁盘空间。",
+      "cleanOutdatedCacheDescription": "删除不再需要的过时下载缓存，释放磁盘空间。",
       "description": "在安装、更新或卸载操作后，自动清理旧版本的软件包和过时的缓存资源。",
       "title": "自动清理",
-      "versionsToKeep": "保留版本数：{{count}}"
+      "versionsToKeep": "保留旧版本数：{{count}}"
     },
     "bucketAutoUpdate": {
       "active": "当前：{{interval}}",
@@ -656,7 +663,7 @@
       "buckets": "仓库",
       "description": "选择应用程序启动时显示的页面。",
       "doctor": "诊断",
-      "installed": "已安装",
+      "installed": "软件包",
       "search": "搜索",
       "settings": "设置",
       "title": "默认启动页面"
@@ -756,8 +763,6 @@
     "warning": "警告"
   },
   "virustotal": {
-    "apiKeyMissing": "未配置 VirusTotal API 密钥",
-    "detectionsFound": "{{name}} 发现威胁",
     "noThreats": "{{name}} 未发现威胁"
   },
   "warnings": {

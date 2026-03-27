@@ -1,6 +1,6 @@
 import { Show, createEffect, createSignal } from 'solid-js';
 import { RefreshCw, Eye } from 'lucide-solid';
-import { BucketInfo } from '../../../hooks/useBuckets';
+import { BucketInfo } from '../../../hooks';
 import { openPath } from '@tauri-apps/plugin-opener';
 import Card from '../../common/Card';
 import BranchSelector from '../../common/BranchSelector';
@@ -21,7 +21,7 @@ interface BucketCardProps {
 }
 
 function BucketCard(props: BucketCardProps) {
-  const { settings } = settingsStore;
+  const { effectiveTheme } = settingsStore;
 
   // Track the last result that triggered a toast to prevent duplicates
   const [lastToastResult, setLastToastResult] = createSignal<string | null>(null);
@@ -108,7 +108,7 @@ function BucketCard(props: BucketCardProps) {
             </Show>
           </div>
         }
-        class={`card-bucket ${settings.theme}`}
+        class={`card-bucket ${effectiveTheme()}`}
       >
         {props.bucket.git_url ? (
           <div

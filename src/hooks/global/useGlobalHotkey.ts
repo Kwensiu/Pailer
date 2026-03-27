@@ -1,5 +1,5 @@
 import { createEffect, onCleanup } from 'solid-js';
-import { createTauriSignal } from './createTauriSignal';
+import { createTauriSignal } from '../storage/createTauriSignal';
 
 // Global hotkey setting
 const [isGlobalHotkeyEnabled] = createTauriSignal<boolean>('globalHotkeyEnabled', true);
@@ -76,12 +76,30 @@ export function useGlobalHotkey(options: UseGlobalHotkeyOptions) {
     }
 
     const handleGlobalKeydown = (e: KeyboardEvent) => {
-      // Default check: only handle when not already focused on input
+      // For Tab key, never handle it when focused on interactive elements
+      if (e.key === 'Tab') {
+        const activeElement = document.activeElement;
+        if (
+          activeElement?.tagName === 'INPUT' ||
+          activeElement?.tagName === 'TEXTAREA' ||
+          activeElement?.tagName === 'BUTTON' ||
+          activeElement?.getAttribute('role') === 'menuitem' ||
+          activeElement?.getAttribute('role') === 'menu' ||
+          activeElement?.closest('[role="menu"]') ||
+          activeElement?.closest('[data-context-menu-root="true"]')
+        ) {
+          return; // Let Tab work normally in menus and on buttons
+        }
+      }
+
+      // Default check: only handle when not already focused on input, menu, or button
       const shouldHandle =
         options.shouldHandle ??
         (() =>
           document.activeElement?.tagName !== 'INPUT' &&
-          document.activeElement?.tagName !== 'TEXTAREA');
+          document.activeElement?.tagName !== 'TEXTAREA' &&
+          document.activeElement?.tagName !== 'BUTTON' &&
+          document.activeElement?.getAttribute('role') !== 'menuitem');
 
       if (!shouldHandle(e)) {
         return;
@@ -116,10 +134,28 @@ export function useGlobalSearchHotkey(options: UseGlobalSearchHotkeyOptions) {
     }
 
     const handleGlobalKeydown = (e: KeyboardEvent) => {
-      // Only handle when not already focused on input
+      // For Tab key, never handle it when focused on interactive elements
+      if (e.key === 'Tab') {
+        const activeElement = document.activeElement;
+        if (
+          activeElement?.tagName === 'INPUT' ||
+          activeElement?.tagName === 'TEXTAREA' ||
+          activeElement?.tagName === 'BUTTON' ||
+          activeElement?.getAttribute('role') === 'menuitem' ||
+          activeElement?.getAttribute('role') === 'menu' ||
+          activeElement?.closest('[role="menu"]') ||
+          activeElement?.closest('[data-context-menu-root="true"]')
+        ) {
+          return; // Let Tab work normally in menus and on buttons
+        }
+      }
+
+      // Only handle when not already focused on input, menu, or button
       if (
         document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'BUTTON' ||
+        document.activeElement?.getAttribute('role') === 'menuitem'
       ) {
         return;
       }

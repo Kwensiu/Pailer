@@ -79,6 +79,13 @@ function isKeyUsed(key, filePath) {
   const isRust = filePath.endsWith('.rs');
   const isTypeDefinition = filePath.endsWith('dict-types.ts') || filePath.includes('types');
 
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedKey = escapeRegExp(key);
+  const keyParts = key.split('.');
+  const baseKey = keyParts[0];
+  const quotePairPattern = (prefix, suffix = '') =>
+    new RegExp(String.raw`${prefix}\(\s*(['\"])${escapedKey}\1${suffix}`);
+
   if (isRust) {
     // For Rust files, search for JSON property access like get("key") or ["key"]
     return content.includes(`get("${key}")`) || content.includes(`["${key}"]`);
@@ -87,66 +94,47 @@ function isKeyUsed(key, filePath) {
     return false;
   } else {
     // For TypeScript/JavaScript files, check for common usage patterns
-    // Be more specific to avoid false positives
 
-    // Check for t() function calls with the exact key
-    const hasTFunctionCall = content.includes(`t('${key}')`) || content.includes(`t("${key}")`);
+    // Exact translation function calls: t('a.b.c') / t("a.b.c")
+    const tCallPattern = quotePairPattern('\\bt', '\\s*[),]');
 
-    // Check for dict property access
-    const hasDictAccess = content.includes(`dict.${key}`);
+    // Dictionary-style access: dict['a.b.c'] / dict["a.b.c"]
+    const dictAccessPattern = new RegExp(String.raw`\bdict\s*\.\s*${escapedKey}\b`);
+    const dictBracketPattern = new RegExp(String.raw`\bdict\s*\[\s*(['\"])${escapedKey}\1\s*\]`);
 
-    // Check for dynamic key construction patterns
-    const keyParts = key.split('.');
-    const baseKey = keyParts[0];
-    const subKey = keyParts.slice(1).join('.');
+    // Common error handling / logging patterns
+    const setErrorPattern = quotePairPattern('\\bsetError');
 
-    // Pattern 1: t(`baseKey.${variable}`) - dynamic subkey
-    const hasDynamicSubKey =
-      content.includes(`t(\`${baseKey}.\${`) ||
-      content.includes(`t('${baseKey}.' +`) ||
-      content.includes(`t("${baseKey}." +`) ||
-      (key.startsWith('doctor.checkup.items.') &&
-        content.includes('items.') &&
-        content.includes('displayKey') &&
-        content.includes('t('));
+    // Fallback: exact quoted/template literal appearance for known metadata fields.
+    // This catches keys stored as menu / tab / label metadata values (e.g. labelKey: 'app.doctor').
+    const metadataKeyPattern = new RegExp(
+      String.raw`\b(?:labelKey|labelkey|titleKey|titlekey|descriptionKey|descriptionkey|key|textKey|textkey)\s*[:=]\s*(['\"])${escapedKey}\1`
+    );
 
-    // Pattern 2: Special case for doctor.checkup.items - check for dynamic displayKey pattern
+    // Known dynamic families: allow only the explicitly supported cases.
     const hasCheckupItemsPattern =
       key.startsWith('doctor.checkup.items.') &&
       (content.includes('doctor.checkup.items.${') ||
         content.includes("doctor.checkup.items.' +") ||
         (content.includes('items.') && content.includes('displayKey') && content.includes('t(')));
 
-    // Pattern 3: Check if the key is used in template literals with dynamic parts
+    const hasDynamicSubKey =
+      content.includes(`t(\`${baseKey}.\${`) ||
+      content.includes(`t('${baseKey}.' +`) ||
+      content.includes(`t("${baseKey}." +`);
+
     const hasTemplateLiteralPattern =
       content.includes(`\`${baseKey}.\${`) && content.includes('t(');
 
-    // Pattern 4: Check for literal strings in t() context (more specific)
-    const hasLiteralInTContext =
-      (content.includes(`'${key}'`) || content.includes(`"${key}"`)) && content.includes('t(');
-
-    // Pattern 5: Check for key parts used separately in dynamic construction
-    const hasKeyPartsUsed = keyParts.some(
-      (part) => part && content.includes(part) && content.includes('t(') && content.includes('${')
-    );
-
-    // Pattern 6: Check for setError calls with the key (common in error handling)
-    const hasSetErrorPattern =
-      content.includes('setError(') &&
-      (content.includes(`'${key}'`) ||
-        content.includes(`"${key}"`) ||
-        content.includes(`\`${key}\``));
-
-    // Only return true if we found actual usage patterns
     return (
-      hasTFunctionCall ||
-      hasDictAccess ||
-      hasLiteralInTContext ||
-      hasDynamicSubKey ||
+      tCallPattern.test(content) ||
+      dictAccessPattern.test(content) ||
+      dictBracketPattern.test(content) ||
+      setErrorPattern.test(content) ||
+      metadataKeyPattern.test(content) ||
       hasCheckupItemsPattern ||
-      hasTemplateLiteralPattern ||
-      hasKeyPartsUsed ||
-      hasSetErrorPattern
+      hasDynamicSubKey ||
+      hasTemplateLiteralPattern
     );
   }
 }

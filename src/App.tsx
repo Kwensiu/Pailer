@@ -21,14 +21,15 @@ import { info, error as logError } from '@tauri-apps/plugin-log';
 import { invoke } from '@tauri-apps/api/core';
 import installedPackagesStore from './stores/installedPackagesStore';
 import settingsStore from './stores/settings';
-import { BucketInfo, updateBucketsCache } from './hooks/useBuckets';
+import { BucketInfo, updateBucketsCache } from './hooks/index';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
-import { localStorageUtils } from './hooks/useSearchCache';
+import { localStorageUtils } from './hooks/index';
 
 function App() {
   const { settings } = settingsStore;
+  let mainContentRef: HTMLElement | undefined;
 
   const [systemPrefersDark, setSystemPrefersDark] = createSignal(false);
 
@@ -204,6 +205,19 @@ function App() {
     }
   };
 
+  const focusMainContent = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        mainContentRef?.focus();
+      });
+    });
+  };
+
+  const handleNavigate = (nextView: View) => {
+    setView(nextView);
+    focusMainContent();
+  };
+
   onMount(async () => {
     console.log('🚀 [App] App mounted - UI loaded, starting async initialization');
     info('Application UI loaded, starting background initialization');
@@ -294,8 +308,12 @@ function App() {
       <div class="drawer" overflow-y-hidden>
         <input id="my-drawer" type="checkbox" class="drawer-toggle" />
         <div class="drawer-content flex h-screen flex-col">
-          <Header currentView={view()} onNavigate={setView} />
-          <main class="bg-base-200 z-1 flex-1 overflow-x-hidden overflow-y-auto p-6">
+          <Header currentView={view()} onNavigate={handleNavigate} />
+          <main
+            ref={mainContentRef}
+            class="bg-base-200 z-1 flex-1 overflow-x-hidden overflow-y-auto p-6 focus:outline-none"
+            tabindex="-1"
+          >
             <Show when={view() === 'search'}>
               <SearchPage />
             </Show>
@@ -321,19 +339,19 @@ function App() {
           <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
           <ul class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
             <li>
-              <a onClick={() => setView('search')}>{t('app.search')}</a>
+              <a onClick={() => handleNavigate('search')}>{t('app.search')}</a>
             </li>
             <li>
-              <a onClick={() => setView('bucket')}>{t('app.buckets')}</a>
+              <a onClick={() => handleNavigate('bucket')}>{t('app.buckets')}</a>
             </li>
             <li>
-              <a onClick={() => setView('installed')}>{t('installed.header.title')}</a>
+              <a onClick={() => handleNavigate('installed')}>{t('installed.header.title')}</a>
             </li>
             <li>
-              <a onClick={() => setView('settings')}>{t('settings.title')}</a>
+              <a onClick={() => handleNavigate('settings')}>{t('settings.title')}</a>
             </li>
             <li>
-              <a onClick={() => setView('doctor')}>{t('doctor.title')}</a>
+              <a onClick={() => handleNavigate('doctor')}>{t('doctor.title')}</a>
             </li>
           </ul>
         </div>

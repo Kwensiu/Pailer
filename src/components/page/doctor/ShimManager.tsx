@@ -6,7 +6,7 @@ import AddShimModal from './AddShimModal';
 import Card from '../../common/Card';
 import OpenPathButton from '../../common/OpenPathButton';
 import { t } from '../../../i18n';
-import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
+import { createSessionStorage, invalidateCache } from '../../../hooks';
 
 interface ShimsData {
   shims: Shim[];
@@ -38,7 +38,7 @@ function ShimManager() {
     error: dataError,
     refresh: refreshShims,
     onInvalidate,
-  } = createSessionCache<ShimsData>('shimsData', async () => {
+  } = createSessionStorage<ShimsData>('shimsData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
     if (!scoopPath) {
       throw new Error('No Scoop path configured. Please configure it in settings.');

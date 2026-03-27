@@ -1,7 +1,7 @@
 import { Accessor, Setter, Show, createSignal } from 'solid-js';
 import { CircleQuestionMark, Search, X } from 'lucide-solid';
 import { t } from '../../../i18n';
-import { useGlobalSearchHotkey } from '../../../hooks/useGlobalHotkey';
+import { useGlobalSearchHotkey } from '../../../hooks';
 import ConfirmationModal from '../../modals/ConfirmationModal';
 
 interface SearchBarProps {
@@ -58,15 +58,16 @@ function SearchBar(props: SearchBarProps) {
           <Show when={props.searchTerm().length > 0}>
             <button
               onClick={() => props.setSearchTerm('')}
-              class="hover:text-base-700 mr-1 rounded-full p-1 text-gray-500 hover:bg-gray-200 focus:outline-none dark:hover:bg-gray-700"
+              class="btn btn-ghost btn-xs btn-circle mr-1 text-gray-500"
               aria-label={t('search.bar.clearSearch')}
+              type="button"
             >
               <X class="h-5 w-5" />
             </button>
           </Show>
           <button
             onClick={() => setShowHelpModal(true)}
-            class="hover:text-base-700 rounded-full p-1 text-gray-400 hover:bg-gray-200 focus:outline-none dark:hover:bg-gray-700"
+            class="btn btn-ghost btn-xs btn-circle text-gray-400"
             aria-label={t('search.bar.searchHelp')}
             type="button"
           >

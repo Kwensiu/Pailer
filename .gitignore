@@ -4,4 +4,5 @@ dist
 keys/
 .qoder
 .env
-.windsurf/workflows/review.md
+.codex
+.windsurf/workflows/

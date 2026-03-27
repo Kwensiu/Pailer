@@ -1,7 +1,8 @@
-import { Component, JSX, Show, createSignal, createEffect, onMount } from 'solid-js';
+import { Component, JSX, Show, createSignal, onMount } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw, Folder } from 'lucide-solid';
 import { t } from '../../i18n';
+import Dropdown from '../common/Dropdown';
 
 interface CardProps {
   title: string | JSX.Element;
@@ -12,7 +13,7 @@ interface CardProps {
   headerSelect?: {
     value: string;
     onChange: (e: Event) => void;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; icon?: Component<{ class?: string }> }[];
   };
   onRefresh?: () => void;
   refreshTooltip?: string;
@@ -24,20 +25,39 @@ interface CardProps {
 }
 
 export default function Card(props: CardProps) {
-  const [contentHeight, setContentHeight] = createSignal(0);
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
-  let contentRef: HTMLDivElement | undefined;
+
+  const headerSelectSelectedLabel = () => {
+    const headerSelect = props.headerSelect;
+    if (!headerSelect) return 'Select';
+
+    return headerSelect.options.find((o) => o.value === headerSelect.value)?.label || 'Select';
+  };
+
+  const headerSelectItems = () => {
+    const headerSelect = props.headerSelect;
+    if (!headerSelect) return [];
+
+    return headerSelect.options.map((option) => ({
+      label: option.label,
+      icon: option.icon,
+      onClick: () => {
+        const event = new Event('change', { bubbles: true });
+        Object.defineProperty(event, 'currentTarget', {
+          value: { value: option.value },
+          writable: false,
+        });
+        headerSelect.onChange(event);
+      },
+    }));
+  };
 
   onMount(() => {
-    if (props.conditionalContent?.condition && contentRef) {
-      const prevSibling = contentRef.previousElementSibling as HTMLElement;
-      const marginTop = parseFloat(getComputedStyle(prevSibling).marginTop) || 0;
-      const marginBottom = parseFloat(getComputedStyle(prevSibling).marginBottom) || 0;
-      setContentHeight(contentRef.scrollHeight + marginTop + marginBottom);
-      setTimeout(() => setTransitionEnabled(true), 0);
-    } else {
+    // Defer transitions until after first paint so initially expanded cards
+    // do not animate open during reload or hydration.
+    requestAnimationFrame(() => {
       setTransitionEnabled(true);
-    }
+    });
   });
 
   const descriptionId =
@@ -49,27 +69,6 @@ export default function Card(props: CardProps) {
     typeof props.title === 'string' && props.additionalContent
       ? `card-additional-${props.title.replace(/\s+/g, '-').toLowerCase()}`
       : undefined;
-
-  createEffect(() => {
-    if (props.conditionalContent?.condition) {
-      setTimeout(() => {
-        if (contentRef) {
-          const updateHeight = () => {
-            const prevSibling = contentRef.previousElementSibling as HTMLElement;
-            const marginTop = parseFloat(getComputedStyle(prevSibling).marginTop) || 0;
-            const marginBottom = parseFloat(getComputedStyle(prevSibling).marginBottom) || 0;
-            setContentHeight(contentRef.scrollHeight + marginTop + marginBottom);
-          };
-          updateHeight();
-          const observer = new ResizeObserver(updateHeight);
-          observer.observe(contentRef);
-          return () => observer.disconnect();
-        }
-      }, 10);
-    } else {
-      setContentHeight(0);
-    }
-  });
 
   return (
     <section
@@ -88,34 +87,14 @@ export default function Card(props: CardProps) {
           {/* Header Actions */}
           <div class="flex items-center gap-2">
             <Show when={props.headerSelect}>
-              {/* Dropdown Select */}
-              <div class="dropdown">
-                <div tabindex="0" role="button" class="select select-bordered select-sm min-w-35">
-                  {props.headerSelect!.options.find((o) => o.value === props.headerSelect!.value)
-                    ?.label || 'Select'}
-                </div>
-                <ul
-                  tabindex="0"
-                  class="dropdown-content menu bg-base-100 rounded-box border-base-300 z-1 mt-1.5 w-full border p-2"
-                >
-                  {props.headerSelect!.options.map((option) => (
-                    <li>
-                      <a
-                        onClick={() => {
-                          const event = new Event('change', { bubbles: true });
-                          Object.defineProperty(event, 'currentTarget', {
-                            value: { value: option.value },
-                            writable: false,
-                          });
-                          props.headerSelect!.onChange(event);
-                        }}
-                      >
-                        {option.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Select Dropdown */}
+              <Dropdown
+                items={headerSelectItems()}
+                position="end"
+                trigger={headerSelectSelectedLabel()}
+                triggerClass="select select-bordered select-sm min-w-35 text-start border border-base-300 bg-base-200/50"
+                selectMode={true}
+              />
             </Show>
             <Show when={props.headerAction && !props.headerSelect}>
               {/* Custom Action */}
@@ -164,22 +143,24 @@ export default function Card(props: CardProps) {
           <div
             role="region"
             aria-expanded={props.conditionalContent!.condition}
+            aria-hidden={!props.conditionalContent!.condition}
+            inert={!props.conditionalContent!.condition}
+            class="grid overflow-hidden"
             style={{
-              'max-height': `${contentHeight()}px`,
+              'grid-template-rows': props.conditionalContent!.condition ? '1fr' : '0fr',
               opacity: props.conditionalContent!.condition ? '1' : '0',
-              overflow: 'hidden',
+              'pointer-events': props.conditionalContent!.condition ? 'auto' : 'none',
               transition: transitionEnabled()
-                ? 'max-height 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s'
+                ? 'grid-template-rows 0.3s ease-in-out, opacity 0.2s ease-in-out 0.1s'
                 : 'none',
             }}
           >
-            <div class="my-2"></div>
-            {/* Conditional Content Inner */}
-            <div
-              ref={contentRef}
-              class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm"
-            >
-              {props.conditionalContent!.children}
+            <div class="min-h-0 overflow-hidden">
+              <div class="my-2"></div>
+              {/* Conditional Content Inner */}
+              <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">
+                {props.conditionalContent!.children}
+              </div>
             </div>
           </div>
         </Show>

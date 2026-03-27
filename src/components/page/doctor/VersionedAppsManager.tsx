@@ -7,7 +7,7 @@ import OpenPathButton from '../../common/OpenPathButton';
 import { ResponsiveButton } from '../../common/ResponsiveButton';
 import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
-import { createSessionCache, invalidateCache } from '../../../hooks/createSessionStorage';
+import { createSessionStorage, invalidateCache } from '../../../hooks';
 
 interface VersionedAppsData {
   apps: VersionedApp[];
@@ -35,7 +35,7 @@ function VersionedAppsManager() {
     error: dataError,
     refresh: refreshVersionedApps,
     onInvalidate,
-  } = createSessionCache<VersionedAppsData>('versionedAppsData', async () => {
+  } = createSessionStorage<VersionedAppsData>('versionedAppsData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
     if (!scoopPath) {
       throw new Error('No Scoop path configured. Please configure it in settings.');
@@ -46,7 +46,6 @@ function VersionedAppsManager() {
       throw new Error(`Configured Scoop path does not exist: ${scoopPath}`);
     }
 
-    // Get versioned apps
     const appsData = await invoke<VersionedApp[]>('get_versioned_apps');
     const appsDirectory = `${scoopPath}\\apps`;
 
@@ -56,9 +55,7 @@ function VersionedAppsManager() {
     };
   });
 
-  // Force refresh function that clears cache before refreshing
   const forceRefresh = () => {
-    // Clear cache to bypass valid cache
     sessionStorage.removeItem('versionedAppsData');
     return refreshVersionedApps();
   };
@@ -143,8 +140,6 @@ function VersionedAppsManager() {
             targetVersion: targetVersion,
           });
 
-          // Version switched successfully
-
           invalidateCache('versionedAppsData');
 
           // Force refresh to ensure UI updates immediately (consistent with delete behavior)
@@ -176,8 +171,6 @@ function VersionedAppsManager() {
         setIsLoading(true);
         try {
           await invoke('delete_app_version', { appName: appName, version: targetVersion });
-
-          // Version deleted successfully
 
           invalidateCache('versionedAppsData');
 
@@ -215,22 +208,31 @@ function VersionedAppsManager() {
       title: t('doctor.versionedApps.confirmCleanupAllOldVersions'),
       type: 'cleanup-all-versions',
       content: (
-        <div class="space-y-4">
-          <p>{t('doctor.versionedApps.cleanupAllOldVersionsWarning')}</p>
-          <div class="form-control">
-            <label class="label cursor-pointer">
+        <div class="space-y-2">
+          <p class="text-base-content/80">
+            {t('doctor.versionedApps.cleanupAllOldVersionsWarning')}
+          </p>
+
+          <div class="bg-base-200/60 border-base-300/60 rounded-lg border p-3">
+            <label class="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                class="checkbox checkbox-primary"
+                class="checkbox checkbox-primary mt-0.5"
                 checked={preserveVersionedInstalls()}
                 onChange={(e) => setPreserveVersionedInstalls(e.currentTarget.checked)}
               />
-              <span class="label-text">{t('doctor.versionedApps.preserveVersionedInstalls')}</span>
+              <div class="flex flex-col text-sm">
+                <span class="font-medium">
+                  {t('doctor.versionedApps.preserveVersionedInstalls')}
+                </span>
+                <span class="text-base-content/60">
+                  {t('doctor.versionedApps.cleanupAllOldVersionsInfo')}
+                </span>
+              </div>
             </label>
           </div>
-          <div class="status-alert status-alert-info">
-            <TriangleAlert class="h-4 w-4" />
-            <span>{t('doctor.versionedApps.cleanupAllOldVersionsInfo')}</span>
+          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
+            <span>{t('doctor.common.actionCannotBeUndone')}</span>
           </div>
         </div>
       ),
