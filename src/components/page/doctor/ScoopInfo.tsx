@@ -6,7 +6,6 @@ import Modal from '../../common/Modal';
 import OpenPathButton from '../../common/OpenPathButton';
 import { toast } from '../../common/ToastAlert';
 import { t } from '../../../i18n';
-import settingsStore from '../../../stores/settings';
 import { createSessionStorage } from '../../../hooks';
 
 interface ScoopConfig {
@@ -51,10 +50,6 @@ function ScoopInfo() {
   const [editConfig, setEditConfig] = createSignal<string>('');
   const [isSaving, setIsSaving] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
-
-  const { settings } = settingsStore;
-  const isDark = () => settings.theme === 'dark';
-  const codeBgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
   // Force refresh function that clears cache before refreshing
   const forceRefresh = () => {
@@ -204,10 +199,7 @@ function ScoopInfo() {
         }
         class="max-w-2xl"
       >
-        <div
-          class="border-base-content/10 group relative overflow-hidden rounded-xl border shadow-inner"
-          style={{ 'background-color': codeBgColor() }}
-        >
+        <div class="border-base-content/10 group bg-base-200 relative overflow-hidden rounded-xl border shadow-inner">
           <textarea
             class="h-64 w-full resize-none border-none bg-transparent! p-4 font-mono text-sm leading-relaxed outline-none"
             value={editConfig()}

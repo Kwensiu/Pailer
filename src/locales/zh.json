@@ -182,17 +182,15 @@
       "title": "添加新的 Shim"
     },
     "cacheManager": {
-      "actionCannotBeUndone": "此操作无法撤销。",
       "cacheIsEmpty": "缓存为空",
       "confirmDeletion": "确认删除",
-      "confirmScoopCacheRm": "使用 \"scoop cache rm\" 命令删除",
+      "confirmScoopCacheRm": "使用 Scoop 命令删除",
       "deleteAll": "确定要删除全部 {{count}} 个缓存文件吗？",
       "deleteFiles": "删除 {{count}} 个缓存文件？",
       "filterPlaceholder": "搜索缓存文件...",
       "name": "名称",
       "noCachedFiles": "没有找到缓存文件",
       "openCacheDirectory": "打开缓存目录",
-      "scoopCacheRmButton": "使用 \"scoop cache rm\" 命令删除",
       "scoopCacheRmDescription": "将对 {{packageCount}} 个软件包执行 \"scoop cache rm\" 命令",
       "scoopCacheRmWarning": "这会删除这些软件包的全部缓存。",
       "selectedPackages": "涉及 {{count}} 个软件包",
@@ -248,6 +246,9 @@
       "switchInputMode": "　　↓　点击此处切换输入模式。",
       "title": "Scoop 命令",
       "waitingForCommands": "等待命令输入..."
+    },
+    "common": {
+      "actionCannotBeUndone": "此操作无法撤销"
     },
     "proxySettings": {
       "clearSuccess": "Scoop 代理清除成功！",

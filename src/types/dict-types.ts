@@ -182,7 +182,6 @@ export interface Dict {
       title: string;
     };
     cacheManager: {
-      actionCannotBeUndone: string;
       cacheIsEmpty: string;
       confirmDeletion: string;
       confirmScoopCacheRm: string;
@@ -192,7 +191,6 @@ export interface Dict {
       name: string;
       noCachedFiles: string;
       openCacheDirectory: string;
-      scoopCacheRmButton: string;
       scoopCacheRmDescription: string;
       scoopCacheRmWarning: string;
       selectedPackages: string;
@@ -248,6 +246,9 @@ export interface Dict {
       switchInputMode: string;
       title: string;
       waitingForCommands: string;
+    };
+    common: {
+      actionCannotBeUndone: string;
     };
     proxySettings: {
       clearSuccess: string;

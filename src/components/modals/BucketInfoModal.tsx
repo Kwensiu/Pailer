@@ -133,7 +133,7 @@ function ManifestsList(props: {
 
 function BucketInfoModal(props: BucketInfoModalProps) {
   const bucketInstall = useBucketInstall();
-  const { settings } = settingsStore;
+  const { effectiveTheme } = settingsStore;
 
   // State for remove confirmation
   const [removeConfirm, setRemoveConfirm] = createSignal(false);
@@ -194,7 +194,7 @@ function BucketInfoModal(props: BucketInfoModalProps) {
     }
   });
 
-  const isDark = () => settings.theme === 'dark';
+  const isDark = () => effectiveTheme() === 'dark';
   const BgColor = () => (isDark() ? '#282c34' : '#f0f4f9');
 
   const bucketName = () => props.bucket?.name || props.searchBucket?.name || '';

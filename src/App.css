@@ -701,7 +701,7 @@ html {
 
 /* Status Alert Components */
 [data-theme='light'] .status-alert {
-  @apply flex items-center gap-2 rounded-2xl border p-3 text-sm backdrop-blur-xs backdrop-brightness-125;
+  @apply flex items-center gap-2 rounded-2xl border p-2 text-sm backdrop-blur-xs backdrop-brightness-125;
 }
 
 [data-theme='light'] .status-alert-success {

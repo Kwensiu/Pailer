@@ -60,7 +60,7 @@ function ManifestModal(props: ManifestModalProps) {
         codeRef.textContent = props.manifestContent;
       }
       // Set classes
-      codeRef.className = 'language-json font-mono text-sm leading-relaxed bg-transparent!';
+      codeRef.className = 'language-json font-mono text-sm leading-relaxed bg-base-200';
     }
   });
 

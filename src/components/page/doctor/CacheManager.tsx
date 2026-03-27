@@ -257,9 +257,8 @@ function CacheManager() {
               <For each={packageNames}>{(name: string) => <li>{name}</li>}</For>
             </ul>
           </div>
-          <div class="status-alert status-alert-warning mt-2">
-            <TriangleAlert class="h-4 w-4" />
-            <span>{t('doctor.cacheManager.actionCannotBeUndone')}</span>
+          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
+            <span>{t('doctor.common.actionCannotBeUndone')}</span>
           </div>
         </div>
       ),
@@ -307,8 +306,7 @@ function CacheManager() {
               <For each={packageNames}>{(name: string) => <li>{name}</li>}</For>
             </ul>
           </div>
-          <div class="status-alert status-alert-warning mt-2">
-            <TriangleAlert class="h-4 w-4" />
+          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
             <span>{t('doctor.cacheManager.scoopCacheRmWarning')}</span>
           </div>
         </div>
@@ -361,7 +359,7 @@ function CacheManager() {
             <label class="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
-                class="checkbox checkbox-primary mt-0.5"
+                class="checkbox checkbox-primary checkbox-sm"
                 checked={preserveVersioned()}
                 onChange={(e) => setPreserveVersioned(e.currentTarget.checked)}
               />
@@ -376,9 +374,9 @@ function CacheManager() {
             </label>
           </div>
 
-          <p class="text-base-content/70 text-sm">
-            {t('doctor.cacheManager.actionCannotBeUndone')}
-          </p>
+          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
+            <span>{t('doctor.common.actionCannotBeUndone')}</span>
+          </div>
         </div>
       ),
       onConfirm: async () => {
@@ -433,7 +431,7 @@ function CacheManager() {
               breakpoint={771}
               menuItems={[
                 {
-                  label: () => t('doctor.cacheManager.scoopCacheRmButton'),
+                  label: () => t('doctor.cacheManager.confirmScoopCacheRm'),
                   onClick: handleClearWithScoop,
                   disabled: () => !hasSelectedFiles() || isLoading(),
                   class: 'btn-warning',
@@ -453,7 +451,7 @@ function CacheManager() {
                 class="btn btn-warning btn-square btn-sm"
                 onClick={handleClearWithScoop}
                 disabled={!hasSelectedFiles() || isLoading()}
-                title={t('doctor.cacheManager.scoopCacheRmButton')}
+                title={t('doctor.cacheManager.confirmScoopCacheRm')}
               >
                 <SquareTerminal class="h-4 w-4" />
               </button>
@@ -575,7 +573,7 @@ function CacheManager() {
                   {t('doctor.cacheManager.settings.preserveVersioned')}
                 </label>
                 <div
-                  class="tooltip"
+                  class="tooltip tooltip-right"
                   data-tip={t('doctor.cacheManager.settings.preserveVersionedDescription')}
                 >
                   <Info class="text-base-content/50 h-4 w-4 cursor-help" />

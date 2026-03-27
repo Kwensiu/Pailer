@@ -361,13 +361,13 @@ function createSettingsStore() {
   // Compute effective theme (resolve 'system' to actual dark/light)
   const getSystemTheme = () => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia?.('prefers-color-scheme: dark')?.matches ?? false;
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
   };
 
   const [systemPrefersDark, setSystemPrefersDark] = createSignal(getSystemTheme());
 
   if (typeof window !== 'undefined') {
-    const mediaQuery = window.matchMedia?.('prefers-color-scheme: dark');
+    const mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (mediaQuery) {
       const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
       mediaQuery.addEventListener('change', handler);

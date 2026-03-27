@@ -182,7 +182,6 @@
       "title": "Add a new Shim"
     },
     "cacheManager": {
-      "actionCannotBeUndone": "This action cannot be undone.",
       "cacheIsEmpty": "Cache is Empty",
       "confirmDeletion": "Confirm Deletion",
       "confirmScoopCacheRm": "Confirm using Scoop cache rm",
@@ -192,7 +191,6 @@
       "name": "Name",
       "noCachedFiles": "There are no cached package files to manage.",
       "openCacheDirectory": "Open Cache Directory",
-      "scoopCacheRmButton": "Run Scoop cache rm to cleanup",
       "scoopCacheRmDescription": "Run Scoop cache rm for {{packageCount}} packages.",
       "scoopCacheRmWarning": "This deletes all cache for those packages.",
       "selectedPackages": "{{count}} packages selected",
@@ -248,6 +246,9 @@
       "switchInputMode": "　　↓　Click here to switch input mode.",
       "title": "Scoop Commands",
       "waitingForCommands": "Waiting for Commands input..."
+    },
+    "common": {
+      "actionCannotBeUndone": "This action cannot be undone."
     },
     "proxySettings": {
       "clearSuccess": "Scoop proxy cleared successfully!",
