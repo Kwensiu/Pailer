@@ -486,9 +486,15 @@ pub fn get_scoop_app_shortcuts_with_path(
         if path.extension().and_then(|s| s.to_str()) == Some("lnk") {
             if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
                 if let Ok(shortcut_info) = parse_shortcut(&path, scoop_path) {
+                    let display_name = if file_stem.contains('_') {
+                        file_stem.replace('_', " ")
+                    } else {
+                        file_stem.to_owned()
+                    };
+
                     shortcuts.push(ScoopAppShortcut {
                         name: file_stem.to_string(),
-                        display_name: file_stem.replace("_", " ").to_string(),
+                        display_name,
                         target_path: shortcut_info.target_path,
                         working_directory: shortcut_info.working_directory,
                         icon_path: shortcut_info.icon_path,
