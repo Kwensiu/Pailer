@@ -38,15 +38,15 @@ export default function HeldPackagesManagement(props: HeldPackagesManagementProp
             <ul class="space-y-2">
               <For each={heldPackagesStore.packages}>
                 {(pkgName) => (
-                  <li class="bg-base-100 hover:bg-base-300 flex items-center justify-between rounded-lg p-2 transition-colors">
+                  <li class="bg-base-200 hover:bg-base-300/80 flex items-center justify-between rounded-lg p-2 transition-colors">
                     <span class="font-mono text-sm">{pkgName}</span>
                     <button
-                      class="btn btn-xs btn-ghost text-info"
+                      class="btn btn-xs btn-soft"
                       onClick={() => props.onUnhold(pkgName)}
                       aria-label={`Remove hold from ${pkgName} `}
                       disabled={props.operationInProgress}
                     >
-                      <LockOpen class="mr-1 h-4 w-4" />
+                      <LockOpen class="h-3 w-3" />
                       {t('settings.heldPackages.unhold')}
                     </button>
                   </li>

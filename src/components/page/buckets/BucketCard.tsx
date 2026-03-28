@@ -108,6 +108,7 @@ function BucketCard(props: BucketCardProps) {
             </Show>
           </div>
         }
+        contentContainer={false}
         class={`card-bucket ${effectiveTheme()}`}
       >
         {props.bucket.git_url ? (

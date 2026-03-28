@@ -190,6 +190,7 @@ function CommandInputField() {
     <Card
       title={t('doctor.commandInput.title')}
       icon={Terminal}
+      contentContainer={false}
       additionalContent={t('doctor.commandInput.switchInputMode')}
     >
       <div class="join w-full">
@@ -241,7 +242,7 @@ function CommandInputField() {
       <div class="mt-4">
         <div
           ref={(el) => (scrollRef = el)}
-          class="max-h-60 overflow-y-auto rounded-lg bg-black p-3 text-sm"
+          class="max-h-60 overflow-y-auto rounded-lg bg-black/80 p-3 text-sm"
           style="white-space: pre; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
         >
           <For each={exec.output}>

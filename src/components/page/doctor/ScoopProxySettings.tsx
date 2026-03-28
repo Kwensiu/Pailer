@@ -55,7 +55,7 @@ function ScoopProxySettings() {
       icon={Globe}
       description={t('doctor.proxySettings.description')}
     >
-      <div class="form-control w-full max-w-lg">
+      <div class="form-control w-full">
         <label class="label">
           <span class="label-text font-semibold">{t('doctor.proxySettings.proxyAddress')}</span>
         </label>

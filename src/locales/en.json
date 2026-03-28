@@ -687,8 +687,7 @@
       "windows": "Windows PowerShell"
     },
     "scoopConfiguration": {
-      "autoDetectDescription": "Automatically detects Scoop installation using multiple methods: environment variables, scoop config command, and common installation paths.",
-      "description": "Set the installation path for your Scoop directory. Changes will take effect immediately.",
+      "description": "Set the installation path for your Scoop directory. Changes will take effect immediately.\nAutomatically detects Scoop installation using multiple methods: environment variables, scoop config command, and common installation paths.",
       "detectError": "Failed to detect Scoop path. Please make sure the SCOOP environment variable is set correctly.",
       "detectSuccess": "Scoop path detected successfully!",
       "pathLabel": "Scoop Installation Path",
@@ -735,6 +734,10 @@
       "noSelectedApps": "No applications selected yet",
       "selectedApps": "Selected Applications",
       "title": "Tray Applications"
+    },
+    "scoopUpdate": {
+      "title": "Bypass Scoop Self-Update (Beta)",
+      "description": "When enabled, package updates will skip Scoop's self-update and bucket sync checks.\nThis allows the app to use local manifests instead of the latest remote version, but may cause update issues."
     },
     "virustotal": {
       "apiKey": "VirusTotal API Key",

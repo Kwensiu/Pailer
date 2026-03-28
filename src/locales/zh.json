@@ -687,8 +687,7 @@
       "windows": "Windows PowerShell"
     },
     "scoopConfiguration": {
-      "autoDetectDescription": "自动检测会通过环境变量、scoop config 命令和常见安装路径识别。",
-      "description": "设置您的 Scoop 目录安装路径，更改后建议重启以避免潜在问题。",
+      "description": "设置您的 Scoop 目录安装路径，更改后建议重启以避免潜在问题。\n自动检测会通过环境变量、scoop config 命令和常见安装路径识别。",
       "detectError": "无法检测 Scoop 路径。请确保正确设置了 SCOOP 环境变量。",
       "detectSuccess": "Scoop 路径检测成功！",
       "pathLabel": "Scoop 安装路径",
@@ -735,6 +734,10 @@
       "noSelectedApps": "尚未选择任何应用程序",
       "selectedApps": "已选择的应用程序",
       "title": "托盘应用程序"
+    },
+    "scoopUpdate": {
+      "title": "绕过 Scoop 自更新（实验）",
+      "description": "启用后，软件包更新将跳过 Scoop 的自更新和 Bucket 同步检查\n这会允许软件使用本地 Manifest 而非远程最新版本，但可能导致更新异常"
     },
     "virustotal": {
       "apiKey": "VirusTotal API 密钥",

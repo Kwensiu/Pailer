@@ -687,7 +687,6 @@ export interface Dict {
       windows: string;
     };
     scoopConfiguration: {
-      autoDetectDescription: string;
       description: string;
       detectError: string;
       detectSuccess: string;
@@ -735,6 +734,10 @@ export interface Dict {
       noSelectedApps: string;
       selectedApps: string;
       title: string;
+    };
+    scoopUpdate: {
+      title: string;
+      description: string;
     };
     virustotal: {
       apiKey: string;

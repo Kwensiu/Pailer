@@ -160,55 +160,55 @@ export default function BucketAutoUpdateSettings() {
             />
           </label>
         ))}
-      </div>
 
-      {/* Custom interval */}
-      <div class="bg-base-200 border-base-300 hover:border-base-content/60 focus-within:border-info focus-within:ring-info/25 rounded-md border p-3 transition-colors focus-within:ring-2">
-        <label class="mb-3 flex cursor-pointer items-center justify-between">
-          <div>
-            <span class="text-xs font-semibold tracking-wide uppercase opacity-90">
-              {t('settings.bucketAutoUpdate.customInterval')}
-            </span>
-            <p class="mt-1 text-[11px] opacity-70">
-              {t('settings.bucketAutoUpdate.customIntervalDescription')}
-            </p>
-          </div>
-          <input
-            type="radio"
-            name="bucketIntervalPreset"
-            value="custom"
-            checked={settings.buckets.autoUpdateInterval.startsWith('custom:')}
+        {/* Custom interval */}
+        <div class="bg-base-200 border-base-300 hover:border-base-content/60 focus-within:border-info focus-within:ring-info/25 rounded-md border p-3 transition-colors focus-within:ring-2">
+          <label class="mb-3 flex cursor-pointer items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold tracking-wide uppercase opacity-90">
+                {t('settings.bucketAutoUpdate.customInterval')}
+              </span>
+              <p class="mt-1 text-[11px] opacity-70">
+                {t('settings.bucketAutoUpdate.customIntervalDescription')}
+              </p>
+            </div>
+            <input
+              type="radio"
+              name="bucketIntervalPreset"
+              value="custom"
+              checked={settings.buckets.autoUpdateInterval.startsWith('custom:')}
+              disabled={loading() || saving()}
+              onChange={() => {
+                // If the current value is not a custom value, set to a default custom value
+                if (!settings.buckets.autoUpdateInterval.startsWith('custom:')) {
+                  persistInterval('custom:3600'); // Default to 1 hour
+                }
+              }}
+              class="radio radio-primary"
+            />
+          </label>
+          <CustomIntervalEditor
+            currentValue={settings.buckets.autoUpdateInterval}
+            onPersist={persistInterval}
             disabled={loading() || saving()}
-            onChange={() => {
-              // If the current value is not a custom value, set to a default custom value
-              if (!settings.buckets.autoUpdateInterval.startsWith('custom:')) {
-                persistInterval('custom:3600'); // Default to 1 hour
-              }
-            }}
-            class="radio radio-primary"
+            debug={settings.debug.enabled}
           />
-        </label>
-        <CustomIntervalEditor
-          currentValue={settings.buckets.autoUpdateInterval}
-          onPersist={persistInterval}
-          disabled={loading() || saving()}
-          debug={settings.debug.enabled}
-        />
-        <Show when={settings.debug.enabled}>
-          <div class="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              class="btn btn-xs btn-warning"
-              disabled={saving() || loading()}
-              onClick={() => persistInterval('custom:10')}
-            >
-              {t('settings.bucketAutoUpdate.debug')}
-            </button>
-            <span class="text-[10px] opacity-60">
-              {t('settings.bucketAutoUpdate.debugDescription')}
-            </span>
-          </div>
-        </Show>
+          <Show when={settings.debug.enabled}>
+            <div class="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                class="btn btn-xs btn-warning"
+                disabled={saving() || loading()}
+                onClick={() => persistInterval('custom:10')}
+              >
+                {t('settings.bucketAutoUpdate.debug')}
+              </button>
+              <span class="text-[10px] opacity-60">
+                {t('settings.bucketAutoUpdate.debugDescription')}
+              </span>
+            </div>
+          </Show>
+        </div>
       </div>
 
       {error() && <div class="alert alert-error mt-4 text-xs">{error()}</div>}

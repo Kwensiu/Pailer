@@ -1,6 +1,6 @@
 import { createSignal, Show, createEffect, onMount } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { FolderCog, Save, Folder } from 'lucide-solid';
+import { FolderCog, Save, Folder, Link2 } from 'lucide-solid';
 import Card from '../../common/Card';
 import { t } from '../../../i18n';
 import settingsStore from '../../../stores/settings';
@@ -112,11 +112,12 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
     >
       <label class="label">
         <span class="label-text flex items-center font-semibold">
+          <Link2 class="mr-2 h-4 w-4" />
           {t('settings.scoopConfiguration.pathLabel')}
         </span>
       </label>
 
-      <div class="form-control w-full max-w-lg">
+      <div class="form-control w-full">
         <div class="join w-full">
           <input
             type="text"
@@ -142,10 +143,6 @@ export default function ScoopConfiguration(props: ScoopConfigurationProps) {
           >
             {t('buttons.auto')}
           </button>
-        </div>
-
-        <div class="text-base-content/70 mt-2 text-sm">
-          {t('settings.scoopConfiguration.autoDetectDescription')}
         </div>
       </div>
     </Card>

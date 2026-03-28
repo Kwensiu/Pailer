@@ -9,6 +9,7 @@ interface CardProps {
   icon?: Component<{ class?: string }>;
   description?: string | JSX.Element;
   additionalContent?: JSX.Element;
+  contentContainer?: boolean;
   headerAction?: JSX.Element;
   headerSelect?: {
     value: string;
@@ -26,6 +27,7 @@ interface CardProps {
 
 export default function Card(props: CardProps) {
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
+  const contentContainer = () => props.contentContainer ?? true;
 
   const headerSelectSelectedLabel = () => {
     const headerSelect = props.headerSelect;
@@ -72,7 +74,7 @@ export default function Card(props: CardProps) {
 
   return (
     <section
-      class={`card bg-base-100 shadow-sm ${props.class ?? ''}`}
+      class={`card bg-base-100 shadow-md ${props.class ?? ''}`}
       aria-describedby={descriptionId}
     >
       <div class="card-body p-4">
@@ -81,7 +83,6 @@ export default function Card(props: CardProps) {
           {/* Card Title */}
           <h2 class="card-title flex items-center text-xl">
             {props.icon && <Dynamic component={props.icon} class="icon mr-2 h-6 w-6" />}
-
             {props.title}
           </h2>
           {/* Header Actions */}
@@ -125,18 +126,42 @@ export default function Card(props: CardProps) {
 
         {/* Card Description */}
         <Show when={props.description}>
-          <div id={descriptionId}>{props.description}</div>
-        </Show>
-
-        {/* Additional Content */}
-        <Show when={props.additionalContent}>
-          <div id={additionalContentId} class="text text-base-content/50">
-            {props.additionalContent}
+          <div class={'text-base-content/60 whitespace-pre-line'} id={descriptionId}>
+            {props.description}
           </div>
         </Show>
+        <Show
+          when={
+            props.additionalContent ||
+            (props.children && (!Array.isArray(props.children) || props.children.length > 0))
+          }
+        >
+          <Show
+            when={contentContainer()}
+            fallback={
+              <>
+                <Show when={props.additionalContent}>
+                  <div id={additionalContentId} class="text text-base-content/50">
+                    {props.additionalContent}
+                  </div>
+                </Show>
+                <Show when={props.children}>{props.children}</Show>
+              </>
+            }
+          >
+            <div class="border-base-200 bg-base-200/30 mt-1 rounded-xl border p-3">
+              {/* Additional Content */}
+              <Show when={props.additionalContent}>
+                <div id={additionalContentId} class="text text-base-content/50">
+                  {props.additionalContent}
+                </div>
+              </Show>
 
-        {/* Main Content */}
-        {props.children}
+              {/* Main Content */}
+              <Show when={props.children}>{props.children}</Show>
+            </div>
+          </Show>
+        </Show>
 
         <Show when={props.conditionalContent}>
           {/* Conditional Content Container */}
@@ -145,7 +170,7 @@ export default function Card(props: CardProps) {
             aria-expanded={props.conditionalContent!.condition}
             aria-hidden={!props.conditionalContent!.condition}
             inert={!props.conditionalContent!.condition}
-            class="grid overflow-hidden"
+            class="-mt-2 grid overflow-hidden"
             style={{
               'grid-template-rows': props.conditionalContent!.condition ? '1fr' : '0fr',
               opacity: props.conditionalContent!.condition ? '1' : '0',
@@ -156,9 +181,8 @@ export default function Card(props: CardProps) {
             }}
           >
             <div class="min-h-0 overflow-hidden">
-              <div class="my-2"></div>
               {/* Conditional Content Inner */}
-              <div class="bg-base-200 border-base-300 rounded-lg border p-4 shadow-sm">
+              <div class="bg-base-200 border-base-300 mt-2 rounded-lg border p-4 shadow-sm">
                 {props.conditionalContent!.children}
               </div>
             </div>

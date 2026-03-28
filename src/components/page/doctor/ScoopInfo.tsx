@@ -118,6 +118,7 @@ function ScoopInfo() {
     <>
       <Card
         title={t('doctor.scoopInfo.title')}
+        contentContainer={false}
         icon={Settings}
         onRefresh={forceRefresh}
         headerAction={

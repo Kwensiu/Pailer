@@ -309,10 +309,6 @@ body.context-menu-open [data-context-menu-allow='true'] * {
   isolation: isolate;
 }
 
-.card:hover {
-  z-index: 10;
-}
-
 .card:hover .badge {
   z-index: 20;
 }

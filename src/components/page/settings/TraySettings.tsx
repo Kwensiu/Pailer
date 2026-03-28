@@ -195,38 +195,39 @@ function TraySettings() {
   };
 
   return (
-    <Card
-      title={t('settings.windowBehavior.title')}
-      icon={Monitor}
-      description={t('settings.windowBehavior.description')}
-      headerAction={
-        <SettingsToggle
-          checked={settings.window.closeToTray}
-          onChange={(checked) => handleCloseToTrayChange(checked)}
-          disabled={isSaving()}
-          showStatusLabel={true}
-        />
-      }
-      conditionalContent={{
-        condition: settings.window.closeToTray,
-        children: (
-          <div class="flex items-center justify-between">
-            <div class="flex-1">
-              <h4 class="text-base-content font-medium">
-                {t('settings.trayApps.manageContextMenu')}
-              </h4>
-              <p class="text-base-content/70 text-sm">
-                {t('settings.trayApps.manageTrayAppsDescription')}
-              </p>
+    <>
+      <Card
+        title={t('settings.windowBehavior.title')}
+        icon={Monitor}
+        description={t('settings.windowBehavior.description')}
+        headerAction={
+          <SettingsToggle
+            checked={settings.window.closeToTray}
+            onChange={(checked) => handleCloseToTrayChange(checked)}
+            disabled={isSaving()}
+            showStatusLabel={true}
+          />
+        }
+        conditionalContent={{
+          condition: settings.window.closeToTray,
+          children: (
+            <div class="flex items-center justify-between">
+              <div class="flex-1">
+                <h4 class="text-base-content font-medium">
+                  {t('settings.trayApps.manageContextMenu')}
+                </h4>
+                <p class="text-base-content/70 text-sm">
+                  {t('settings.trayApps.manageTrayAppsDescription')}
+                </p>
+              </div>
+              <button class="btn btn-outline btn-sm" onClick={() => setIsTrayAppsModalOpen(true)}>
+                <Settings size={16} />
+                {t('settings.trayApps.configure')}
+              </button>
             </div>
-            <button class="btn btn-outline btn-sm" onClick={() => setIsTrayAppsModalOpen(true)}>
-              <Settings size={16} />
-              {t('settings.trayApps.configure')}
-            </button>
-          </div>
-        ),
-      }}
-    >
+          ),
+        }}
+      />
       <Modal
         isOpen={isTrayAppsModalOpen()}
         onClose={() => setIsTrayAppsModalOpen(false)}
@@ -331,7 +332,7 @@ function TraySettings() {
           </div>
         </div>
       </Modal>
-    </Card>
+    </>
   );
 }
 

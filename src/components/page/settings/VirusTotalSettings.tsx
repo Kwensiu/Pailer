@@ -96,7 +96,7 @@ export default function VirusTotalSettings() {
           {t('settings.virustotal.apiKey')}
         </span>
       </label>
-      <div class="form-control w-full max-w-lg">
+      <div class="form-control w-full">
         <div class="join w-full">
           <input
             type="password"
