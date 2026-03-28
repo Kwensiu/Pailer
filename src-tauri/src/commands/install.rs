@@ -37,7 +37,7 @@ pub async fn install_package(
         generate_operation_id(ScoopOp::Install, Some(&package_name))
     });
 
-    let install_result = scoop::execute_scoop(window, ScoopOp::Install, Some(&package_name), bucket_opt, operation_id.clone()).await;
+    let install_result = scoop::execute_scoop(window, ScoopOp::Install, Some(&package_name), bucket_opt, operation_id.clone(), false).await;
     
     match &install_result {
         Ok(_) => {

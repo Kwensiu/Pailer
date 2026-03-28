@@ -111,5 +111,5 @@ async fn execute_package_operation(
     });
 
     // Pass the bucket option along; `execute_scoop` will handle whether it's used.
-    scoop::execute_scoop(window, op, Some(package), bucket, operation_id).await
+    scoop::execute_scoop(window, op, Some(package), bucket, operation_id, false).await
 }

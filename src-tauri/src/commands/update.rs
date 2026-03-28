@@ -12,6 +12,7 @@ pub async fn update_package(
     package_name: String,
     force: Option<bool>,
     operation_id: Option<String>,
+    bypass_self_update: Option<bool>,
 ) -> Result<(), String> {
     log::info!("Updating package '{}'", package_name);
     
@@ -25,7 +26,7 @@ pub async fn update_package(
         generate_operation_id(ScoopOp::Update, Some(&package_name))
     });
     
-    let update_result = scoop::execute_scoop(window, op, Some(&package_name), None, operation_id.clone()).await;
+    let update_result = scoop::execute_scoop(window, op, Some(&package_name), None, operation_id.clone(), bypass_self_update.unwrap_or(false)).await;
     
     match &update_result {
         Ok(_) => {
@@ -57,7 +58,7 @@ pub async fn update_all_packages(
     });
     
     // Execute the update through window streaming
-    let result = scoop::execute_scoop(window.clone(), ScoopOp::UpdateAll, None, None, operation_id).await;
+    let result = scoop::execute_scoop(window.clone(), ScoopOp::UpdateAll, None, None, operation_id, false).await;
 
     // Return the original result (success or error)
     result?;

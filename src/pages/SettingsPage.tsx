@@ -87,7 +87,7 @@ function SettingsPage(props: SettingsPageProps) {
                   onUnhold={handleUnhold}
                   operationInProgress={!!operationTitle() || isUnholding()}
                 />
-
+                <SC.ScoopUpdateSettings />
                 <SC.PowerShellSettings />
               </div>
             </Show>

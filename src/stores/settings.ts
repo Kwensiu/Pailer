@@ -61,6 +61,9 @@ interface Settings {
   powershell: {
     executable: 'auto' | 'pwsh' | 'powershell';
   };
+  scoop: {
+    bypassSelfUpdate: boolean;
+  };
 }
 
 const defaultSettings: Settings = {
@@ -99,6 +102,9 @@ const defaultSettings: Settings = {
   trayAppsList: [],
   powershell: {
     executable: 'auto',
+  },
+  scoop: {
+    bypassSelfUpdate: false,
   },
 };
 
@@ -213,6 +219,10 @@ function createSettingsStore() {
             trayAppsList: stored.trayAppsList || defaultSettings.trayAppsList,
             powershell: {
               executable: stored.powershell?.executable || defaultSettings.powershell.executable,
+            },
+            scoop: {
+              bypassSelfUpdate:
+                stored.scoop?.bypassSelfUpdate ?? defaultSettings.scoop.bypassSelfUpdate,
             },
           };
         }
@@ -354,6 +364,15 @@ function createSettingsStore() {
     }
   };
 
+  const setScoopSettings = async (newScoopSettings: Partial<Settings['scoop']>) => {
+    await saveSettings({
+      scoop: {
+        ...settings.scoop,
+        ...newScoopSettings,
+      },
+    });
+  };
+
   const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
     await saveSettings(newCoreSettings);
   };
@@ -392,6 +411,7 @@ function createSettingsStore() {
     setDefaultLaunchPage,
     setPowershellSettings,
     setScoopPath,
+    setScoopSettings,
     setCoreSettings,
   };
 }

@@ -19,6 +19,25 @@ pub const EVENT_OUTPUT: &str = "operation-output";
 pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
 
+/// Executes a simple PowerShell command and returns its stdout output.
+/// Used for non-streaming operations like reading/writing Scoop config.
+pub async fn run_simple_command(command_str: &str) -> Result<String, String> {
+    let mut cmd = create_powershell_command(command_str);
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let err_msg = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if err_msg.is_empty() {
+            Err(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(err_msg)
+        }
+    }
+}
 
 fn contains_warning_keywords(line: &str) -> bool {
     let trimmed = line.trim_start();

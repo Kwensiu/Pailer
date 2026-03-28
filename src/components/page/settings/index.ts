@@ -13,3 +13,4 @@ export { default as DefaultLaunchPageSettings } from './DefaultLaunchPageSetting
 export { default as AppDataManagement } from './AppDataManagement';
 export { default as LanguageSettings } from './LanguageSettings';
 export { default as PowerShellSettings } from './PowerShellSettings';
+export { default as ScoopUpdateSettings } from './ScoopUpdateSettings';

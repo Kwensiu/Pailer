@@ -7,6 +7,7 @@ import { useOperations } from '../../stores/operations';
 import { searchCacheManager } from '../search/useSearchCache';
 import { t } from '../../i18n';
 import { toast } from '../../components/common/ToastAlert';
+import settingsStore from '../../stores/settings';
 
 interface UsePackageOperationsReturn {
   operationTitle: () => string | null;
@@ -274,10 +275,13 @@ const handleUpdate = async (pkg: ScoopPackage) => {
   } as Parameters<typeof addOperation>[0]);
 
   // Call backend command with operationId
-  invoke('update_package', { packageName: pkg.name, operationId }).catch((err) => {
-    console.error('Update invocation failed:', err);
-    setCurrentOperation(null);
-  });
+  const bypassSelfUpdate = settingsStore.settings.scoop.bypassSelfUpdate;
+  invoke('update_package', { packageName: pkg.name, operationId, bypassSelfUpdate }).catch(
+    (err) => {
+      console.error('Update invocation failed:', err);
+      setCurrentOperation(null);
+    }
+  );
 };
 
 const handleForceUpdate = async (pkg: ScoopPackage) => {
@@ -311,7 +315,13 @@ const handleForceUpdate = async (pkg: ScoopPackage) => {
     packageName: pkg.name,
   } as Parameters<typeof addOperation>[0]);
 
-  invoke('update_package', { packageName: pkg.name, force: true, operationId }).catch((err) => {
+  const bypassSelfUpdate = settingsStore.settings.scoop.bypassSelfUpdate;
+  invoke('update_package', {
+    packageName: pkg.name,
+    force: true,
+    operationId,
+    bypassSelfUpdate,
+  }).catch((err) => {
     console.error('Force update invocation failed:', err);
     setCurrentOperation(null);
   });
