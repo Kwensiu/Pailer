@@ -169,6 +169,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::search::search_scoop,
+            commands::search::get_package_buckets,
             commands::self_update::update_pailer_self,
             commands::self_update::can_self_update,
             commands::installed::get_installed_packages_full,
@@ -443,4 +444,3 @@ fn handle_window_event(window: &tauri::Window, event: &WindowEvent) {
         }
     }
 }
-

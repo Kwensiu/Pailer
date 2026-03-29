@@ -4,6 +4,7 @@ export interface ScoopPackage {
   source: string;
   updated: string;
   is_installed: boolean;
+  is_installed_from_current_bucket?: boolean;
   info: string;
   match_source: 'name' | 'binary' | 'none' | 'path';
   available_version?: string;

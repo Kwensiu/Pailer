@@ -61,6 +61,7 @@ interface UseSearchReturn {
 
   // Manual cache invalidation
   invalidateSearchCache: () => void;
+  updatePackageInstalledBucketInResults: (packageName: string, installedBucket: string) => void;
 }
 
 let searchResultsCache: ScoopPackage[] | null = null;
@@ -414,6 +415,26 @@ export function useSearch(): UseSearchReturn {
     searchCacheManager.invalidateCache();
   };
 
+  const updatePackageInstalledBucketInResults = (packageName: string, installedBucket: string) => {
+    const nextResults = results().map((pkg) => {
+      if (pkg.name !== packageName) {
+        return pkg;
+      }
+
+      return {
+        ...pkg,
+        is_installed: true,
+        is_installed_from_current_bucket:
+          pkg.source.toLowerCase() === installedBucket.toLowerCase(),
+      };
+    });
+
+    setResults(nextResults);
+    searchResultsCache = nextResults;
+    currentSearchTermCache = searchTerm();
+    currentCacheVersion = cacheVersion();
+  };
+
   return {
     searchTerm,
     setSearchTerm,
@@ -458,5 +479,6 @@ export function useSearch(): UseSearchReturn {
     setBucketFilter,
     // Manual cache invalidation
     invalidateSearchCache,
+    updatePackageInstalledBucketInResults,
   };
 }

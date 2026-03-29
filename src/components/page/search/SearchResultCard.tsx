@@ -10,6 +10,7 @@ import {
   buildManifestCommitUrl,
   detectDefaultBranch,
 } from '../../../utils/manifestUrl';
+import { normalizeExternalUrl } from '../../../utils/format';
 
 interface SearchResultCardProps {
   pkg: ScoopPackage;
@@ -17,6 +18,7 @@ interface SearchResultCardProps {
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewManifest?: (pkg: ScoopPackage) => void;
   onInstall: (pkg: ScoopPackage) => void;
+  onContextMenuOpen?: (pkg: ScoopPackage, x: number, y: number) => void;
   onViewBucket?: (bucketName: string) => void;
   bucketGitUrl?: string;
   bucketGitBranch?: string | null;
@@ -24,6 +26,7 @@ interface SearchResultCardProps {
 
 function SearchResultCard(props: SearchResultCardProps) {
   const isInstalled = () => props.pkg.is_installed;
+  const isInstalledFromCurrentBucket = () => props.pkg.is_installed_from_current_bucket !== false;
 
   const [copiedCommand, setCopiedCommand] = createSignal<string | null>(null);
   const [isExpanded, setIsExpanded] = createSignal(false);
@@ -43,6 +46,7 @@ function SearchResultCard(props: SearchResultCardProps) {
 
   const manifestCommitUrl = () =>
     buildManifestCommitUrl(props.bucketGitUrl, props.pkg.name, manifestBranch());
+  const homepageUrl = () => normalizeExternalUrl(props.pkg.homepage);
 
   const openCommitUrl = async () => {
     const url = manifestCommitUrl();
@@ -52,6 +56,17 @@ function SearchResultCard(props: SearchResultCardProps) {
       await openUrl(url);
     } catch (error) {
       console.error('Failed to open commit URL:', error);
+    }
+  };
+
+  const openHomepageUrl = async () => {
+    const url = homepageUrl();
+    if (!url) return;
+
+    try {
+      await openUrl(url);
+    } catch (error) {
+      console.error('Failed to open homepage URL:', error);
     }
   };
 
@@ -113,7 +128,28 @@ function SearchResultCard(props: SearchResultCardProps) {
   };
 
   return (
-    <div class="group bg-base-card hover:border-base-300 mb-4 overflow-hidden rounded-2xl shadow-sm transition-all duration-200 hover:shadow-lg">
+    <div
+      class="group bg-base-card hover:border-base-300 mb-4 overflow-hidden rounded-2xl shadow-sm transition-all duration-200 hover:shadow-lg"
+      data-context-menu-allow="true"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onContextMenuOpen?.(props.pkg, e.clientX, e.clientY);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey)) {
+          e.preventDefault();
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          props.onContextMenuOpen?.(
+            props.pkg,
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2
+          );
+        }
+      }}
+      tabIndex={0}
+      aria-label={`${props.pkg.name} package actions`}
+    >
       <div
         class="border-base-200/80 bg-base-100/30 hover:bg-base-100/50 focus-visible:ring-primary/40 cursor-pointer rounded-2xl border px-5 py-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         tabIndex={0}
@@ -170,8 +206,23 @@ function SearchResultCard(props: SearchResultCardProps) {
 
           <div class="flex shrink-0 items-center gap-2">
             <Show when={isInstalled()}>
-              <span class="bg-success/10 text-success ring-success/10 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset">
-                {t('search.results.installed')}
+              <span
+                class={`${isInstalledFromCurrentBucket() ? '' : 'tooltip tooltip-bottom'} inline-flex`}
+                data-tip={
+                  isInstalledFromCurrentBucket()
+                    ? undefined
+                    : t('search.results.installedDifferentBucketTooltip')
+                }
+              >
+                <span
+                  class={
+                    isInstalledFromCurrentBucket()
+                      ? 'bg-success/10 text-success ring-success/10 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
+                      : 'bg-base-200/80 text-base-content/80 ring-base-300 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset'
+                  }
+                >
+                  {t('search.results.installed')}
+                </span>
               </span>
             </Show>
             <div class="bg-base-200/60 text-base-content/60 flex items-center gap-2 rounded-full px-2 py-1 text-xs">
@@ -234,18 +285,19 @@ function SearchResultCard(props: SearchResultCardProps) {
               </Show>
 
               <div class="text-base-content/70 space-y-2 text-sm">
-                <Show when={props.pkg.homepage}>
+                <Show when={homepageUrl()}>
                   <div class="flex items-start gap-2 break-all">
                     <Home class="text-primary/70 mt-0.5 h-4 w-4 shrink-0" />
-                    <a
-                      href={props.pkg.homepage}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
                       class="text-primary hover:text-primary/80 cursor-pointer transition-colors hover:underline"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void openHomepageUrl();
+                      }}
                     >
-                      {props.pkg.homepage}
-                    </a>
+                      {homepageUrl()}
+                    </button>
                   </div>
                 </Show>
 

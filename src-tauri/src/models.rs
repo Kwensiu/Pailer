@@ -52,6 +52,8 @@ pub struct ScoopPackage {
     pub source: String,
     pub updated: String,
     pub is_installed: bool,
+    #[serde(default = "default_true")]
+    pub is_installed_from_current_bucket: bool,
     pub info: String,
     #[serde(default)]
     pub homepage: Option<String>,
@@ -67,6 +69,10 @@ pub struct ScoopPackage {
     /// Whether the app has multiple version directories (technical state)
     #[serde(default)]
     pub has_multiple_versions: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 // -----------------------------------------------------------------------------

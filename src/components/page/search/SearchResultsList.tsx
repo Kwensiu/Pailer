@@ -1,7 +1,12 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
+import { Download, ArrowLeftRight, Info, FileText, Trash2 } from 'lucide-solid';
 import { ScoopPackage } from '../../../types/scoop';
 import { t } from '../../../i18n';
 import SearchResultCard from './SearchResultCard';
+import ContextMenu from '../../common/ContextMenu';
+import type { ContextMenuItem } from '../../common/context-menu';
+import { ContextMenuRenderer } from '../../common/context-menu';
+import installedPackagesStore from '../../../stores/installedPackagesStore';
 
 interface SearchResultsListProps {
   loading: boolean;
@@ -11,6 +16,8 @@ interface SearchResultsListProps {
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewManifest?: (pkg: ScoopPackage) => void;
   onInstall: (pkg: ScoopPackage) => void;
+  onUninstall: (pkg: ScoopPackage) => void;
+  onSwitchBucket: (pkg: ScoopPackage) => void;
   onViewBucket?: (bucketName: string) => void;
   onPackageStateChanged?: () => void;
   currentPage: number;
@@ -23,6 +30,11 @@ function SearchResultsList(props: SearchResultsListProps) {
   const ITEMS_PER_PAGE = 8;
   const [pageInput, setPageInput] = createSignal('');
   const [editingPage, setEditingPage] = createSignal<number | null>(null);
+  const [contextMenuPackage, setContextMenuPackage] = createSignal<ScoopPackage | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = createSignal<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
   let editInputRef: HTMLInputElement | undefined;
 
   const totalPages = () => Math.ceil(props.results.length / ITEMS_PER_PAGE);
@@ -73,6 +85,64 @@ function SearchResultsList(props: SearchResultsListProps) {
     setEditingPage(null);
   };
 
+  const closeContextMenu = () => {
+    setContextMenuPackage(null);
+  };
+
+  const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
+    setContextMenuPackage(pkg);
+    setContextMenuPosition({ x, y });
+  };
+
+  const getInstalledBucket = (pkg: ScoopPackage) => {
+    const normalizedName = pkg.name.toLowerCase();
+    const installed = installedPackagesStore
+      .packages()
+      .find((item) => item.name.toLowerCase() === normalizedName);
+    return installed?.source ?? null;
+  };
+
+  const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
+    const installedBucket = getInstalledBucket(pkg);
+    const canSwitchBucket =
+      pkg.is_installed &&
+      !!installedBucket &&
+      installedBucket.toLowerCase() !== pkg.source.toLowerCase();
+
+    return [
+      {
+        label: t('buttons.install'),
+        icon: Download,
+        class: 'text-info',
+        showWhen: () => !pkg.is_installed,
+        onClick: () => props.onInstall(pkg),
+      },
+      {
+        label: `${t('buttons.switchBucket')}`,
+        icon: ArrowLeftRight,
+        showWhen: () => canSwitchBucket,
+        onClick: () => props.onSwitchBucket(pkg),
+      },
+      {
+        label: t('packageInfo.details'),
+        icon: Info,
+        onClick: () => props.onViewInfo(pkg),
+      },
+      {
+        label: t('packageInfo.viewManifest'),
+        icon: FileText,
+        onClick: () => props.onViewManifest?.(pkg),
+      },
+      {
+        label: t('buttons.uninstall'),
+        icon: Trash2,
+        class: 'text-error',
+        showWhen: () => pkg.is_installed,
+        onClick: () => props.onUninstall(pkg),
+      },
+    ];
+  };
+
   createEffect(() => {
     const page = editingPage();
     if (page === null) return;
@@ -114,6 +184,7 @@ function SearchResultsList(props: SearchResultsListProps) {
               onViewInfo={props.onViewInfo}
               onViewManifest={props.onViewManifest}
               onInstall={props.onInstall}
+              onContextMenuOpen={openContextMenu}
               onViewBucket={props.onViewBucket}
               bucketGitUrl={props.bucketGitUrlMap?.get(pkg.source)}
               bucketGitBranch={props.bucketGitBranchMap?.get(pkg.source)}
@@ -202,6 +273,20 @@ function SearchResultsList(props: SearchResultsListProps) {
           </div>
         </div>
       </Show>
+
+      <ContextMenu
+        isOpen={() => !!contextMenuPackage()}
+        position={contextMenuPosition}
+        onClose={closeContextMenu}
+        ariaLabel="Search package actions menu"
+      >
+        <Show when={contextMenuPackage()}>
+          <ContextMenuRenderer
+            items={getContextMenuItems(contextMenuPackage()!)}
+            onClose={closeContextMenu}
+          />
+        </Show>
+      </ContextMenu>
     </div>
   );
 }

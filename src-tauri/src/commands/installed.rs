@@ -459,6 +459,7 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         source: bucket,
         updated: updated_time,
         is_installed: true,
+        is_installed_from_current_bucket: true,
         info: manifest.description.unwrap_or_default(),
         homepage: manifest.homepage,
         license: manifest.license,

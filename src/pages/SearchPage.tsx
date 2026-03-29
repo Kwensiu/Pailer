@@ -2,6 +2,7 @@ import PackageInfoModal from '../components/modals/PackageInfoModal';
 import ManifestModal from '../components/modals/ManifestModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import OperationModal from '../components/modals/OperationModal';
+import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 
 import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
@@ -14,6 +15,9 @@ import { useBuckets, type BucketInfo } from '../hooks/buckets/useBuckets';
 import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { t } from '../i18n';
 import { RefreshCw } from 'lucide-solid';
+import installedPackagesStore from '../stores/installedPackagesStore';
+import { ScoopPackage } from '../types/scoop';
+import { toast } from '../components/common/ToastAlert';
 
 function SearchPage() {
   const ITEMS_PER_PAGE = 8;
@@ -46,6 +50,7 @@ function SearchPage() {
     refreshSearchResults,
     bucketFilter,
     setBucketFilter,
+    updatePackageInstalledBucketInResults,
   } = useSearch();
 
   const [currentPage, setCurrentPage] = createTauriSignal('searchCurrentPage', 1);
@@ -62,6 +67,10 @@ function SearchPage() {
   const [manifestContent, setManifestContent] = createSignal<string | null>(null);
   const [manifestLoading, setManifestLoading] = createSignal(false);
   const [manifestError, setManifestError] = createSignal<string | null>(null);
+  const [changeBucketModalOpen, setChangeBucketModalOpen] = createSignal(false);
+  const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
+    createSignal<ScoopPackage | null>(null);
+  const [newBucketName, setNewBucketName] = createSignal('');
   const isRefreshing = () => refreshing() || loading();
 
   const { getBucketInfo, buckets, fetchBuckets } = useBuckets();
@@ -237,6 +246,48 @@ function SearchPage() {
     setSelectedBucket(null);
     setBucketInfo(null);
     setBucketInfoError(null);
+  };
+
+  const handleOpenChangeBucket = (pkg: ScoopPackage) => {
+    setCurrentPackageForBucketChange(pkg);
+    setNewBucketName(pkg.source);
+    setChangeBucketModalOpen(true);
+  };
+
+  const handleCloseChangeBucketModal = () => {
+    setChangeBucketModalOpen(false);
+    setCurrentPackageForBucketChange(null);
+    setNewBucketName('');
+  };
+
+  const handleConfirmChangeBucket = async () => {
+    const pkg = currentPackageForBucketChange();
+    const targetBucket = newBucketName();
+    if (!pkg || !targetBucket) return;
+
+    try {
+      await invoke('change_package_bucket', {
+        packageName: pkg.name,
+        newBucket: targetBucket,
+      });
+
+      await installedPackagesStore.silentRefetch();
+      updatePackageInstalledBucketInResults(pkg.name, targetBucket);
+      toast.success(
+        t('packageInfo.success.changeBucket', { name: pkg.name, bucket: targetBucket })
+      );
+      handleCloseChangeBucketModal();
+    } catch (error) {
+      console.error(`Failed to change bucket for ${pkg.name}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      toast.error(
+        t('packageInfo.errorChangingBucket', {
+          name: pkg.name,
+          bucket: targetBucket,
+          error: errorMsg,
+        })
+      );
+    }
   };
 
   // Listen to global cache invalidation events
@@ -429,6 +480,8 @@ function SearchPage() {
             onViewInfo={fetchPackageInfo}
             onViewManifest={handleViewManifest}
             onInstall={handleInstall}
+            onUninstall={handleUninstall}
+            onSwitchBucket={handleOpenChangeBucket}
             onViewBucket={handleViewBucket}
             onPackageStateChanged={() => {
               // This will be called when install buttons are clicked
@@ -483,6 +536,15 @@ function SearchPage() {
         isScan={isScanning()}
         onInstallConfirm={handleInstallConfirm}
         nextStep={operationNextStep() ?? undefined}
+      />
+      <ChangeBucketModal
+        isOpen={changeBucketModalOpen()}
+        package={currentPackageForBucketChange()}
+        buckets={buckets()}
+        newBucketName={newBucketName()}
+        onNewBucketNameChange={setNewBucketName}
+        onConfirm={handleConfirmChangeBucket}
+        onCancel={handleCloseChangeBucketModal}
       />
 
       <Show when={selectedBucket()}>

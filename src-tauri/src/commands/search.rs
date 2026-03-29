@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use regex::Regex;
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
@@ -108,6 +108,7 @@ fn parse_package_from_manifest(path: &Path) -> Option<ScoopPackage> {
         homepage,
         license,
         notes,
+        is_installed_from_current_bucket: true,
         match_source: MatchSource::Name,
         ..Default::default()
     })
@@ -116,8 +117,12 @@ fn parse_package_from_manifest(path: &Path) -> Option<ScoopPackage> {
 /// Builds a regex pattern for searching, supporting exact and partial matches.
 fn build_search_regex(term: &str) -> Result<Regex, String> {
     let trimmed = term.trim();
-    let pattern_str = if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() > 1 {
-        // Exact match: "term"
+    let exact_quoted = trimmed.len() > 1
+        && ((trimmed.starts_with('\'') && trimmed.ends_with('\''))
+            || (trimmed.starts_with('"') && trimmed.ends_with('"')));
+
+    let pattern_str = if exact_quoted {
+        // Exact match: 'term' or "term"
         let inner = &trimmed[1..trimmed.len() - 1];
         let normalized = inner.trim().replace(' ', "-");
         format!("(?i)^{}$", regex::escape(&normalized))
@@ -228,14 +233,16 @@ pub async fn search_scoop<R: tauri::Runtime>(
     // Determine which packages are already installed
     let state = app.state::<AppState>();
     if let Ok(installed_pkgs) = get_installed_packages_full(app.clone(), state).await {
-        let installed_set: HashSet<String> = installed_pkgs
+        let installed_map: HashMap<String, String> = installed_pkgs
             .into_iter()
-            .map(|p| p.name.to_lowercase())
+            .map(|p| (p.name.to_lowercase(), p.source))
             .collect();
 
         for pkg in &mut packages {
-            if installed_set.contains(&pkg.name.to_lowercase()) {
+            if let Some(installed_source) = installed_map.get(&pkg.name.to_lowercase()) {
                 pkg.is_installed = true;
+                pkg.is_installed_from_current_bucket =
+                    installed_source.eq_ignore_ascii_case(&pkg.source);
             }
         }
     }
@@ -249,6 +256,43 @@ pub async fn search_scoop<R: tauri::Runtime>(
     );
 
     Ok(SearchResult { packages, is_cold })
+}
+
+/// Returns bucket names that contain the specified package manifest.
+/// Reuses the global manifest cache for fast lookup.
+#[tauri::command]
+pub async fn get_package_buckets<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    package_name: String,
+) -> Result<Vec<String>, String> {
+    let normalized_name = package_name.trim();
+    if normalized_name.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let (manifest_paths, _) = get_manifests(app).await?;
+    let mut bucket_names = BTreeSet::new();
+
+    for path in &manifest_paths {
+        let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+
+        if !file_stem.eq_ignore_ascii_case(normalized_name) {
+            continue;
+        }
+
+        if let Some(bucket_name) = path
+            .parent()
+            .and_then(|p| p.parent())
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
+        {
+            bucket_names.insert(bucket_name.to_string());
+        }
+    }
+
+    Ok(bucket_names.into_iter().collect())
 }
 
 /// Warms (populates) the global manifest cache if it is empty. Intended for use by the
