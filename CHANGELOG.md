@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/Kwensiu/Pailer/compare/v1.8.0...v1.9.0) (2026-03-29)
+
+
+### Features
+
+* **search:** add contentMenu to search page ([4650e8a](https://github.com/Kwensiu/Pailer/commit/4650e8a64f7457a76777ce5acb2d98b3c41e1ff7))
+
+
+### Bug Fixes
+
+* **package-info:** unify update flow and correct bucket modal install state ([d754105](https://github.com/Kwensiu/Pailer/commit/d75410592115843a6c74aced63eeb3a134bdbf03))
+
+
+### UI
+
+* improve change bucket modal ([4c6d4df](https://github.com/Kwensiu/Pailer/commit/4c6d4df3cb5f22adc70371c1d7f1ff8f3454d09b))
+
+
+### Refactoring
+
+* **buckets:** centralize bucket preloading and improve state synchronization ([6812352](https://github.com/Kwensiu/Pailer/commit/6812352ddf0c35f72ed6635191c80a6304e72bb6))
+
 ## [1.8.0](https://github.com/Kwensiu/Pailer/compare/v1.7.4...v1.8.0) (2026-03-29)
 
 
