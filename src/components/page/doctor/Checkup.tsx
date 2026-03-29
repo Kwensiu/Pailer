@@ -23,19 +23,17 @@ interface CheckupProps {
 }
 
 function Checkup(props: CheckupProps) {
+  const hasResults = () => props.checkupResult.length > 0;
+
   return (
     <Card
       title={t('doctor.checkup.title')}
       icon={CircleCheckBig}
       onRefresh={props.onRerun}
+      loading={props.isLoading || !!props.isRetrying}
+      showLoadingPlaceholder={props.isLoading && !props.error}
       description={t('doctor.checkup.description')}
     >
-      <Show when={props.isLoading}>
-        <div class="flex justify-center p-8">
-          <span class="loading loading-dots loading-lg"></span>
-        </div>
-      </Show>
-
       <Show when={props.error}>
         <div class="alert alert-error text-sm">
           <TriangleAlert class="h-5 w-5" />
@@ -43,14 +41,14 @@ function Checkup(props: CheckupProps) {
         </div>
       </Show>
 
-      <Show when={!props.isLoading && !props.error && props.checkupResult.length === 0}>
+      <Show when={!props.isLoading && !props.error && !hasResults()}>
         <div class="alert alert-info text-sm">
           <TriangleAlert class="h-5 w-5" />
           <span>{t('doctor.checkup.runCheckup')}</span>
         </div>
       </Show>
 
-      <Show when={!props.isLoading && !props.error && props.checkupResult.length > 0}>
+      <Show when={!props.error && hasResults()}>
         <ul class="space-y-3">
           <For each={props.checkupResult}>
             {(item) => (

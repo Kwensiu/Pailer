@@ -278,6 +278,7 @@ function App() {
     onCleanup(() => {
       console.log('🧹 [App] Component unmounting, performing cache cleanup...');
       try {
+        // Clean up old localStorage cache
         localStorageUtils.cleanupOldCache(24 * 60 * 60 * 1000);
         localStorageUtils.limitCacheSize(2 * 1024 * 1024);
         console.log('🧹 Cache cleanup completed');

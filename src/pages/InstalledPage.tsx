@@ -121,6 +121,18 @@ function InstalledPage(props: InstalledPageProps) {
     }
   });
 
+  const [refreshing, setRefreshing] = createSignal(false);
+
+  // Wrap the original handleForceRefresh to manage loading state
+  const wrappedHandleForceRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await handleForceRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleCheckStatus = async () => {
     await checkScoopStatus();
     setShowStatusModal(true);
@@ -152,6 +164,12 @@ function InstalledPage(props: InstalledPageProps) {
       return false;
     });
   });
+  const showInitialLoading = createMemo(
+    () => loading() && !error() && processedPackages().length === 0
+  );
+
+  // 刷新时的状态处理
+  const isRefreshing = () => refreshing();
 
   return (
     <div class="mx-auto max-w-7xl">
@@ -173,16 +191,17 @@ function InstalledPage(props: InstalledPageProps) {
           setViewMode={setViewMode}
           isCheckingForUpdates={isCheckingForUpdates}
           onCheckForUpdates={checkForUpdates}
-          onRefresh={handleForceRefresh}
+          isRefreshing={loading}
+          onRefresh={wrappedHandleForceRefresh}
         />
 
-        <Show when={loading()}>
+        <Show when={showInitialLoading()}>
           <div class="flex h-64 items-center justify-center">
             <span class="loading loading-spinner loading-lg"></span>
           </div>
         </Show>
 
-        <Show when={error()}>
+        <Show when={!showInitialLoading() && error()}>
           <div role="alert" class="alert alert-error">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -204,7 +223,7 @@ function InstalledPage(props: InstalledPageProps) {
           </div>
         </Show>
 
-        <Show when={!loading() && !error() && filteredPackages().length === 0}>
+        <Show when={!showInitialLoading() && !error() && filteredPackages().length === 0}>
           <div class="flex flex-col items-center justify-center pt-20 text-center">
             <div class="bg-base-300 mb-6 rounded-full p-4">
               <svg
@@ -263,45 +282,54 @@ function InstalledPage(props: InstalledPageProps) {
           </div>
         </Show>
 
-        <Show when={!loading() && !error() && filteredPackages().length > 0}>
-          <Show
-            when={viewMode() === 'list'}
-            fallback={
-              <PackageGridView
+        <Show when={!showInitialLoading() && !error() && filteredPackages().length > 0}>
+          <div
+            classList={{
+              'opacity-60': isRefreshing(),
+              'pointer-events-none select-none': isRefreshing(),
+              'transition-opacity duration-200': true,
+            }}
+            aria-busy={isRefreshing()}
+          >
+            <Show
+              when={viewMode() === 'list'}
+              fallback={
+                <PackageGridView
+                  packages={filteredPackages}
+                  searchQuery={searchQuery}
+                  onViewInfo={handleFetchPackageInfo}
+                  onViewInfoForVersions={handleFetchPackageInfoForVersions}
+                  onUpdate={handleUpdate}
+                  onOpenFolder={handleOpenFolder}
+                  onHold={handleHold}
+                  onUnhold={handleUnhold}
+                  onUninstall={handleUninstall}
+                  onChangeBucket={handleOpenChangeBucket}
+                  operatingOn={operatingOn}
+                  isPackageVersioned={isPackageVersioned}
+                />
+              }
+            >
+              <PackageListView
                 packages={filteredPackages}
-                searchQuery={searchQuery}
+                onSort={handleSort}
+                sortKey={sortKey}
+                sortDirection={sortDirection}
                 onViewInfo={handleFetchPackageInfo}
+                onViewBucketInfo={(bucketName) => setSelectedBucketForInfo(bucketName)}
                 onViewInfoForVersions={handleFetchPackageInfoForVersions}
                 onUpdate={handleUpdate}
-                onOpenFolder={handleOpenFolder}
                 onHold={handleHold}
                 onUnhold={handleUnhold}
                 onUninstall={handleUninstall}
                 onChangeBucket={handleOpenChangeBucket}
+                onOpenFolder={handleOpenFolder}
                 operatingOn={operatingOn}
                 isPackageVersioned={isPackageVersioned}
+                searchQuery={searchQuery}
               />
-            }
-          >
-            <PackageListView
-              packages={filteredPackages}
-              onSort={handleSort}
-              sortKey={sortKey}
-              sortDirection={sortDirection}
-              onViewInfo={handleFetchPackageInfo}
-              onViewBucketInfo={(bucketName) => setSelectedBucketForInfo(bucketName)}
-              onViewInfoForVersions={handleFetchPackageInfoForVersions}
-              onUpdate={handleUpdate}
-              onHold={handleHold}
-              onUnhold={handleUnhold}
-              onUninstall={handleUninstall}
-              onChangeBucket={handleOpenChangeBucket}
-              onOpenFolder={handleOpenFolder}
-              operatingOn={operatingOn}
-              isPackageVersioned={isPackageVersioned}
-              searchQuery={searchQuery}
-            />
-          </Show>
+            </Show>
+          </div>
         </Show>
 
         <ChangeBucketModal

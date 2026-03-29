@@ -16,6 +16,23 @@ function createInstalledPackagesStore() {
   const [isCheckingForUpdates, setIsCheckingForUpdates] = createSignal(false);
   const [versionedPackages, setVersionedPackages] = createSignal<string[]>([]);
 
+  const mergeExistingUpdateInfo = (nextPackages: ScoopPackage[]): DisplayPackage[] => {
+    // Create a map of existing update info to preserve it during refresh
+    // This prevents losing update availability when packages are refreshed
+    const previousUpdateMap = new Map(
+      packages()
+        .filter((pkg) => pkg.available_version)
+        .map((pkg) => [pkg.name, pkg.available_version])
+    );
+
+    // Merge new package list with existing update info
+    return nextPackages.map((pkg) => ({
+      ...pkg,
+      // Preserve update info if package exists in previous list
+      available_version: previousUpdateMap.get(pkg.name),
+    }));
+  };
+
   const checkForUpdates = async () => {
     setIsCheckingForUpdates(true);
     try {
@@ -58,7 +75,7 @@ function createInstalledPackagesStore() {
     setError(null);
     try {
       const installedPackages = await invoke<ScoopPackage[]>('get_installed_packages_full');
-      setPackages(installedPackages);
+      setPackages(mergeExistingUpdateInfo(installedPackages));
       const buckets = new Set<string>(installedPackages.map((p) => p.source));
       setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
       setIsLoaded(true);
@@ -81,7 +98,7 @@ function createInstalledPackagesStore() {
     setError(null);
     try {
       const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages');
-      setPackages(installedPackages);
+      setPackages(mergeExistingUpdateInfo(installedPackages));
       const buckets = new Set<string>(installedPackages.map((p) => p.source));
       setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
       setIsLoaded(true);

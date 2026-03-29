@@ -21,12 +21,7 @@ function DoctorPage() {
     invoke<CheckupItem[]>('run_scoop_checkup')
   );
 
-  // Force refresh function that clears cache before refreshing
-  const forceRefreshCheckup = () => {
-    // Clear cache to bypass valid cache
-    sessionStorage.removeItem('checkupData');
-    return checkupCache.refresh();
-  };
+  const forceRefreshCheckup = () => checkupCache.forceRefresh();
 
   const [isRetrying, setIsRetrying] = createSignal(false);
 
@@ -62,11 +57,18 @@ function DoctorPage() {
       setIsRetrying(true);
     }
 
-    // Use force refresh to bypass cache
-    await forceRefreshCheckup();
-
-    if (isRetry) {
-      setIsRetrying(false);
+    try {
+      // Use force refresh to bypass cache
+      await forceRefreshCheckup();
+    } catch (err) {
+      console.error('Checkup rerun failed:', err);
+      // Set error to cache state so UI can display it
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      checkupCache.setError(errorMessage);
+    } finally {
+      if (isRetry) {
+        setIsRetrying(false);
+      }
     }
   };
 

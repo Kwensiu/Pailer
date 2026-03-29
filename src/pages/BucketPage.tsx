@@ -493,28 +493,24 @@ function BucketPage() {
               !isSearchActive() ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
             }`}
           >
-            <div class="card bg-base-100">
-              <div class="card-body">
-                <BucketGrid
-                  buckets={buckets()}
-                  onViewBucket={handleViewBucket}
-                  onRefresh={handleReloadLocalBuckets}
-                  onUpdateBucket={handleUpdateBucket}
-                  onUpdateAll={handleUpdateAllBuckets}
-                  onCloseBulkUpdate={handleCloseBulkUpdate}
-                  updatingBuckets={updatingBuckets()}
-                  updateResults={updateResults()}
-                  updateResultStatuses={updateResultStatuses()}
-                  loading={loading() && updateState().status !== 'updating'} // Only show loading when not updating specific buckets
-                  isUpdatingAll={updateState().status === 'updating'}
-                  isCancelling={isCancelling()}
-                  bulkUpdateCompleted={updateState().status === 'completed'}
-                  bulkUpdateMessage={updateState().message}
-                  isBulkUpdate={updateState().status === 'updating'}
-                  onBucketUpdated={handleBucketUpdated}
-                />
-              </div>
-            </div>
+            <BucketGrid
+              buckets={buckets()}
+              onViewBucket={handleViewBucket}
+              onRefresh={handleReloadLocalBuckets}
+              onUpdateBucket={handleUpdateBucket}
+              onUpdateAll={handleUpdateAllBuckets}
+              onCloseBulkUpdate={handleCloseBulkUpdate}
+              updatingBuckets={updatingBuckets()}
+              updateResults={updateResults()}
+              updateResultStatuses={updateResultStatuses()}
+              loading={loading() && updateState().status !== 'updating'} // Only show loading when not updating specific buckets
+              isUpdatingAll={updateState().status === 'updating'}
+              isCancelling={isCancelling()}
+              bulkUpdateCompleted={updateState().status === 'completed'}
+              bulkUpdateMessage={updateState().message}
+              isBulkUpdate={updateState().status === 'updating'}
+              onBucketUpdated={handleBucketUpdated}
+            />
           </div>
         </Show>
       </div>

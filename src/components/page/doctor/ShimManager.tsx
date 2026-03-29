@@ -36,7 +36,8 @@ function ShimManager() {
     data: shimsData,
     loading: dataLoading,
     error: dataError,
-    refresh: refreshShims,
+    refresh: _refreshShims,
+    forceRefresh,
     onInvalidate,
   } = createSessionStorage<ShimsData>('shimsData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
@@ -61,6 +62,7 @@ function ShimManager() {
 
   // Computed values from cache data
   const shimsDirectory = () => shimsData()?.directory || '';
+  const isInitialLoading = () => isLoading() && allShims().length === 0;
 
   // Sync shims data with cache data
   createEffect(() => {
@@ -91,17 +93,10 @@ function ShimManager() {
     }
   });
 
-  // Force refresh function that clears cache before refreshing
-  const forceRefresh = () => {
-    // Clear cache to bypass valid cache
-    sessionStorage.removeItem('shimsData');
-    return refreshShims();
-  };
-
   onMount(() => {
-    console.log('ShimManager mounted - forcing initial refresh');
-    // Always trigger refresh on mount to ensure data is loaded
-    refreshShims();
+    console.log('ShimManager mounted - using cached data if available');
+    // Don't force refresh on mount - let cache expiry handle it
+    // Cache will be initialized automatically on first access
 
     // Listen for cache invalidation events
     const unsubscribe = onInvalidate(() => {
@@ -170,13 +165,17 @@ function ShimManager() {
       title={t('doctor.shimManager.title')}
       icon={Layers2}
       onRefresh={forceRefresh}
+      loading={isLoading()}
+      showLoadingPlaceholder={isLoading() && !error()}
+      dimContentWhenBusy={true}
+      lockContentWhenBusy={false}
       headerAction={
         <div class="flex items-center gap-2">
           <Show when={allShims().length > 0}>
             <button
               class="btn btn-ghost btn-sm"
               onClick={() => setIsAddModalOpen(true)}
-              disabled={isLoading() || isProcessing()}
+              disabled={isInitialLoading() || isProcessing()}
             >
               <Plus class="h-4 w-4" /> {t('doctor.shimManager.addShim')}
             </button>
@@ -200,7 +199,7 @@ function ShimManager() {
         class="input input-bordered mt-2 mb-4 w-full"
         value={filter()}
         onInput={(e) => setFilter(e.currentTarget.value)}
-        disabled={isLoading() || !!error() || allShims().length === 0}
+        disabled={isInitialLoading() || !!error() || allShims().length === 0}
       />
 
       <div class="bg-base-list max-h-[60vh] overflow-y-auto rounded-lg">
@@ -211,14 +210,14 @@ function ShimManager() {
           </div>
         </Show>
 
-        <Show when={!isLoading() && allShims().length === 0 && !error()}>
+        <Show when={!error() && !isLoading() && allShims().length === 0}>
           <div class="p-8 text-center">
             <Inbox class="text-base-content/30 mx-auto h-16 w-16" />
             <p class="mt-4 text-lg font-semibold">{t('doctor.shimManager.noShimsFound')}</p>
           </div>
         </Show>
 
-        <Show when={filteredShims().length > 0}>
+        <Show when={!error() && filteredShims().length > 0}>
           <div class="overflow-x-auto">
             {/* TODO: sticky header, cant figure it out for the life of me */}
             <table class="table-sm table">

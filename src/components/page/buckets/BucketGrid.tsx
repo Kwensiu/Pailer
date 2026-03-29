@@ -2,6 +2,7 @@ import { Show, For, createSignal, onMount, onCleanup } from 'solid-js';
 import { RefreshCw } from 'lucide-solid';
 import { BucketInfo } from '../../../hooks';
 import BucketCard from './BucketCard';
+import Card from '../../common/Card';
 import { t } from '../../../i18n';
 
 interface BucketGridProps {
@@ -26,6 +27,7 @@ interface BucketGridProps {
 
 function BucketGrid(props: BucketGridProps) {
   const [isSmallScreen, setIsSmallScreen] = createSignal(false);
+  const isRefreshing = () => !!props.loading;
 
   const checkScreenSize = () => {
     setIsSmallScreen(window.innerWidth < 768);
@@ -41,9 +43,14 @@ function BucketGrid(props: BucketGridProps) {
   });
 
   return (
-    <>
-      <div class="mb-4 flex items-center justify-between">
-        <h2 class="card-title">{t('bucket.grid.title')}</h2>
+    <Card
+      title={t('bucket.grid.title')}
+      contentContainer={false}
+      class="bg-base-100"
+      loading={!!props.loading}
+      showLoadingPlaceholder={!!props.loading}
+      loadingLabel={t('bucket.grid.loading')}
+      headerAction={
         <Show when={props.onUpdateAll && props.buckets.some((b) => b.is_git_repo)}>
           <div class="flex gap-2">
             <button
@@ -84,8 +91,12 @@ function BucketGrid(props: BucketGridProps) {
               </span>
             </button>
             <Show when={props.onRefresh}>
-              <button class="btn btn-soft btn-sm gap-2" onClick={props.onRefresh}>
-                <RefreshCw class="h-4 w-4" />
+              <button
+                class="btn btn-soft btn-sm gap-2"
+                onClick={props.onRefresh}
+                disabled={isRefreshing()}
+              >
+                <RefreshCw class={`h-4 w-4 ${isRefreshing() ? 'animate-spin' : ''}`} />
                 <span
                   class="relative inline-block truncate transition-all duration-300 ease-in-out"
                   classList={{
@@ -116,55 +127,44 @@ function BucketGrid(props: BucketGridProps) {
             </Show>
           </div>
         </Show>
-      </div>
-
-      <Show when={props.loading}>
-        <div class="flex items-center justify-center py-8">
-          <span class="loading loading-spinner loading-md"></span>
-          <span class="ml-2">{t('bucket.grid.loading')}</span>
+      }
+    >
+      <Show
+        when={props.buckets.length > 0}
+        fallback={
+          <div class="py-8 text-center">
+            <p class="text-base-content/70">{t('bucket.grid.noBucketsFound')}</p>
+            <p class="text-base-content/50 mt-2 text-sm">{t('bucket.grid.noBucketsDescription')}</p>
+            <Show when={props.onRefresh}>
+              <div class="mt-4">
+                <button class="btn btn-primary" onClick={props.onRefresh}>
+                  {t('bucket.grid.refresh')}
+                </button>
+              </div>
+            </Show>
+          </div>
+        }
+      >
+        <div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <For each={props.buckets}>
+            {(bucket) => (
+              <BucketCard
+                bucket={bucket}
+                onViewBucket={props.onViewBucket}
+                onUpdateBucket={props.onUpdateBucket}
+                isUpdating={props.updatingBuckets?.has(bucket.name) || false}
+                updateResult={props.updateResults?.[bucket.name]}
+                updateResultStatus={props.updateResultStatuses?.[bucket.name]}
+                isBulkUpdate={props.isBulkUpdate}
+                onBucketUpdated={(bucketName, newBranch) =>
+                  props.onBucketUpdated?.(bucketName, newBranch)
+                }
+              />
+            )}
+          </For>
         </div>
       </Show>
-
-      <Show when={!props.loading}>
-        <Show
-          when={props.buckets.length > 0}
-          fallback={
-            <div class="py-8 text-center">
-              <p class="text-base-content/70">{t('bucket.grid.noBucketsFound')}</p>
-              <p class="text-base-content/50 mt-2 text-sm">
-                {t('bucket.grid.noBucketsDescription')}
-              </p>
-              <Show when={props.onRefresh}>
-                <div class="mt-4">
-                  <button class="btn btn-primary" onClick={props.onRefresh}>
-                    {t('bucket.grid.refresh')}
-                  </button>
-                </div>
-              </Show>
-            </div>
-          }
-        >
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <For each={props.buckets}>
-              {(bucket) => (
-                <BucketCard
-                  bucket={bucket}
-                  onViewBucket={props.onViewBucket}
-                  onUpdateBucket={props.onUpdateBucket}
-                  isUpdating={props.updatingBuckets?.has(bucket.name) || false}
-                  updateResult={props.updateResults?.[bucket.name]}
-                  updateResultStatus={props.updateResultStatuses?.[bucket.name]}
-                  isBulkUpdate={props.isBulkUpdate}
-                  onBucketUpdated={(bucketName, newBranch) =>
-                    props.onBucketUpdated?.(bucketName, newBranch)
-                  }
-                />
-              )}
-            </For>
-          </div>
-        </Show>
-      </Show>
-    </>
+    </Card>
   );
 }
 

@@ -25,7 +25,8 @@ function ScoopInfo() {
     data: scoopData,
     loading,
     error,
-    refresh,
+    refresh: _refresh,
+    forceRefresh,
     updateData,
     onInvalidate,
   } = createSessionStorage<{
@@ -51,17 +52,10 @@ function ScoopInfo() {
   const [isSaving, setIsSaving] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
 
-  // Force refresh function that clears cache before refreshing
-  const forceRefresh = () => {
-    // Clear cache to bypass valid cache
-    sessionStorage.removeItem('scoopData');
-    return refresh();
-  };
-
   onMount(() => {
-    console.log('ScoopInfo mounted - forcing initial refresh');
-    // Always trigger refresh on mount to ensure data is loaded
-    refresh();
+    console.log('ScoopInfo mounted - using cached data if available');
+    // Don't force refresh on mount - let cache expiry handle it
+    // Cache will be initialized automatically on first access
 
     // Listen for cache invalidation events
     const unsubscribe = onInvalidate(() => {
@@ -121,6 +115,8 @@ function ScoopInfo() {
         contentContainer={false}
         icon={Settings}
         onRefresh={forceRefresh}
+        loading={loading()}
+        showLoadingPlaceholder={loading() && !error()}
         headerAction={
           <div class="flex items-center gap-2">
             <Show when={scoopData()?.config}>
@@ -147,11 +143,7 @@ function ScoopInfo() {
           </div>
         }
       >
-        {loading() ? (
-          <div class="flex h-32 items-center justify-center">
-            <div class="loading loading-spinner loading-md"></div>
-          </div>
-        ) : error() ? (
+        {error() ? (
           <div class="status-alert status-alert-error">
             <span>{error()}</span>
           </div>

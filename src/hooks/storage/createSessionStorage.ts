@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, createEffect, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 
 interface CacheData<T> {
@@ -6,12 +6,89 @@ interface CacheData<T> {
   timestamp: number;
 }
 
+interface RefreshOptions {
+  bypassCache?: boolean;
+}
+
+const DEFAULT_FORCE_REFRESH_OPTIONS: RefreshOptions = {
+  bypassCache: true,
+};
+
+// Safe sessionStorage operations
+function safeSessionStorageRemove(key: string) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch (error) {
+    console.warn(`Failed to remove sessionStorage key "${key}":`, error);
+  }
+}
+
 const CACHE_EXPIRY_MS = 5 * 60 * 1000;
+const CACHE_KEY_PREFIX = 'cache:';
 const globalCaches = new Map<string, any>();
 const invalidationListeners = new Map<string, Set<() => void>>();
 const activeFetches = new Map<string, Promise<any>>();
 const invalidationCallStack = new Map<string, number>();
 const MAX_INVALIDATION_DEPTH = 3;
+
+function getStorageKey(key: string): string {
+  return `${CACHE_KEY_PREFIX}${key}`;
+}
+
+function getCacheStorageKeys(excludeKey?: string): string[] {
+  const keys: string[] = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (!key || !key.startsWith(CACHE_KEY_PREFIX)) {
+      continue;
+    }
+    if (excludeKey && key === excludeKey) {
+      continue;
+    }
+    keys.push(key);
+  }
+  return keys;
+}
+
+function readValidCache<T>(storageKey: string): { hit: true; data: T } | { hit: false } {
+  const cached = sessionStorage.getItem(storageKey);
+  if (!cached) {
+    return { hit: false };
+  }
+
+  try {
+    const parsed = JSON.parse(cached) as CacheData<T>;
+    if (Date.now() - parsed.timestamp <= CACHE_EXPIRY_MS) {
+      return { hit: true, data: parsed.data };
+    }
+  } catch (parseError) {
+    console.warn(`Failed to parse cache for key "${storageKey}":`, parseError);
+  }
+
+  safeSessionStorageRemove(storageKey);
+  return { hit: false };
+}
+
+function migrateLegacyCacheKey(storageKey: string, legacyKey: string): void {
+  if (storageKey === legacyKey || sessionStorage.getItem(storageKey) !== null) {
+    return;
+  }
+
+  const legacyValue = sessionStorage.getItem(legacyKey);
+  if (legacyValue === null) {
+    return;
+  }
+
+  try {
+    sessionStorage.setItem(storageKey, legacyValue);
+    safeSessionStorageRemove(legacyKey);
+  } catch (error) {
+    console.warn(
+      `Failed to migrate legacy cache key from "${legacyKey}" to "${storageKey}":`,
+      error
+    );
+  }
+}
 
 export function invalidateCache(key: string) {
   // Prevent infinite loops by tracking call depth
@@ -50,6 +127,8 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
     return globalCaches.get(key);
   }
 
+  const storageKey = getStorageKey(key);
+
   const [data, setData] = createSignal<T | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -74,13 +153,12 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
           );
 
           // Get all cache keys except current one
-          const keys = Object.keys(sessionStorage);
-          const cacheKeys = keys.filter((k) => k !== storageKey && k.startsWith('cache_'));
+          const cacheKeys = getCacheStorageKeys(storageKey);
 
           if (cacheKeys.length > 0) {
             // Remove multiple old entries to free more space
             const keysToRemove = cacheKeys.slice(0, Math.min(5, cacheKeys.length));
-            keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+            keysToRemove.forEach((k) => safeSessionStorageRemove(k));
             retryCount++;
             continue;
           }
@@ -93,15 +171,24 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
     return false;
   };
 
-  const fetchData = async () => {
+  const fetchData = async (options: RefreshOptions = {}) => {
+    const { bypassCache = false } = options;
+
     // Prevent concurrent fetches
     const activePromise = activeFetches.get(key);
     if (activePromise) {
       return await activePromise;
     }
 
-    if (loading()) {
-      return data();
+    // Only set loading if we're actually going to fetch
+    if (!bypassCache) {
+      const cached = readValidCache<T>(storageKey);
+      if (cached.hit) {
+        activeFetches.delete(key);
+        setData(() => cached.data);
+        setLoading(false);
+        return cached.data;
+      }
     }
 
     setLoading(true);
@@ -109,29 +196,18 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
 
     const fetchPromise = (async () => {
       try {
-        const cached = sessionStorage.getItem(key);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached) as CacheData<T>;
-            if (Date.now() - parsed.timestamp <= CACHE_EXPIRY_MS) {
-              setData(() => parsed.data);
-              return parsed.data;
-            }
-          } catch (parseError) {
-            console.warn(`Failed to parse cache for key "${key}":`, parseError);
-          }
-          sessionStorage.removeItem(key);
-        }
+        migrateLegacyCacheKey(storageKey, key);
 
         const results = await fetcher();
+
         setData(() => results);
+        setLoading(false);
 
         const cacheData = JSON.stringify({
           data: results,
           timestamp: Date.now(),
         });
-
-        safeSetSessionStorage(key, cacheData);
+        safeSetSessionStorage(storageKey, cacheData);
         return results;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -148,36 +224,46 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
     return await fetchPromise;
   };
 
+  let initPromise: Promise<void> | null = null;
+
   const initialize = async () => {
     if (isInitialized) return;
+    if (initPromise) return initPromise;
 
-    const cached = sessionStorage.getItem(key);
-    if (!cached) {
-      await fetchData();
-    } else {
+    initPromise = (async () => {
       try {
-        const parsed = JSON.parse(cached) as CacheData<T>;
-        if (Date.now() - parsed.timestamp > CACHE_EXPIRY_MS) {
-          sessionStorage.removeItem(key);
-          await fetchData();
+        migrateLegacyCacheKey(storageKey, key);
+        const cached = readValidCache<T>(storageKey);
+        if (cached.hit) {
+          setData(() => cached.data);
         } else {
-          setData(() => parsed.data);
+          await fetchData();
         }
-      } catch (parseError) {
-        console.warn(`Failed to parse cache during initialization for key "${key}":`, parseError);
-        sessionStorage.removeItem(key);
-        await fetchData();
+        isInitialized = true;
+      } catch (err) {
+        console.error(`Failed to initialize cache for key "${key}":`, err);
+        // Don't set isInitialized on failure, allowing retry
+        throw err;
+      } finally {
+        initPromise = null;
       }
-    }
-    isInitialized = true;
+    })();
+
+    return initPromise;
   };
 
-  initialize();
+  void initialize().catch((err) => {
+    console.error(`Failed to initialize cache for key "${key}":`, err);
+  });
 
-  const refresh = () => fetchData();
+  const refresh = (options?: RefreshOptions) => fetchData(options);
+
+  const forceRefresh = (options: RefreshOptions = {}) =>
+    fetchData({ ...DEFAULT_FORCE_REFRESH_OPTIONS, ...options, bypassCache: true });
 
   const clear = () => {
-    sessionStorage.removeItem(key);
+    safeSessionStorageRemove(storageKey);
+    safeSessionStorageRemove(key);
     setData(null);
     setError(null);
   };
@@ -187,7 +273,7 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
       data: newData,
       timestamp: Date.now(),
     });
-    safeSetSessionStorage(key, cacheData);
+    safeSetSessionStorage(storageKey, cacheData);
     setData(() => newData);
   };
 
@@ -201,17 +287,25 @@ export function createCache<T>(key: string, fetcher: () => Promise<T>) {
     loading,
     error,
     refresh,
+    forceRefresh,
     clear,
     updateData,
     onInvalidate,
     invalidate: () => invalidateCache(key),
+    dispose: () => {
+      listeners.clear();
+      invalidationListeners.delete(key);
+      activeFetches.delete(key);
+      invalidationCallStack.delete(key);
+      globalCaches.delete(key);
+    },
   };
 
   globalCaches.set(key, cache);
   return cache;
 }
 
-export function createSessionCache<T>(
+export function createSessionStorage<T>(
   key: string,
   fetcher: () => Promise<T>,
   autoInvalidate: boolean = false
@@ -219,9 +313,24 @@ export function createSessionCache<T>(
   const cache = createCache(key, fetcher);
 
   if (autoInvalidate) {
-    cache.onInvalidate(() => {
-      // Prevent infinite loops: only refresh when data actually needs to be updated
-      setTimeout(() => cache.refresh(), 100);
+    createEffect(() => {
+      let invalidateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+      const setupTimeout = () => {
+        invalidateTimeout = setTimeout(() => {
+          invalidateTimeout = null;
+          cache.refresh().catch((err: unknown) => {
+            console.error(`Failed to refresh cache "${key}" after invalidation:`, err);
+          });
+        }, 100);
+      };
+
+      cache.onInvalidate(setupTimeout);
+
+      // Cleanup function to prevent memory leaks
+      onCleanup(() => {
+        if (invalidateTimeout) clearTimeout(invalidateTimeout);
+      });
     });
   }
 
@@ -230,7 +339,7 @@ export function createSessionCache<T>(
 
 // PowerShell specific convenience function
 export function createPowerShellCache() {
-  return createSessionCache('powershell_executables_cache', () =>
+  return createSessionStorage('powershell_executables_cache', () =>
     invoke<string[]>('get_available_powershell_executables')
   );
 }

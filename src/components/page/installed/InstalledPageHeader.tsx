@@ -37,6 +37,7 @@ interface InstalledHeaderProps {
 
   isCheckingForUpdates: Accessor<boolean>;
   onCheckForUpdates: () => void;
+  isRefreshing?: Accessor<boolean>;
 
   searchQuery: Accessor<string>;
   setSearchQuery: Setter<string>;
@@ -96,6 +97,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   const toggleViewMode = () => {
     props.setViewMode(props.viewMode() === 'grid' ? 'list' : 'grid');
   };
+  const isRefreshing = () => !!props.isRefreshing?.();
 
   return (
     <div class="mb-6 flex items-center">
@@ -192,8 +194,9 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
           class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
           data-tip={t('installed.header.refresh')}
           onClick={() => props.onRefresh()}
+          disabled={isRefreshing()}
         >
-          <RefreshCw class="h-5 w-5" />
+          <RefreshCw class={`h-5 w-5 ${isRefreshing() ? 'animate-spin' : ''}`} />
         </button>
 
         {/* Filters and View Toggle Group */}

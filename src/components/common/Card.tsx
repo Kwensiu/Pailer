@@ -5,29 +5,98 @@ import { t } from '../../i18n';
 import Dropdown from '../common/Dropdown';
 
 interface CardProps {
+  // Structure
   title: string | JSX.Element;
   icon?: Component<{ class?: string }>;
   description?: string | JSX.Element;
   additionalContent?: JSX.Element;
   contentContainer?: boolean;
+  children?: JSX.Element | JSX.Element[];
+  conditionalContent?: { condition: boolean; children: JSX.Element };
+  class?: string;
+
+  // Header actions
   headerAction?: JSX.Element;
   headerSelect?: {
     value: string;
     onChange: (e: Event) => void;
     options: { value: string; label: string; icon?: Component<{ class?: string }> }[];
   };
-  onRefresh?: () => void;
+
+  // Refresh / busy state
+  onRefresh?: () => void | Promise<void>;
+  loading?: boolean;
+  loadingLabel?: string;
+  loadingPlaceholder?: JSX.Element;
+  showLoadingPlaceholder?: boolean;
+  staleWhileRefreshing?: boolean;
+  dimContentWhenBusy?: boolean;
+  lockContentWhenBusy?: boolean;
   refreshTooltip?: string;
+  /**
+   * Optional error handler for refresh failures.
+   * If not provided, errors will only be logged to console.
+   * This is intentional - refresh failures should not crash the UI.
+   */
+  onError?: (error: unknown) => void;
+
+  // Path action
   onOpenPath?: () => void;
   openPathTooltip?: string;
-  children?: JSX.Element | JSX.Element[];
-  conditionalContent?: { condition: boolean; children: JSX.Element };
-  class?: string;
 }
 
 export default function Card(props: CardProps) {
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
+  const [refreshing, setRefreshing] = createSignal(false);
   const contentContainer = () => props.contentContainer ?? true;
+  const isBusy = () => refreshing() || !!props.loading;
+  const dimContentWhenBusy = () => props.dimContentWhenBusy ?? true;
+  const lockContentWhenBusy = () => props.lockContentWhenBusy ?? true;
+  const shouldShowLoadingPlaceholder = () =>
+    (props.showLoadingPlaceholder ?? !!props.loading) && isBusy();
+  const staleWhileRefreshing = () => props.staleWhileRefreshing ?? true;
+  const hasBodyContent = () =>
+    !!props.additionalContent ||
+    !!(props.children && (!Array.isArray(props.children) || props.children.length > 0));
+  const shouldReplaceWithLoading = () =>
+    shouldShowLoadingPlaceholder() && !(staleWhileRefreshing() && hasBodyContent());
+  const renderLoadingPlaceholder = () =>
+    props.loadingPlaceholder || (
+      <div class="flex min-h-28 items-center justify-center">
+        <div class="text-base-content/70 flex items-center gap-2 text-sm">
+          <span class="loading loading-spinner loading-md"></span>
+          <span>{props.loadingLabel || t('messages.loading')}</span>
+        </div>
+      </div>
+    );
+
+  const handleRefresh = async () => {
+    if (!props.onRefresh || refreshing()) {
+      return;
+    }
+
+    setRefreshing(true);
+    const startTime = Date.now();
+
+    try {
+      await props.onRefresh();
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      // Call error handler if provided
+      // Note: Errors are intentionally not re-thrown to avoid unhandled promise rejections
+      // and to prevent refresh failures from crashing the UI
+      props.onError?.(error);
+    } finally {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 300 - elapsed);
+
+      if (remaining > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+      }
+
+      setRefreshing(false);
+    }
+  };
 
   const headerSelectSelectedLabel = () => {
     const headerSelect = props.headerSelect;
@@ -81,7 +150,7 @@ export default function Card(props: CardProps) {
         {/* Card Header */}
         <div class="flex items-center justify-between">
           {/* Card Title */}
-          <h2 class="card-title flex items-center text-xl">
+          <h2 class="card-title flex items-center pt-0.5 text-xl">
             {props.icon && <Dynamic component={props.icon} class="icon mr-2 h-6 w-6" />}
             {props.title}
           </h2>
@@ -106,9 +175,10 @@ export default function Card(props: CardProps) {
               <button
                 class="btn btn-ghost btn-sm tooltip tooltip-bottom"
                 data-tip={props.refreshTooltip || t('buttons.refresh')}
-                onClick={props.onRefresh}
+                onClick={handleRefresh}
+                disabled={isBusy()}
               >
-                <RefreshCw class="h-5 w-5" />
+                <RefreshCw class={`h-5 w-5 ${isBusy() ? 'animate-spin' : ''}`} />
               </button>
             </Show>
             <Show when={props.onOpenPath}>
@@ -136,31 +206,42 @@ export default function Card(props: CardProps) {
             (props.children && (!Array.isArray(props.children) || props.children.length > 0))
           }
         >
-          <Show
-            when={contentContainer()}
-            fallback={
-              <>
+          <div
+            classList={{
+              'opacity-60': isBusy() && dimContentWhenBusy(),
+              'pointer-events-none select-none': isBusy() && lockContentWhenBusy(),
+              'transition-opacity duration-200': true,
+            }}
+            aria-busy={isBusy()}
+          >
+            <Show
+              when={contentContainer()}
+              fallback={
+                <>
+                  <Show when={shouldReplaceWithLoading()}>{renderLoadingPlaceholder()}</Show>
+                  <Show when={props.additionalContent}>
+                    <div id={additionalContentId} class="text text-base-content/50">
+                      {props.additionalContent}
+                    </div>
+                  </Show>
+                  <Show when={!shouldReplaceWithLoading() && props.children}>{props.children}</Show>
+                </>
+              }
+            >
+              <div class="border-base-200 bg-base-200/30 mt-1 rounded-xl border p-3">
+                <Show when={shouldReplaceWithLoading()}>{renderLoadingPlaceholder()}</Show>
+                {/* Additional Content */}
                 <Show when={props.additionalContent}>
                   <div id={additionalContentId} class="text text-base-content/50">
                     {props.additionalContent}
                   </div>
                 </Show>
-                <Show when={props.children}>{props.children}</Show>
-              </>
-            }
-          >
-            <div class="border-base-200 bg-base-200/30 mt-1 rounded-xl border p-3">
-              {/* Additional Content */}
-              <Show when={props.additionalContent}>
-                <div id={additionalContentId} class="text text-base-content/50">
-                  {props.additionalContent}
-                </div>
-              </Show>
 
-              {/* Main Content */}
-              <Show when={props.children}>{props.children}</Show>
-            </div>
-          </Show>
+                {/* Main Content */}
+                <Show when={!shouldReplaceWithLoading() && props.children}>{props.children}</Show>
+              </div>
+            </Show>
+          </div>
         </Show>
 
         <Show when={props.conditionalContent}>

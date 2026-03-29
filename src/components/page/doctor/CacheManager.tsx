@@ -7,7 +7,6 @@ import {
   Database,
   Settings,
   Info,
-  RefreshCw,
   SquareTerminal,
 } from 'lucide-solid';
 import { formatBytes } from '../../../utils/format';
@@ -52,7 +51,7 @@ function CacheManager() {
     data: cacheData,
     loading: cacheLoading,
     error: cacheError,
-    refresh: refreshCache,
+    forceRefresh,
     onInvalidate,
   } = createSessionStorage<CacheData>('cacheData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
@@ -66,6 +65,9 @@ function CacheManager() {
     }
 
     const cacheContents = await invoke<CacheEntry[]>('list_cache_contents', {
+      // Use the actual setting value - this controls what's shown in the list
+      // When true: hides cache files that match locally installed versions
+      // When false: shows all cache files
       preserveVersioned: preserveVersioned(),
     });
 
@@ -80,6 +82,7 @@ function CacheManager() {
   // Computed values from cache data
   const cacheContents = () => cacheData()?.contents || [];
   const cacheDirectory = () => cacheData()?.directory || '';
+  const isInitialLoading = () => isLoading() && cacheContents().length === 0;
 
   // Settings state
   const [isSettingsOpen, setIsSettingsOpen] = createSignal(false);
@@ -161,11 +164,6 @@ function CacheManager() {
     hasSelectedFiles() ? 'btn-warning' : 'btn-error'
   );
 
-  const forceRefresh = () => {
-    sessionStorage.removeItem('cacheData');
-    return refreshCache();
-  };
-
   // Listen for settings changes that affect cache content
   let lastPreserveVersioned = preserveVersioned();
   createEffect(() => {
@@ -191,13 +189,22 @@ function CacheManager() {
   });
 
   onMount(() => {
-    console.log('CacheManager mounted - forcing initial refresh');
-    // Always trigger refresh on mount to ensure data is loaded
-    refreshCache();
-
     // Listen for cache invalidation events
     const unsubscribe = onInvalidate(() => {
       forceRefresh();
+    });
+
+    // Also refresh cache when preserveVersioned setting changes
+    createEffect(() => {
+      const currentValue = preserveVersioned();
+      // Only refresh if the value actually changed (not on first mount)
+      if (currentValue !== lastPreserveVersioned) {
+        lastPreserveVersioned = currentValue;
+        // Skip refresh on initial mount
+        if (lastPreserveVersioned !== undefined) {
+          forceRefresh();
+        }
+      }
     });
 
     return unsubscribe;
@@ -424,6 +431,11 @@ function CacheManager() {
           </div>
         }
         icon={Database}
+        onRefresh={forceRefresh}
+        loading={isLoading()}
+        showLoadingPlaceholder={isLoading() && !error()}
+        dimContentWhenBusy={true}
+        lockContentWhenBusy={false}
         headerAction={
           <div class="flex items-center gap-2">
             <ResponsiveButton
@@ -433,7 +445,7 @@ function CacheManager() {
                 {
                   label: () => t('doctor.cacheManager.confirmScoopCacheRm'),
                   onClick: handleClearWithScoop,
-                  disabled: () => !hasSelectedFiles() || isLoading(),
+                  disabled: () => !hasSelectedFiles() || isInitialLoading(),
                   class: 'btn-warning',
                   icon: SquareTerminal,
                 },
@@ -441,7 +453,7 @@ function CacheManager() {
                   label: () => primaryDeleteLabel(),
                   onClick: handlePrimaryDelete,
                   disabled: () =>
-                    (hasSelectedFiles() ? false : allDeleteCount() === 0) || isLoading(),
+                    (hasSelectedFiles() ? false : allDeleteCount() === 0) || isInitialLoading(),
                   class: primaryDeleteMenuClass(),
                   icon: Trash2,
                 },
@@ -450,7 +462,7 @@ function CacheManager() {
               <button
                 class="btn btn-warning btn-square btn-sm"
                 onClick={handleClearWithScoop}
-                disabled={!hasSelectedFiles() || isLoading()}
+                disabled={!hasSelectedFiles() || isInitialLoading()}
                 title={t('doctor.cacheManager.confirmScoopCacheRm')}
               >
                 <SquareTerminal class="h-4 w-4" />
@@ -458,7 +470,9 @@ function CacheManager() {
               <button
                 class={primaryDeleteClass()}
                 onClick={handlePrimaryDelete}
-                disabled={(hasSelectedFiles() ? false : allDeleteCount() === 0) || isLoading()}
+                disabled={
+                  (hasSelectedFiles() ? false : allDeleteCount() === 0) || isInitialLoading()
+                }
               >
                 <Trash2 class="h-4 w-4" />
                 {primaryDeleteLabel()}
@@ -473,14 +487,6 @@ function CacheManager() {
                 tooltip={t('doctor.cacheManager.openCacheDirectory')}
               />
             </Show>
-            <button
-              class="btn btn-ghost btn-sm"
-              onClick={forceRefresh}
-              disabled={isLoading()}
-              title="Refresh cache"
-            >
-              <RefreshCw class="h-5 w-5" />
-            </button>
           </div>
         }
       >
@@ -490,7 +496,7 @@ function CacheManager() {
           class="input input-bordered mt-2 mb-4 w-full"
           value={filter()}
           onInput={(e) => setFilter(e.currentTarget.value)}
-          disabled={isLoading() || !!error() || cacheContents().length === 0}
+          disabled={isInitialLoading() || !!error() || cacheContents().length === 0}
         />
 
         <div class="bg-base-list max-h-[60vh] overflow-y-auto rounded-lg">
@@ -501,7 +507,7 @@ function CacheManager() {
             </div>
           </Show>
 
-          <Show when={!isLoading() && cacheContents().length === 0 && !error()}>
+          <Show when={!error() && !isLoading() && cacheContents().length === 0}>
             <div class="p-8 text-center">
               <Inbox class="text-base-content/30 mx-auto h-16 w-16" />
               <p class="mt-4 text-lg font-semibold">{t('doctor.cacheManager.cacheIsEmpty')}</p>
@@ -509,7 +515,7 @@ function CacheManager() {
             </div>
           </Show>
 
-          <Show when={cacheContents().length > 0}>
+          <Show when={!error() && cacheContents().length > 0}>
             <div class="overflow-x-auto">
               <table class="table-sm table">
                 <thead>

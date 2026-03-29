@@ -2,38 +2,75 @@ import { createSignal, createEffect, Signal, createRoot } from 'solid-js';
 import { getSettingsStore } from '../../stores/settings';
 
 // Cache for signals to ensure same key returns same signal instance
-const signalCache = new Map<string, Signal<any>>();
+const signalCache = new Map<string, { signal: Signal<any>; dispose: () => void }>();
+
+// Cleanup function to prevent memory leaks
+export function clearTauriSignalCache() {
+  // Dispose all signals before clearing the map
+  for (const [key, { dispose }] of signalCache) {
+    try {
+      dispose();
+    } catch (error) {
+      console.warn(`Failed to dispose Tauri signal for key "${key}":`, error);
+    }
+  }
+  signalCache.clear();
+}
+
+// Optional: Remove specific signal from cache
+export function removeTauriSignal(key: string) {
+  const entry = signalCache.get(key);
+  if (entry) {
+    entry.dispose();
+    signalCache.delete(key);
+  }
+}
+
+const isDev = import.meta.env.DEV;
+
+function logDebug(...args: unknown[]) {
+  if (isDev) {
+    console.log(...args);
+  }
+}
+
+function getLocalStorageInitialValue<T>(key: string, initialValue: T): T {
+  try {
+    const localStorageValue = localStorage.getItem(key);
+    if (localStorageValue === null) {
+      return initialValue;
+    }
+
+    try {
+      return JSON.parse(localStorageValue) as T;
+    } catch {
+      return localStorageValue as T;
+    }
+  } catch {
+    return initialValue;
+  }
+}
 
 export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
   // Check cache first
   if (signalCache.has(key)) {
-    return signalCache.get(key) as Signal<T>;
+    return signalCache.get(key)!.signal;
   }
 
-  return createRoot(() => {
+  return createRoot((dispose) => {
     // Namespace the key to avoid conflicts with settings
     const namespacedKey = `signals.${key}`;
+    const storePromise = getSettingsStore();
 
     // Try to get initial value synchronously from localStorage first (for migration)
-    let syncInitialValue = initialValue;
-    try {
-      const localStorageValue = localStorage.getItem(key);
-      if (localStorageValue !== null) {
-        try {
-          syncInitialValue = JSON.parse(localStorageValue) as T;
-        } catch {
-          syncInitialValue = localStorageValue as T;
-        }
-      }
-    } catch {
-      // Use initialValue if localStorage fails
-    }
+    const syncInitialValue = getLocalStorageInitialValue(key, initialValue);
 
     const [value, setValue] = createSignal<T>(syncInitialValue);
     let isLoaded = false;
     let isLoading = true;
+    let shouldSave = false;
 
-    console.log(
+    logDebug(
       `createTauriSignal: Creating signal for key "${namespacedKey}" with initial value:`,
       syncInitialValue
     );
@@ -41,22 +78,22 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
     // Immediately attempt to load value from store, don't wait for onMount
     (async () => {
       try {
-        const store = await getSettingsStore();
+        const store = await storePromise;
         const hasKey = await store.has(namespacedKey);
-        console.log(`createTauriSignal: Has key "${namespacedKey}" in store:`, hasKey);
+        logDebug(`createTauriSignal: Has key "${namespacedKey}" in store:`, hasKey);
 
         if (hasKey) {
           const storedValue = await store.get(namespacedKey);
-          console.log(`createTauriSignal: Loaded value for "${namespacedKey}":`, storedValue);
+          logDebug(`createTauriSignal: Loaded value for "${namespacedKey}":`, storedValue);
           if (storedValue !== undefined && storedValue !== null) {
             // Only set if value hasn't been changed from initial (prevent overriding user changes)
             if (value() === syncInitialValue) {
               isLoaded = true;
               setValue(() => storedValue as T);
-              console.log(`createTauriSignal: Set loaded value for "${namespacedKey}"`);
+              logDebug(`createTauriSignal: Set loaded value for "${namespacedKey}"`);
             } else {
               isLoaded = true;
-              console.log(
+              logDebug(
                 `createTauriSignal: User has changed value, not overriding with loaded value`
               );
             }
@@ -65,7 +102,7 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
           // Try legacy key (without 'signals.' prefix) for migration
           const legacyValue = await store.get(key);
           if (legacyValue !== undefined && legacyValue !== null) {
-            console.log(`createTauriSignal: Migrating legacy key "${key}" to "${namespacedKey}"`);
+            logDebug(`createTauriSignal: Migrating legacy key "${key}" to "${namespacedKey}"`);
             await store.set(namespacedKey, legacyValue);
             // Only set if value hasn't been changed from initial
             if (value() === syncInitialValue) {
@@ -75,7 +112,7 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
               isLoaded = true;
             }
           } else {
-            console.log(
+            logDebug(
               `createTauriSignal: No stored value for "${namespacedKey}", using initial value`
             );
           }
@@ -90,7 +127,8 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
         // Don't remove localStorage in this case
       } finally {
         isLoading = false;
-        console.log(
+        shouldSave = true; // Enable saving after load completes
+        logDebug(
           `createTauriSignal: Loading completed for "${namespacedKey}", isLoaded:`,
           isLoaded
         );
@@ -100,21 +138,23 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
     // This effect runs whenever the signal's value changes,
     // updating value in Tauri store.
     createEffect(() => {
+      if (!shouldSave) return; // Don't save until loading completes
+
       const currentValue = value();
       // Only save after loading is complete, avoid saving initial default value
       if (!isLoading && (isLoaded || currentValue !== syncInitialValue)) {
-        console.log(`createTauriSignal: Saving value for "${namespacedKey}":`, currentValue);
+        logDebug(`createTauriSignal: Saving value for "${namespacedKey}":`, currentValue);
         (async () => {
           try {
-            const store = await getSettingsStore();
+            const store = await storePromise;
             await store.set(namespacedKey, currentValue);
-            console.log(`createTauriSignal: Successfully saved "${namespacedKey}"`);
+            logDebug(`createTauriSignal: Successfully saved "${namespacedKey}"`);
           } catch (error) {
             console.error(`Error saving ${namespacedKey} to store:`, error);
           }
         })();
       } else {
-        console.log(
+        logDebug(
           `createTauriSignal: Not saving "${namespacedKey}" - isLoading:`,
           isLoading,
           'isLoaded:',
@@ -129,11 +169,8 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
 
     // Create the signal
     const signal: Signal<T> = [value, setValue];
+    signalCache.set(key, { signal, dispose });
 
-    // Cache it
-    signalCache.set(key, signal);
-
-    // Return the signal
     return signal;
   });
 }

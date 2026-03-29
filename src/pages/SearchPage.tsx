@@ -60,6 +60,7 @@ function SearchPage() {
   const [manifestContent, setManifestContent] = createSignal<string | null>(null);
   const [manifestLoading, setManifestLoading] = createSignal(false);
   const [manifestError, setManifestError] = createSignal<string | null>(null);
+  const isRefreshing = () => refreshing() || loading();
 
   const { getBucketInfo, buckets, fetchBuckets } = useBuckets();
 
@@ -359,9 +360,9 @@ function SearchPage() {
             class="btn btn-square tooltip tooltip-top hover:btn-outline"
             data-tip={t('search.refreshResults')}
             onClick={handleRefresh}
-            disabled={refreshing() || !searchTerm()}
+            disabled={isRefreshing() || !searchTerm()}
           >
-            <RefreshCw class={`h-5 w-5 ${refreshing() || loading() ? 'animate-spin' : ''}`} />
+            <RefreshCw class={`h-5 w-5 ${isRefreshing() ? 'animate-spin' : ''}`} />
           </button>
         </div>
 

@@ -34,6 +34,7 @@ function VersionedAppsManager() {
     loading: dataLoading,
     error: dataError,
     refresh: refreshVersionedApps,
+    forceRefresh,
     onInvalidate,
   } = createSessionStorage<VersionedAppsData>('versionedAppsData', async () => {
     const scoopPath = await invoke<string | null>('get_scoop_path');
@@ -55,14 +56,10 @@ function VersionedAppsManager() {
     };
   });
 
-  const forceRefresh = () => {
-    sessionStorage.removeItem('versionedAppsData');
-    return refreshVersionedApps();
-  };
-
   // Computed values from cache data
   const versionedApps = () => versionedAppsData()?.apps || [];
   const appsDirectory = () => versionedAppsData()?.directory || '';
+  const isInitialLoading = () => isLoading() && versionedApps().length === 0;
 
   // Sync loading state with cache loading
   createEffect(() => {
@@ -84,10 +81,9 @@ function VersionedAppsManager() {
     const f = filter().toLowerCase();
     let apps = versionedApps();
 
-    // Filter: only show apps with multiple versions or true versioned installations
-    apps = apps.filter(
-      (app: VersionedApp) => app.localVersions.length > 1 || app.isVersionedInstall
-    );
+    // Filter: only show apps with multiple versions
+    // This is the "multi-version management" page - show apps that actually have multiple versions
+    apps = apps.filter((app: VersionedApp) => app.localVersions.length > 1);
 
     if (!f) return apps;
     return apps.filter(
@@ -99,16 +95,9 @@ function VersionedAppsManager() {
   });
 
   onMount(() => {
-    console.log('VersionedAppsManager mounted - data should be preloaded');
-    // Data is preloaded on app cold start, so we don't force refresh on mount
-    // The createSessionCache will use the cached data if available
-    // Only trigger refresh if cache is empty
-    if (!versionedAppsData()) {
-      console.log('VersionedAppsManager: no cached data, fetching...');
-      refreshVersionedApps();
-    } else {
-      console.log('VersionedAppsManager: using cached data');
-    }
+    console.log('VersionedAppsManager mounted - using cached data if available');
+    // Don't force refresh on mount - let cache expiry handle it
+    // Cache will be initialized automatically on first access
 
     // Listen for cache invalidation events
     const unsubscribe = onInvalidate(() => {
@@ -269,6 +258,10 @@ function VersionedAppsManager() {
         title={t('doctor.versionedApps.title')}
         icon={GalleryVerticalEnd}
         onRefresh={forceRefresh}
+        loading={isLoading()}
+        showLoadingPlaceholder={isLoading() && !error()}
+        dimContentWhenBusy={true}
+        lockContentWhenBusy={false}
         headerAction={
           <div class="flex items-center gap-2">
             <ResponsiveButton
@@ -278,7 +271,7 @@ function VersionedAppsManager() {
                 {
                   label: () => t('doctor.cleanup.cleanupOldVersions'),
                   onClick: handleCleanupOldVersions,
-                  disabled: () => isLoading(),
+                  disabled: () => isInitialLoading(),
                   class: 'btn-warning',
                   icon: Trash2,
                 },
@@ -287,7 +280,7 @@ function VersionedAppsManager() {
               <button
                 class="btn btn-warning btn-sm"
                 onClick={handleCleanupOldVersions}
-                disabled={isLoading()}
+                disabled={isInitialLoading()}
               >
                 <Trash2 class="h-4 w-4" />
                 {t('doctor.cleanup.cleanupOldVersions')}
@@ -311,7 +304,7 @@ function VersionedAppsManager() {
           class="input input-bordered mt-2 mb-4 w-full"
           value={filter()}
           onInput={(e) => setFilter(e.currentTarget.value)}
-          disabled={isLoading() || !!error() || versionedApps().length === 0}
+          disabled={isInitialLoading() || !!error() || versionedApps().length === 0}
         />
 
         <div class="bg-base-list max-h-[60vh] overflow-y-auto rounded-lg">
@@ -322,7 +315,7 @@ function VersionedAppsManager() {
             </div>
           </Show>
 
-          <Show when={!isLoading() && versionedApps().length === 0 && !error()}>
+          <Show when={!error() && !isLoading() && versionedApps().length === 0}>
             <div class="p-8 text-center">
               <Folder class="text-base-content/30 mx-auto h-16 w-16" />
               <p class="mt-4 text-lg font-semibold">{t('doctor.versionedApps.noVersionedApps')}</p>
@@ -330,7 +323,7 @@ function VersionedAppsManager() {
             </div>
           </Show>
 
-          <Show when={versionedApps().length > 0}>
+          <Show when={!error() && versionedApps().length > 0}>
             <div class="overflow-x-auto">
               <table class="table-sm table">
                 <thead>
@@ -365,7 +358,7 @@ function VersionedAppsManager() {
                                 <button
                                   class="btn btn-outline btn-xs"
                                   onClick={() => handleSwitchVersion(app.name, version)}
-                                  disabled={isLoading()}
+                                  disabled={isInitialLoading()}
                                 >
                                   {version}
                                 </button>
