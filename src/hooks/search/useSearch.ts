@@ -41,6 +41,8 @@ interface UseSearchReturn {
   isScanning: () => boolean;
   handleInstall: (pkg: ScoopPackage) => void;
   handleUninstall: (pkg: ScoopPackage) => void;
+  handleUpdate: (pkg: ScoopPackage) => Promise<void>;
+  handleForceUpdate: (pkg: ScoopPackage) => Promise<void>;
   handleInstallConfirm: () => void;
   closeOperationModal: (operationId: string, wasSuccess: boolean) => Promise<void>;
 
@@ -438,6 +440,8 @@ export function useSearch(): UseSearchReturn {
     isScanning: packageOperations.isScanning,
     handleInstall: packageOperations.handleInstall,
     handleUninstall: packageOperations.handleUninstall,
+    handleUpdate: packageOperations.handleUpdate,
+    handleForceUpdate: packageOperations.handleForceUpdate,
     handleInstallConfirm: packageOperations.handleInstallConfirm,
     closeOperationModal,
 

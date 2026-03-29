@@ -547,6 +547,8 @@ function BucketPage() {
         onClose={packageInfo.closeModal}
         onInstall={packageOperations.handleInstall}
         onUninstall={packageOperations.handleUninstall}
+        onUpdate={packageOperations.handleUpdate}
+        onForceUpdate={packageOperations.handleForceUpdate}
         showBackButton={true}
         fromPackageModal={true}
         onPackageStateChanged={() => {

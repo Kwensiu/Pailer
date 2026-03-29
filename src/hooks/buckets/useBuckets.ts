@@ -255,6 +255,45 @@ export function createTemporaryPackage(packageName: string, bucketName: string):
   };
 }
 
+function buildTemporaryPackage(packageName: string, bucketName: string): ScoopPackage {
+  return {
+    name: packageName,
+    version: '',
+    source: bucketName,
+    updated: '',
+    is_installed: false,
+    info: '',
+    match_source: 'name',
+    available_version: undefined,
+    installation_type: 'standard',
+    has_multiple_versions: false,
+  };
+}
+
+/**
+ * Resolve installed package for a clicked bucket package.
+ * Priority:
+ * 1) Use caller-provided installed packages when available.
+ * 2) Fallback to querying installed packages from backend.
+ */
+async function resolveInstalledPackage(
+  packageName: string,
+  bucketName: string,
+  installedPackages?: ScoopPackage[]
+): Promise<ScoopPackage | undefined> {
+  let installedList = installedPackages;
+  if (!installedList) {
+    try {
+      installedList = await invoke<ScoopPackage[]>('get_installed_packages_full');
+    } catch (err) {
+      console.warn('Failed to resolve installed packages for bucket package click:', err);
+      return undefined;
+    }
+  }
+
+  return installedList.find((p) => p.name === packageName && p.source === bucketName);
+}
+
 /**
  * Handle package click from bucket manifests
  * Creates a temporary package object and opens package info modal
@@ -266,10 +305,8 @@ export async function handleBucketPackageClick(
   closeBucketModal?: () => void,
   installedPackages?: ScoopPackage[] // Optional list of installed packages to check
 ) {
-  // Only treat the package as installed when the installed source matches the clicked bucket.
-  const installedPkg = installedPackages?.find(
-    (p) => p.name === packageName && p.source === bucketName
-  );
+  // Only treat the package as installed when installed source matches clicked bucket.
+  const installedPkg = await resolveInstalledPackage(packageName, bucketName, installedPackages);
 
   // Create package object with correct installation status
   const pkg: ScoopPackage = installedPkg
@@ -278,18 +315,7 @@ export async function handleBucketPackageClick(
         source: bucketName,
         is_installed: true,
       }
-    : {
-        name: packageName,
-        version: '', // Will be fetched by package info
-        source: bucketName,
-        updated: '', // Will be fetched by package info
-        is_installed: false,
-        info: '', // Will be fetched by package info
-        match_source: 'name',
-        available_version: undefined,
-        installation_type: 'standard',
-        has_multiple_versions: false,
-      };
+    : buildTemporaryPackage(packageName, bucketName);
 
   // Fetch package info (this will open the PackageInfoModal)
   await fetchPackageInfo(pkg);

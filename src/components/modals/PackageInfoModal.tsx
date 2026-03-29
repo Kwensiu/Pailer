@@ -36,7 +36,6 @@ interface PackageInfoModalProps {
   onForceUpdate?: (pkg: ScoopPackage) => void;
   onChangeBucket?: (pkg: ScoopPackage) => void;
   onPackageStateChanged?: () => void;
-  setOperationTitle?: (title: string) => void;
   showBackButton?: boolean;
   context?: 'installed' | 'search'; // Add context property to distinguish page source
   onBucketClick?: (bucketName: string) => void; // Add callback for bucket name clicks
@@ -698,46 +697,20 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                   }
                   setUpdateConfirm(false);
                   if (props.pkg) {
-                    // Implement force update functionality and show in OperationModal
-                    // Use the dedicated handleForceUpdate function if available
                     if (props.onForceUpdate) {
                       props.onForceUpdate(props.pkg);
-                    } else if (props.setOperationTitle) {
-                      // Fallback to direct invocation with proper UI feedback
-                      props.setOperationTitle(`Force Updating ${props.pkg.name}`);
-                      invoke('update_package', {
-                        packageName: props.pkg.name,
-                        force: true,
-                      }).catch((err) => {
-                        console.error('Failed to force update package:', err);
-                      });
                     } else {
-                      console.warn(
-                        'Neither onForceUpdate nor setOperationTitle is provided for force update operation'
-                      );
+                      console.warn('onForceUpdate is not provided for force update operation');
                     }
                     props.onPackageStateChanged?.();
                   }
                 } else {
                   if (props.pkg?.available_version) {
-                    // Normal update - use package operations hook for consistency
                     if (props.pkg && props.onUpdate) {
                       props.onUpdate(props.pkg);
-                      // Notify parent that package state may change
                       props.onPackageStateChanged?.();
-                    } else if (props.pkg) {
-                      // Fallback to direct invocation if onUpdate is not provided
-                      // We should not directly call setOperationTitle, but use the hook function
-                      // This ensures the operationTitle signal is properly updated
-                      if (props.setOperationTitle) {
-                        props.setOperationTitle(`Updating ${props.pkg.name}`);
-                      }
-                      invoke('update_package', {
-                        packageName: props.pkg.name,
-                      }).catch((err) => {
-                        console.error('Failed to update package:', err);
-                      });
-                      props.onPackageStateChanged?.();
+                    } else {
+                      console.warn('onUpdate is not provided for update operation');
                     }
                   } else {
                     // No update available, show force update confirmation

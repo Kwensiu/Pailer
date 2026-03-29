@@ -35,6 +35,8 @@ function SearchPage() {
     isScanning,
     handleInstall,
     handleUninstall,
+    handleUpdate,
+    handleForceUpdate,
     handleInstallConfirm,
     fetchPackageInfo,
     closeModal,
@@ -448,6 +450,8 @@ function SearchPage() {
         onClose={closeModal}
         onInstall={handleInstall}
         onUninstall={handleUninstall}
+        onUpdate={handleUpdate}
+        onForceUpdate={handleForceUpdate}
         context="search"
         fromPackageModal={true}
         onPackageStateChanged={() => {
