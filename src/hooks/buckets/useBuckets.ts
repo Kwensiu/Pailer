@@ -95,6 +95,7 @@ interface UseBucketsReturn {
 
 let cachedBuckets: BucketInfo[] | null = null;
 let isFetching = false;
+let globalError: string | null = null;
 const listeners: ((buckets: BucketInfo[]) => void)[] = [];
 
 // Add a function to update the cache from outside the hook
@@ -111,8 +112,8 @@ export { clearManifestCache, getManifestCache, setManifestCache };
 export function useBuckets(): UseBucketsReturn {
   // Initialize with cached data if available to avoid unnecessary loading state on page switches
   const [buckets, setBuckets] = createSignal<BucketInfo[]>(cachedBuckets || []);
-  const [loading, setLoading] = createSignal(!cachedBuckets);
-  const [error, setError] = createSignal<string | null>(null);
+  const [loading, setLoading] = createSignal(isFetching || !cachedBuckets);
+  const [error, setError] = createSignal<string | null>(globalError);
 
   const notifyListeners = (newBuckets: BucketInfo[]) => {
     listeners.forEach((listener) => listener(newBuckets));
@@ -147,6 +148,7 @@ export function useBuckets(): UseBucketsReturn {
 
     if (!quiet) {
       setLoading(true);
+      notifyListeners(buckets());
     }
     isFetching = true;
     setError(null);
@@ -154,16 +156,26 @@ export function useBuckets(): UseBucketsReturn {
     try {
       const result = await invoke<BucketInfo[]>('get_buckets');
       cachedBuckets = result;
+      globalError = null;
       shouldRefreshCache = false;
       setBuckets(result);
+      setError(null);
       notifyListeners(result);
     } catch (err) {
       console.error('Failed to fetch buckets:', err);
-      setError(err as string);
+      const errMsg = err as string;
+      globalError = errMsg;
+      setError(errMsg);
+      // Notify listeners to sync loading and error state
+      notifyListeners(buckets());
     } finally {
       isFetching = false;
       if (!quiet) {
         setLoading(false);
+        notifyListeners(buckets());
+      } else {
+        // Even if quiet, we should notify listeners so they can sync their loading state
+        notifyListeners(buckets());
       }
     }
   };
@@ -176,10 +188,10 @@ export function useBuckets(): UseBucketsReturn {
 
   const unsubscribe = subscribe((newBuckets) => {
     setBuckets(newBuckets);
-    // Only disable loading state when actually fetching data
-    if (!isFetching) {
-      setLoading(false);
-    }
+    // Sync loading state with the global isFetching state
+    setLoading(isFetching);
+    // Sync error state with the global error state
+    setError(globalError);
   });
 
   // Return cleanup function instead of using onCleanup directly

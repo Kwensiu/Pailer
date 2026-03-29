@@ -21,7 +21,7 @@ import { info, error as logError } from '@tauri-apps/plugin-log';
 import { invoke } from '@tauri-apps/api/core';
 import installedPackagesStore from './stores/installedPackagesStore';
 import settingsStore from './stores/settings';
-import { BucketInfo, updateBucketsCache } from './hooks/index';
+import { useBuckets } from './hooks/index';
 import { useOperations } from './stores/operations';
 import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
@@ -116,16 +116,18 @@ function App() {
       // Preload buckets
       (async () => {
         console.log('🔄 [App] Preloading buckets...');
+        const { fetchBuckets, cleanup } = useBuckets();
         try {
-          const buckets = await invoke<BucketInfo[]>('get_buckets');
-          if (buckets && buckets.length > 0) {
-            console.log(`✅ [App] Preloaded ${buckets.length} buckets`);
-            updateBucketsCache(buckets);
-            info('Buckets preload completed');
-          }
+          // Use the internal fetchBuckets from a temporary useBuckets instance
+          // This keeps the logic encapsulated within the hook
+          await fetchBuckets(true, true); // forceRefresh=true, quiet=true
+          console.log('✅ [App] Buckets preloaded via hook');
+          info('Buckets preload completed');
         } catch (err: unknown) {
           console.log('⚠️ [App] Failed to preload buckets');
           logError(`Failed to preload buckets: ${err}`);
+        } finally {
+          cleanup();
         }
       })(),
 

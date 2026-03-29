@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal } from 'solid-js';
+import { Show } from 'solid-js';
 import { RefreshCw, Eye } from 'lucide-solid';
 import { BucketInfo } from '../../../hooks';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -7,7 +7,6 @@ import BranchSelector from '../../common/BranchSelector';
 import { formatBucketDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import settingsStore from '../../../stores/settings';
-import { toast } from '../../common/ToastAlert';
 
 interface BucketCardProps {
   bucket: BucketInfo;
@@ -22,44 +21,6 @@ interface BucketCardProps {
 
 function BucketCard(props: BucketCardProps) {
   const { effectiveTheme } = settingsStore;
-
-  // Track the last result that triggered a toast to prevent duplicates
-  const [lastToastResult, setLastToastResult] = createSignal<string | null>(null);
-
-  // Show update result as toast notification only when update is complete and not in bulk update mode
-  createEffect(() => {
-    const result = props.updateResult;
-    const status = props.updateResultStatus;
-    const isUpdating = props.isUpdating;
-    const isBulkUpdate = props.isBulkUpdate;
-
-    // Only show toast when update is complete, we have a result, not in bulk update mode, and it's a new result
-    if (!isUpdating && result && !isBulkUpdate && status) {
-      const lastResult = lastToastResult();
-
-      // More robust comparison - trim and normalize whitespace
-      const normalizedResult = result.trim();
-      const normalizedLastResult = lastResult?.trim() || '';
-
-      if (normalizedResult !== normalizedLastResult) {
-        setLastToastResult(result);
-        switch (status) {
-          case 'success':
-            toast.success(result);
-            break;
-          case 'info':
-            toast.info(result);
-            break;
-          case 'error':
-            toast.error(result);
-            break;
-          default:
-            toast.info(result);
-            break;
-        }
-      }
-    }
-  });
 
   return (
     <div class="relative">

@@ -21,6 +21,7 @@ import BucketSearchResults from '../components/page/buckets/BucketSearchResults'
 import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
 import { SearchableBucket } from '../hooks';
 import { t } from '../i18n';
+import { toast } from '../components/common/ToastAlert';
 
 const UPDATE_RESULT_DISPLAY_DURATION = 2000;
 
@@ -77,7 +78,9 @@ function BucketPage() {
   let stateTimerId: number | null = null;
 
   onMount(() => {
-    fetchBuckets();
+    // If we already have buckets (from preloading), don't force a refresh
+    // useBuckets() will automatically use cachedBuckets if available
+    fetchBuckets(false);
   });
 
   onCleanup(() => {
@@ -204,6 +207,10 @@ function BucketPage() {
     shouldRefreshBuckets: boolean = true,
     abortSignal?: AbortSignal
   ) => {
+    if (updatingBuckets().has(bucketName)) {
+      return { success: false, message: 'Operation already in progress', bucket_name: bucketName };
+    }
+
     // Check if bulk update is being cancelled
     const isBulkUpdateCancelling = isCancelling();
 
@@ -252,6 +259,21 @@ function BucketPage() {
       }
 
       if (!isBulkUpdateCancelling && shouldRefreshBuckets) {
+        switch (status) {
+          case 'success':
+            toast.success(displayMessage);
+            break;
+          case 'info':
+            toast.info(displayMessage);
+            break;
+          case 'error':
+            toast.error(displayMessage);
+            break;
+          default:
+            toast.info(displayMessage);
+            break;
+        }
+
         setUpdateResults((prev) => ({
           ...prev,
           [bucketName]: displayMessage,
