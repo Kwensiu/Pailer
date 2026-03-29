@@ -157,6 +157,7 @@
     "showMore": "Show More",
     "sure": "Sure?",
     "switch": "Switch",
+    "switchBucket": "Switch Bucket",
     "uninstall": "Uninstall",
     "updateAll": "Update All",
     "view": "View"
@@ -385,7 +386,7 @@
       "withErrors": "{{name}} operation failed with {{count}} errors"
     },
     "updateAllSuccess": "All packages updated successfully",
-    "withWarnings": "{{name}} completed, but with warnings that require attention"
+    "withWarnings": "{{name}} finished, but with warnings that require attention"
   },
   "packageInfo": {
     "backToBucket": "Back to Bucket",
@@ -398,6 +399,7 @@
     "description": "Description",
     "details": "Details",
     "ensureSoftwarePresent": "Ensure the software package is present in the target repository",
+    "errorChangingBucket": "Failed to switch {{name}} to bucket {{bucket}}: {{error}}",
     "errorDeletingVersion": "Failed to delete version v{{version}}: {{error}}",
     "errorLoadingManifest": "Failed to load manifest for {{name}}: {{error}}",
     "errorLoadingVersions": "Failed to load versions for {{name}}: {{error}}",
@@ -417,6 +419,7 @@
     "notes": "Notes",
     "openFolder": "Open Folder",
     "success": {
+      "changeBucket": "{{name}} switched to bucket {{bucket}}",
       "forceUpdate": "{{name}} force updated successfully",
       "install": "{{name}} installed successfully",
       "switchVersion": "{{name}} switched to version {{version}}",
@@ -531,6 +534,7 @@
       "copyCommand": "Copy command",
       "customInstall": "Custom install",
       "installed": "Installed",
+      "installedDifferentBucketTooltip": "Installed from a different bucket",
       "multipleVersionsInstalled": "Multiple versions installed",
       "noPackagesFound": "No {{type}} found for \"{{query}}\"",
       "pageInfo": "Page {{current}} / {{total}}",
@@ -696,6 +700,10 @@
       "saveSuccess": "Scoop path saved and applied successfully!",
       "title": "Scoop Configuration"
     },
+    "scoopUpdate": {
+      "description": "When enabled, package updates will skip Scoop's self-update and bucket sync checks.\nThis allows the app to use local manifests instead of the latest remote version, but may cause update issues.",
+      "title": "Bypass Scoop Self-Update (Beta)"
+    },
     "startup": {
       "description": "Configure whether Pailer should automatically start when Windows boots.",
       "silentStartup": {
@@ -734,10 +742,6 @@
       "noSelectedApps": "No applications selected yet",
       "selectedApps": "Selected Applications",
       "title": "Tray Applications"
-    },
-    "scoopUpdate": {
-      "title": "Bypass Scoop Self-Update (Beta)",
-      "description": "When enabled, package updates will skip Scoop's self-update and bucket sync checks.\nThis allows the app to use local manifests instead of the latest remote version, but may cause update issues."
     },
     "virustotal": {
       "apiKey": "VirusTotal API Key",

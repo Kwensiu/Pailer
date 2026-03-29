@@ -16,11 +16,12 @@ import {
 } from 'lucide-solid';
 import { invoke } from '@tauri-apps/api/core';
 import ManifestModal from './ManifestModal';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openPath, openUrl } from '@tauri-apps/plugin-opener';
 import { t, locale } from '../../i18n';
 import Dropdown from '../common/Dropdown';
 import { searchCacheManager } from '../../hooks/search/useSearchCache';
 import settingsStore from '../../stores/settings';
+import { normalizeExternalUrl, sanitizeExternalUrlText } from '../../utils/format';
 
 interface PackageInfoModalProps {
   pkg?: ScoopPackage | null;
@@ -786,14 +787,27 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                       <div class="col-span-2">
                         <Switch fallback={<DetailValue value={item.value} />}>
                           <Match when={item.key === 'Homepage'}>
-                            <a
-                              href={item.value}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="link link-primary break-all"
+                            <Show
+                              when={normalizeExternalUrl(item.value)}
+                              fallback={<DetailValue value={sanitizeExternalUrlText(item.value)} />}
                             >
-                              {item.value}
-                            </a>
+                              {(normalizedUrl) => (
+                                <button
+                                  type="button"
+                                  class="link link-primary text-left break-all"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await openUrl(normalizedUrl());
+                                    } catch (error) {
+                                      console.error('Failed to open homepage URL:', error);
+                                    }
+                                  }}
+                                >
+                                  {normalizedUrl()}
+                                </button>
+                              )}
+                            </Show>
                           </Match>
                           <Match when={item.key === 'Bucket'}>
                             <div

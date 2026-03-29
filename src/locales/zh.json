@@ -157,6 +157,7 @@
     "showMore": "显示更多",
     "sure": "确定",
     "switch": "切换",
+    "switchBucket": "切换仓库",
     "uninstall": "卸载",
     "updateAll": "全部更新",
     "view": "查看"
@@ -385,7 +386,7 @@
       "withErrors": "{{name}} 操作失败，遇到 {{count}} 个错误"
     },
     "updateAllSuccess": "所有软件包更新成功",
-    "withWarnings": "{{name}} 操作完成，但是存在需要注意的警告信息"
+    "withWarnings": "{{name}} 操作结束，但是存在需要注意的警告信息"
   },
   "packageInfo": {
     "backToBucket": "返回仓库",
@@ -393,11 +394,12 @@
     "changeBucket": "更换仓库",
     "changeBucketFor": "更改 {{name}} 的仓库",
     "close": "关闭",
-    "current": "当前版本",
+    "current": "当前仓库",
     "debugStructure": "调试结构",
     "description": "描述",
     "details": "详细信息",
     "ensureSoftwarePresent": "确保目标仓库中存在该软件包",
+    "errorChangingBucket": "将 {{name}} 切换到仓库 {{bucket}} 失败: {{error}}",
     "errorDeletingVersion": "删除版本 v{{version}} 失败: {{error}}",
     "errorLoadingManifest": "加载 {{name}} 清单失败: {{error}}",
     "errorLoadingVersions": "加载 {{name}} 版本失败: {{error}}",
@@ -417,6 +419,7 @@
     "notes": "备注",
     "openFolder": "打开文件夹",
     "success": {
+      "changeBucket": "{{name}} 已切换到仓库 {{bucket}}",
       "forceUpdate": "{{name}} 强制更新成功",
       "install": "{{name}} 安装成功",
       "switchVersion": "{{name}} 已切换到版本 {{version}}",
@@ -531,6 +534,7 @@
       "copyCommand": "复制命令",
       "customInstall": "自定义安装",
       "installed": "已安装",
+      "installedDifferentBucketTooltip": "安装来源与当前仓库不一致",
       "multipleVersionsInstalled": "多版本已安装",
       "noPackagesFound": "没有找到 {{type}} \"{{query}}\"",
       "pageInfo": "第 {{current}} / {{total}} 页",
@@ -696,6 +700,10 @@
       "saveSuccess": "Scoop 路径保存并应用成功！",
       "title": "Scoop 路径配置"
     },
+    "scoopUpdate": {
+      "description": "启用后，软件包更新将跳过 Scoop 的自更新和 Bucket 同步检查\n这会允许软件使用本地 Manifest 而非远程最新版本，但可能导致更新异常",
+      "title": "绕过 Scoop 自更新（实验）"
+    },
     "startup": {
       "description": "配置 Pailer 是否应该在 Windows 启动时自动运行。",
       "silentStartup": {
@@ -734,10 +742,6 @@
       "noSelectedApps": "尚未选择任何应用程序",
       "selectedApps": "已选择的应用程序",
       "title": "托盘应用程序"
-    },
-    "scoopUpdate": {
-      "title": "绕过 Scoop 自更新（实验）",
-      "description": "启用后，软件包更新将跳过 Scoop 的自更新和 Bucket 同步检查\n这会允许软件使用本地 Manifest 而非远程最新版本，但可能导致更新异常"
     },
     "virustotal": {
       "apiKey": "VirusTotal API 密钥",

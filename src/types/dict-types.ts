@@ -157,6 +157,7 @@ export interface Dict {
     showMore: string;
     sure: string;
     switch: string;
+    switchBucket: string;
     uninstall: string;
     updateAll: string;
     view: string;
@@ -398,6 +399,7 @@ export interface Dict {
     description: string;
     details: string;
     ensureSoftwarePresent: string;
+    errorChangingBucket: string;
     errorDeletingVersion: string;
     errorLoadingManifest: string;
     errorLoadingVersions: string;
@@ -417,6 +419,7 @@ export interface Dict {
     notes: string;
     openFolder: string;
     success: {
+      changeBucket: string;
       forceUpdate: string;
       install: string;
       switchVersion: string;
@@ -531,6 +534,7 @@ export interface Dict {
       copyCommand: string;
       customInstall: string;
       installed: string;
+      installedDifferentBucketTooltip: string;
       multipleVersionsInstalled: string;
       noPackagesFound: string;
       pageInfo: string;
@@ -696,6 +700,10 @@ export interface Dict {
       saveSuccess: string;
       title: string;
     };
+    scoopUpdate: {
+      description: string;
+      title: string;
+    };
     startup: {
       description: string;
       silentStartup: {
@@ -734,10 +742,6 @@ export interface Dict {
       noSelectedApps: string;
       selectedApps: string;
       title: string;
-    };
-    scoopUpdate: {
-      title: string;
-      description: string;
     };
     virustotal: {
       apiKey: string;
