@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/Kwensiu/Pailer/compare/v1.7.4...v1.8.0) (2026-03-29)
+
+
+### Features
+
+* **settings:** add Scoop self-update bypass option ([45dd5fa](https://github.com/Kwensiu/Pailer/commit/45dd5fa1185fc073cfb1ba15b7cb625754383ed4))
+
+
+### Performance
+
+* **cache:** harden storage cache lifecycle and refresh behavior ([35d6fb0](https://github.com/Kwensiu/Pailer/commit/35d6fb0dacda6c5fb068a743f2b792b756f89535))
+
+
+### Styles
+
+* **settings:** refine settings card layouts ([994c606](https://github.com/Kwensiu/Pailer/commit/994c606723d370ba0f95e52c774e10c470c1c574))
+
 ## [1.7.4](https://github.com/Kwensiu/Pailer/compare/v1.7.3...v1.7.4) (2026-03-27)
 
 
