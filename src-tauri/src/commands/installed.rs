@@ -467,6 +467,7 @@ fn build_scoop_package(package_name: String, manifest: PackageManifest, bucket: 
         match_source: crate::models::MatchSource::default(),
         installation_type,
         has_multiple_versions: has_version_dirs,
+        local_latest_version: None,
     }
 }
 
@@ -493,9 +494,50 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
     let updated_time = get_package_directory_modified_time(package_path)
         .unwrap_or_default(); // Use package_path (main directory) instead of install_root (current directory)
 
+    // Find the latest local version if multiple versions exist
+    let local_latest_version = if has_version_dirs {
+        fs::read_dir(package_path)
+            .ok()
+            .map(|entries| {
+                let mut versions: Vec<String> = entries
+                    .flatten()
+                    .filter(|entry| entry.path().is_dir())
+                    .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+                    .filter(|name| name != "current" && is_valid_version_string(name))
+                    .collect();
+                
+                // Sort versions to find the latest one
+                // Use a natural sort approach: split by dots/hyphens and compare segments
+                versions.sort_by(|a, b| {
+                    let a_parts: Vec<&str> = a.split(|c: char| !c.is_alphanumeric()).collect();
+                    let b_parts: Vec<&str> = b.split(|c: char| !c.is_alphanumeric()).collect();
+                    
+                    for (a_p, b_p) in a_parts.iter().zip(b_parts.iter()) {
+                        let a_num = a_p.parse::<u64>();
+                        let b_num = b_p.parse::<u64>();
+                        
+                        match (a_num, b_num) {
+                            (Ok(an), Ok(bn)) if an != bn => return an.cmp(&bn),
+                            (Ok(_), Err(_)) => return std::cmp::Ordering::Greater,
+                            (Err(_), Ok(_)) => return std::cmp::Ordering::Less,
+                            _ if a_p != b_p => return a_p.cmp(b_p),
+                            _ => continue,
+                        }
+                    }
+                    a_parts.len().cmp(&b_parts.len())
+                });
+                versions.last().cloned()
+            })
+            .flatten()
+    } else {
+        None
+    };
+
     log::trace!("Determined bucket for package {}: {}", package_name, bucket);
 
-    Ok(build_scoop_package(package_name, manifest, bucket, updated_time, has_version_dirs))
+    let mut pkg = build_scoop_package(package_name, manifest, bucket, updated_time, has_version_dirs);
+    pkg.local_latest_version = local_latest_version;
+    Ok(pkg)
 }
 
 /// Check if scoop path is available, but don't auto-detect or update it.

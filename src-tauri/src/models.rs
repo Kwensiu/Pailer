@@ -69,6 +69,9 @@ pub struct ScoopPackage {
     /// Whether the app has multiple version directories (technical state)
     #[serde(default)]
     pub has_multiple_versions: bool,
+    /// The latest locally installed version string
+    #[serde(default)]
+    pub local_latest_version: Option<String>,
 }
 
 fn default_true() -> bool {
