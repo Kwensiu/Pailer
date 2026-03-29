@@ -6,3 +6,5 @@ keys/
 .env
 .codex
 .windsurf/workflows/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
