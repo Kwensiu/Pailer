@@ -176,6 +176,7 @@ const performInstall = (pkg: ScoopPackage) => {
     packageName: pkg.name,
     bucket: pkg.source,
     operationId,
+    bypassSelfUpdate: settingsStore.settings.scoop.bypassSelfUpdate,
   }).catch((err) => {
     console.error(`Installation invocation failed for ${pkg.name}:`, err);
     setOperationNextStep(null);

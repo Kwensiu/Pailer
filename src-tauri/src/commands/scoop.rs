@@ -63,8 +63,20 @@ fn build_scoop_cmd(
         ScoopOp::Install => {
             let pkg = package.ok_or("A package name is required to install.")?;
             match bucket {
-                Some(b) => format!("scoop install {}/{}", b, pkg),
-                None => format!("scoop install {}", pkg),
+                Some(b) => {
+                    if bypass {
+                        format!("scoop install {}/{} --no-update-scoop", b, pkg)
+                    } else {
+                        format!("scoop install {}/{}", b, pkg)
+                    }
+                }
+                None => {
+                    if bypass {
+                        format!("scoop install {} --no-update-scoop", pkg)
+                    } else {
+                        format!("scoop install {}", pkg)
+                    }
+                }
             }
         }
         ScoopOp::Uninstall => {

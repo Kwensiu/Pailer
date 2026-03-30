@@ -15,6 +15,7 @@ use tauri::{AppHandle, State, Window};
 /// * `package_name` - The name of package to install.
 /// * `bucket` - The name of bucket to install from. If empty or "None", default buckets are used.
 /// * `operation_id` - Optional operation ID for tracking.
+/// * `bypass_self_update` - Whether to bypass Scoop's self-update check.
 #[tauri::command]
 pub async fn install_package(
     window: Window,
@@ -23,6 +24,7 @@ pub async fn install_package(
     package_name: String,
     bucket: String,
     operation_id: Option<String>,
+    bypass_self_update: Option<bool>,
 ) -> Result<(), String> {
     let bucket_opt =
         (!bucket.is_empty() && !bucket.eq_ignore_ascii_case("none")).then(|| bucket.as_str());
@@ -37,7 +39,7 @@ pub async fn install_package(
         generate_operation_id(ScoopOp::Install, Some(&package_name))
     });
 
-    let install_result = scoop::execute_scoop(window, ScoopOp::Install, Some(&package_name), bucket_opt, operation_id.clone(), false).await;
+    let install_result = scoop::execute_scoop(window, ScoopOp::Install, Some(&package_name), bucket_opt, operation_id.clone(), bypass_self_update.unwrap_or(false)).await;
     
     match &install_result {
         Ok(_) => {
