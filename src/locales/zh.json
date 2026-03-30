@@ -691,7 +691,7 @@
       "windows": "Windows PowerShell"
     },
     "scoopConfiguration": {
-      "description": "设置您的 Scoop 目录安装路径，更改后建议重启以避免潜在问题。\n自动检测会通过环境变量、scoop config 命令和常见安装路径识别。",
+      "description": "设置您的 Scoop 安装路径，更改立即生效。\n自动检测通过环境变量、scoop config 和常见路径识别。",
       "detectError": "无法检测 Scoop 路径。请确保正确设置了 SCOOP 环境变量。",
       "detectSuccess": "Scoop 路径检测成功！",
       "pathLabel": "Scoop 安装路径",
@@ -701,7 +701,7 @@
       "title": "Scoop 路径配置"
     },
     "scoopUpdate": {
-      "description": "启用后，软件包更新将跳过 Scoop 的自更新和 Bucket 同步检查\n这会允许软件使用本地 Manifest 而非远程最新版本，但可能导致更新异常",
+      "description": "允许软件包安装/更新跳过 Scoop 自更新和 Bucket 同步。\n将使用本地 Manifest 而非远程版本，但可能导致更新问题。",
       "title": "绕过 Scoop 自更新（实验）"
     },
     "startup": {

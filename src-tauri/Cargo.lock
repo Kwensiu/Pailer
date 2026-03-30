@@ -16,6 +16,7 @@ dependencies = [
  "lnk",
  "log",
  "once_cell",
+ "png",
  "rayon",
  "regex",
  "reqwest",

@@ -155,7 +155,7 @@ export default function Modal(props: ModalProps) {
             ref={setModalBoxRef}
           >
             {/* Header */}
-            <div class="border-base-300 bg-base-175 flex items-center justify-between border-b p-4">
+            <div class="border-base-300 bg-base-175 flex items-center justify-between border-b px-4 py-3">
               <div class="text-lg font-bold">{props.title}</div>
               <div class="flex items-center gap-2">
                 <Show when={props.headerAction}>{props.headerAction}</Show>

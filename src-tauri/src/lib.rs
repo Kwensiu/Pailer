@@ -177,6 +177,7 @@ pub fn run() {
             commands::installed::get_package_path,
             commands::installed::get_current_version_install_time,
             commands::installed::get_current_version_update_date,
+            commands::package_icon::get_installed_package_icons,
             commands::info::get_package_info,
             commands::install::install_package,
             commands::manifest::get_package_manifest,

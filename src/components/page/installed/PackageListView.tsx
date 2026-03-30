@@ -1,5 +1,5 @@
 import { For, Show, createSignal, createEffect, onCleanup, Accessor } from 'solid-js';
-import { CircleArrowUp, Lock, ArrowUp, ArrowDown } from 'lucide-solid';
+import { CircleArrowUp, Lock, ArrowUp, ArrowDown, Package } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
 import type { ContextMenuItem } from '../../../components/common/context-menu';
@@ -12,12 +12,13 @@ import {
   ContextMenuRenderer,
   createPackageContextMenuItems,
 } from '../../../components/common/context-menu';
-import { useConfirmAction } from '../../../hooks';
+import { useConfirmAction, usePackageIcons } from '../../../hooks';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
 interface PackageListViewProps {
   packages: Accessor<DisplayPackage[]>;
+  packageNames: Accessor<string[]>;
   sortKey: Accessor<SortKey>;
   sortDirection: Accessor<'asc' | 'desc'>;
   onSort: (key: SortKey) => void;
@@ -78,6 +79,9 @@ function PackageListView(props: PackageListViewProps) {
   const [contextMenuPosition, setContextMenuPosition] = createSignal<{ x: number; y: number }>({
     x: 0,
     y: 0,
+  });
+  const { icons: packageIcons } = usePackageIcons({
+    packageNames: props.packageNames,
   });
   const { confirmingItem, startConfirm, cancelConfirm } = useConfirmAction();
 
@@ -195,8 +199,23 @@ function PackageListView(props: PackageListViewProps) {
                   <td class="w-[35%]">
                     <div class="flex min-w-0 items-center gap-2">
                       <div class="flex min-w-0 items-center gap-1">
+                        <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden">
+                          <Show
+                            when={packageIcons()[pkg.name]}
+                            fallback={
+                              <Package class="text-base-content/40 h-5 w-5" aria-hidden="true" />
+                            }
+                          >
+                            <img
+                              src={packageIcons()[pkg.name]}
+                              alt=""
+                              class="h-6 w-6 object-contain"
+                              loading="lazy"
+                            />
+                          </Show>
+                        </div>
                         <div
-                          class="hover:text-primary min-w-0 cursor-pointer truncate font-medium transition-colors"
+                          class="hover:text-primary min-w-0 cursor-pointer truncate font-bold transition-colors"
                           onClick={() => props.onViewInfo(pkg)}
                           title={pkg.name}
                         >
@@ -238,7 +257,7 @@ function PackageListView(props: PackageListViewProps) {
                           when={heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom'}
                         >
                           <div
-                            class="tooltip tooltip-right shrink-0"
+                            class="tooltip tooltip-right ml-1 shrink-0"
                             data-tip={t('installed.list.heldTooltip')}
                           >
                             <Lock class="text-warning h-4 w-4" />

@@ -14,6 +14,7 @@ use url::Url;
 pub struct ScoopAppShortcut {
     pub name: String,
     pub display_name: String,
+    pub shortcut_path: PathBuf,
     pub target_path: String,
     pub working_directory: String,
     pub icon_path: Option<String>,
@@ -495,6 +496,7 @@ pub fn get_scoop_app_shortcuts_with_path(
                     shortcuts.push(ScoopAppShortcut {
                         name: file_stem.to_string(),
                         display_name,
+                        shortcut_path: path.clone(),
                         target_path: shortcut_info.target_path,
                         working_directory: shortcut_info.working_directory,
                         icon_path: shortcut_info.icon_path,

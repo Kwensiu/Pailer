@@ -691,7 +691,7 @@
       "windows": "Windows PowerShell"
     },
     "scoopConfiguration": {
-      "description": "Set the installation path for your Scoop directory. Changes will take effect immediately.\nAutomatically detects Scoop installation using multiple methods: environment variables, scoop config command, and common installation paths.",
+      "description": "Set your Scoop installation path. Changes take effect immediately.\nAuto-detects Scoop using environment variables, scoop config, and common paths.",
       "detectError": "Failed to detect Scoop path. Please make sure the SCOOP environment variable is set correctly.",
       "detectSuccess": "Scoop path detected successfully!",
       "pathLabel": "Scoop Installation Path",
@@ -701,7 +701,7 @@
       "title": "Scoop Configuration"
     },
     "scoopUpdate": {
-      "description": "When enabled, package updates will skip Scoop's self-update and bucket sync checks.\nThis allows the app to use local manifests instead of the latest remote version, but may cause update issues.",
+      "description": "Allow package install/update operations to skip Scoop self-update and bucket fetch.\nUses local manifests instead of remote versions, but may cause update issues.",
       "title": "Bypass Scoop Self-Update (Beta)"
     },
     "startup": {

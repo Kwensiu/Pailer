@@ -164,6 +164,12 @@ function InstalledPage(props: InstalledPageProps) {
       return false;
     });
   });
+  const installedPackageNames = createMemo(() =>
+    installedPackagesStore
+      .packages()
+      .map((pkg) => pkg.name)
+      .filter(Boolean)
+  );
   const showInitialLoading = createMemo(
     () => loading() && !error() && processedPackages().length === 0
   );
@@ -312,6 +318,7 @@ function InstalledPage(props: InstalledPageProps) {
             >
               <PackageListView
                 packages={filteredPackages}
+                packageNames={installedPackageNames}
                 onSort={handleSort}
                 sortKey={sortKey}
                 sortDirection={sortDirection}

@@ -16,6 +16,7 @@ export * from './storage/createTauriSignal';
 export { useInstalledPackages } from './packages/useInstalled';
 export { usePackageInfo } from './packages/usePackageInfo';
 export { usePackageOperations } from './packages/usePackageOps';
+export { usePackageIcons } from './packages/usePackageIcons';
 
 // Search related
 export { useSearch } from './search/useSearch';

@@ -39,10 +39,11 @@ export const searchCacheManager = new SearchCacheManager();
 // localStorage size management utilities
 export const localStorageUtils = {
   // Get approximate localStorage size in bytes
-  getStorageSize(): number {
+  getStorageSize(prefix?: string): number {
     let total = 0;
+    const targetPrefix = prefix || SEARCH_CACHE_PREFIX;
     for (let key in localStorage) {
-      if (localStorage.hasOwnProperty(key)) {
+      if (localStorage.hasOwnProperty(key) && key.startsWith(targetPrefix)) {
         total += key.length + localStorage.getItem(key)!.length;
       }
     }
@@ -50,14 +51,15 @@ export const localStorageUtils = {
   },
 
   // Clean up old cache entries based on age
-  cleanupOldCache(maxAge: number = 7 * 24 * 60 * 60 * 1000): void {
+  cleanupOldCache(maxAge: number = 7 * 24 * 60 * 60 * 1000, prefix?: string): void {
     // 7 days default
     const now = Date.now();
     const keysToRemove: string[] = [];
+    const targetPrefix = prefix || SEARCH_CACHE_PREFIX;
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)!;
-      if (key.startsWith(SEARCH_CACHE_PREFIX)) {
+      if (key.startsWith(targetPrefix)) {
         try {
           const cached = localStorage.getItem(key);
           if (cached) {
@@ -80,17 +82,19 @@ export const localStorageUtils = {
   },
 
   // Limit total cache size by removing oldest entries
-  limitCacheSize(maxSizeBytes: number = 5 * 1024 * 1024): void {
+  limitCacheSize(maxSizeBytes: number = 5 * 1024 * 1024, prefix?: string): void {
     // 5MB default
-    const currentSize = this.getStorageSize();
+    const currentSize = this.getStorageSize(prefix);
     if (currentSize <= maxSizeBytes) return;
+
+    const targetPrefix = prefix || SEARCH_CACHE_PREFIX;
 
     // Get all cache entries with timestamps
     const cacheEntries: Array<{ key: string; timestamp: number; size: number }> = [];
 
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)!;
-      if (key.startsWith(SEARCH_CACHE_PREFIX)) {
+      if (key.startsWith(targetPrefix)) {
         try {
           const cached = localStorage.getItem(key);
           if (cached) {

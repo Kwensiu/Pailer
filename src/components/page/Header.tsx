@@ -1,9 +1,20 @@
 import { Component, For, onMount, onCleanup, Show, createSignal } from 'solid-js';
 import { View } from '../../types/scoop.ts';
-import { Package, Search, Settings, Stethoscope, FolderOpen, ArrowUpCircle } from 'lucide-solid';
+import {
+  Package,
+  Search,
+  Settings,
+  Stethoscope,
+  FolderOpen,
+  CircleArrowUp,
+  Languages,
+  Sun,
+  Moon,
+} from 'lucide-solid';
 import installedPackagesStore from '../../stores/installedPackagesStore.ts';
-import { t } from '../../i18n.ts';
+import { t, locale, toggleLanguage } from '../../i18n.ts';
 import { updateStore } from '../../stores/updateStore.ts';
+import settingsStore from '../../stores/settings.ts';
 import UpdateModal from './settings/UpdateModal.tsx';
 
 interface HeaderProps {
@@ -13,6 +24,7 @@ interface HeaderProps {
 
 const Header: Component<HeaderProps> = (props) => {
   const [showUpdateModal, setShowUpdateModal] = createSignal(false);
+  const { setTheme, effectiveTheme } = settingsStore;
 
   const navItems = [
     { view: 'search' as const, icon: Search, labelKey: 'app.search' },
@@ -25,6 +37,12 @@ const Header: Component<HeaderProps> = (props) => {
   const handleInstallUpdate = async () => {
     setShowUpdateModal(false);
     await updateStore.installUpdate();
+  };
+
+  const toggleTheme = () => {
+    const currentTheme = effectiveTheme();
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
   };
 
   const handleCloseModal = () => {
@@ -54,12 +72,34 @@ const Header: Component<HeaderProps> = (props) => {
       <div class="flex-1">
         <div class="flex items-center">
           <a class="btn btn-ghost ml-1 rounded-lg px-2 text-2xl font-bold">{t('app.title')}</a>
+          <Show when={import.meta.env.DEV}>
+            <button
+              class="btn btn-ghost btn-sm ml-2"
+              onClick={toggleLanguage}
+              title={`Switch to ${locale() === 'en' ? 'Chinese' : 'English'}`}
+            >
+              <Languages class="h-4 w-4" />
+              <span class="ml-1">{locale() === 'en' ? 'EN' : '中'}</span>
+            </button>
+            <button
+              class="btn btn-ghost btn-sm ml-1"
+              onClick={toggleTheme}
+              title={`Switch to ${effectiveTheme() === 'dark' ? 'light' : 'dark'} theme`}
+            >
+              <Show when={effectiveTheme() === 'dark'}>
+                <Sun class="h-4 w-4" />
+              </Show>
+              <Show when={effectiveTheme() === 'light'}>
+                <Moon class="h-4 w-4" />
+              </Show>
+            </button>
+          </Show>
           <Show when={updateStore.getUpdateInfo() && !updateStore.isDismissed()}>
             <button
               class="py-0.2 ml-2 inline-flex items-center gap-1 rounded-lg border border-green-500 bg-green-600 px-2 text-xs font-medium text-white transition-colors duration-200 hover:bg-green-700"
               onClick={() => setShowUpdateModal(true)}
             >
-              <ArrowUpCircle class="h-3 w-3" />
+              <CircleArrowUp class="h-3 w-3" />
               <span>v{updateStore.getUpdateInfo()?.version}</span>
             </button>
           </Show>

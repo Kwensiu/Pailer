@@ -2,9 +2,9 @@ use crate::models::ScoopPackage;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::RwLock;
+use std::sync::RwLock as StdRwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock as AsyncRwLock};
 
 #[derive(Clone)]
 pub struct InstalledPackagesCache {
@@ -14,20 +14,28 @@ pub struct InstalledPackagesCache {
 
 #[derive(Clone, Debug)]
 pub struct PackageVersionsCache {
-    pub fingerprint: String, // Same fingerprint as installed packages cache
-    pub versions_map: HashMap<String, Vec<String>>, // package_name -> list of version dirs
+    pub fingerprint: String,
+    pub versions_map: HashMap<String, Vec<String>>,
+}
+
+#[derive(Clone)]
+pub struct LnkSourceIndexCache {
+    pub cache_key: String,
+    pub index: HashMap<String, crate::commands::package_icon::ResolvedPackageIconSource>,
 }
 
 /// Shared application state managed by Tauri.
 pub struct AppState {
     /// The resolved path to the Scoop installation directory.
-    scoop_path: RwLock<PathBuf>,
+    scoop_path: StdRwLock<PathBuf>,
     /// Whether Scoop is properly configured
-    scoop_configured: RwLock<bool>,
+    scoop_configured: StdRwLock<bool>,
     /// A cache for the list of installed packages and their fingerprint.
     pub installed_packages: Mutex<Option<InstalledPackagesCache>>,
     /// A cache for package versions, invalidated when installed packages change
     pub package_versions: Mutex<Option<PackageVersionsCache>>,
+    /// A cache for LNK shortcut index used for icon resolution
+    pub lnk_source_index: AsyncRwLock<Option<LnkSourceIndexCache>>,
     /// Timestamp (ms) of the last installed packages refresh to prevent rapid consecutive calls
     last_refresh_time: AtomicU64,
 }
@@ -36,10 +44,11 @@ impl AppState {
     /// Creates new application state with the provided Scoop root path.
     pub fn new(initial_scoop_path: PathBuf, configured: bool) -> Self {
         Self {
-            scoop_path: RwLock::new(initial_scoop_path),
-            scoop_configured: RwLock::new(configured),
+            scoop_path: StdRwLock::new(initial_scoop_path),
+            scoop_configured: StdRwLock::new(configured),
             installed_packages: Mutex::new(None),
             package_versions: Mutex::new(None),
+            lnk_source_index: AsyncRwLock::new(None),
             last_refresh_time: AtomicU64::new(0),
         }
     }
