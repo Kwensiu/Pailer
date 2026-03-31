@@ -171,6 +171,10 @@ export interface Dict {
       yesterday: string;
     };
   };
+  contextMenu: {
+    openFolder: string;
+    processing: string;
+  };
   doctor: {
     addShimModal: {
       addShim: string;

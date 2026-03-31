@@ -171,6 +171,10 @@
       "yesterday": "昨天"
     }
   },
+  "contextMenu": {
+    "openFolder": "打开文件夹",
+    "processing": "处理中..."
+  },
   "doctor": {
     "addShimModal": {
       "addShim": "添加 Shim",

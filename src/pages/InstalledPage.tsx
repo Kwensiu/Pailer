@@ -41,7 +41,7 @@ function InstalledPage(props: InstalledPageProps) {
     scoopStatus,
     statusLoading,
     statusError,
-    isPackageVersioned,
+    hasVersions,
     checkScoopStatus,
     handleSort,
     handleUpdate,
@@ -312,7 +312,7 @@ function InstalledPage(props: InstalledPageProps) {
                   onUninstall={handleUninstall}
                   onChangeBucket={handleOpenChangeBucket}
                   operatingOn={operatingOn}
-                  isPackageVersioned={isPackageVersioned}
+                  hasVersions={hasVersions}
                 />
               }
             >
@@ -332,7 +332,7 @@ function InstalledPage(props: InstalledPageProps) {
                 onChangeBucket={handleOpenChangeBucket}
                 onOpenFolder={handleOpenFolder}
                 operatingOn={operatingOn}
-                isPackageVersioned={isPackageVersioned}
+                hasVersions={hasVersions}
                 searchQuery={searchQuery}
               />
             </Show>
@@ -363,7 +363,7 @@ function InstalledPage(props: InstalledPageProps) {
           onForceUpdate={handleForceUpdate}
           onChangeBucket={handleOpenChangeBucket}
           autoShowVersions={autoShowVersions()}
-          isPackageVersioned={isPackageVersioned}
+          hasVersions={hasVersions}
           onPackageStateChanged={async () => {
             await installedPackagesStore.silentRefetch();
 

@@ -29,7 +29,7 @@ interface PackageInfoModalProps {
   loading?: boolean;
   error?: string | null;
   autoShowVersions?: boolean;
-  isPackageVersioned?: (packageName: string) => boolean;
+  hasVersions?: (packageName: string) => boolean;
   onClose: () => void;
   onInstall?: (pkg: ScoopPackage) => void;
   onUninstall?: (pkg: ScoopPackage) => void;
@@ -830,7 +830,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                               <Show
                                 when={
                                   props.pkg?.is_installed &&
-                                  (props.isPackageVersioned?.(props.pkg.name) ||
+                                  (props.hasVersions?.(props.pkg.name) ||
                                     (versionInfo() && versionInfo()!.available_versions.length > 1))
                                 }
                               >

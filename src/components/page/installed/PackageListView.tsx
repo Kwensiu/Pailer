@@ -1,4 +1,4 @@
-import { For, Show, createSignal, createEffect, onCleanup, Accessor } from 'solid-js';
+import { For, Show, createEffect, onCleanup, Accessor } from 'solid-js';
 import { CircleArrowUp, Lock, ArrowUp, ArrowDown, Package } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
@@ -8,11 +8,9 @@ import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
 import ContextMenu from '../../../components/common/ContextMenu';
-import {
-  ContextMenuRenderer,
-  createPackageContextMenuItems,
-} from '../../../components/common/context-menu';
-import { useConfirmAction, usePackageIcons } from '../../../hooks';
+import { ContextMenuRenderer } from '../../../components/common/context-menu';
+import { createInstalledItems } from '../../../components/common/context-menu/menuItems';
+import { useConfirmAction, useContextMenuState, usePackageIcons } from '../../../hooks';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -31,7 +29,7 @@ interface PackageListViewProps {
   onOpenFolder: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
-  isPackageVersioned: (packageName: string) => boolean;
+  hasVersions: (packageName: string) => boolean;
   operatingOn: Accessor<string | null>;
   searchQuery: Accessor<string>;
 }
@@ -75,10 +73,8 @@ function PackageListView(props: PackageListViewProps) {
     );
   };
 
-  const [contextMenuPackage, setContextMenuPackage] = createSignal<ScoopPackage | null>(null);
-  const [contextMenuPosition, setContextMenuPosition] = createSignal<{ x: number; y: number }>({
-    x: 0,
-    y: 0,
+  const contextMenu = useContextMenuState<ScoopPackage>({
+    getKey: (pkg) => pkg.name,
   });
   const { icons: packageIcons } = usePackageIcons({
     packageNames: props.packageNames,
@@ -86,11 +82,11 @@ function PackageListView(props: PackageListViewProps) {
   const { confirmingItem, startConfirm, cancelConfirm } = useConfirmAction();
 
   const isContextMenuActive = (pkgName: string) => {
-    return contextMenuPackage()?.name === pkgName;
+    return contextMenu.isActive(pkgName);
   };
 
   const closeContextMenu = () => {
-    setContextMenuPackage(null);
+    contextMenu.close();
     cancelConfirm();
   };
 
@@ -101,35 +97,28 @@ function PackageListView(props: PackageListViewProps) {
   });
 
   const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
-    setContextMenuPackage(pkg);
-    setContextMenuPosition({ x, y });
+    contextMenu.open(pkg, x, y);
     cancelConfirm(pkg.name);
   };
 
   const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
-    return createPackageContextMenuItems(
-      pkg,
-      confirmingItem(),
-      props.operatingOn(),
-      props.isPackageVersioned,
-      {
-        onUpdate: props.onUpdate,
-        onOpenFolder: props.onOpenFolder,
-        onViewInfoForVersions: props.onViewInfoForVersions,
-        onChangeBucket: props.onChangeBucket,
-        onHold: props.onHold,
-        onUnhold: props.onUnhold,
-        onUninstall: (pkg) => {
-          if (confirmingItem() === pkg.name) {
-            cancelConfirm(pkg.name);
-            props.onUninstall(pkg);
-            closeContextMenu();
-          } else {
-            startConfirm(pkg.name);
-          }
-        },
-      }
-    );
+    return createInstalledItems(pkg, confirmingItem(), props.operatingOn(), props.hasVersions, {
+      onUpdate: props.onUpdate,
+      onOpenFolder: props.onOpenFolder,
+      onViewInfoForVersions: props.onViewInfoForVersions,
+      onChangeBucket: props.onChangeBucket,
+      onHold: props.onHold,
+      onUnhold: props.onUnhold,
+      onUninstall: (pkg) => {
+        if (confirmingItem() === pkg.name) {
+          cancelConfirm(pkg.name);
+          props.onUninstall(pkg);
+          closeContextMenu();
+        } else {
+          startConfirm(pkg.name);
+        }
+      },
+    });
   };
 
   return (
@@ -298,14 +287,14 @@ function PackageListView(props: PackageListViewProps) {
       </div>
 
       <ContextMenu
-        isOpen={() => !!contextMenuPackage()}
-        position={contextMenuPosition}
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
         onClose={closeContextMenu}
         ariaLabel="Package actions menu"
       >
-        <Show when={contextMenuPackage()}>
+        <Show when={contextMenu.target()}>
           <ContextMenuRenderer
-            items={getContextMenuItems(contextMenuPackage()!)}
+            items={getContextMenuItems(contextMenu.target()!)}
             onClose={closeContextMenu}
           />
         </Show>

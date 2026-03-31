@@ -145,7 +145,7 @@ function createInstalledPackagesStore() {
     }
   };
 
-  const isPackageVersioned = (packageName: string) => {
+  const hasVersions = (packageName: string) => {
     const result = versionedPackages().includes(packageName);
     return result;
   };
@@ -158,7 +158,7 @@ function createInstalledPackagesStore() {
     isLoaded,
     isCheckingForUpdates,
     versionedPackages,
-    isPackageVersioned,
+    hasVersions,
     fetch: fetchInstalledPackages,
     refetch,
     silentRefetch,

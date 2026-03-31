@@ -6,6 +6,7 @@ export {
 } from './ui/useTabNav';
 export { createMenuCloseHandlers } from './ui/useCloseHandlers';
 export { useMultiConfirmAction as useConfirmAction } from './ui/useConfirmAction';
+export { useContextMenuState } from './ui/useContextMenuState';
 
 // Storage related
 export * from './storage/createLocalStorageSignal';

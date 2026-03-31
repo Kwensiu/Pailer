@@ -240,7 +240,7 @@ export function useInstalledPackages() {
 
     selectedPackage: packageInfo.selectedPackage,
     info: packageInfo.info,
-    isPackageVersioned: installedPackagesStore.isPackageVersioned,
+    hasVersions: installedPackagesStore.hasVersions,
     handleUpdate: packageOperations.handleUpdate,
     handleForceUpdate: packageOperations.handleForceUpdate,
     handleUpdateAll: packageOperations.handleUpdateAll,

@@ -1,5 +1,4 @@
 import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
-import { Download, ArrowLeftRight, Info, FileText, Trash2 } from 'lucide-solid';
 import { ScoopPackage } from '../../../types/scoop';
 import { t } from '../../../i18n';
 import SearchResultCard from './SearchResultCard';
@@ -7,6 +6,8 @@ import ContextMenu from '../../common/ContextMenu';
 import type { ContextMenuItem } from '../../common/context-menu';
 import { ContextMenuRenderer } from '../../common/context-menu';
 import installedPackagesStore from '../../../stores/installedPackagesStore';
+import { createSearchItems } from '../../../components/common/context-menu/menuItems';
+import { useConfirmAction } from '../../../hooks';
 
 interface SearchResultsListProps {
   loading: boolean;
@@ -36,6 +37,7 @@ function SearchResultsList(props: SearchResultsListProps) {
     y: 0,
   });
   let editInputRef: HTMLInputElement | undefined;
+  const { confirmingItem, startConfirm, cancelConfirm } = useConfirmAction();
 
   const totalPages = () => Math.ceil(props.results.length / ITEMS_PER_PAGE);
 
@@ -87,11 +89,13 @@ function SearchResultsList(props: SearchResultsListProps) {
 
   const closeContextMenu = () => {
     setContextMenuPackage(null);
+    cancelConfirm();
   };
 
   const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
     setContextMenuPackage(pkg);
     setContextMenuPosition({ x, y });
+    cancelConfirm(pkg.name);
   };
 
   const getInstalledBucket = (pkg: ScoopPackage) => {
@@ -104,43 +108,26 @@ function SearchResultsList(props: SearchResultsListProps) {
 
   const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
     const installedBucket = getInstalledBucket(pkg);
-    const canSwitchBucket =
+    const canSwitch =
       pkg.is_installed &&
       !!installedBucket &&
       installedBucket.toLowerCase() !== pkg.source.toLowerCase();
 
-    return [
-      {
-        label: t('buttons.install'),
-        icon: Download,
-        class: 'text-info',
-        showWhen: () => !pkg.is_installed,
-        onClick: () => props.onInstall(pkg),
+    return createSearchItems(pkg, canSwitch, confirmingItem(), {
+      onInstall: props.onInstall,
+      onUninstall: (p) => {
+        if (confirmingItem() === p.name) {
+          cancelConfirm(p.name);
+          props.onUninstall(p);
+          closeContextMenu();
+        } else {
+          startConfirm(p.name);
+        }
       },
-      {
-        label: `${t('buttons.switchBucket')}`,
-        icon: ArrowLeftRight,
-        showWhen: () => canSwitchBucket,
-        onClick: () => props.onSwitchBucket(pkg),
-      },
-      {
-        label: t('packageInfo.details'),
-        icon: Info,
-        onClick: () => props.onViewInfo(pkg),
-      },
-      {
-        label: t('packageInfo.viewManifest'),
-        icon: FileText,
-        onClick: () => props.onViewManifest?.(pkg),
-      },
-      {
-        label: t('buttons.uninstall'),
-        icon: Trash2,
-        class: 'text-error',
-        showWhen: () => pkg.is_installed,
-        onClick: () => props.onUninstall(pkg),
-      },
-    ];
+      onSwitchBucket: props.onSwitchBucket,
+      onViewInfo: props.onViewInfo,
+      onViewManifest: props.onViewManifest,
+    });
   };
 
   createEffect(() => {
