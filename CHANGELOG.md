@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1](https://github.com/Kwensiu/Pailer/compare/v1.10.0...v1.10.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* correct SHA256 hash formatting in fallback update ([51164c4](https://github.com/Kwensiu/Pailer/commit/51164c42d8134a64f067cfbbfb7326a0919bd379))
+
 ## [1.10.0](https://github.com/Kwensiu/Pailer/compare/v1.9.0...v1.10.0) (2026-03-31)
 
 
