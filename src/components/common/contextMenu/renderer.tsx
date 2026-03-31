@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 import type { ContextMenuItem } from './types';
-import { MenuItem, SubMenu } from '../ContextMenu';
+import { MenuItem, SubMenu } from './main';
 
 interface ContextMenuRendererProps {
   items: ContextMenuItem[];

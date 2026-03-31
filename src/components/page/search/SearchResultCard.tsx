@@ -130,7 +130,7 @@ function SearchResultCard(props: SearchResultCardProps) {
   return (
     <div
       class="group bg-base-card hover:border-base-300 mb-4 overflow-hidden rounded-2xl shadow-sm transition-all duration-200 hover:shadow-lg"
-      data-context-menu-allow="true"
+      data-contextmenu-allow="true"
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();

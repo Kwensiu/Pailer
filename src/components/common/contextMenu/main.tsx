@@ -1,7 +1,7 @@
 import { Show, createEffect, createSignal, onCleanup, type Accessor, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { computePosition, flip, shift } from '@floating-ui/dom';
-import { createMenuFocusManagement, clearTabbedState } from '../../hooks/index';
+import { createMenuFocusManagement, clearTabbedState } from '../../../hooks/index';
 
 export type ContextMenuPosition = { x: number; y: number };
 

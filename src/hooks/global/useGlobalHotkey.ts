@@ -86,7 +86,7 @@ export function useGlobalHotkey(options: UseGlobalHotkeyOptions) {
           activeElement?.getAttribute('role') === 'menuitem' ||
           activeElement?.getAttribute('role') === 'menu' ||
           activeElement?.closest('[role="menu"]') ||
-          activeElement?.closest('[data-context-menu-root="true"]')
+          activeElement?.closest('[data-contextmenu-root="true"]')
         ) {
           return; // Let Tab work normally in menus and on buttons
         }
@@ -144,7 +144,7 @@ export function useGlobalSearchHotkey(options: UseGlobalSearchHotkeyOptions) {
           activeElement?.getAttribute('role') === 'menuitem' ||
           activeElement?.getAttribute('role') === 'menu' ||
           activeElement?.closest('[role="menu"]') ||
-          activeElement?.closest('[data-context-menu-root="true"]')
+          activeElement?.closest('[data-contextmenu-root="true"]')
         ) {
           return; // Let Tab work normally in menus and on buttons
         }

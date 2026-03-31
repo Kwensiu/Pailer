@@ -194,7 +194,7 @@ export default function Dropdown(props: DropdownProps) {
     if (!open()) {
       clearTabbedState(contentRef, TABBED_ITEM_SELECTOR);
       setFloatingStyle((prev) => ({ ...prev, visibility: 'hidden' }));
-      document.body.classList.remove('context-menu-open');
+      document.body.classList.remove('contextmenu-open');
       return;
     }
 
@@ -225,7 +225,7 @@ export default function Dropdown(props: DropdownProps) {
     document.addEventListener('scroll', handleScroll, true);
     window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('visibilitychange', handleVisChange);
-    document.body.classList.add('context-menu-open');
+    document.body.classList.add('contextmenu-open');
 
     requestAnimationFrame(() => {
       if (triggerRef && contentRef) {
@@ -247,7 +247,7 @@ export default function Dropdown(props: DropdownProps) {
       document.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisChange);
-      document.body.classList.remove('context-menu-open');
+      document.body.classList.remove('contextmenu-open');
     });
   });
 
@@ -295,7 +295,7 @@ export default function Dropdown(props: DropdownProps) {
           <div
             ref={contentRef}
             data-dropdown-menu-content="true"
-            data-context-menu-allow="true"
+            data-contextmenu-allow="true"
             class={`${
               isPanelVariant() ? 'dropdown-panel-content' : 'dropdown-menu-content'
             } flex flex-col ${props.contentClass || ''}`}

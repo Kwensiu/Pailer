@@ -2,14 +2,16 @@ import { For, Show, createSignal, Accessor, createMemo, createEffect, onCleanup 
 import { CircleArrowUp, Lock, Ellipsis } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
-import type { ContextMenuItem } from '../../../components/common/context-menu';
+import {
+  ContextMenu,
+  ContextMenuRenderer,
+  createInstalledItems,
+  type ContextMenuItem,
+} from '../../../components/common/contextMenu';
 import heldStore from '../../../stores/held';
 import { t } from '../../../i18n';
 import HighlightText from '../../common/HighlightText';
 import Dropdown from '../../common/Dropdown';
-import ContextMenu from '../../common/ContextMenu';
-import { ContextMenuRenderer } from '../../../components/common/context-menu';
-import { createInstalledItems } from '../../../components/common/context-menu/menuItems';
 import { formatIsoDate } from '../../../utils/date';
 import { useConfirmAction, useContextMenuState } from '../../../hooks';
 
@@ -107,7 +109,7 @@ const PackageCard = (props: {
       class={`card bg-base-card transform cursor-pointer shadow-md transition-all hover:scale-101 ${
         isCardActive() ? 'bg-base-content-bg z-50 scale-101' : ''
       }`}
-      data-context-menu-allow="true"
+      data-contextmenu-allow="true"
       onClick={() => props.onViewInfo(pkg)}
       onContextMenu={(e) => {
         e.preventDefault();

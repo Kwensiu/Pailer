@@ -207,14 +207,14 @@ input[class*='focus:'] {
 }
 
 /* Context menu selective freeze */
-body.context-menu-open * {
+body.contextmenu-open * {
   pointer-events: none;
 }
 
-body.context-menu-open [data-context-menu-root='true'],
-body.context-menu-open [data-context-menu-root='true'] *,
-body.context-menu-open [data-context-menu-allow='true'],
-body.context-menu-open [data-context-menu-allow='true'] * {
+body.contextmenu-open [data-contextmenu-root='true'],
+body.contextmenu-open [data-contextmenu-root='true'] *,
+body.contextmenu-open [data-contextmenu-allow='true'],
+body.contextmenu-open [data-contextmenu-allow='true'] * {
   pointer-events: auto;
 }
 
@@ -278,7 +278,7 @@ body.context-menu-open [data-context-menu-allow='true'] * {
 }
 
 /* Context Menu */
-[data-context-menu-root='true'] {
+[data-contextmenu-root='true'] {
   animation: menu-show 0.1s ease-out;
 }
 

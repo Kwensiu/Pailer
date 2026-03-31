@@ -343,7 +343,7 @@ function SearchPage() {
       }
 
       const hasBlockingOverlayOpen =
-        document.body.classList.contains('context-menu-open') ||
+        document.body.classList.contains('contextmenu-open') ||
         document.querySelector('.modal.modal-open') !== null;
 
       if (hasBlockingOverlayOpen) {

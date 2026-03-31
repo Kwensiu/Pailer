@@ -2,11 +2,13 @@ import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import { ScoopPackage } from '../../../types/scoop';
 import { t } from '../../../i18n';
 import SearchResultCard from './SearchResultCard';
-import ContextMenu from '../../common/ContextMenu';
-import type { ContextMenuItem } from '../../common/context-menu';
-import { ContextMenuRenderer } from '../../common/context-menu';
+import {
+  ContextMenu,
+  ContextMenuRenderer,
+  type ContextMenuItem,
+  createSearchItems,
+} from '../../common/contextMenu';
 import installedPackagesStore from '../../../stores/installedPackagesStore';
-import { createSearchItems } from '../../../components/common/context-menu/menuItems';
 import { useConfirmAction } from '../../../hooks';
 
 interface SearchResultsListProps {

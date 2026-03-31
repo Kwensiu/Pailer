@@ -2,14 +2,16 @@ import { For, Show, createEffect, onCleanup, Accessor } from 'solid-js';
 import { CircleArrowUp, Lock, ArrowUp, ArrowDown, Package } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
-import type { ContextMenuItem } from '../../../components/common/context-menu';
+import {
+  ContextMenu,
+  ContextMenuRenderer,
+  createInstalledItems,
+  type ContextMenuItem,
+} from '../../../components/common/contextMenu';
 import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
-import ContextMenu from '../../../components/common/ContextMenu';
-import { ContextMenuRenderer } from '../../../components/common/context-menu';
-import { createInstalledItems } from '../../../components/common/context-menu/menuItems';
 import { useConfirmAction, useContextMenuState, usePackageIcons } from '../../../hooks';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
@@ -167,7 +169,7 @@ function PackageListView(props: PackageListViewProps) {
                 <tr
                   class="package-list-row cursor-pointer transition-colors"
                   classList={{ 'package-list-row-active': isContextMenuActive(pkg.name) }}
-                  data-context-menu-allow="true"
+                  data-contextmenu-allow="true"
                   data-no-close-search
                   onDblClick={() => props.onViewInfo(pkg)}
                   onContextMenu={(e) => {

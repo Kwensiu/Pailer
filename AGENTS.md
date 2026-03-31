@@ -13,7 +13,7 @@ Solution entry points:
 The codebase follows a feature-based folder structure:
 
 - **`src/components/common/`** - Shared UI components (ContextMenu, Dropdown, Modal, etc.)
-- **`src/components/common/context-menu/`** - Context menu infrastructure (actions, types, renderer)
+- **`src/components/common/contextmenu/`** - Context menu infrastructure (actions, types, renderer)
 - **`src/components/page/`** - Page-level components (installed, search, buckets, settings, doctor)
 - **`src/components/modals/`** - Reusable modal components
 - **`src/hooks/`** - Custom SolidJS hooks organized by domain
@@ -32,7 +32,7 @@ The codebase follows a feature-based folder structure:
 
 ### Context Menu Architecture
 
-Context menu functionality is centralized in `src/components/common/context-menu/`:
+Context menu functionality is centralized in `src/components/common/contextmenu/`:
 
 - `actions.ts` - Shared menu action builders (`createBaseMenuItems`, `createInstallAction`, `createManifestAction`)
 - `menuItems.ts` - Page-specific menu item factories (`createInstalledItems`, `createSearchItems`)
@@ -103,8 +103,8 @@ pnpm format
 | Purpose | Path |
 |---------|------|
 | Main app | `src/App.tsx` |
-| Context menu actions | `src/components/common/context-menu/actions.ts` |
-| Menu item factories | `src/components/common/context-menu/menuItems.ts` |
+| Context menu actions | `src/components/common/contextmenu/actions.ts` |
+| Menu item factories | `src/components/common/contextmenu/menuItems.ts` |
 | Context menu state hook | `src/hooks/ui/useContextMenuState.ts` |
 | Installed packages store | `src/stores/installedPackagesStore.ts` |
 | Package operations | `src/stores/operations.ts` |

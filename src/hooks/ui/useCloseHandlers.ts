@@ -20,7 +20,7 @@ export function createMenuCloseHandlers(options: MenuCloseHandlers) {
   const {
     close,
     contentRef,
-    menuRootSelector = '[data-context-menu-root="true"]',
+    menuRootSelector = '[data-contextmenu-root="true"]',
     tabbedSelector = '[role="menuitem"][data-tabbed]',
     enableScrollClose = true,
     enableWindowBlur = true,
@@ -71,7 +71,7 @@ export function createMenuCloseHandlers(options: MenuCloseHandlers) {
       });
 
       if (enableBodyClass) {
-        document.body.classList.add('context-menu-open');
+        document.body.classList.add('contextmenu-open');
       }
 
       onCleanup(() => {
@@ -81,7 +81,7 @@ export function createMenuCloseHandlers(options: MenuCloseHandlers) {
         });
 
         if (enableBodyClass) {
-          document.body.classList.remove('context-menu-open');
+          document.body.classList.remove('contextmenu-open');
         }
 
         if (contentRef) {
