@@ -34,7 +34,7 @@
     "dompurify": "^3.3.2",
     "lucide-solid": "^1.7.0",
     "simple-icons": "^16.13.0",
-    "solid-js": "^1.9.11"
+    "solid-js": "^1.9.12"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.0",
