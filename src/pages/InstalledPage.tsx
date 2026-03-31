@@ -51,6 +51,7 @@ function InstalledPage(props: InstalledPageProps) {
     handleOpenChangeBucket,
     handleFetchPackageInfo,
     handleFetchPackageInfoForVersions,
+    handleSwitchVersion,
     handleCloseInfoModalWithVersions,
     autoShowVersions,
     handleForceRefresh,
@@ -174,7 +175,6 @@ function InstalledPage(props: InstalledPageProps) {
     () => loading() && !error() && processedPackages().length === 0
   );
 
-  // 刷新时的状态处理
   const isRefreshing = () => refreshing();
 
   return (
@@ -305,6 +305,7 @@ function InstalledPage(props: InstalledPageProps) {
                   searchQuery={searchQuery}
                   onViewInfo={handleFetchPackageInfo}
                   onViewInfoForVersions={handleFetchPackageInfoForVersions}
+                  onSwitchVersion={handleSwitchVersion}
                   onUpdate={handleUpdate}
                   onOpenFolder={handleOpenFolder}
                   onHold={handleHold}
@@ -325,6 +326,7 @@ function InstalledPage(props: InstalledPageProps) {
                 onViewInfo={handleFetchPackageInfo}
                 onViewBucketInfo={(bucketName) => setSelectedBucketForInfo(bucketName)}
                 onViewInfoForVersions={handleFetchPackageInfoForVersions}
+                onSwitchVersion={handleSwitchVersion}
                 onUpdate={handleUpdate}
                 onHold={handleHold}
                 onUnhold={handleUnhold}

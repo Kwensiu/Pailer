@@ -12,7 +12,13 @@ import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
-import { useConfirmAction, useContextMenuState, usePackageIcons } from '../../../hooks';
+import {
+  useConfirmAction,
+  useContextMenuState,
+  usePackageIcons,
+  useVersionFetch,
+} from '../../../hooks';
+import versionedPackagesStore from '../../../stores/versionedPackagesStore';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -25,6 +31,7 @@ interface PackageListViewProps {
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewBucketInfo: (bucketName: string) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
+  onSwitchVersion: (pkg: ScoopPackage, version: string) => void;
   onUpdate: (pkg: ScoopPackage) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   onUninstall: (pkg: ScoopPackage) => void;
@@ -98,29 +105,51 @@ function PackageListView(props: PackageListViewProps) {
     });
   });
 
+  const { ensureVersionsLoaded } = useVersionFetch();
+
   const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
     contextMenu.open(pkg, x, y);
     cancelConfirm(pkg.name);
+    ensureVersionsLoaded(pkg.name);
   };
 
   const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
-    return createInstalledItems(pkg, confirmingItem(), props.operatingOn(), props.hasVersions, {
-      onUpdate: props.onUpdate,
-      onOpenFolder: props.onOpenFolder,
-      onViewInfoForVersions: props.onViewInfoForVersions,
-      onChangeBucket: props.onChangeBucket,
-      onHold: props.onHold,
-      onUnhold: props.onUnhold,
-      onUninstall: (pkg) => {
-        if (confirmingItem() === pkg.name) {
-          cancelConfirm(pkg.name);
-          props.onUninstall(pkg);
-          closeContextMenu();
-        } else {
-          startConfirm(pkg.name);
-        }
+    const versionData = versionedPackagesStore.getPackageVersions(pkg.name);
+    const versionMenu = {
+      hasVersions: (versionData?.availableVersions.length ?? 0) > 0,
+      loading: versionedPackagesStore.isLoading(pkg.name),
+      error: versionedPackagesStore.getError(pkg.name),
+      versions:
+        versionData?.availableVersions.map((version) => ({
+          version: version.version,
+          isCurrent: version.is_current,
+        })) ?? [],
+    };
+
+    return createInstalledItems(
+      pkg,
+      confirmingItem(),
+      props.operatingOn(),
+      {
+        onUpdate: props.onUpdate,
+        onOpenFolder: props.onOpenFolder,
+        onViewInfoForVersions: props.onViewInfoForVersions,
+        onSwitchVersion: props.onSwitchVersion,
+        onChangeBucket: props.onChangeBucket,
+        onHold: props.onHold,
+        onUnhold: props.onUnhold,
+        onUninstall: (pkg) => {
+          if (confirmingItem() === pkg.name) {
+            cancelConfirm(pkg.name);
+            props.onUninstall(pkg);
+            closeContextMenu();
+          } else {
+            startConfirm(pkg.name);
+          }
+        },
       },
-    });
+      versionMenu
+    );
   };
 
   return (

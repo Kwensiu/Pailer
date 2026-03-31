@@ -1,5 +1,6 @@
-import { For, Show, createSignal, Accessor, createMemo, createEffect, onCleanup } from 'solid-js';
+import { For, Show, Accessor } from 'solid-js';
 import { CircleArrowUp, Lock, Ellipsis } from 'lucide-solid';
+import { computePosition, flip, shift } from '@floating-ui/dom';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
 import {
@@ -11,20 +12,16 @@ import {
 import heldStore from '../../../stores/held';
 import { t } from '../../../i18n';
 import HighlightText from '../../common/HighlightText';
-import Dropdown from '../../common/Dropdown';
 import { formatIsoDate } from '../../../utils/date';
-import { useConfirmAction, useContextMenuState } from '../../../hooks';
-
-type ActiveMenuState = {
-  type: 'dropdown' | 'context';
-  packageName: string;
-} | null;
+import { useConfirmAction, useContextMenuState, useVersionFetch } from '../../../hooks';
+import versionedPackagesStore from '../../../stores/versionedPackagesStore';
 
 interface PackageGridViewProps {
   packages: Accessor<DisplayPackage[]>;
   searchQuery: Accessor<string>;
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
+  onSwitchVersion: (pkg: ScoopPackage, version: string) => void;
   onUpdate: (pkg: ScoopPackage) => void;
   onOpenFolder: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
@@ -41,6 +38,7 @@ const PackageCard = (props: {
   searchQuery: string;
   onViewInfo: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
+  onSwitchVersion: (pkg: ScoopPackage, version: string) => void;
   onUpdate: (pkg: ScoopPackage) => void;
   onOpenFolder: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
@@ -49,49 +47,13 @@ const PackageCard = (props: {
   onChangeBucket: (pkg: ScoopPackage) => void;
   operatingOn: string | null;
   hasVersions: (packageName: string) => boolean;
-  isMenuActive: (pkgName: string, type?: 'dropdown' | 'context') => boolean;
-  onDropdownOpen: (pkgName: string) => void;
-  onDropdownClose: (pkgName: string) => void;
+  isMenuActive: (pkgName: string) => boolean;
+  onMenuButtonClick: (pkg: ScoopPackage, triggerEl: HTMLElement) => void;
   onContextMenuOpen: (pkg: ScoopPackage, x: number, y: number) => void;
   uninstallConfirm: Accessor<boolean>;
   onUninstallConfirm: (confirm: boolean) => void;
 }) => {
   const { pkg } = props;
-
-  const items = createMemo(() => {
-    return createInstalledItems(
-      pkg,
-      props.uninstallConfirm() ? pkg.name : null,
-      props.operatingOn,
-      props.hasVersions,
-      {
-        onUpdate: props.onUpdate,
-        onOpenFolder: props.onOpenFolder,
-        onViewInfoForVersions: props.onViewInfoForVersions,
-        onChangeBucket: props.onChangeBucket,
-        onHold: props.onHold,
-        onUnhold: props.onUnhold,
-        onUninstall: () => {
-          if (props.uninstallConfirm()) {
-            props.onUninstallConfirm(false);
-            props.onUninstall(pkg);
-          } else {
-            props.onUninstallConfirm(true);
-          }
-        },
-      }
-    )
-      .filter((item) => (item.showWhen ? item.showWhen() : true))
-      .map((item) => ({
-        label: item.label,
-        onClick: item.onClick,
-        disabled: item.disabled,
-        icon: item.icon,
-        class: item.class,
-        closeOnSelect: item.closeOnSelect,
-        align: 'start' as const,
-      }));
-  });
 
   // Detect if it's a CI version (beta/alpha/rc followed by additional suffix)
   const isCiVersion = (version: string): boolean => {
@@ -186,15 +148,17 @@ const PackageCard = (props: {
               </Show>
             </h2>
           </div>
-          <Dropdown
-            position="end"
-            trigger={<Ellipsis class="h-4 w-4" />}
-            triggerClass="btn btn-ghost btn-xs btn-circle bg-base-content-bg"
-            triggerDisabled={props.operatingOn === pkg.name}
-            items={items()}
-            onOpen={() => props.onDropdownOpen(pkg.name)}
-            onClose={() => props.onDropdownClose(pkg.name)}
-          />
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs btn-circle bg-base-content-bg"
+            disabled={props.operatingOn === pkg.name}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onMenuButtonClick(pkg, e.currentTarget);
+            }}
+          >
+            <Ellipsis class="h-4 w-4" />
+          </button>
         </div>
         <p class="text-base-content/70 text-sm">
           {t('installed.grid.version')} {pkg.version}
@@ -212,58 +176,88 @@ const PackageCard = (props: {
 
 function PackageGridView(props: PackageGridViewProps) {
   const contextMenu = useContextMenuState<ScoopPackage>();
-  const [activeMenu, setActiveMenu] = createSignal<ActiveMenuState>(null);
   const { confirmingItem, startConfirm, cancelConfirm, isConfirming } = useConfirmAction();
 
   const closeContextMenu = () => {
     contextMenu.close();
-    setActiveMenu(null);
     cancelConfirm();
   };
 
-  createEffect(() => {
-    onCleanup(() => {
-      cancelConfirm();
-    });
-  });
+  const { ensureVersionsLoaded } = useVersionFetch();
 
   const openContextMenu = (pkg: ScoopPackage, x: number, y: number) => {
     contextMenu.open(pkg, x, y);
-    setActiveMenu({ type: 'context', packageName: pkg.name });
     cancelConfirm(pkg.name);
+    ensureVersionsLoaded(pkg.name);
+  };
+
+  const openContextMenuAtElement = async (pkg: ScoopPackage, triggerEl: HTMLElement) => {
+    const rect = triggerEl.getBoundingClientRect();
+    const virtualEl = {
+      getBoundingClientRect: () => rect,
+      contextElement: triggerEl,
+    };
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;visibility:hidden;min-width:150px;width:auto;';
+    tempDiv.className = 'bg-base-100 rounded-box border py-2';
+    document.body.appendChild(tempDiv);
+
+    try {
+      const { x, y } = await computePosition(virtualEl, tempDiv, {
+        placement: 'bottom-end',
+        strategy: 'fixed',
+        middleware: [flip({ padding: 8 }), shift({ padding: 8 })],
+      });
+
+      contextMenu.open(pkg, x, y);
+      ensureVersionsLoaded(pkg.name);
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
   };
 
   const getContextMenuItems = (pkg: ScoopPackage): ContextMenuItem[] => {
-    return createInstalledItems(pkg, confirmingItem(), props.operatingOn(), props.hasVersions, {
-      onUpdate: props.onUpdate,
-      onOpenFolder: props.onOpenFolder,
-      onViewInfoForVersions: props.onViewInfoForVersions,
-      onChangeBucket: props.onChangeBucket,
-      onHold: props.onHold,
-      onUnhold: props.onUnhold,
-      onUninstall: (pkg) => {
-        if (confirmingItem() === pkg.name) {
-          cancelConfirm(pkg.name);
-          props.onUninstall(pkg);
-          closeContextMenu();
-        } else {
-          startConfirm(pkg.name);
-        }
+    const versionData = versionedPackagesStore.getPackageVersions(pkg.name);
+    const versionMenu = {
+      hasVersions: (versionData?.availableVersions.length ?? 0) > 0,
+      loading: versionedPackagesStore.isLoading(pkg.name),
+      error: versionedPackagesStore.getError(pkg.name),
+      versions:
+        versionData?.availableVersions.map((version) => ({
+          version: version.version,
+          isCurrent: version.is_current,
+        })) ?? [],
+    };
+
+    return createInstalledItems(
+      pkg,
+      confirmingItem(),
+      props.operatingOn(),
+      {
+        onUpdate: props.onUpdate,
+        onOpenFolder: props.onOpenFolder,
+        onViewInfoForVersions: props.onViewInfoForVersions,
+        onSwitchVersion: props.onSwitchVersion,
+        onChangeBucket: props.onChangeBucket,
+        onHold: props.onHold,
+        onUnhold: props.onUnhold,
+        onUninstall: (pkg) => {
+          if (confirmingItem() === pkg.name) {
+            cancelConfirm(pkg.name);
+            props.onUninstall(pkg);
+            closeContextMenu();
+          } else {
+            startConfirm(pkg.name);
+          }
+        },
       },
-    });
+      versionMenu
+    );
   };
 
-  const isMenuActive = (pkgName: string, type?: 'dropdown' | 'context') => {
-    const current = activeMenu();
-    if (!current || current.packageName !== pkgName) return false;
-    return type ? current.type === type : true;
-  };
-
-  const handleDropdownClose = (pkgName: string) => {
-    setActiveMenu((current) => {
-      if (!current) return current;
-      return current.type === 'dropdown' && current.packageName === pkgName ? null : current;
-    });
+  const isMenuActive = (pkgName: string) => {
+    return contextMenu.target()?.name === pkgName;
   };
 
   return (
@@ -276,6 +270,7 @@ function PackageGridView(props: PackageGridViewProps) {
               searchQuery={props.searchQuery()}
               onViewInfo={props.onViewInfo}
               onViewInfoForVersions={props.onViewInfoForVersions}
+              onSwitchVersion={props.onSwitchVersion}
               onUpdate={props.onUpdate}
               onHold={props.onHold}
               onOpenFolder={props.onOpenFolder}
@@ -285,11 +280,7 @@ function PackageGridView(props: PackageGridViewProps) {
               operatingOn={props.operatingOn()}
               hasVersions={props.hasVersions}
               isMenuActive={isMenuActive}
-              onDropdownOpen={(pkgName) => {
-                contextMenu.close();
-                setActiveMenu({ type: 'dropdown', packageName: pkgName });
-              }}
-              onDropdownClose={handleDropdownClose}
+              onMenuButtonClick={openContextMenuAtElement}
               onContextMenuOpen={openContextMenu}
               uninstallConfirm={() => isConfirming(pkg.name)}
               onUninstallConfirm={(confirm) =>

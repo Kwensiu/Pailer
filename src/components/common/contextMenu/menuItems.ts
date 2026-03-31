@@ -12,10 +12,21 @@ import heldStore from '../../../stores/held';
 import { t } from '../../../i18n';
 import { CircleArrowUp, RefreshCw, Lock, LockOpen } from 'lucide-solid';
 
+export interface InstalledVersionMenuState {
+  hasVersions: boolean;
+  loading: boolean;
+  error: string | null;
+  versions: Array<{
+    version: string;
+    isCurrent: boolean;
+  }>;
+}
+
 export interface InstalledCbs {
   onUpdate: (pkg: ScoopPackage) => void;
   onOpenFolder: (pkg: ScoopPackage) => void;
   onViewInfoForVersions: (pkg: ScoopPackage) => void;
+  onSwitchVersion?: (pkg: ScoopPackage, version: string) => void;
   onChangeBucket: (pkg: ScoopPackage) => void;
   onHold: (pkgName: string) => void;
   onUnhold: (pkgName: string) => void;
@@ -26,11 +37,39 @@ export function createInstalledItems(
   pkg: ScoopPackage,
   confirmingPkg: string | null,
   operatingOn: string | null,
-  hasVersions: (packageName: string) => boolean,
-  callbacks: InstalledCbs
+  callbacks: InstalledCbs,
+  versionMenu?: InstalledVersionMenuState
 ): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   const disabled = () => operatingOn === pkg.name;
+
+  const switchVersionChildren: ContextMenuItem[] = versionMenu?.loading
+    ? [
+        {
+          label: t('contextMenu.processing'),
+          onClick: () => {},
+          disabled: true,
+          closeOnSelect: false,
+        },
+      ]
+    : versionMenu?.error
+      ? [
+          {
+            label: versionMenu.error,
+            onClick: () => callbacks.onViewInfoForVersions(pkg),
+            closeOnSelect: true,
+          },
+        ]
+      : (versionMenu?.versions ?? []).map((version) => {
+          const isCurrent = version.isCurrent;
+          return {
+            key: `${version.version}-${isCurrent ? 'current' : 'other'}`,
+            label: isCurrent ? `•  ${version.version}` : version.version,
+            onClick: () => callbacks.onSwitchVersion?.(pkg, version.version),
+            disabled: disabled() || isCurrent,
+            closeOnSelect: true,
+          };
+        });
 
   if (pkg.available_version && !heldStore.isHeld(pkg.name) && pkg.installation_type !== 'custom') {
     items.push({
@@ -44,12 +83,14 @@ export function createInstalledItems(
 
   items.push(createOpenFolderItem(pkg, callbacks.onOpenFolder, { disabled }));
 
-  if (hasVersions(pkg.name)) {
+  if (callbacks.onSwitchVersion && versionMenu?.hasVersions) {
     items.push({
       label: t('installed.list.switchVersion'),
       icon: RefreshCw,
       onClick: () => callbacks.onViewInfoForVersions(pkg),
       disabled: disabled(),
+      closeOnSelect: false,
+      children: switchVersionChildren,
     });
   }
 

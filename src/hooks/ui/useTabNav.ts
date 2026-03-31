@@ -10,8 +10,9 @@ export interface MenuTabNavOptions {
 export function createMenuTabNavigation(options: MenuTabNavOptions) {
   const { getItems } = options;
 
-  const handleTabNav = (e: KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
+  const handleKeyNav = (e: KeyboardEvent) => {
+    const keys = ['Tab', 'ArrowUp', 'ArrowDown'];
+    if (!keys.includes(e.key)) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -40,26 +41,27 @@ export function createMenuTabNavigation(options: MenuTabNavOptions) {
       return;
     }
 
-    // First Tab only shows focus, doesn't navigate
-    if (idx === 0 && !e.shiftKey) {
+    // Handle Tab key: first Tab only shows focus, doesn't navigate
+    if (e.key === 'Tab' && idx === 0 && !e.shiftKey) {
       const isFirst = !current.hasAttribute('data-tabbed');
       current.setAttribute('data-tabbed', 'true');
       if (isFirst) return;
     }
 
     // Calculate next item index
-    const nextIdx = e.shiftKey
-      ? idx <= 0
-        ? items.length - 1
-        : idx - 1
-      : idx >= items.length - 1
-        ? 0
-        : idx + 1;
+    let nextIdx: number;
+    if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+      nextIdx = idx <= 0 ? items.length - 1 : idx - 1;
+    } else if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+      nextIdx = idx >= items.length - 1 ? 0 : idx + 1;
+    } else {
+      return;
+    }
 
     items[nextIdx]?.focus();
   };
 
-  return handleTabNav;
+  return handleKeyNav;
 }
 
 /**
@@ -83,14 +85,14 @@ export function createMenuFocusManagement(
     return true;
   };
 
-  const handleTabNav = createMenuTabNavigation({
+  const handleKeyNav = createMenuTabNavigation({
     getItems,
   });
 
   return {
     getItems,
     focusFirst,
-    handleTabNav,
+    handleKeyNav,
   };
 }
 

@@ -782,7 +782,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                   {(item) => (
                     <div class="border-base-content/10 grid grid-cols-3 gap-2 border-b py-1">
                       <div class="text-base-content/70 col-span-1 font-semibold capitalize">
-                        {item.key}:
+                        {item.label}:
                       </div>
                       <div class="col-span-2">
                         <Switch fallback={<DetailValue value={item.value} />}>
@@ -827,13 +827,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                           <Match when={isVersionRelated(item.key)}>
                             <div class="flex items-center gap-2">
                               <DetailValue value={item.value} />
-                              <Show
-                                when={
-                                  props.pkg?.is_installed &&
-                                  (props.hasVersions?.(props.pkg.name) ||
-                                    (versionInfo() && versionInfo()!.available_versions.length > 1))
-                                }
-                              >
+                              <Show when={props.pkg?.is_installed}>
                                 <button
                                   class="btn btn-xs btn-primary"
                                   onClick={openVersionSwitcher}

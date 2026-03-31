@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 import type { ContextMenuItem } from './types';
-import { MenuItem, SubMenu } from './main';
+import { MenuItem, SubMenu, useSubMenuManager } from './main';
 
 interface ContextMenuRendererProps {
   items: ContextMenuItem[];
@@ -8,7 +8,9 @@ interface ContextMenuRendererProps {
 }
 
 export function ContextMenuRenderer(props: ContextMenuRendererProps) {
-  const renderItem = (item: ContextMenuItem) => {
+  const subMenuManager = useSubMenuManager();
+
+  const renderItem = (item: ContextMenuItem, isTopLevel: boolean = true) => {
     const shouldShow = item.showWhen ? item.showWhen() : true;
     if (!shouldShow) return null;
 
@@ -16,7 +18,7 @@ export function ContextMenuRenderer(props: ContextMenuRendererProps) {
     const disabled = typeof item.disabled === 'function' ? item.disabled() : item.disabled;
     const children =
       item.children
-        ?.map((child) => renderItem(child))
+        ?.map((child) => renderItem(child, false))
         .filter((child): child is NonNullable<ReturnType<typeof renderItem>> => child != null) ??
       [];
     const hasChildren = children.length > 0;
@@ -43,6 +45,7 @@ export function ContextMenuRenderer(props: ContextMenuRendererProps) {
         closeOnSelect={item.closeOnSelect}
         disabled={disabled}
         class={item.class}
+        onMouseEnter={isTopLevel ? () => subMenuManager?.requestClose() : undefined}
       >
         <div class="flex items-center gap-2">
           {item.icon && item.icon({ class: 'h-4 w-4' })}
@@ -52,5 +55,5 @@ export function ContextMenuRenderer(props: ContextMenuRendererProps) {
     );
   };
 
-  return <For each={props.items}>{(item) => renderItem(item)}</For>;
+  return <For each={props.items}>{(item) => renderItem(item, true)}</For>;
 }

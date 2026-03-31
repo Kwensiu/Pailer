@@ -7,6 +7,10 @@ import { createLocalStorageSignal } from '../storage/createLocalStorageSignal';
 import installedPackagesStore from '../../stores/installedPackagesStore';
 import heldStore from '../../stores/held';
 import { useBuckets } from '../buckets/useBuckets';
+import versionedPackagesStore from '../../stores/versionedPackagesStore';
+import { searchCacheManager } from '../search/useSearchCache';
+import { toast } from '../../components/common/ToastAlert';
+import { t } from '../../i18n';
 
 type SortKey = 'name' | 'version' | 'source' | 'updated';
 
@@ -59,17 +63,70 @@ export function useInstalledPackages() {
   const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
     createSignal<ScoopPackage | null>(null);
   const [newBucketName, setNewBucketName] = createSignal('');
+  const [autoShowVersions, setAutoShowVersions] = createSignal(false);
 
   const handleFetchPackageInfoForVersions = (pkg: ScoopPackage) => {
+    // If clicking the same package, close and reset
+    if (packageInfo.selectedPackage()?.name === pkg.name) {
+      setAutoShowVersions(false);
+      packageInfo.closeModal();
+      return;
+    }
+    setAutoShowVersions(true);
     packageInfo.fetchPackageInfo(pkg);
   };
 
   const handleFetchPackageInfo = (pkg: ScoopPackage) => {
+    // If clicking the same package, close and reset
+    if (packageInfo.selectedPackage()?.name === pkg.name) {
+      setAutoShowVersions(false);
+      packageInfo.closeModal();
+      return;
+    }
+    setAutoShowVersions(false);
     packageInfo.fetchPackageInfo(pkg);
   };
 
   const handleCloseInfoModalWithVersions = () => {
+    setAutoShowVersions(false);
     packageInfo.closeModal();
+  };
+
+  const handleSwitchVersion = async (pkg: ScoopPackage, targetVersion: string) => {
+    setOperatingOn(pkg.name);
+    try {
+      await invoke<string>('switch_package_version', {
+        packageName: pkg.name,
+        targetVersion,
+        global: false,
+      });
+
+      await installedPackagesStore.silentRefetch();
+      toast.success(
+        t('packageInfo.success.switchVersion', { name: pkg.name, version: targetVersion })
+      );
+
+      // Non-critical operations: handle failures independently
+      try {
+        await versionedPackagesStore.fetchPackageVersions(pkg.name, false);
+      } catch (versionErr) {
+        console.warn(`Failed to refresh version list for ${pkg.name}:`, versionErr);
+      }
+
+      try {
+        await searchCacheManager.invalidateCache();
+      } catch (cacheErr) {
+        console.warn('Failed to invalidate search cache:', cacheErr);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
+      toast.error(
+        t('packageInfo.errorSwitchingVersion', { version: targetVersion, error: errorMsg })
+      );
+    } finally {
+      setOperatingOn(null);
+    }
   };
 
   const handleSort = (key: SortKey) => {
@@ -222,6 +279,7 @@ export function useInstalledPackages() {
     handleUnhold,
     handleOpenChangeBucket,
     handleFetchPackageInfoForVersions,
+    handleSwitchVersion,
     handleFetchPackageInfo,
     handleCloseInfoModalWithVersions,
     fetchInstalledPackages: fetch,
@@ -245,6 +303,6 @@ export function useInstalledPackages() {
     handleForceUpdate: packageOperations.handleForceUpdate,
     handleUpdateAll: packageOperations.handleUpdateAll,
     handleUninstall: packageOperations.handleUninstall,
-    autoShowVersions: () => false,
+    autoShowVersions,
   };
 }
