@@ -193,7 +193,7 @@ fn calculate_file_hash(file_path: &std::path::Path) -> Result<String, String> {
     }
     
     let hash = hasher.finalize();
-    Ok(format!("{:x}", hash))
+    Ok(hash.iter().map(|b| format!("{:02x}", b)).collect())
 }
 
 /// Verify downloaded file integrity against expected signature
