@@ -79,7 +79,6 @@ export function createPackageContextMenuItems(
     items.push({
       label: () => {
         if (operatingOn === pkg.name) return t('installed.list.processing');
-        if (isPackageVersioned(pkg.name)) return t('installed.list.cannotUnhold');
         return heldStore.isHeld(pkg.name)
           ? t('installed.list.unholdPackage')
           : t('installed.list.holdPackage');
@@ -87,7 +86,7 @@ export function createPackageContextMenuItems(
       icon: heldStore.isHeld(pkg.name) ? LockOpen : Lock,
       onClick: () =>
         heldStore.isHeld(pkg.name) ? callbacks.onUnhold(pkg.name) : callbacks.onHold(pkg.name),
-      disabled: () => operatingOn === pkg.name || isPackageVersioned(pkg.name),
+      disabled: () => operatingOn === pkg.name,
     });
   }
 

@@ -164,7 +164,7 @@ export function useInstalledPackages() {
     !!pkg.available_version &&
     !!pkg.name &&
     !heldStore.isHeld(pkg.name) &&
-    pkg.installation_type === 'standard';
+    pkg.installation_type !== 'custom';
 
   const processedPackages = createMemo(() => {
     let pkgs = [...installedPackagesStore.packages()];

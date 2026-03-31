@@ -120,7 +120,6 @@ const PackageCard = (props: {
       result.push({
         label: () => {
           if (props.operatingOn === pkg.name) return t('installed.list.processing');
-          if (props.isPackageVersioned(pkg.name)) return t('installed.list.cannotUnhold');
           return heldStore.isHeld(pkg.name)
             ? t('installed.list.unholdPackage')
             : t('installed.list.holdPackage');
@@ -132,7 +131,7 @@ const PackageCard = (props: {
             props.onHold(pkg.name);
           }
         },
-        disabled: () => props.operatingOn === pkg.name || props.isPackageVersioned(pkg.name),
+        disabled: () => props.operatingOn === pkg.name,
         icon: heldStore.isHeld(pkg.name) ? LockOpen : Lock,
         align: 'start' as const,
       });
