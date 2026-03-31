@@ -42,8 +42,8 @@ importers:
         specifier: ^3.3.2
         version: 3.3.3
       lucide-solid:
-        specifier: ^1.0.1
-        version: 1.0.1(solid-js@1.9.11)
+        specifier: ^1.7.0
+        version: 1.7.0(solid-js@1.9.11)
       simple-icons:
         specifier: ^16.13.0
         version: 16.13.0
@@ -854,8 +854,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-solid@1.0.1:
-    resolution: {integrity: sha512-fpo0UmEHdEmdvydbFS9lQUqQ9rqSqWXMY4w3n9tVr9FqBBWJB0YI/lTMSxCspHs706ZzHIS/1YEnDhLOIP+m+A==}
+  lucide-solid@1.7.0:
+    resolution: {integrity: sha512-z+6Vmueb4W3Rf7ZQIEbcwWhQ/ci8vumLnixRzITXXs2uBjFPQvIvhotivUFAlgSj4xDvU822A1p0wioQlFyx8A==}
     peerDependencies:
       solid-js: ^1.4.7
 
@@ -1714,7 +1714,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-solid@1.0.1(solid-js@1.9.11):
+  lucide-solid@1.7.0(solid-js@1.9.11):
     dependencies:
       solid-js: 1.9.11
 

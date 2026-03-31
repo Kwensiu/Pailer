@@ -32,7 +32,7 @@
     "@tauri-apps/plugin-updater": "^2.10.0",
     "anser": "^2.3.5",
     "dompurify": "^3.3.2",
-    "lucide-solid": "^1.0.1",
+    "lucide-solid": "^1.7.0",
     "simple-icons": "^16.13.0",
     "solid-js": "^1.9.11"
   },
