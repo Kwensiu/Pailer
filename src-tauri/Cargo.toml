@@ -7,7 +7,7 @@ opt-level = "z"
 
 [package]
 name = "Pailer"
-version = "1.7.4"
+version = "1.10.0"
 description = "A GUI for Scoop - Pailer"
 authors = ["Kwensiu"]
 license = "MIT"

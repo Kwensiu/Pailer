@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/Kwensiu/Pailer/compare/v1.9.0...v1.10.0) (2026-03-31)
+
+
+### Features
+
+* add bypass self-update option for Scoop install ([7f85dad](https://github.com/Kwensiu/Pailer/commit/7f85dad2694ed3e2f4fb9f908743c940ed42c195))
+* add package icon display with backend extraction logic ([70bd64e](https://github.com/Kwensiu/Pailer/commit/70bd64ecf54d362b1205ab7a057d46449b8c43dd))
+* add package version switching and improve context menu navigation ([f781952](https://github.com/Kwensiu/Pailer/commit/f781952b15ff157174d404a2ba3cb3db7c21cfd1))
+
+
+### Bug Fixes
+
+* check local latest version for updates to avoid false positives ([8a31fe8](https://github.com/Kwensiu/Pailer/commit/8a31fe8be27d9bd98656f876bc554523450d9ee4))
+* versioning package unexpectedly held ([b1b4305](https://github.com/Kwensiu/Pailer/commit/b1b43052e436f6f043b24aae35368152868ca9aa))
+
+
+### Refactoring
+
+* implement unified context menu architecture ([d584adf](https://github.com/Kwensiu/Pailer/commit/d584adf291ac98ccc14f87439ee4b150fde52c24))
+* restructure context menu system ([bdf884e](https://github.com/Kwensiu/Pailer/commit/bdf884ecec92335a2771b77aa38e73a1ea9585e5))
+
 ## [1.9.0](https://github.com/Kwensiu/Pailer/compare/v1.8.0...v1.9.0) (2026-03-29)
 
 
