@@ -44,8 +44,8 @@ rayon = "1.10"
 itertools = "0.14"
 once_cell = "1.21.4"
 base64 = "0.22"
-png = "0.17"
-sha2 = "0.10"
+png = "0.18"
+sha2 = "0.11"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
 tauri-plugin-opener = "2"
@@ -70,6 +70,6 @@ windows-sys = { version = "0.61", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_Globalization",
 ] }
-lnk = "0.6.3"
+lnk = "0.6.4"
 tauri-plugin-updater = "2.7.1"
 tauri-plugin-single-instance = "2"
