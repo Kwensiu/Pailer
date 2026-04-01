@@ -507,7 +507,7 @@
   "search": {
     "bar": {
       "clearSearch": "清除搜索",
-      "placeholder": "搜索本地仓库中的应用程序",
+      "placeholder": "搜索软件包，例如：7zip、7zip/main...",
       "searchHelp": "搜索帮助"
     },
     "bucketInfo": {
@@ -547,6 +547,12 @@
       "viewBucket": "查看仓库详情",
       "viewCommits": "查看提交历史",
       "viewManifest": "查看清单文件"
+    },
+    "settings": {
+      "allowCachePrebuild": "允许缓存预构建",
+      "allowCachePrebuildDescription": "在冷启动阶段预构建 Manifest 搜索缓存",
+      "open": "搜索设置",
+      "title": "搜索设置"
     },
     "tabs": {
       "includes": "包含",

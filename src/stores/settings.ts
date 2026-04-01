@@ -64,6 +64,9 @@ interface Settings {
   scoop: {
     bypassSelfUpdate: boolean;
   };
+  search: {
+    allowCachePrebuild: boolean;
+  };
 }
 
 const defaultSettings: Settings = {
@@ -105,6 +108,9 @@ const defaultSettings: Settings = {
   },
   scoop: {
     bypassSelfUpdate: false,
+  },
+  search: {
+    allowCachePrebuild: false,
   },
 };
 
@@ -223,6 +229,10 @@ function createSettingsStore() {
             scoop: {
               bypassSelfUpdate:
                 stored.scoop?.bypassSelfUpdate ?? defaultSettings.scoop.bypassSelfUpdate,
+            },
+            search: {
+              ...defaultSettings.search,
+              ...stored.search,
             },
           };
         }
@@ -373,6 +383,15 @@ function createSettingsStore() {
     });
   };
 
+  const setSearchSettings = async (newSearchSettings: Partial<Settings['search']>) => {
+    await saveSettings({
+      search: {
+        ...settings.search,
+        ...newSearchSettings,
+      },
+    });
+  };
+
   const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
     await saveSettings(newCoreSettings);
   };
@@ -412,6 +431,7 @@ function createSettingsStore() {
     setPowershellSettings,
     setScoopPath,
     setScoopSettings,
+    setSearchSettings,
     setCoreSettings,
   };
 }

@@ -17,7 +17,7 @@ pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
 
         let state = app.state::<AppState>();
         log::info!("Getting AppState for cold start initialization");
-        
+
         // Try to prefetch data, but don't block UI if it fails
         match crate::commands::installed::get_installed_packages_full(app.clone(), state).await {
             Ok(pkgs) => {
@@ -28,7 +28,7 @@ pub fn run_cold_start<R: Runtime>(app: AppHandle<R>) {
                 if let Err(e) = crate::commands::search::warm_manifest_cache(app.clone()).await {
                     log::warn!("Failed to warm search manifest cache: {}", e);
                 } else {
-                    log::info!("Search manifest cache warmed successfully");
+                    log::info!("Search manifest cache warm-up step completed");
                 }
             }
             Err(e) => {

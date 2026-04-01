@@ -112,22 +112,6 @@ export function useSearch(): UseSearchReturn {
     sessionStorage.setItem('searchActiveTab', tab);
   });
 
-  // Sync search results to sessionStorage
-  createEffect(() => {
-    const currentResults = results();
-    const term = searchTerm();
-    if (term && currentResults.length > 0) {
-      sessionStorage.setItem('searchResults', JSON.stringify(currentResults));
-      sessionStorage.setItem('searchResultsTerm', term);
-      sessionStorage.setItem('searchResultsVersion', cacheVersion().toString());
-    } else {
-      // Clear sessionStorage when search is cleared
-      sessionStorage.removeItem('searchResults');
-      sessionStorage.removeItem('searchResultsTerm');
-      sessionStorage.removeItem('searchResultsVersion');
-    }
-  });
-
   onMount(async () => {
     restoreSearchResults();
     // Subscribe to global cache invalidation events

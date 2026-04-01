@@ -27,7 +27,10 @@ pub struct BucketInstallResult {
 fn get_buckets_dir() -> Result<PathBuf, String> {
     // Use fallback method to get scoop directory
     let scoop_dir = utils::get_scoop_root_fallback();
-    log::debug!("Using buckets directory: {}", scoop_dir.join("buckets").display());
+    log::debug!(
+        "Using buckets directory: {}",
+        scoop_dir.join("buckets").display()
+    );
     Ok(scoop_dir.join("buckets"))
 }
 
@@ -190,7 +193,6 @@ async fn install_bucket_internal(
     }
 }
 
-
 // Tauri command to install a bucket
 #[command]
 pub async fn install_bucket(options: BucketInstallOptions) -> Result<BucketInstallResult, String> {
@@ -288,7 +290,10 @@ pub async fn validate_bucket_install(
 
 // Command to update a bucket (git pull)
 #[command]
-pub async fn update_bucket(_app: tauri::AppHandle, bucket_name: String) -> Result<BucketInstallResult, String> {
+pub async fn update_bucket(
+    _app: tauri::AppHandle,
+    bucket_name: String,
+) -> Result<BucketInstallResult, String> {
     log::info!("Updating bucket: {}", bucket_name);
 
     let bucket_path = get_bucket_path(&bucket_name)?;
@@ -324,9 +329,16 @@ pub async fn update_bucket(_app: tauri::AppHandle, bucket_name: String) -> Resul
     let bucket_name_clone = bucket_name.clone();
     let bucket_path_clone = bucket_path.clone();
 
-    let result = tokio::task::spawn_blocking(move || update_bucket_sync(&bucket_name_clone, &bucket_path_clone))
-        .await
-        .map_err(|e| e.to_string())??;
+    let result = tokio::task::spawn_blocking(move || {
+        update_bucket_sync(&bucket_name_clone, &bucket_path_clone)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    // Invalidate search cache after bucket update (manifests may have changed)
+    if result.success {
+        invalidate_manifest_cache().await;
+    }
 
     Ok(result)
 }
@@ -395,24 +407,36 @@ fn update_bucket_sync(
                         let remote_branch_name = format!("origin/{}", branch_name);
                         match repo.find_branch(&remote_branch_name, git2::BranchType::Remote) {
                             Ok(remote_branch) => {
-                                let remote_commit = remote_branch.get().peel_to_commit()
-                                    .map_err(|e| format!("Failed to get remote commit for bucket '{}': {}", bucket_name, e))?;
-                                let local_commit = head.peel_to_commit()
-                                    .map_err(|e| format!("Failed to get local commit for bucket '{}': {}", bucket_name, e))?;
+                                let remote_commit =
+                                    remote_branch.get().peel_to_commit().map_err(|e| {
+                                        format!(
+                                            "Failed to get remote commit for bucket '{}': {}",
+                                            bucket_name, e
+                                        )
+                                    })?;
+                                let local_commit = head.peel_to_commit().map_err(|e| {
+                                    format!(
+                                        "Failed to get local commit for bucket '{}': {}",
+                                        bucket_name, e
+                                    )
+                                })?;
 
-                                let repo_status = repo.statuses(None)
-                                    .map_err(|e| format!("Failed to get repository status: {}", e))?;
-                                
-                                let has_uncommitted_changes = repo_status.iter().any(|entry| {
-                                    entry.status() != git2::Status::CURRENT
-                                });
+                                let repo_status = repo.statuses(None).map_err(|e| {
+                                    format!("Failed to get repository status: {}", e)
+                                })?;
+
+                                let has_uncommitted_changes = repo_status
+                                    .iter()
+                                    .any(|entry| entry.status() != git2::Status::CURRENT);
 
                                 if has_uncommitted_changes {
                                     return Ok(BucketInstallResult {
                                         success: false,
                                         message: "BUCKET_HAS_UNCOMMITTED_CHANGES".to_string(),
                                         bucket_name: bucket_name.to_string(),
-                                        bucket_path: Some(bucket_path.to_string_lossy().to_string()),
+                                        bucket_path: Some(
+                                            bucket_path.to_string_lossy().to_string(),
+                                        ),
                                         manifest_count: None,
                                     });
                                 }
@@ -512,10 +536,10 @@ fn update_bucket_sync(
 #[command]
 pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
     log::info!("Updating all buckets (auto-update task)");
-    
+
     // Pre-fetch and cache the scoop root to avoid repeated path detection
     let _scoop_root = utils::get_scoop_root_fallback();
-    
+
     let buckets_dir = match get_buckets_dir() {
         Ok(p) => p,
         Err(e) => return Err(format!("Failed to resolve buckets directory: {}", e)),
@@ -544,7 +568,9 @@ pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
             let name_clone = name.to_string();
             let path_clone = path.clone();
-            match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone)).await {
+            match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone))
+                .await
+            {
                 Ok(Ok(res)) => results.push(res),
                 Ok(Err(e)) => results.push(BucketInstallResult {
                     success: false,
@@ -565,10 +591,10 @@ pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
     }
 
     log::info!("Completed updating {} buckets", results.len());
-    
+
     // Clear the scoop root cache after batch update to allow for fresh detection next time
     crate::utils::clear_scoop_root_cache();
-    
+
     Ok(results)
 }
 
@@ -615,4 +641,3 @@ pub async fn remove_bucket(bucket_name: String) -> Result<BucketInstallResult, S
         }
     }
 }
-

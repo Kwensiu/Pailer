@@ -548,6 +548,12 @@ export interface Dict {
       viewCommits: string;
       viewManifest: string;
     };
+    settings: {
+      allowCachePrebuild: string;
+      allowCachePrebuildDescription: string;
+      open: string;
+      title: string;
+    };
     tabs: {
       includes: string;
       packages: string;

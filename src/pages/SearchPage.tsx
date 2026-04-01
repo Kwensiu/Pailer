@@ -3,6 +3,7 @@ import ManifestModal from '../components/modals/ManifestModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import OperationModal from '../components/modals/OperationModal';
 import ChangeBucketModal from '../components/modals/ChangeBucketModal';
+import OptionsModal from '../components/modals/OptionsModal';
 
 import SearchBar from '../components/page/search/SearchBar';
 import SearchResultsTabs from '../components/page/search/SearchResultsTabs';
@@ -14,8 +15,9 @@ import { useSearch, createTauriSignal } from '../hooks';
 import { useBuckets, type BucketInfo } from '../hooks/buckets/useBuckets';
 import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { t } from '../i18n';
-import { RefreshCw } from 'lucide-solid';
+import { RefreshCw, Settings } from 'lucide-solid';
 import installedPackagesStore from '../stores/installedPackagesStore';
+import settingsStore from '../stores/settings';
 import { ScoopPackage } from '../types/scoop';
 import { toast } from '../components/common/ToastAlert';
 
@@ -71,6 +73,7 @@ function SearchPage() {
   const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
     createSignal<ScoopPackage | null>(null);
   const [newBucketName, setNewBucketName] = createSignal('');
+  const [settingsModalOpen, setSettingsModalOpen] = createSignal(false);
   const isRefreshing = () => refreshing() || loading();
 
   const { getBucketInfo, buckets, fetchBuckets } = useBuckets();
@@ -417,6 +420,14 @@ function SearchPage() {
           >
             <RefreshCw class={`h-5 w-5 ${isRefreshing() ? 'animate-spin' : ''}`} />
           </button>
+          <button
+            class="btn btn-square tooltip tooltip-top hover:btn-outline"
+            data-tip={t('search.settings.open')}
+            onClick={() => setSettingsModalOpen(true)}
+            type="button"
+          >
+            <Settings class="h-5 w-5" />
+          </button>
         </div>
 
         {/* Tabs and bucket filter on the same line */}
@@ -559,6 +570,33 @@ function SearchPage() {
           fromPackageModal={true}
         />
       </Show>
+      <OptionsModal
+        isOpen={settingsModalOpen()}
+        title={t('search.settings.title')}
+        onClose={() => setSettingsModalOpen(false)}
+      >
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="font-medium">{t('search.settings.allowCachePrebuild')}</div>
+              <div class="text-base-content/70 text-sm">
+                {t('search.settings.allowCachePrebuildDescription')}
+              </div>
+            </div>
+            <input
+              id="allow-cache-prebuild"
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={settingsStore.settings.search.allowCachePrebuild}
+              onChange={(e) =>
+                settingsStore.setSearchSettings({
+                  allowCachePrebuild: e.currentTarget.checked,
+                })
+              }
+            />
+          </div>
+        </div>
+      </OptionsModal>
     </div>
   );
 }
