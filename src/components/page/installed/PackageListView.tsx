@@ -218,7 +218,7 @@ function PackageListView(props: PackageListViewProps) {
                 >
                   <td class="w-[35%]">
                     <div class="flex min-w-0 items-center gap-2">
-                      <div class="flex min-w-0 items-center gap-1">
+                      <div class="flex min-w-0 items-center">
                         <div class="mr-2 flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden">
                           <Show
                             when={packageIcons()[pkg.name]}
@@ -235,7 +235,7 @@ function PackageListView(props: PackageListViewProps) {
                           </Show>
                         </div>
                         <div
-                          class="hover:text-primary min-w-0 cursor-pointer truncate font-bold transition-colors"
+                          class="hover:text-primary hover:bg-primary/20 min-w-0 cursor-pointer truncate rounded-md px-2 py-1 font-bold transition-colors"
                           onClick={() => props.onViewInfo(pkg)}
                           title={pkg.name}
                         >
@@ -260,7 +260,7 @@ function PackageListView(props: PackageListViewProps) {
                             }
                           >
                             <CircleArrowUp
-                              class="text-primary h-4 w-4 cursor-pointer transition-transform hover:scale-125"
+                              class="text-primary ml-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
                               onClick={() => props.onUpdate(pkg)}
                             />
                           </div>

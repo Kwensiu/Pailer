@@ -157,7 +157,7 @@ const PackageCard = (props: {
               props.onMenuButtonClick(pkg, e.currentTarget);
             }}
           >
-            <Ellipsis class="h-4 w-4" />
+            <Ellipsis class="h-4 w-4 shrink-0" />
           </button>
         </div>
         <p class="text-base-content/70 text-sm">

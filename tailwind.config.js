@@ -2,7 +2,7 @@
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx,css}'],
   safelist: [
-    // Custom background color classes - 保留确保不被清除
+    // Custom background color classes - preserve to ensure they're not purged
     'bg-base-50',
     'bg-base-100',
     'bg-base-150',

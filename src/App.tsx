@@ -1,7 +1,6 @@
 import { createSignal, Show, onMount, createEffect, onCleanup, For, createMemo } from 'solid-js';
 import './App.css';
 import './i18n';
-import './styles/minimized-indicator.css';
 import Header from './components/page/Header.tsx';
 import SearchPage from './pages/SearchPage.tsx';
 import BucketPage from './pages/BucketPage.tsx';

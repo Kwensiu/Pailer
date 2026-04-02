@@ -1,0 +1,107 @@
+/* Form Element Focus Styles */
+input:focus {
+  @apply border-base-content/70 outline-none;
+}
+
+/* Custom Utility Classes */
+.label {
+  color: inherit !important;
+}
+
+/* Custom background colors */
+.bg-base-150 {
+  background-color: var(--color-base-150) !important;
+}
+
+.bg-base-175 {
+  background-color: var(--color-base-175) !important;
+}
+
+.bg-base-content-bg {
+  background-color: var(--color-base-content-bg) !important;
+}
+
+.bg-base-card {
+  background-color: var(--color-base-card) !important;
+}
+
+.bg-base-list {
+  background-color: var(--color-base-list) !important;
+}
+
+/* Icon color utility */
+.icon {
+  color: var(--color-icon);
+}
+
+/* Global Styles */
+html {
+  overflow-y: hidden;
+}
+
+/* Navigation Styles */
+.nav-button {
+  @apply flex min-w-10 items-center justify-center px-3 py-2 transition-all duration-300 ease-in-out;
+  width: auto;
+}
+
+.nav-text {
+  @apply transition-all duration-300 ease-in-out;
+  @apply ml-2 inline-block max-w-[100px] min-w-0 shrink-0 translate-x-0 overflow-hidden whitespace-nowrap opacity-100;
+}
+
+/* Responsive Styles */
+@media (max-width: 639px) {
+  /* Hide navigation text on small screens */
+  .nav-text {
+    @apply ml-0 w-0 max-w-0 shrink-0 translate-x-[-10px] opacity-0;
+  }
+
+  /* Center button content when text is hidden */
+  .btn.btn-sm.btn-ghost {
+    @apply flex items-center justify-center px-3;
+  }
+
+  .btn.btn-sm.btn-ghost .flex.items-center.justify-center {
+    @apply flex w-full items-center justify-center;
+  }
+}
+
+/* Accessibility: Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  .no-motion,
+  .no-motion * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  *:hover,
+  .no-motion-hover:hover {
+    transform: none !important;
+  }
+}
+
+/* ResponsiveButton Styles */
+.responsive-button-container button svg {
+  @apply h-4 min-h-4 w-4 min-w-4;
+}
+
+.card-title button svg {
+  @apply h-4 min-h-4 w-4 min-w-4;
+}
+
+.card .card-body > .flex {
+  @apply items-start;
+}
+
+.card .card-body .form-control {
+  @apply mt-0 self-start;
+}
+
+.card .card-body .flex .form-control {
+  @apply self-start;
+}
