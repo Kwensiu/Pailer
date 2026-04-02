@@ -193,7 +193,7 @@ irm get.scoop.sh -outfile 'install.ps1'
         <div class="bg-base-100 border-base-200 rounded-2xl border p-2 shadow-sm">
           <div class="flex items-center gap-4">
             <div class="rounded-xl p-2">
-              <img src="/src-tauri/icons/icon.png" alt="Pailer Logo" class="h-16 w-16" />
+              <img src="/icon.png" alt="Pailer Logo" class="h-16 w-16" />
             </div>
             <div class="flex-1 p-2">
               <h3 class="text-base-content mb-1 text-lg font-semibold">

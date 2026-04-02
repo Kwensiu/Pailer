@@ -1,5 +1,5 @@
 import { createStore } from 'solid-js/store';
-import { createEffect, createMemo, onCleanup, createRoot } from 'solid-js';
+import { createEffect, createMemo, onCleanup, createRoot, untrack } from 'solid-js';
 import { createTauriSignal } from '../hooks/storage/createTauriSignal';
 import type {
   BaseOperationState,
@@ -68,7 +68,8 @@ const operationsStore = createRoot(() => {
             const operationId = payload.operationId ?? payload.operation_id;
 
             if (operationId) {
-              const currentOp = operations[operationId];
+              // Use untrack to read store without establishing reactive dependency
+              const currentOp = untrack(() => operations[operationId]);
               if (currentOp) {
                 const currentOutput = currentOp.output || [];
                 const lastLine =
@@ -129,9 +130,12 @@ const operationsStore = createRoot(() => {
               // Fallback: find operation by timestamp range (more reliable)
               const timestamp = result.timestamp; // Already normalized to milliseconds
               const tolerance = 5000; // 5 seconds tolerance
-              const found = Object.entries(operations).find(([, op]) => {
-                return Math.abs(op.createdAt - timestamp) <= tolerance;
-              });
+              // Use untrack to read store without establishing reactive dependency
+              const found = untrack(() =>
+                Object.entries(operations).find(([, op]) => {
+                  return Math.abs(op.createdAt - timestamp) <= tolerance;
+                })
+              );
               if (found) {
                 operationId = found[0];
               }
@@ -142,7 +146,8 @@ const operationsStore = createRoot(() => {
 
               // Refresh installed/search caches immediately on successful package operations.
               // This must live here (global listener) so it still works when OperationModal is minimized/unmounted.
-              const op = operations[operationId];
+              // Use untrack to read store without establishing reactive dependency
+              const op = untrack(() => operations[operationId]);
               if (result.success && op && !op.isScan) {
                 const operationType = op.operationType;
                 if (

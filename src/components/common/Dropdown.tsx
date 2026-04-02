@@ -9,7 +9,7 @@ import {
   type JSX,
 } from 'solid-js';
 import { Portal, Dynamic } from 'solid-js/web';
-import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
+import { autoUpdate, computePosition, flip, offset, shift, type Placement } from '@floating-ui/dom';
 import { createMenuTabNavigation, clearTabbedState } from '../../hooks/index';
 
 export interface DropdownItem {
@@ -29,6 +29,7 @@ export interface DropdownProps {
   items?: DropdownItem[];
   children?: JSX.Element;
   position?: 'start' | 'end' | 'center';
+  direction?: 'down' | 'up';
   trigger: JSX.Element;
   class?: string;
   triggerClass?: string;
@@ -48,15 +49,19 @@ const TABBED_ITEM_SELECTOR = '[data-dropdown-item="true"][data-tabbed]';
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-const getPlacement = (position?: 'start' | 'end' | 'center') => {
+const getPlacement = (
+  position?: 'start' | 'end' | 'center',
+  direction?: 'down' | 'up'
+): Placement => {
+  const base = direction === 'up' ? 'top' : 'bottom';
   switch (position) {
     case 'start':
-      return 'bottom-start';
+      return `${base}-start` as Placement;
     case 'center':
-      return 'bottom';
+      return base as Placement;
     case 'end':
     default:
-      return 'bottom-end';
+      return `${base}-end` as Placement;
   }
 };
 
@@ -175,7 +180,7 @@ export default function Dropdown(props: DropdownProps) {
   const updatePosition = async () => {
     if (!triggerRef || !contentRef) return;
 
-    const placement = getPlacement(props.position);
+    const placement = getPlacement(props.position, props.direction);
     const { x, y } = await computePosition(triggerRef, contentRef, {
       placement,
       strategy: 'fixed',
@@ -252,7 +257,7 @@ export default function Dropdown(props: DropdownProps) {
   });
 
   return (
-    <div class={`custom-dropdown-container relative inline-block ${props.class || ''}`}>
+    <div class={`dropdown-container relative inline-block ${props.class || ''}`}>
       <button
         {...props.triggerProps}
         ref={triggerRef}

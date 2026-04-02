@@ -69,6 +69,7 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
     let isLoaded = false;
     let isLoading = true;
     let shouldSave = false;
+    let isSaving = false; // Prevent circular save loop
 
     logDebug(
       `createTauriSignal: Creating signal for key "${namespacedKey}" with initial value:`,
@@ -138,12 +139,13 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
     // This effect runs whenever the signal's value changes,
     // updating value in Tauri store.
     createEffect(() => {
-      if (!shouldSave) return; // Don't save until loading completes
+      if (!shouldSave || isSaving) return; // Don't save until loading completes, and avoid circular save
 
       const currentValue = value();
       // Only save after loading is complete, avoid saving initial default value
       if (!isLoading && (isLoaded || currentValue !== syncInitialValue)) {
         logDebug(`createTauriSignal: Saving value for "${namespacedKey}":`, currentValue);
+        isSaving = true;
         (async () => {
           try {
             const store = await storePromise;
@@ -151,6 +153,8 @@ export function createTauriSignal<T>(key: string, initialValue: T): Signal<T> {
             logDebug(`createTauriSignal: Successfully saved "${namespacedKey}"`);
           } catch (error) {
             console.error(`Error saving ${namespacedKey} to store:`, error);
+          } finally {
+            isSaving = false;
           }
         })();
       } else {

@@ -79,7 +79,7 @@ const Header: Component<HeaderProps> = (props) => {
               title={`Switch to ${locale() === 'en' ? 'Chinese' : 'English'}`}
             >
               <Languages class="h-4 w-4" />
-              <span class="ml-1">{locale() === 'en' ? 'EN' : '中'}</span>
+              <span class="ml-1">{locale() === 'en' ? 'EN' : 'ZH'}</span>
             </button>
             <button
               class="btn btn-ghost btn-sm ml-1"

@@ -131,7 +131,8 @@
     "type": "Type",
     "unknown": "Unknown",
     "viewOnGithub": "View on GitHub",
-    "viewPackagesOnRepository": "Go to \"Buckets\" page\nto view package details for this bucket"
+    "viewPackagesOnRepository": "Go to \"Buckets\" page\nto view package details for this bucket",
+    "loadPackages": "Load Package List"
   },
   "buttons": {
     "auto": "Auto",

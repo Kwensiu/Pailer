@@ -132,6 +132,7 @@ export interface Dict {
     unknown: string;
     viewOnGithub: string;
     viewPackagesOnRepository: string;
+    loadPackages: string;
   };
   buttons: {
     auto: string;

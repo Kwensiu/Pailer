@@ -131,7 +131,8 @@
     "type": "类型",
     "unknown": "未知",
     "viewOnGithub": "在 GitHub 上查看",
-    "viewPackagesOnRepository": "请前往\"仓库\"页面\n查看此 bucket 的软件包详情"
+    "viewPackagesOnRepository": "请前往\"仓库\"页面\n查看此 bucket 的软件包详情",
+    "loadPackages": "加载软件包列表"
   },
   "buttons": {
     "auto": "自动",
