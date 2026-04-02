@@ -4,6 +4,7 @@ import { localStorageUtils } from '../search/useSearchCache';
 
 interface UsePackageIconsOptions {
   packageNames: Accessor<string[]>;
+  size?: number;
 }
 
 interface UsePackageIconsReturn {
@@ -21,9 +22,9 @@ interface IconCacheEntry {
   timestamp: number;
 }
 
-function getLocalStorageIconCache(packageName: string): IconCacheEntry | null {
+function getLocalStorageIconCache(packageName: string, size: number): IconCacheEntry | null {
   try {
-    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}`;
+    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}_${size}`;
     const cached = localStorage.getItem(key);
     if (cached) {
       const parsed: IconCacheEntry = JSON.parse(cached);
@@ -38,9 +39,9 @@ function getLocalStorageIconCache(packageName: string): IconCacheEntry | null {
   return null;
 }
 
-function setLocalStorageIconCache(packageName: string, dataUrl: string): void {
+function setLocalStorageIconCache(packageName: string, dataUrl: string, size: number): void {
   try {
-    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}`;
+    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}_${size}`;
     const entry: IconCacheEntry = { dataUrl, timestamp: Date.now() };
     localStorage.setItem(key, JSON.stringify(entry));
   } catch {
@@ -52,6 +53,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
   const [icons, setIcons] = createSignal<Record<string, string>>({});
   const [isLoading, setIsLoading] = createSignal(false);
   const [failedIcons, setFailedIcons] = createSignal<Set<string>>(new Set());
+  const iconSize = () => options.size || 32;
 
   // Use Map to track pending packages, avoiding infinite Set growth
   const [pendingPackages, setPendingPackages] = createSignal<Map<string, number>>(new Map());
@@ -59,6 +61,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
 
   function scheduleBatchFetch(newPackages: string[]): void {
     const now = Date.now();
+    const currentSize = iconSize();
 
     // Merge into pending request queue with timestamp for tracking
     setPendingPackages((prev) => {
@@ -87,11 +90,12 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
       try {
         const fetchedIcons = await invoke<Record<string, string>>('get_installed_package_icons', {
           packageNames: packagesToFetch,
+          size: currentSize,
         });
 
         // Cache successfully fetched icons
         Object.entries(fetchedIcons).forEach(([name, dataUrl]) => {
-          setLocalStorageIconCache(name, dataUrl);
+          setLocalStorageIconCache(name, dataUrl, currentSize);
         });
 
         // Only add successfully fetched icons
@@ -125,10 +129,11 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
     localStorageUtils.limitCacheSize(2 * 1024 * 1024, ICON_CACHE_PREFIX);
 
     const packageNames = options.packageNames();
+    const currentSize = iconSize();
     const cachedIcons: Record<string, string> = {};
 
     packageNames.forEach((name) => {
-      const cached = getLocalStorageIconCache(name.toLowerCase());
+      const cached = getLocalStorageIconCache(name.toLowerCase(), currentSize);
       if (cached) {
         cachedIcons[name] = cached.dataUrl;
       }

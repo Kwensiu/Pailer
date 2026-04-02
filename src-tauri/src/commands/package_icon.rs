@@ -30,6 +30,12 @@ struct PackageIconCacheMeta {
     icon_source_path: String,
     icon_source_modified_ms: u128,
     icon_index: i32,
+    #[serde(default = "default_icon_size")]
+    size: i32,
+}
+
+fn default_icon_size() -> i32 {
+    32
 }
 
 fn default_package_icon_cache_version() -> u32 {
@@ -490,7 +496,7 @@ fn resolve_package_icon_source(
         .or_else(|| resolve_package_name_exe_fallback(scoop_path, &lookup_key))
 }
 
-fn build_cache_meta(source: &ResolvedPackageIconSource) -> PackageIconCacheMeta {
+fn build_cache_meta(source: &ResolvedPackageIconSource, size: i32) -> PackageIconCacheMeta {
     PackageIconCacheMeta {
         cache_version: PACKAGE_ICON_CACHE_VERSION,
         shortcut_path: source.shortcut_path.to_string_lossy().to_string(),
@@ -498,6 +504,7 @@ fn build_cache_meta(source: &ResolvedPackageIconSource) -> PackageIconCacheMeta 
         icon_source_path: source.icon_source_path.to_string_lossy().to_string(),
         icon_source_modified_ms: get_modified_ms(&source.icon_source_path),
         icon_index: source.icon_index,
+        size,
     }
 }
 
@@ -714,8 +721,8 @@ fn render_hicon_to_png_bytes(icon_handle: windows_sys::Win32::UI::WindowsAndMess
 fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -> Result<Vec<u8>, String> {
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::null_mut;
-    use windows_sys::Win32::UI::Shell::{ExtractIconExW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON};
+    use windows_sys::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON, PrivateExtractIconsW};
 
     let wide_path: Vec<u16> = icon_source_path
         .as_os_str()
@@ -724,17 +731,23 @@ fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -
         .collect();
 
     let mut extracted_icon: HICON = null_mut();
+    let mut icon_id: u32 = 0;
+    
+    // Use PrivateExtractIconsW to get the best matching icon for the requested size
     let extracted_count = unsafe {
-        ExtractIconExW(
+        PrivateExtractIconsW(
             wide_path.as_ptr(),
             icon_index,
+            size,
+            size,
             &mut extracted_icon,
-            null_mut(),
+            &mut icon_id,
             1,
+            0,
         )
     };
 
-    let icon_handle = if extracted_count > 0 && !extracted_icon.is_null() {
+    let icon_handle = if extracted_count != u32::MAX && extracted_count > 0 && !extracted_icon.is_null() {
         extracted_icon
     } else {
         let mut file_info = SHFILEINFOW {
@@ -782,9 +795,10 @@ fn get_or_create_package_icon_data_url(
     cache_dir: &Path,
     package_name: &str,
     source: &ResolvedPackageIconSource,
+    size: i32,
 ) -> Result<Option<String>, String> {
-    let cache_key = normalize_cache_key(package_name);
-    let expected_meta = build_cache_meta(source);
+    let cache_key = format!("{}_{}", normalize_cache_key(package_name), size);
+    let expected_meta = build_cache_meta(source, size);
 
     if should_use_disk_icon_cache() {
         if let Some(cached_data_url) = read_cached_icon_data_url(cache_dir, &cache_key, &expected_meta)? {
@@ -792,7 +806,7 @@ fn get_or_create_package_icon_data_url(
         }
     }
 
-    let png_bytes = extract_icon_png_bytes(&source.icon_source_path, source.icon_index, 32)?;
+    let png_bytes = extract_icon_png_bytes(&source.icon_source_path, source.icon_index, size)?;
 
     // Write to cache, but return icon even if caching fails
     if should_use_disk_icon_cache() {
@@ -812,11 +826,13 @@ pub async fn get_installed_package_icons<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
     package_names: Vec<String>,
+    size: Option<i32>,
 ) -> Result<HashMap<String, String>, String> {
     let cache_dir = get_package_icon_cache_dir(&app)?;
     let scoop_path = state.scoop_path();
     let lnk_index = build_lnk_source_index(&state, &scoop_path).await?;
     let mut result = HashMap::new();
+    let size = size.unwrap_or(32);
 
     for package_name in package_names {
         let lookup_name = package_name.to_lowercase();
@@ -824,7 +840,7 @@ pub async fn get_installed_package_icons<R: Runtime>(
             continue;
         };
 
-        match get_or_create_package_icon_data_url(&cache_dir, &lookup_name, &source) {
+        match get_or_create_package_icon_data_url(&cache_dir, &lookup_name, &source, size) {
             Ok(Some(data_url)) => {
                 result.insert(package_name, data_url);
             }
