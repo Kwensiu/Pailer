@@ -517,7 +517,6 @@ function SearchPage() {
         onUpdate={handleUpdate}
         onForceUpdate={handleForceUpdate}
         context="search"
-        fromPackageModal={true}
         onPackageStateChanged={() => {
           // This will be called when install/uninstall buttons are clicked
           // The actual refresh will happen in closeOperationModal when the operation completes
@@ -567,7 +566,6 @@ function SearchPage() {
           loading={bucketInfoLoading() && !bucketInfo()}
           error={bucketInfoError()}
           onClose={handleCloseBucketModal}
-          fromPackageModal={true}
         />
       </Show>
       <OptionsModal

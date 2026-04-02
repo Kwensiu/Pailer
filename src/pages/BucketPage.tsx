@@ -22,6 +22,7 @@ import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/
 import { SearchableBucket } from '../hooks';
 import { t } from '../i18n';
 import { toast } from '../components/common/ToastAlert';
+import installedPackagesStore from '../stores/installedPackagesStore';
 
 const UPDATE_RESULT_DISPLAY_DURATION = 2000;
 
@@ -42,9 +43,6 @@ function BucketPage() {
   const packageOperations = usePackageOperations();
 
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
-  const [selectedBucketDescription, setSelectedBucketDescription] = createSignal<
-    string | undefined
-  >(undefined);
   const [manifests, setManifests] = createSignal<string[]>([]);
   const [manifestsLoading, setManifestsLoading] = createSignal(false);
 
@@ -109,7 +107,6 @@ function BucketPage() {
 
   const handleViewBucket = async (bucket: BucketInfo) => {
     setSelectedBucket(bucket);
-    setSelectedBucketDescription(undefined); // Clear description for regular buckets
     setManifestsLoading(true);
     const bucketManifests = await getBucketManifests(bucket.name);
     setManifests(bucketManifests);
@@ -143,7 +140,6 @@ function BucketPage() {
 
       setSelectedBucket(bucketInfo);
       setSelectedSearchBucket(searchBucket); // Store the search bucket for the modal
-      setSelectedBucketDescription(searchBucket.description); // Store description for external buckets
       setManifests([]); // No manifests for external buckets
       setManifestsLoading(false);
     }
@@ -168,7 +164,6 @@ function BucketPage() {
   const closeModal = () => {
     setSelectedBucket(null);
     setSelectedSearchBucket(null);
-    setSelectedBucketDescription(undefined);
     setManifests([]);
     setManifestsLoading(false);
   };
@@ -178,8 +173,9 @@ function BucketPage() {
     await handleBucketPackageClick(
       packageName,
       bucketName,
-      packageInfo.fetchPackageInfo
-      // Don't close bucket modal for BucketPage behavior
+      packageInfo.fetchPackageInfo,
+      undefined, // Don't close bucket modal for BucketPage behavior
+      installedPackagesStore.packages() // Pass installed packages to avoid redundant backend calls
     );
   };
 
@@ -546,7 +542,6 @@ function BucketPage() {
           return (
             <BucketInfoModal
               bucket={bucket}
-              description={selectedBucketDescription()}
               manifests={manifests()}
               manifestsLoading={manifestsLoading()}
               error={null}
@@ -572,7 +567,6 @@ function BucketPage() {
         onUpdate={packageOperations.handleUpdate}
         onForceUpdate={packageOperations.handleForceUpdate}
         showBackButton={true}
-        fromPackageModal={true}
         onPackageStateChanged={() => {
           // Refresh bucket manifests to reflect installation changes
           const currentBucket = selectedBucket();

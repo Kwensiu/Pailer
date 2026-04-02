@@ -85,24 +85,8 @@ function InstalledPage(props: InstalledPageProps) {
 
   // Bucket manifests state
   const [bucketManifests, setBucketManifests] = createSignal<string[]>([]);
-  const [bucketManifestsLoading, setBucketManifestsLoading] = createSignal(false);
+  const [bucketManifestsLoading] = createSignal(false);
   const [bucketManifestsError, setBucketManifestsError] = createSignal<string | null>(null);
-
-  // Fetch bucket manifests
-  const fetchBucketManifests = async (bucketName: string) => {
-    setBucketManifestsLoading(true);
-    setBucketManifestsError(null);
-    try {
-      const manifests = await invoke<string[]>('get_bucket_manifests', { bucketName });
-      setBucketManifests(manifests);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setBucketManifestsError(errorMsg);
-      console.error(`Failed to fetch manifests for bucket ${bucketName}:`, errorMsg);
-    } finally {
-      setBucketManifestsLoading(false);
-    }
-  };
 
   // Sync search content to sessionStorage
   createEffect(() => {
@@ -111,14 +95,6 @@ function InstalledPage(props: InstalledPageProps) {
       sessionStorage.setItem('installedSearchQuery', query);
     } else {
       sessionStorage.removeItem('installedSearchQuery');
-    }
-  });
-
-  // Fetch bucket manifests when a bucket is selected for info
-  createEffect(() => {
-    const bucketName = selectedBucketForInfo();
-    if (bucketName) {
-      fetchBucketManifests(bucketName);
     }
   });
 
@@ -374,7 +350,6 @@ function InstalledPage(props: InstalledPageProps) {
             }
           }}
           context="installed"
-          fromPackageModal={true}
         />
         <ScoopStatusModal
           isOpen={showStatusModal()}
@@ -396,7 +371,6 @@ function InstalledPage(props: InstalledPageProps) {
                 manifestsLoading={bucketManifestsLoading()}
                 error={bucketManifestsError()}
                 zIndex="z-[70]"
-                fromPackageModal={true}
                 onClose={() => {
                   setSelectedBucketForInfo(null);
                   setBucketManifests([]);
