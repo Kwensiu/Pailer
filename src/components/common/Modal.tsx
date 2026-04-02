@@ -1,6 +1,21 @@
 import { Show, JSX, onMount, onCleanup, createEffect, createSignal } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
+const OPEN_MODAL_IDS = new Set<string>();
+let modalIdCounter = 0;
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const lockBodyScroll = () => {
+  document.body.style.overflow = 'hidden';
+};
+
+const unlockBodyScroll = () => {
+  if (OPEN_MODAL_IDS.size === 0) {
+    document.body.style.overflow = '';
+  }
+};
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +37,10 @@ interface ModalProps {
 }
 
 export default function Modal(props: ModalProps) {
+  const modalId = `modal-${++modalIdCounter}`;
+  let previouslyFocusedElement: HTMLElement | null = null;
+  let isRegistered = false;
+
   const getSizeClass = () => {
     switch (props.size) {
       case 'small':
@@ -29,7 +48,7 @@ export default function Modal(props: ModalProps) {
       case 'medium':
         return 'max-w-2xl';
       case 'large':
-        return 'max-w-5xl';
+        return 'max-w-7xl';
       case 'full':
         return 'w-11/12 max-w-7xl';
       default:
@@ -41,20 +60,96 @@ export default function Modal(props: ModalProps) {
   const [isVisible, setIsVisible] = createSignal(false);
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
+  const [modalBoxRef, setModalBoxRef] = createSignal<HTMLDivElement>();
+  const animationDuration = () => props.animationDuration || 300;
+  const [isTopmost, setIsTopmost] = createSignal(false);
+
+  const registerOpenModal = () => {
+    if (isRegistered) return;
+    isRegistered = true;
+    OPEN_MODAL_IDS.add(modalId);
+    lockBodyScroll();
+    // Dispatch a global event to notify other modals to update their topmost status
+    window.dispatchEvent(new CustomEvent('modal-stack-change'));
+  };
+
+  const unregisterOpenModal = () => {
+    if (!isRegistered) return;
+    isRegistered = false;
+    OPEN_MODAL_IDS.delete(modalId);
+    unlockBodyScroll();
+    // Dispatch a global event to notify other modals to update their topmost status.
+    // Use requestAnimationFrame to ensure we don't trigger state changes for sibling modals
+    // while the current event is still being processed.
+    // Check isRegistered again in case the modal was re-registered during the frame.
+    requestAnimationFrame(() => {
+      if (!isRegistered) {
+        window.dispatchEvent(
+          new CustomEvent('modal-stack-change', { detail: { removedId: modalId } })
+        );
+      }
+    });
+  };
+
+  const updateTopmostStatus = () => {
+    const openIds = Array.from(OPEN_MODAL_IDS);
+    setIsTopmost(openIds[openIds.length - 1] === modalId);
+  };
+
+  // Listen to modal stack changes
+  onMount(() => {
+    window.addEventListener('modal-stack-change', updateTopmostStatus);
+    onCleanup(() => window.removeEventListener('modal-stack-change', updateTopmostStatus));
+  });
+
+  const getFocusableElements = () => {
+    const box = modalBoxRef();
+    if (!box) return [] as HTMLElement[];
+    return Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+      (element) =>
+        !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true'
+    );
+  };
+
+  const focusInitialElement = () => {
+    const box = modalBoxRef();
+    if (!box) return;
+    const [firstFocusable] = getFocusableElements();
+    (firstFocusable ?? box).focus();
+  };
+
+  const restorePreviousFocus = () => {
+    if (previouslyFocusedElement && document.contains(previouslyFocusedElement)) {
+      previouslyFocusedElement.focus?.();
+    }
+    previouslyFocusedElement = null;
+  };
+
+  // TODO: Promote modal open/close handling to a shared modal stack/focus manager so
+  // scroll locking, ESC behavior, and focus restoration are coordinated in one place.
 
   // Animation effects
   createEffect(() => {
     if (props.isOpen) {
+      if (!rendered()) {
+        previouslyFocusedElement = document.activeElement as HTMLElement | null;
+        registerOpenModal();
+      }
       setRendered(true);
       setIsVisible(false);
       setIsClosing(false);
       // Use requestAnimationFrame to ensure DOM is updated before starting animation
       requestAnimationFrame(() => {
         setIsVisible(true);
+        focusInitialElement();
       });
     } else if (rendered()) {
       // Trigger close animation when isOpen becomes false externally
+      setIsVisible(false);
       setIsClosing(true);
+      // Ensure we unregister immediately when the modal is closed,
+      // even if the component stays mounted.
+      unregisterOpenModal();
     }
   });
 
@@ -63,7 +158,7 @@ export default function Modal(props: ModalProps) {
       const timer = setTimeout(() => {
         setRendered(false);
         setIsClosing(false);
-      }, props.animationDuration || 300);
+      }, animationDuration());
       return () => clearTimeout(timer);
     }
   });
@@ -72,38 +167,71 @@ export default function Modal(props: ModalProps) {
     if (isClosing()) return;
     setIsClosing(true);
     setIsVisible(false);
-    // Delay actual close to allow animation
+    // Ensure we unregister immediately when the modal is closed internally.
+    unregisterOpenModal();
+    // Delay closing props to complete animation
     setTimeout(() => {
       props.onClose();
-    }, props.animationDuration || 300);
+    }, animationDuration());
   };
 
   // Handle ESC key to close modal
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && props.isOpen) {
+    if (!props.isOpen || !isTopmost()) {
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
       handleClose();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      const focusableElements = getFocusableElements();
+      const box = modalBoxRef();
+      if (!box) return;
+
+      if (focusableElements.length === 0) {
+        e.preventDefault();
+        box.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (e.shiftKey) {
+        if (!activeElement || activeElement === firstElement || !box.contains(activeElement)) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (!activeElement || activeElement === lastElement || !box.contains(activeElement)) {
+        e.preventDefault();
+        firstElement.focus();
+      }
     }
   };
 
   onMount(() => {
-    document.addEventListener('keydown', handleKeyDown);
+    // Use capture phase to ensure we can stop propagation before bubbling listeners.
+    // For nested modals on the same document element, registration order still matters,
+    // but stopImmediatePropagation will work correctly.
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
   });
 
   onCleanup(() => {
-    document.removeEventListener('keydown', handleKeyDown);
-  });
-
-  // Prevent body scroll when modal is open
-  createEffect(() => {
-    if (rendered()) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    unregisterOpenModal();
+    restorePreviousFocus();
+    document.removeEventListener('keydown', handleKeyDown, { capture: true });
   });
 
   // Handle data-modal-close clicks
-  const [modalBoxRef, setModalBoxRef] = createSignal<HTMLDivElement>();
   createEffect(() => {
     const box = modalBoxRef();
     if (box) {
@@ -140,7 +268,7 @@ export default function Modal(props: ModalProps) {
         }`,
         backdrop: `transition-all duration-300 ease-in-out !bg-black/30 ${
           !isVisible() || isClosing() ? '!opacity-0' : '!opacity-100'
-        }`,
+        } ${isClosing() ? 'pointer-events-none' : ''}`,
       };
     }
     return { modalBox: '', backdrop: '' };
@@ -149,10 +277,15 @@ export default function Modal(props: ModalProps) {
   return (
     <Portal>
       <Show when={rendered()}>
-        <div class={`modal modal-open ${props.zIndex || 'z-50'}`} role="dialog">
+        <div
+          class={`modal modal-open ${props.zIndex || 'z-50'} ${isClosing() ? 'pointer-events-none' : ''}`}
+          role="dialog"
+          aria-modal="true"
+        >
           <div
             class={`modal-box bg-base-100 border-base-200 flex max-h-[90vh] flex-col overflow-hidden border p-0 shadow-2xl ${getSizeClass()} ${props.class ?? ''} ${getAnimationClasses().modalBox}`}
             ref={setModalBoxRef}
+            tabindex="-1"
           >
             {/* Header */}
             <div class="border-base-300 bg-base-175 flex items-center justify-between border-b px-4 py-3">
@@ -182,7 +315,7 @@ export default function Modal(props: ModalProps) {
             </Show>
           </div>
           <div
-            class={`modal-backdrop backdrop-blur-[3px] ${getAnimationClasses().backdrop}`}
+            class={`modal-backdrop backdrop-blur-xs ${getAnimationClasses().backdrop}`}
             onClick={handleBackdropClick}
           ></div>
         </div>
