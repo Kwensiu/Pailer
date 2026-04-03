@@ -19,9 +19,11 @@ const unlockBodyScroll = () => {
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string | JSX.Element;
+  title?: string | JSX.Element;
   size?: 'small' | 'medium' | 'large' | 'full';
   showCloseButton?: boolean;
+  hideHeader?: boolean;
+  noAutoFocus?: boolean;
   children: JSX.Element;
   footer?: JSX.Element;
   headerAction?: JSX.Element;
@@ -112,6 +114,7 @@ export default function Modal(props: ModalProps) {
   };
 
   const focusInitialElement = () => {
+    if (props.noAutoFocus) return;
     const box = modalBoxRef();
     if (!box) return;
     const [firstFocusable] = getFocusableElements();
@@ -288,21 +291,23 @@ export default function Modal(props: ModalProps) {
             tabindex="-1"
           >
             {/* Header */}
-            <div class="border-base-300 bg-base-175 flex items-center justify-between border-b px-4 py-3">
-              <div class="text-lg font-bold">{props.title}</div>
-              <div class="flex items-center gap-2">
-                <Show when={props.headerAction}>{props.headerAction}</Show>
-                <Show when={props.showCloseButton !== false}>
-                  <button
-                    class="btn btn-sm btn-circle btn-ghost"
-                    onClick={handleClose}
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
-                </Show>
+            <Show when={!props.hideHeader}>
+              <div class="border-base-300 bg-base-175 flex items-center justify-between border-b px-4 py-3">
+                <div class="text-lg font-bold">{props.title}</div>
+                <div class="flex items-center gap-2">
+                  <Show when={props.headerAction}>{props.headerAction}</Show>
+                  <Show when={props.showCloseButton !== false}>
+                    <button
+                      class="btn btn-sm btn-circle btn-ghost"
+                      onClick={handleClose}
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </Show>
+                </div>
               </div>
-            </div>
+            </Show>
 
             {/* Content */}
             <div class="bg-base-100 flex-1 overflow-y-auto p-6">{props.children}</div>

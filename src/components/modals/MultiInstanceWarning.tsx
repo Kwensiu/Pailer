@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { createEffect, createSignal, Show } from 'solid-js';
 import { TriangleAlert, X } from 'lucide-solid';
 import { useOperations } from '../../stores/operations';
 import { t } from '../../i18n';
@@ -7,33 +7,29 @@ import { t } from '../../i18n';
 const MultiInstanceWarning = () => {
   const { dismissMultiInstanceWarning, checkMultiInstanceWarning } = useOperations();
 
-  const [isVisible, setIsVisible] = createSignal(false);
+  const [isClosed, setIsClosed] = createSignal(false);
 
   // Check if warning should be displayed
   const shouldShowWarning = () => {
-    return checkMultiInstanceWarning() && !isVisible();
+    return checkMultiInstanceWarning() && !isClosed();
   };
 
-  // Close warning
+  // Close warning for current warning cycle
   const handleClose = () => {
-    setIsVisible(false);
+    setIsClosed(true);
+  };
+
+  // Permanently dismiss warning
+  const handleDismiss = () => {
+    setIsClosed(true);
     dismissMultiInstanceWarning();
   };
 
-  // Keyboard event handling
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
+  // Reset temporary close state when warning condition clears
+  createEffect(() => {
+    if (!checkMultiInstanceWarning()) {
+      setIsClosed(false);
     }
-  };
-
-  // Proper event listener management
-  onMount(() => {
-    document.addEventListener('keydown', handleKeyDown);
-  });
-
-  onCleanup(() => {
-    document.removeEventListener('keydown', handleKeyDown);
   });
 
   return (
@@ -46,10 +42,10 @@ const MultiInstanceWarning = () => {
               <div class="mb-1 font-bold">{t('warnings.multiInstance.title')}</div>
               <div class="mb-3 text-sm">{t('warnings.multiInstance.message')}</div>
               <div class="flex gap-2">
-                <button class="btn btn-sm btn-outline" onClick={handleClose}>
+                <button class="btn btn-sm btn-outline" onClick={handleDismiss}>
                   {t('warnings.multiInstance.dontShowAgain')}
                 </button>
-                <button class="btn btn-sm btn-ghost" onClick={() => setIsVisible(false)}>
+                <button class="btn btn-sm btn-ghost" onClick={handleClose}>
                   {t('buttons.closeDialog')}
                 </button>
               </div>

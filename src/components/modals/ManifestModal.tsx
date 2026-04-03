@@ -7,7 +7,7 @@ import { t } from '../../i18n';
 import { highlightJson } from '../../utils/jsonHighlight';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { buildManifestFileUrl } from '../../utils/manifestUrl';
-import GithubIcon from '../common/icons/GithubIcon';
+import GithubIcon from '../common/icons/CustomIcon';
 
 interface ManifestModalProps {
   manifestContent: string | null;

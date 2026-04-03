@@ -1,4 +1,4 @@
-import { Component, JSX, Show, createSignal, onMount } from 'solid-js';
+import { Component, JSX, Show, children, createSignal, onMount } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { RefreshCw, Folder } from 'lucide-solid';
 import { t } from '../../i18n';
@@ -48,6 +48,11 @@ interface CardProps {
 export default function Card(props: CardProps) {
   const [transitionEnabled, setTransitionEnabled] = createSignal(false);
   const [refreshing, setRefreshing] = createSignal(false);
+  const resolvedChildren = children(() => props.children);
+  const hasChildren = () => {
+    const value = resolvedChildren();
+    return Array.isArray(value) ? value.length > 0 : !!value;
+  };
   const contentContainer = () => props.contentContainer ?? true;
   const isBusy = () => refreshing() || !!props.loading;
   const dimContentWhenBusy = () => props.dimContentWhenBusy ?? true;
@@ -55,9 +60,7 @@ export default function Card(props: CardProps) {
   const shouldShowLoadingPlaceholder = () =>
     (props.showLoadingPlaceholder ?? !!props.loading) && isBusy();
   const staleWhileRefreshing = () => props.staleWhileRefreshing ?? true;
-  const hasBodyContent = () =>
-    !!props.additionalContent ||
-    !!(props.children && (!Array.isArray(props.children) || props.children.length > 0));
+  const hasBodyContent = () => !!props.additionalContent || hasChildren();
   const shouldReplaceWithLoading = () =>
     shouldShowLoadingPlaceholder() && !(staleWhileRefreshing() && hasBodyContent());
   const renderLoadingPlaceholder = () =>
@@ -200,12 +203,7 @@ export default function Card(props: CardProps) {
             {props.description}
           </div>
         </Show>
-        <Show
-          when={
-            props.additionalContent ||
-            (props.children && (!Array.isArray(props.children) || props.children.length > 0))
-          }
-        >
+        <Show when={props.additionalContent || hasChildren()}>
           <div
             classList={{
               'opacity-60': isBusy() && dimContentWhenBusy(),
@@ -224,7 +222,9 @@ export default function Card(props: CardProps) {
                       {props.additionalContent}
                     </div>
                   </Show>
-                  <Show when={!shouldReplaceWithLoading() && props.children}>{props.children}</Show>
+                  <Show when={!shouldReplaceWithLoading() && hasChildren()}>
+                    {resolvedChildren()}
+                  </Show>
                 </>
               }
             >
@@ -238,7 +238,9 @@ export default function Card(props: CardProps) {
                 </Show>
 
                 {/* Main Content */}
-                <Show when={!shouldReplaceWithLoading() && props.children}>{props.children}</Show>
+                <Show when={!shouldReplaceWithLoading() && hasChildren()}>
+                  {resolvedChildren()}
+                </Show>
               </div>
             </Show>
           </div>
