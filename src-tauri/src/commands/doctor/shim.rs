@@ -248,3 +248,70 @@ pub fn add_shim(state: State<'_, AppState>, args: AddShimArgs) -> Result<(), Str
 
     Ok(())
 }
+
+/// Updates the args field in a shim's .shim file.
+#[tauri::command]
+pub fn update_shim_args(
+    state: State<'_, AppState>,
+    shim_name: String,
+    args: Option<String>,
+) -> Result<(), String> {
+    log::info!("Updating args for shim '{}' to {:?}", shim_name, args);
+    let scoop_path = state.scoop_path();
+
+    // Find the .shim file in local or global shims directory
+    let shim_dirs = [
+        scoop_path.join("shims"),
+        scoop_path.join("global").join("shims"),
+    ];
+
+    let mut shim_file_path: Option<PathBuf> = None;
+    for dir in &shim_dirs {
+        let path = dir.join(format!("{}.shim", shim_name));
+        if path.exists() {
+            shim_file_path = Some(path);
+            break;
+        }
+    }
+
+    let shim_file = shim_file_path.ok_or_else(|| format!("Shim '{}' not found", shim_name))?;
+
+    // Read current content
+    let content =
+        fs::read_to_string(&shim_file).map_err(|e| format!("Failed to read shim file: {}", e))?;
+
+    // Build new content
+    let new_content = if let Some(new_args) = args {
+        if new_args.trim().is_empty() {
+            // Remove args line if empty
+            let lines: Vec<&str> = content
+                .lines()
+                .filter(|line| !line.trim().starts_with("args"))
+                .collect();
+            lines.join("\n")
+        } else {
+            // Update or add args line
+            if ARGS_RE.is_match(&content) {
+                // Replace existing args line
+                ARGS_RE
+                    .replace(&content, &format!("args = {}", new_args))
+                    .to_string()
+            } else {
+                // Add args line after path
+                format!("{}\nargs = {}", content.trim_end(), new_args)
+            }
+        }
+    } else {
+        // Remove args line
+        let lines: Vec<&str> = content
+            .lines()
+            .filter(|line| !line.trim().starts_with("args"))
+            .collect();
+        lines.join("\n")
+    };
+
+    // Write back
+    fs::write(&shim_file, new_content).map_err(|e| format!("Failed to write shim file: {}", e))?;
+
+    Ok(())
+}

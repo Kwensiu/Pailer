@@ -145,14 +145,11 @@ function ShimManager() {
     try {
       await invoke('alter_shim', { shimName });
 
-      const currentlySelected = selectedShim();
-      if (currentlySelected && currentlySelected.name === shimName) {
-        const newShims = allShims();
-        const updatedShim = newShims.find((s) => s.name === shimName);
-        setSelectedShim(updatedShim || null);
-      } else {
-        setSelectedShim(null);
-      }
+      // Refresh shims list to get updated isHidden state
+      await forceRefresh();
+
+      // Close modal after successful alter
+      setSelectedShim(null);
     } catch (err) {
       console.error(`Failed to alter shim ${shimName}:`, err);
     } finally {
@@ -174,7 +171,10 @@ function ShimManager() {
           <Show when={allShims().length > 0}>
             <button
               class="btn btn-ghost btn-sm"
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => {
+                setSelectedShim(null);
+                setIsAddModalOpen(true);
+              }}
               disabled={isInitialLoading() || isProcessing()}
             >
               <Plus class="h-4 w-4" /> {t('doctor.shimManager.addShim')}
@@ -263,21 +263,28 @@ function ShimManager() {
           </div>
         </Show>
 
-        <ShimDetailsModal
-          isOpen={!!selectedShim()}
-          shim={selectedShim()!}
-          onClose={() => setSelectedShim(null)}
-          onRemove={handleRemoveShim}
-          onAlter={handleAlterShim}
-          isOperationRunning={isProcessing()}
-        />
+        <Show when={selectedShim()} keyed>
+          {(shim) => (
+            <ShimDetailsModal
+              isOpen={true}
+              shim={shim}
+              onClose={() => setSelectedShim(null)}
+              onRemove={handleRemoveShim}
+              onAlter={handleAlterShim}
+              onUpdated={forceRefresh}
+              isOperationRunning={isProcessing()}
+            />
+          )}
+        </Show>
 
-        <AddShimModal
-          isOpen={isAddModalOpen()}
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddShim}
-          isOperationRunning={isProcessing()}
-        />
+        <Show when={isAddModalOpen()}>
+          <AddShimModal
+            isOpen={true}
+            onClose={() => setIsAddModalOpen(false)}
+            onAdd={handleAddShim}
+            isOperationRunning={isProcessing()}
+          />
+        </Show>
       </div>
     </Card>
   );

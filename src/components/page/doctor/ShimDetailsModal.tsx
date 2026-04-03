@@ -1,5 +1,6 @@
 import { Show, createSignal, onCleanup, createEffect } from 'solid-js';
-import { Trash2, Eye, EyeOff } from 'lucide-solid';
+import { Trash2, Eye, EyeOff, Check } from 'lucide-solid';
+import { invoke } from '@tauri-apps/api/core';
 import { Shim } from './ShimManager';
 import { t } from '../../../i18n';
 import Modal from '../../common/Modal';
@@ -10,6 +11,7 @@ interface ShimDetailsModalProps {
   onClose: () => void;
   onRemove: (name: string) => void;
   onAlter: (name: string) => void;
+  onUpdated: () => void;
   isOperationRunning: boolean;
 }
 
@@ -18,6 +20,10 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
   const [deleteConfirm, setDeleteConfirm] = createSignal(false);
   const [deleteTimer, setDeleteTimer] = createSignal<number | null>(null);
 
+  // State for editing args
+  const [editedArgs, setEditedArgs] = createSignal('');
+  const [isSaving, setIsSaving] = createSignal(false);
+
   // Cleanup timer on unmount
   onCleanup(() => {
     if (deleteTimer()) {
@@ -25,7 +31,7 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
     }
   });
 
-  // Reset confirmation when modal closes or shim changes
+  // Reset state when modal closes or shim changes
   createEffect(() => {
     if (!props.isOpen || !props.shim) {
       setDeleteConfirm(false);
@@ -34,11 +40,14 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
         setDeleteTimer(null);
       }
     }
+    // Sync editedArgs with shim.args
+    if (props.shim) {
+      setEditedArgs(props.shim.args || '');
+    }
   });
 
   const handleRemove = () => {
     if (deleteConfirm()) {
-      // Execute delete
       if (deleteTimer()) {
         window.clearTimeout(deleteTimer()!);
         setDeleteTimer(null);
@@ -46,7 +55,6 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
       setDeleteConfirm(false);
       props.onRemove(props.shim.name);
     } else {
-      // First click - show confirmation
       setDeleteConfirm(true);
       const timer = window.setTimeout(() => {
         setDeleteConfirm(false);
@@ -60,59 +68,103 @@ function ShimDetailsModal(props: ShimDetailsModalProps) {
     props.onAlter(props.shim.name);
   };
 
+  const saveArgs = async () => {
+    setIsSaving(true);
+    try {
+      const newArgs = editedArgs().trim();
+      await invoke('update_shim_args', {
+        shimName: props.shim.name,
+        args: newArgs || null,
+      });
+      props.onUpdated();
+    } catch (err) {
+      console.error('Failed to update shim args:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={props.isOpen}
       onClose={props.onClose}
-      title={props.shim.name}
-      size="medium"
+      size="small"
+      hideHeader={true}
+      noAutoFocus={true}
       animation="scale"
-      footer={
-        <>
+    >
+      <div class="space-y-4">
+        {/* Title */}
+        <h3 class="text-lg font-bold">{props.shim.name}</h3>
+
+        {/* Content */}
+        <div class="space-y-3">
+          <p class="text-sm break-all">
+            <span class="text-base-content font-semibold">{t('doctor.shimDetails.source')}: </span>{' '}
+            {props.shim.source}
+          </p>
+          <p class="text-sm break-all">
+            <span class="text-base-content font-semibold">{t('doctor.shimDetails.path')}: </span>{' '}
+            {props.shim.path}
+          </p>
+
+          {/* Args - always editable */}
+          <div class="text-sm">
+            <span class="text-base-content mb-1 block font-semibold">
+              {t('doctor.shimDetails.arguments')}:
+            </span>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                class="input input-sm input-bordered flex-1 rounded-lg font-mono"
+                value={editedArgs()}
+                onInput={(e) => setEditedArgs(e.currentTarget.value)}
+                placeholder={t('doctor.shimDetails.noArgs')}
+                disabled={props.isOperationRunning || isSaving()}
+              />
+              <button
+                class="btn btn-primary btn-sm rounded-lg"
+                onClick={saveArgs}
+                disabled={isSaving()}
+                type="button"
+              >
+                <Check size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div class="border-base-200 flex justify-end gap-2 border-t pt-2">
           <button
-            class="btn"
+            class="btn btn-footer"
             classList={{
               'btn-error': !deleteConfirm(),
               'btn-warning': deleteConfirm(),
             }}
             onClick={handleRemove}
-            disabled={props.isOperationRunning}
+            disabled={props.isOperationRunning || isSaving()}
           >
-            <Trash2 class="h-4 w-4" />{' '}
+            <Trash2 size={16} />
             {deleteConfirm() ? t('buttons.confirm') : t('buttons.remove')}
           </button>
-          <button class="btn" onClick={handleAlter} disabled={props.isOperationRunning}>
+          <button
+            class="btn btn-footer"
+            onClick={handleAlter}
+            disabled={props.isOperationRunning || isSaving()}
+          >
             <Show
               when={!props.shim.isHidden}
               fallback={
                 <>
-                  <Eye class="h-4 w-4" /> {t('doctor.shimDetails.unhide')}
+                  <Eye size={16} /> {t('doctor.shimDetails.unhide')}
                 </>
               }
             >
-              <EyeOff class="h-4 w-4" /> {t('doctor.shimDetails.hide')}
+              <EyeOff size={16} /> {t('doctor.shimDetails.hide')}
             </Show>
           </button>
-        </>
-      }
-    >
-      <div class="space-y-3">
-        <p class="text-sm break-all">
-          <span class="text-base-content font-semibold">{t('doctor.shimDetails.source')}: </span>{' '}
-          {props.shim.source}
-        </p>
-        <p class="text-sm break-all">
-          <span class="text-base-content font-semibold">{t('doctor.shimDetails.path')}: </span>{' '}
-          {props.shim.path}
-        </p>
-        <Show when={props.shim.args}>
-          <p class="text-sm break-all">
-            <span class="text-base-content font-semibold">
-              {t('doctor.shimDetails.arguments')}:{' '}
-            </span>
-            <span class="bg-base-300 rounded px-1 font-mono">{props.shim.args}</span>
-          </p>
-        </Show>
+        </div>
       </div>
     </Modal>
   );

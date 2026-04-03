@@ -220,9 +220,6 @@ function VersionedAppsManager() {
               </div>
             </label>
           </div>
-          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
-            <span>{t('doctor.common.actionCannotBeUndone')}</span>
-          </div>
         </div>
       ),
       onConfirm: async () => {
