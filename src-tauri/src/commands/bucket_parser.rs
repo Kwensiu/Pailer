@@ -1,11 +1,14 @@
+use chrono::{DateTime, NaiveDate, Utc};
 use csv::{ReaderBuilder, WriterBuilder};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::Mutex;
 
 use super::bucket_search::SearchableBucket;
 
@@ -13,6 +16,23 @@ use super::bucket_search::SearchableBucket;
 pub struct BucketFilterOptions {
     pub disable_chinese_buckets: bool,
     pub minimum_stars: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BucketCacheInfo {
+    pub exists: bool,
+    pub local_updated_at: Option<String>,
+    pub remote_updated_at: Option<String>,
+    pub has_remote_update: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BucketCacheRefreshResult {
+    pub updated: bool,
+    pub skipped: bool,
+    pub reason: String,
+    pub local_updated_at: Option<String>,
+    pub remote_updated_at: Option<String>,
 }
 
 impl Default for BucketFilterOptions {
@@ -40,6 +60,12 @@ struct BucketCsvRecord {
 // Global HashMap to cache parsed buckets
 static BUCKET_CACHE: Lazy<tokio::sync::RwLock<HashMap<String, SearchableBucket>>> =
     Lazy::new(|| tokio::sync::RwLock::new(HashMap::new()));
+
+// Mutex to prevent concurrent cache refresh operations
+static CACHE_REFRESH_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+const BUCKET_DIRECTORY_URL: &str =
+    "https://github.com/rasa/scoop-directory/raw/refs/heads/master/by-stars.md";
 
 // Get the cache file path in the app data directory
 fn get_cache_file_path() -> Result<PathBuf, String> {
@@ -116,7 +142,7 @@ async fn save_cache_to_disk(buckets: &HashMap<String, SearchableBucket>) -> Resu
     let metadata = fs::metadata(&cache_file)
         .await
         .map_err(|e| format!("Failed to get cache file metadata: {}", e))?;
-    
+
     let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
     log::info!("Cache saved successfully: {:.2} MB", size_mb);
 
@@ -156,11 +182,12 @@ async fn load_cache_from_disk() -> Result<HashMap<String, SearchableBucket>, Str
 }
 
 // Convert markdown table to CSV format with file cleanup
+// NOTE: This function stores ALL buckets without filtering to ensure cache integrity.
+// Filters should be applied at query time, not at fetch time.
 pub async fn fetch_and_parse_bucket_directory(
-    filters: Option<BucketFilterOptions>,
+    _filters: Option<BucketFilterOptions>,
 ) -> Result<HashMap<String, SearchableBucket>, String> {
-    let filters = filters.unwrap_or_default();
-    let url = "https://github.com/rasa/scoop-directory/raw/refs/heads/master/by-stars.md";
+    let url = BUCKET_DIRECTORY_URL;
 
     log::info!("Fetching bucket directory from: {}", url);
 
@@ -184,32 +211,18 @@ pub async fn fetch_and_parse_bucket_directory(
     log::info!("Parsed {} buckets from directory", buckets.len());
 
     // Convert to HashMap keyed by full_name (owner/repo) to avoid deduplication of bucket names
-    let mut bucket_map = HashMap::new();
-    let mut filtered_count = 0;
-    let original_count = buckets.len();
-
-    for bucket in buckets {
-        if apply_bucket_filters(&bucket, &filters) {
-            bucket_map.insert(bucket.full_name.clone(), bucket);
-        } else {
-            filtered_count += 1;
-        }
-    }
+    // Store ALL buckets without filtering to preserve cache integrity
+    let bucket_map: HashMap<String, SearchableBucket> = buckets
+        .into_iter()
+        .map(|bucket| (bucket.full_name.clone(), bucket))
+        .collect();
 
     log::info!(
-        "Applied filters: {} buckets filtered out, {} remaining (original: {})",
-        filtered_count,
-        bucket_map.len(),
-        original_count
+        "Stored {} buckets to cache (no filtering applied at fetch time)",
+        bucket_map.len()
     );
-    if filters.disable_chinese_buckets {
-        log::info!("Chinese bucket filtering was enabled");
-    }
-    if filters.minimum_stars > 0 {
-        log::info!("Minimum star filter: {} stars", filters.minimum_stars);
-    }
 
-    // Save optimized cache to disk
+    // Save complete cache to disk
     save_cache_to_disk(&bucket_map).await?;
 
     // The original markdown content is now dropped and will be garbage collected
@@ -471,7 +484,7 @@ fn parse_encoded_date(date_str: &str) -> String {
         // Convert 2-digit year to 4-digit (assume all are 20XX)
         let year = 2000 + year_2digit;
 
-        if let Some(date) = chrono::NaiveDate::from_ymd_opt(year as i32, month, day) {
+        if let Some(date) = NaiveDate::from_ymd_opt(year as i32, month, day) {
             return date.format("%Y-%m-%d").to_string();
         }
     }
@@ -480,76 +493,213 @@ fn parse_encoded_date(date_str: &str) -> String {
     "Unknown".to_string()
 }
 
+fn format_system_time(time: SystemTime) -> String {
+    let dt: DateTime<Utc> = time.into();
+    dt.format("%Y-%m-%d %H:%M UTC").to_string()
+}
+
+async fn get_cache_file_modified_at() -> Result<Option<SystemTime>, String> {
+    let cache_file = get_cache_file_path()?;
+    if !cache_file.exists() {
+        return Ok(None);
+    }
+
+    let metadata = fs::metadata(&cache_file)
+        .await
+        .map_err(|e| format!("Failed to read cache file metadata: {}", e))?;
+
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Failed to read cache file modified time: {}", e))?;
+
+    Ok(Some(modified))
+}
+
+async fn get_remote_last_modified_at() -> Result<Option<DateTime<Utc>>, String> {
+    let client = reqwest::Client::new();
+    let response = client
+        .head(BUCKET_DIRECTORY_URL)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to check remote bucket directory metadata: {}", e))?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let Some(last_modified_header) = response.headers().get(reqwest::header::LAST_MODIFIED) else {
+        return Ok(None);
+    };
+
+    let Ok(last_modified_str) = last_modified_header.to_str() else {
+        return Ok(None);
+    };
+
+    let parsed = DateTime::parse_from_rfc2822(last_modified_str)
+        .map(|dt| dt.with_timezone(&Utc))
+        .ok();
+
+    Ok(parsed)
+}
+
+pub async fn get_cache_info() -> Result<BucketCacheInfo, String> {
+    let cache_file = get_cache_file_path()?;
+    let exists = cache_file.exists();
+
+    let local_modified = get_cache_file_modified_at().await?;
+    let local_updated_at = local_modified.map(format_system_time);
+
+    let remote_modified = get_remote_last_modified_at().await.unwrap_or(None);
+    let remote_updated_at = remote_modified.map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string());
+
+    let has_remote_update =
+        if let (Some(remote), Some(local_time)) = (remote_modified, local_modified) {
+            let local_dt: DateTime<Utc> = local_time.into();
+            remote > local_dt
+        } else {
+            false
+        };
+
+    Ok(BucketCacheInfo {
+        exists,
+        local_updated_at,
+        remote_updated_at,
+        has_remote_update,
+    })
+}
+
+pub async fn refresh_cache_if_needed(
+    filters: Option<BucketFilterOptions>,
+) -> Result<BucketCacheRefreshResult, String> {
+    // Acquire mutex lock to prevent concurrent refresh operations
+    let _guard = CACHE_REFRESH_MUTEX.lock().await;
+
+    let cache_file = get_cache_file_path()?;
+    let exists = cache_file.exists();
+
+    let local_modified_before = get_cache_file_modified_at().await?;
+    let remote_modified = get_remote_last_modified_at().await.unwrap_or(None);
+
+    let should_refresh = if !exists {
+        true
+    } else if let (Some(remote), Some(local_time)) = (remote_modified, local_modified_before) {
+        let local_dt: DateTime<Utc> = local_time.into();
+        remote > local_dt
+    } else {
+        false
+    };
+
+    if should_refresh {
+        let buckets = fetch_and_parse_bucket_directory(filters).await?;
+        let mut cache = (*BUCKET_CACHE).write().await;
+        *cache = buckets;
+
+        let local_updated_at = get_cache_file_modified_at().await?.map(format_system_time);
+        let remote_updated_at =
+            remote_modified.map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string());
+
+        return Ok(BucketCacheRefreshResult {
+            updated: true,
+            skipped: false,
+            reason: if exists {
+                "updated".to_string()
+            } else {
+                "downloaded".to_string()
+            },
+            local_updated_at,
+            remote_updated_at,
+        });
+    }
+
+    Ok(BucketCacheRefreshResult {
+        updated: false,
+        skipped: true,
+        reason: "up_to_date".to_string(),
+        local_updated_at: local_modified_before.map(format_system_time),
+        remote_updated_at: remote_modified.map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string()),
+    })
+}
+
 // Get cached buckets or fetch if not cached
+// NOTE: Memory cache stores ALL buckets unfiltered. Filters are applied only at return time.
 pub async fn get_cached_buckets(
     filters: Option<BucketFilterOptions>,
 ) -> Result<HashMap<String, SearchableBucket>, String> {
-    // First check memory cache
+    // First check memory cache (always contains complete unfiltered data)
     {
         let cache = (*BUCKET_CACHE).read().await;
         if !cache.is_empty() {
-            log::debug!("Returning {} cached buckets from memory", cache.len());
-            return Ok(cache.clone());
+            log::debug!("Found {} buckets in memory cache", cache.len());
+            // Apply filters only at return time, not when storing
+            return Ok(apply_filters_to_cache(&cache, filters));
         }
     }
 
-    // Try to load from disk cache
+    // Try to load from disk cache (also contains complete unfiltered data)
     match load_cache_from_disk().await {
         Ok(disk_cache) if !disk_cache.is_empty() => {
             log::info!("Loaded {} buckets from disk cache", disk_cache.len());
 
-            // If filters are provided, apply them to cached data
-            let filtered_cache = if let Some(ref filter_opts) = filters {
-                if filter_opts.disable_chinese_buckets || filter_opts.minimum_stars > 0 {
-                    log::info!("Applying filters to cached data");
-                    let mut filtered = HashMap::new();
-                    let mut filtered_count = 0;
-                    let original_count = disk_cache.len();
-
-                    for (key, bucket) in disk_cache {
-                        if apply_bucket_filters(&bucket, filter_opts) {
-                            filtered.insert(key, bucket);
-                        } else {
-                            filtered_count += 1;
-                        }
-                    }
-
-                    log::info!(
-                        "Filtered cache: {} buckets filtered out, {} remaining (original: {})",
-                        filtered_count,
-                        filtered.len(),
-                        original_count
-                    );
-                    filtered
-                } else {
-                    disk_cache
-                }
-            } else {
-                disk_cache
-            };
-
-            // Update memory cache
+            // Store COMPLETE unfiltered data to memory cache
             {
                 let mut cache = BUCKET_CACHE.write().await;
-                *cache = filtered_cache.clone();
+                *cache = disk_cache.clone();
             }
 
-            return Ok(filtered_cache);
+            // Apply filters only at return time
+            return Ok(apply_filters_to_cache(&disk_cache, filters));
         }
         Ok(_) => log::info!("Disk cache is empty or doesn't exist"),
         Err(e) => log::warn!("Failed to load disk cache: {}", e),
     }
 
     log::info!("No cache found, fetching bucket directory...");
-    let buckets = fetch_and_parse_bucket_directory(filters).await?;
+    // Fetch stores ALL buckets (no filtering at fetch time)
+    let buckets = fetch_and_parse_bucket_directory(None).await?;
 
-    // Update memory cache
+    // Store COMPLETE unfiltered data to memory cache
     {
-        let mut cache = (*BUCKET_CACHE).write().await;
+        let mut cache = BUCKET_CACHE.write().await;
         *cache = buckets.clone();
     }
 
-    Ok(buckets)
+    // Apply filters only at return time
+    Ok(apply_filters_to_cache(&buckets, filters))
+}
+
+// Helper function to apply filters at query time (not storage time)
+fn apply_filters_to_cache(
+    cache: &HashMap<String, SearchableBucket>,
+    filters: Option<BucketFilterOptions>,
+) -> HashMap<String, SearchableBucket> {
+    let Some(filter_opts) = filters else {
+        return cache.clone();
+    };
+
+    // Skip filtering if no active filters
+    if !filter_opts.disable_chinese_buckets && filter_opts.minimum_stars == 0 {
+        return cache.clone();
+    }
+
+    let mut filtered = HashMap::new();
+    let mut filtered_count = 0;
+
+    for (key, bucket) in cache {
+        if apply_bucket_filters(bucket, &filter_opts) {
+            filtered.insert(key.clone(), bucket.clone());
+        } else {
+            filtered_count += 1;
+        }
+    }
+
+    log::info!(
+        "Applied filters: {} buckets filtered out, {} remaining (total: {})",
+        filtered_count,
+        filtered.len(),
+        cache.len()
+    );
+
+    filtered
 }
 
 // Check if cache file exists

@@ -1,6 +1,7 @@
-import { createSignal, createEffect, on, createResource, Resource } from 'solid-js';
+import { createSignal, createEffect, on, createResource, Resource, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { t } from '../../i18n';
+import { BUCKET_SEARCH_CONFIG } from '../../components/page/buckets/BucketSearch/constants';
 
 export interface SearchableBucket {
   name: string;
@@ -18,6 +19,7 @@ export interface BucketSearchRequest {
   query?: string;
   include_expanded: boolean;
   max_results?: number;
+  offset?: number; // For pagination/infinite scroll
   sort_by?: string;
   disable_chinese_buckets?: boolean;
   minimum_stars?: number;
@@ -34,6 +36,29 @@ export interface ExpandedSearchInfo {
   estimated_size_mb: number;
   total_buckets: number;
   description: string;
+}
+
+export interface BucketCacheInfo {
+  exists: boolean;
+  local_updated_at: string | null;
+  remote_updated_at: string | null;
+  has_remote_update: boolean;
+}
+
+export interface BucketCacheRefreshResult {
+  updated: boolean;
+  skipped: boolean;
+  reason: string;
+  local_updated_at: string | null;
+  remote_updated_at: string | null;
+}
+
+export type SearchErrorType = 'network' | 'cache' | 'unknown';
+
+export interface SearchError {
+  type: SearchErrorType;
+  message: string;
+  retryable: boolean;
 }
 
 interface UseBucketSearchReturn {
@@ -58,7 +83,16 @@ interface UseBucketSearchReturn {
   expandedListSizeMb: () => number | undefined;
   isSearching: () => boolean;
   error: () => string | null;
+  errorType: () => SearchErrorType;
+  isRetryable: () => boolean;
   cacheExists: () => boolean;
+  cacheInfo: () => BucketCacheInfo | null;
+  isRefreshingCache: () => boolean;
+
+  // Infinite scroll
+  hasMore: () => boolean;
+  isLoadingMore: () => boolean;
+  loadMore: (neededCount?: number) => Promise<void>;
 
   // Default buckets
   defaultBuckets: Resource<SearchableBucket[]>;
@@ -75,71 +109,135 @@ interface UseBucketSearchReturn {
   clearSearch: () => Promise<void>;
   loadDefaults: () => Promise<void>;
   disableExpandedSearch: () => Promise<void>;
+  resetCache: () => Promise<void>;
   checkCacheStatus: () => Promise<boolean>;
+  fetchCacheInfo: () => Promise<BucketCacheInfo | null>;
+  refreshCommunityCache: () => Promise<BucketCacheRefreshResult | null>;
   getExpandedSearchInfo: () => Promise<ExpandedSearchInfo | null>;
+  retry: () => Promise<void>;
 }
 
 export function useBucketSearch(): UseBucketSearchReturn {
   const [searchQuery, setSearchQuery] = createSignal<string>('');
   const [includeExpanded, setIncludeExpanded] = createSignal(false);
-  const [sortBy, setSortBy] = createSignal<string>('stars'); // Default to stars instead of relevance
-  const [maxResults, setMaxResults] = createSignal<number>(50);
+  const [sortBy, setSortBy] = createSignal<string>(BUCKET_SEARCH_CONFIG.defaults.sortBy);
+  const [maxResults, setMaxResults] = createSignal<number>(
+    BUCKET_SEARCH_CONFIG.defaults.maxResults
+  );
   const [disableChineseBuckets, setDisableChineseBuckets] = createSignal(false);
-  const [minimumStars, setMinimumStars] = createSignal(2);
+  const [minimumStars, setMinimumStars] = createSignal(BUCKET_SEARCH_CONFIG.defaults.minimumStars);
   const [isSearching, setIsSearching] = createSignal(false);
   const [searchResults, setSearchResults] = createSignal<SearchableBucket[]>([]);
   const [totalCount, setTotalCount] = createSignal(0);
   const [isExpandedSearch, setIsExpandedSearch] = createSignal(false);
   const [expandedListSizeMb, setExpandedListSizeMb] = createSignal<number | undefined>(undefined);
   const [error, setError] = createSignal<string | null>(null);
+  const [errorType, setErrorType] = createSignal<SearchErrorType>('unknown');
+  const [isRetryable, setIsRetryable] = createSignal(false);
   const [cacheExists, setCacheExists] = createSignal(false);
+  const [cacheInfo, setCacheInfo] = createSignal<BucketCacheInfo | null>(null);
+  const [isRefreshingCache, setIsRefreshingCache] = createSignal(false);
 
-  let cacheStatusChecked = false;
+  // Infinite scroll state
+  const [hasMore, setHasMore] = createSignal(true);
+  const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+
+  // Use reactive signals instead of module-level variables to prevent cross-instance pollution
+  const [cacheStatusChecked, setCacheStatusChecked] = createSignal(false);
+  let lastSearchParams: Parameters<typeof searchBuckets> | null = null;
+
+  // Classify error based on message content
+  const classifyError = (err: unknown): SearchError => {
+    const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    if (
+      msg.includes('network') ||
+      msg.includes('fetch') ||
+      msg.includes('timeout') ||
+      msg.includes('connection')
+    ) {
+      return { type: 'network', message: msg, retryable: true };
+    }
+    if (msg.includes('cache')) {
+      return { type: 'cache', message: msg, retryable: false };
+    }
+    return { type: 'unknown', message: msg, retryable: false };
+  };
 
   // Check if cache exists on mount
   const checkCacheStatus = async () => {
     try {
       const exists = await invoke<boolean>('check_bucket_cache_exists');
       setCacheExists(exists);
-      setIsExpandedSearch(exists);
 
-      // IMPORTANT: If cache exists, we should be using expanded search
-      if (exists) {
-        setIncludeExpanded(true);
-        console.log('Cache exists - automatically enabling expanded search');
-      }
-
-      cacheStatusChecked = true;
+      setCacheStatusChecked(true);
       return exists;
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
       return false;
+    }
+  };
+
+  const fetchCacheInfo = async (): Promise<BucketCacheInfo | null> => {
+    try {
+      const info = await invoke<BucketCacheInfo>('get_bucket_cache_info');
+      setCacheInfo(info);
+      setCacheExists(info.exists);
+      return info;
+    } catch (err) {
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
+      return null;
+    }
+  };
+
+  const refreshCommunityCache = async (): Promise<BucketCacheRefreshResult | null> => {
+    setIsRefreshingCache(true);
+    // Capture current query at refresh start to prevent stale query after async operations
+    const queryAtStart = searchQuery().trim() || undefined;
+    try {
+      const result = await invoke<BucketCacheRefreshResult>('refresh_bucket_cache_if_needed', {
+        disableChineseBuckets: disableChineseBuckets(),
+        minimumStars: minimumStars(),
+      });
+
+      await fetchCacheInfo();
+
+      if (result.updated && includeExpanded()) {
+        await searchBuckets(queryAtStart, true);
+      }
+
+      return result;
+    } catch (err) {
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
+      return null;
+    } finally {
+      setIsRefreshingCache(false);
     }
   };
 
   // Load default buckets on initialization
   const [defaultBuckets] = createResource(async () => {
     try {
-      // First check if cache exists
-      const cacheExistsStatus = await checkCacheStatus();
-
-      if (cacheExistsStatus) {
-        console.log('Cache exists, loading expanded search results...');
-        setIncludeExpanded(true);
-        const expandedResults = await searchBuckets(undefined, true, undefined, 'stars');
-        return expandedResults?.buckets || [];
-      } else {
-        console.log('No cache, loading default buckets...');
-        setIncludeExpanded(false);
-        const buckets = await invoke<SearchableBucket[]>('get_default_buckets');
-        setSearchResults(buckets);
-        setTotalCount(buckets.length);
-        return buckets;
-      }
+      await fetchCacheInfo();
+      const buckets = await invoke<SearchableBucket[]>('get_default_buckets');
+      setSearchResults(buckets);
+      setTotalCount(buckets.length);
+      setIsExpandedSearch(false);
+      setExpandedListSizeMb(undefined);
+      return buckets;
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
       return [];
     }
   });
@@ -147,15 +245,16 @@ export function useBucketSearch(): UseBucketSearchReturn {
   // Get expanded search info
   const getExpandedSearchInfo = async (): Promise<ExpandedSearchInfo | null> => {
     try {
-      // Return hardcoded values instead of calling backend
       return {
-        estimated_size_mb: 14.0,
-        total_buckets: 54000,
+        estimated_size_mb: BUCKET_SEARCH_CONFIG.expandedSearch.estimatedSizeMb,
+        total_buckets: BUCKET_SEARCH_CONFIG.expandedSearch.totalBuckets,
         description: t('bucket.search.description'),
       };
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
       return null;
     }
   };
@@ -171,6 +270,8 @@ export function useBucketSearch(): UseBucketSearchReturn {
   ): Promise<BucketSearchResponse | undefined> => {
     setIsSearching(true);
     setError(null);
+    setErrorType('unknown');
+    setIsRetryable(false);
 
     const actualIncludeExpanded =
       includeExpandedParam !== undefined ? includeExpandedParam : includeExpanded();
@@ -181,6 +282,16 @@ export function useBucketSearch(): UseBucketSearchReturn {
         ? disableChineseBucketsParam
         : disableChineseBuckets();
     const actualMinimumStars = minimumStarsParam !== undefined ? minimumStarsParam : minimumStars();
+
+    // Store params for retry
+    lastSearchParams = [
+      query,
+      includeExpandedParam,
+      maxResultsParam,
+      sortByParam,
+      disableChineseBucketsParam,
+      minimumStarsParam,
+    ];
 
     try {
       const request: BucketSearchRequest = {
@@ -201,6 +312,9 @@ export function useBucketSearch(): UseBucketSearchReturn {
       setIsExpandedSearch(response.is_expanded_search);
       setExpandedListSizeMb(response.expanded_list_size_mb);
 
+      // Reset hasMore for new search
+      setHasMore(response.buckets.length === actualMaxResults);
+
       // Update cache status if expanded search was performed
       if (response.is_expanded_search) {
         setCacheExists(true);
@@ -208,9 +322,11 @@ export function useBucketSearch(): UseBucketSearchReturn {
 
       return response;
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
-      console.error('Bucket search failed:', errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
+      console.error('Bucket search failed:', classified.message);
       return undefined;
     } finally {
       setIsSearching(false);
@@ -223,55 +339,94 @@ export function useBucketSearch(): UseBucketSearchReturn {
     setSearchResults([]);
     setTotalCount(0);
     setError(null);
-    setIsExpandedSearch(false);
-    setExpandedListSizeMb(undefined);
+    setHasMore(true);
 
     // Reload default buckets
     await loadDefaults();
   };
 
-  // Disable expanded search and clear cache
+  // Load more results for infinite scroll
+  const loadMore = async (neededCount?: number) => {
+    if (!hasMore() || isLoadingMore() || isSearching()) return;
+
+    setIsLoadingMore(true);
+    const currentResults = searchResults();
+    const currentCount = currentResults.length;
+
+    // Calculate how much to load:
+    // - If neededCount provided (jump to page), load enough to cover it
+    // - Otherwise load next batch
+    const defaultBatchSize = maxResults();
+    const targetCount = neededCount ?? currentCount + defaultBatchSize;
+    const itemsToLoad = Math.max(targetCount - currentCount, defaultBatchSize);
+
+    // Cap at a reasonable limit to avoid huge requests
+    const actualLimit = Math.min(itemsToLoad, 500);
+
+    try {
+      const request: BucketSearchRequest = {
+        query: searchQuery() || undefined,
+        include_expanded: includeExpanded(),
+        max_results: actualLimit,
+        offset: currentCount,
+        sort_by: sortBy(),
+        disable_chinese_buckets: disableChineseBuckets(),
+        minimum_stars: minimumStars(),
+      };
+
+      const response = await invoke<BucketSearchResponse>('search_buckets', {
+        request,
+      });
+
+      // Append new results to existing
+      setSearchResults([...currentResults, ...response.buckets]);
+      setHasMore(response.buckets.length === actualLimit);
+    } catch (err) {
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
+      console.error('Failed to load more buckets:', classified.message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Disable expanded search (keep cache for session)
   const disableExpandedSearch = async () => {
-    console.log('Disabling expanded search and clearing cache...');
+    setIncludeExpanded(false);
+    if (searchQuery().trim()) {
+      await searchBuckets(searchQuery(), false);
+    } else {
+      await loadDefaults();
+    }
+  };
+
+  // Reset cache and disable expanded search
+  const resetCache = async () => {
+    console.log('Resetting bucket search cache...');
     try {
       await invoke('clear_bucket_cache');
       setCacheExists(false);
-      setIncludeExpanded(false);
-      setIsExpandedSearch(false);
-      setExpandedListSizeMb(undefined);
-      setSearchQuery('');
-      setSearchResults([]);
-      setTotalCount(0);
-
-      // Reload default buckets
-      await loadDefaults();
+      setCacheInfo(null);
+      await disableExpandedSearch();
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
-      console.error('Failed to disable expanded search:', errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
+      console.error('Failed to reset cache:', classified.message);
     }
   };
 
   // Load defaults explicitly (for when search is reopened)
   const loadDefaults = async () => {
     try {
-      console.log('Loading default buckets...');
+      await fetchCacheInfo();
 
-      // Only check cache status if not already checked
-      if (!cacheStatusChecked) {
-        await checkCacheStatus();
-      }
-
-      // Use the cache status from the signal
-      const cacheExistsStatus = cacheExists();
-
-      if (cacheExistsStatus) {
-        console.log('Cache exists, loading expanded search results...');
-        setIncludeExpanded(true);
+      if (includeExpanded()) {
         await searchBuckets(undefined, true, undefined, 'stars');
       } else {
-        console.log('Loading default verified buckets...');
-        setIncludeExpanded(false);
         const buckets = await invoke<SearchableBucket[]>('get_default_buckets');
         setSearchResults(buckets);
         setTotalCount(buckets.length);
@@ -279,8 +434,10 @@ export function useBucketSearch(): UseBucketSearchReturn {
         setExpandedListSizeMb(undefined);
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
+      const classified = classifyError(err);
+      setError(classified.message);
+      setErrorType(classified.type);
+      setIsRetryable(classified.retryable);
     }
   };
 
@@ -297,9 +454,17 @@ export function useBucketSearch(): UseBucketSearchReturn {
   createEffect(
     on(searchQuery, () => {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => handleSearch(), 300);
+      debounceTimer = setTimeout(() => handleSearch(), BUCKET_SEARCH_CONFIG.debounceMs);
     })
   );
+
+  createEffect(() => {
+    if (!cacheStatusChecked()) {
+      void checkCacheStatus();
+    }
+  });
+
+  onCleanup(() => clearTimeout(debounceTimer));
 
   return {
     // State
@@ -323,7 +488,16 @@ export function useBucketSearch(): UseBucketSearchReturn {
     expandedListSizeMb,
     isSearching,
     error,
+    errorType,
+    isRetryable,
     cacheExists,
+    cacheInfo,
+    isRefreshingCache,
+
+    // Infinite scroll
+    hasMore,
+    isLoadingMore,
+    loadMore,
 
     // Default buckets
     defaultBuckets,
@@ -333,7 +507,18 @@ export function useBucketSearch(): UseBucketSearchReturn {
     clearSearch,
     loadDefaults,
     disableExpandedSearch,
+    resetCache,
     checkCacheStatus,
+    fetchCacheInfo,
+    refreshCommunityCache,
     getExpandedSearchInfo,
+    retry: async () => {
+      if (lastSearchParams) {
+        setError(null);
+        setErrorType('unknown');
+        setIsRetryable(false);
+        await searchBuckets(...lastSearchParams);
+      }
+    },
   };
 }

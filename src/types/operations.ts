@@ -190,3 +190,10 @@ export interface MultiInstanceWarning {
   threshold: number;
   dismissed: boolean;
 }
+
+/**
+ * Large dataset warning configuration for bucket search
+ */
+export interface LargeDatasetWarning {
+  dismissed: boolean;
+}

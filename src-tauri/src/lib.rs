@@ -1,12 +1,12 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod cold_start;
 mod commands;
+mod i18n;
 mod models;
 mod scheduler;
 mod state;
 mod tray;
 pub mod utils;
-mod i18n;
 
 use std::path::PathBuf;
 use tauri::{Manager, WindowEvent};
@@ -157,7 +157,6 @@ pub fn run() {
             // Tray will be created when frontend syncs locale data
             // No need for delayed initialization here
 
-
             // Start background tasks
             scheduler::start_background_tasks(app.handle().clone());
 
@@ -227,6 +226,7 @@ pub fn run() {
             commands::doctor::shim::remove_shim,
             commands::doctor::shim::alter_shim,
             commands::doctor::shim::add_shim,
+            commands::doctor::shim::update_shim_args,
             commands::hold::list_held_packages,
             commands::hold::hold_package,
             commands::hold::unhold_package,
@@ -244,6 +244,8 @@ pub fn run() {
             commands::bucket_search::get_default_buckets,
             commands::bucket_search::clear_bucket_cache,
             commands::bucket_search::check_bucket_cache_exists,
+            commands::bucket_search::get_bucket_cache_info,
+            commands::bucket_search::refresh_bucket_cache_if_needed,
             commands::app_info::is_scoop_installation,
             commands::linker::get_package_versions,
             commands::linker::switch_package_version,
@@ -363,7 +365,10 @@ fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn s
                     log::info!("Auto-detected Scoop path: {}", detected_path);
 
                     // Persist the detected path for future launches
-                    if let Err(save_err) = crate::commands::settings::set_scoop_path(app_handle.clone(), detected_path.clone()) {
+                    if let Err(save_err) = crate::commands::settings::set_scoop_path(
+                        app_handle.clone(),
+                        detected_path.clone(),
+                    ) {
                         log::warn!("Failed to persist auto-detected path: {}", save_err);
                     } else {
                         log::info!("Auto-detected path saved to configuration");
@@ -373,7 +378,11 @@ fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn s
                 }
                 Err(detect_err) => {
                     log::error!("Auto-detection failed: {}", detect_err);
-                    Err(format!("Cannot resolve Scoop path: {}. Please configure manually in settings.", detect_err).into())
+                    Err(format!(
+                        "Cannot resolve Scoop path: {}. Please configure manually in settings.",
+                        detect_err
+                    )
+                    .into())
                 }
             }
         }
@@ -384,7 +393,7 @@ fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn s
 fn show_main_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Check if silent startup is enabled
     let should_start_silently = commands::startup::is_silent_startup_enabled().unwrap_or(false);
-    
+
     if let Some(window) = app.get_webview_window("main") {
         if should_start_silently {
             // Start minimized - don't show the window initially

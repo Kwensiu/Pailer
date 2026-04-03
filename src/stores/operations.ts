@@ -8,6 +8,7 @@ import type {
   OperationResult,
   OperationStatus,
   MultiInstanceWarning,
+  LargeDatasetWarning,
   ScanOperationState,
   PackageOperationState,
 } from '../types/operations';
@@ -51,6 +52,14 @@ const operationsStore = createRoot(() => {
     {
       enabled: true,
       threshold: 2,
+      dismissed: false,
+    }
+  );
+
+  // Large dataset warning configuration for bucket search - using persistent storage
+  const [largeDatasetWarning, setLargeDatasetWarning] = createTauriSignal<LargeDatasetWarning>(
+    'largeDatasetWarning',
+    {
       dismissed: false,
     }
   );
@@ -302,6 +311,16 @@ const operationsStore = createRoot(() => {
       setMultiInstanceWarning((prev: MultiInstanceWarning) => ({ ...prev, ...updates }));
     };
 
+    // Check large dataset warning
+    const checkLargeDatasetWarning = () => {
+      return !largeDatasetWarning().dismissed;
+    };
+
+    // Dismiss large dataset warning
+    const dismissLargeDatasetWarning = () => {
+      setLargeDatasetWarning((prev: LargeDatasetWarning) => ({ ...prev, dismissed: true }));
+    };
+
     // Command execution methods
     const setCommand = (command: string) => {
       setCommandExecution('command', command);
@@ -361,6 +380,8 @@ const operationsStore = createRoot(() => {
       checkMultiInstanceWarning,
       dismissMultiInstanceWarning,
       updateMultiInstanceWarning,
+      checkLargeDatasetWarning,
+      dismissLargeDatasetWarning,
 
       // Utility methods
       generateOperationId,

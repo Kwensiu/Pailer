@@ -1,4 +1,4 @@
-use super::bucket_parser::{self, BucketFilterOptions};
+use super::bucket_parser::{self, BucketCacheInfo, BucketCacheRefreshResult, BucketFilterOptions};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -16,11 +16,30 @@ pub struct SearchableBucket {
     pub is_verified: bool,
 }
 
+#[tauri::command]
+pub async fn get_bucket_cache_info() -> Result<BucketCacheInfo, String> {
+    bucket_parser::get_cache_info().await
+}
+
+#[tauri::command]
+pub async fn refresh_bucket_cache_if_needed(
+    disable_chinese_buckets: Option<bool>,
+    minimum_stars: Option<u32>,
+) -> Result<BucketCacheRefreshResult, String> {
+    let filters = BucketFilterOptions {
+        disable_chinese_buckets: disable_chinese_buckets.unwrap_or(false),
+        minimum_stars: minimum_stars.unwrap_or(2),
+    };
+
+    bucket_parser::refresh_cache_if_needed(Some(filters)).await
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BucketSearchRequest {
     pub query: Option<String>,
     pub include_expanded: bool,
     pub max_results: Option<usize>,
+    pub offset: Option<usize>,   // For pagination/infinite scroll
     pub sort_by: Option<String>, // "stars", "apps", "name", "relevance"
     pub disable_chinese_buckets: Option<bool>,
     pub minimum_stars: Option<u32>,
@@ -179,6 +198,13 @@ async fn fetch_expanded_bucket_list(
     Ok(buckets)
 }
 
+fn compare_bucket_identity(a: &SearchableBucket, b: &SearchableBucket) -> std::cmp::Ordering {
+    a.name
+        .to_lowercase()
+        .cmp(&b.name.to_lowercase())
+        .then_with(|| a.full_name.to_lowercase().cmp(&b.full_name.to_lowercase()))
+}
+
 fn filter_buckets(buckets: &[SearchableBucket], query: &str) -> Vec<SearchableBucket> {
     if query.is_empty() {
         return buckets.to_vec();
@@ -197,7 +223,11 @@ fn filter_buckets(buckets: &[SearchableBucket], query: &str) -> Vec<SearchableBu
         })
         .collect();
 
-    scored_buckets.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored_buckets.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| compare_bucket_identity(&a.0, &b.0))
+    });
 
     scored_buckets
         .into_iter()
@@ -207,10 +237,28 @@ fn filter_buckets(buckets: &[SearchableBucket], query: &str) -> Vec<SearchableBu
 
 fn sort_buckets(buckets: &mut [SearchableBucket], sort_by: &str) {
     match sort_by {
-        "stars" => buckets.sort_by(|a, b| b.stars.cmp(&a.stars)),
-        "apps" => buckets.sort_by(|a, b| b.apps.cmp(&a.apps)),
-        "name" => buckets.sort_by(|a, b| a.name.cmp(&b.name)),
-        "forks" => buckets.sort_by(|a, b| b.forks.cmp(&a.forks)),
+        "stars" => {
+            buckets.sort_by(|a, b| {
+                b.stars
+                    .cmp(&a.stars)
+                    .then_with(|| compare_bucket_identity(a, b))
+            });
+        }
+        "apps" => {
+            buckets.sort_by(|a, b| {
+                b.apps
+                    .cmp(&a.apps)
+                    .then_with(|| compare_bucket_identity(a, b))
+            });
+        }
+        "name" => buckets.sort_by(compare_bucket_identity),
+        "forks" => {
+            buckets.sort_by(|a, b| {
+                b.forks
+                    .cmp(&a.forks)
+                    .then_with(|| compare_bucket_identity(a, b))
+            });
+        }
         _ => {} // "relevance" or default - already sorted by relevance in filter_buckets
     }
 }
@@ -288,12 +336,20 @@ pub async fn search_buckets(
         sort_buckets(&mut buckets, "stars");
     }
 
-    // Apply result limit
+    // Apply result limit with offset support
     let total_count = buckets.len();
-    if let Some(max_results) = request.max_results {
-        buckets.truncate(max_results);
-        log::debug!("Limited results to {} buckets", max_results);
-    }
+    let offset = request.offset.unwrap_or(0);
+    let max_results = request.max_results.unwrap_or(50);
+
+    // Apply offset and limit
+    buckets = buckets.into_iter().skip(offset).take(max_results).collect();
+
+    log::debug!(
+        "Returning {} buckets (offset: {}, total found: {})",
+        buckets.len(),
+        offset,
+        total_count
+    );
 
     // Calculate expanded list size (rough estimate)
     let expanded_size_mb = if request.include_expanded {

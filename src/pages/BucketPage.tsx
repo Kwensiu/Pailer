@@ -17,7 +17,7 @@ import PackageInfoModal from '../components/modals/PackageInfoModal';
 import OperationModal from '../components/modals/OperationModal';
 import BucketSearch from '../components/page/buckets/BucketSearch';
 import BucketGrid from '../components/page/buckets/BucketGrid';
-import BucketSearchResults from '../components/page/buckets/BucketSearchResults';
+import { BucketSearchResults } from '../components/page/buckets/BucketSearch';
 import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
 import { SearchableBucket } from '../hooks';
 import { t } from '../i18n';
@@ -37,6 +37,7 @@ interface BucketUpdateResult {
 type UpdateState = BulkUpdateState;
 
 function BucketPage() {
+  const ITEMS_PER_PAGE = 8;
   const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests, cleanup } =
     useBuckets();
   const packageInfo = usePackageInfo();
@@ -53,6 +54,12 @@ function BucketPage() {
   const [searchLoading, setSearchLoading] = createSignal(false);
   const [searchError, setSearchError] = createSignal<string | null>(null);
   const [isExpandedSearch, setIsExpandedSearch] = createTauriSignal('bucketExpandedSearch', false);
+  const [currentPage, setCurrentPage] = createTauriSignal('bucketSearchCurrentPage', 1);
+
+  // Infinite scroll state
+  const [hasMore, setHasMore] = createSignal(true);
+  const [isLoadingMore, setIsLoadingMore] = createSignal(false);
+  let loadMoreFn: ((neededCount?: number) => Promise<void>) | null = null;
 
   // Update state
   const [updatingBuckets, setUpdatingBuckets] = createSignal<Set<string>>(new Set());
@@ -94,15 +101,42 @@ function BucketPage() {
       setSearchTotalCount(0);
       setSearchError(null);
       setIsExpandedSearch(false);
+      setCurrentPage(1);
+      setHasMore(true);
     }
   };
 
+  // Note: Don't reset page on searchResults change - it breaks infinite scroll
+  // Page reset is handled in toggleSearch and handleSearchResults (new search only)
+
   const handleSearchResults = (results: any) => {
+    const nextTotalCount = results.totalCount || 0;
+
     setSearchResults(results.results || []);
-    setSearchTotalCount(results.totalCount || 0);
+    setSearchTotalCount(nextTotalCount);
     setSearchLoading(results.isSearching || false);
     setSearchError(results.error || null);
     setIsExpandedSearch(results.isExpandedSearch || false);
+    setHasMore(results.hasMore ?? true);
+    setIsLoadingMore(results.isLoadingMore ?? false);
+    loadMoreFn = results.loadMore || null;
+
+    // Always keep current page in valid range based on backend total count
+    const totalPages = Math.max(1, Math.ceil(nextTotalCount / ITEMS_PER_PAGE));
+    if (currentPage() > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  };
+
+  const handleLoadMore = async (neededCount?: number) => {
+    if (loadMoreFn) {
+      setIsLoadingMore(true);
+      try {
+        await loadMoreFn(neededCount);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
   };
 
   const handleViewBucket = async (bucket: BucketInfo) => {
@@ -435,12 +469,99 @@ function BucketPage() {
     }
   };
 
+  const handlePageChange = async (page: number) => {
+    const neededItems = page * ITEMS_PER_PAGE;
+    const loadedItems = searchResults().length;
+
+    if (neededItems > loadedItems && hasMore() && loadMoreFn && !isLoadingMore()) {
+      setIsLoadingMore(true);
+      try {
+        await loadMoreFn(neededItems);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
+
+    setCurrentPage(page);
+    setTimeout(() => {
+      const scrollContainer = document.querySelector('.overflow-y-auto') as HTMLElement;
+      if (scrollContainer && typeof scrollContainer.scrollTo === 'function') {
+        try {
+          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        } catch {
+          // Silently fail and try window
+        }
+      }
+      if (typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch {
+          // Ignore scroll errors
+        }
+      }
+    }, 50);
+  };
+
+  onMount(() => {
+    const handleArrowPagination = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return;
+      }
+
+      const hasBlockingOverlayOpen =
+        document.body.classList.contains('contextmenu-open') ||
+        document.querySelector('.modal.modal-open') !== null;
+
+      if (hasBlockingOverlayOpen || !isSearchActive()) {
+        return;
+      }
+
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTypingTarget =
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target?.isContentEditable;
+
+      if (isTypingTarget || target?.closest('[data-pagination-editor]')) {
+        return;
+      }
+
+      const totalPages = Math.max(1, Math.ceil(searchTotalCount() / ITEMS_PER_PAGE));
+      if (totalPages <= 1) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft' && currentPage() > 1) {
+        event.preventDefault();
+        handlePageChange(currentPage() - 1);
+      }
+
+      if (event.key === 'ArrowRight' && currentPage() < totalPages) {
+        event.preventDefault();
+        handlePageChange(currentPage() + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleArrowPagination);
+
+    onCleanup(() => {
+      window.removeEventListener('keydown', handleArrowPagination);
+    });
+  });
+
   return (
     <div class="mx-auto max-w-7xl">
       <div class="p-6">
         {/* Header Section */}
         <div
-          class={`relative mb-6 transition-all duration-300 ${isSearchActive() ? 'mb-32' : 'mb-6'}`}
+          class={`relative mb-6 transition-all duration-300 ${isSearchActive() ? 'mb-6' : 'mb-6'}`}
         >
           <div class="flex items-center justify-between">
             <div
@@ -484,6 +605,11 @@ function BucketPage() {
                   installedBuckets={buckets()}
                   onBucketSelect={handleSearchBucketSelect}
                   onBucketInstalled={handleBucketInstalled}
+                  currentPage={currentPage()}
+                  onPageChange={handlePageChange}
+                  hasMore={hasMore()}
+                  isLoadingMore={isLoadingMore()}
+                  onLoadMore={handleLoadMore}
                 />
               </div>
             </div>
