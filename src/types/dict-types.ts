@@ -17,7 +17,10 @@ export interface Dict {
       view: string;
     };
     errors: {
+      alreadyExists: string;
+      cloneFailed: string;
       fetchBranchesFailed: string;
+      notFound: string;
       switchBranchFailed: string;
       switchBranchSuccess: string;
       uncommittedChanges: string;
@@ -47,6 +50,8 @@ export interface Dict {
       description: string;
     };
     search: {
+      backToVerified: string;
+      backToVerifiedTitle: string;
       cancel: string;
       clearSearch: string;
       closeSearch: string;
@@ -64,8 +69,12 @@ export interface Dict {
       filterOptions: string;
       largeDatasetWarning: string;
       minimumGithubStars: string;
+      noCacheDate: string;
       note: string;
+      refreshCommunityData: string;
+      resetCacheTitle: string;
       resultsCount: string;
+      retry: string;
       searchBuckets: string;
       searchForBuckets: string;
       sortApps: string;
@@ -76,10 +85,14 @@ export interface Dict {
       totalBuckets: string;
     };
     searchResults: {
+      copyCommand: string;
+      customName: string;
       details: string;
       expandedSearch: string;
       install: string;
+      installCommand: string;
       installTitle: string;
+      installed: string;
       installing: string;
       noBucketsFound: string;
       noDescription: string;
@@ -90,7 +103,7 @@ export interface Dict {
       title: string;
       tryAdjustTerms: string;
       updated: string;
-      verified: string;
+      urlCopied: string;
       viewDetails: string;
     };
     update: {
@@ -115,6 +128,7 @@ export interface Dict {
     lastUpdated: string;
     loadAllPackages: string;
     loadAllWarning: string;
+    loadPackages: string;
     loadingPackages: string;
     localDirectory: string;
     name: string;
@@ -132,7 +146,6 @@ export interface Dict {
     unknown: string;
     viewOnGithub: string;
     viewPackagesOnRepository: string;
-    loadPackages: string;
   };
   buttons: {
     auto: string;
@@ -253,9 +266,6 @@ export interface Dict {
       title: string;
       waitingForCommands: string;
     };
-    common: {
-      actionCannotBeUndone: string;
-    };
     proxySettings: {
       clearSuccess: string;
       description: string;
@@ -281,6 +291,7 @@ export interface Dict {
     shimDetails: {
       arguments: string;
       hide: string;
+      noArgs: string;
       path: string;
       source: string;
       unhide: string;

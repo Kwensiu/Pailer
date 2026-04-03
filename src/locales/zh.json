@@ -10,14 +10,17 @@
   "bucket": {
     "card": {
       "local": "本地",
-      "packages": "个软件包",
+      "packages": "软件包",
       "update": "更新",
       "updated": "更新于 {{date}}",
       "updating": "更新中...",
       "view": "查看"
     },
     "errors": {
+      "alreadyExists": "仓库 '{{name}}' 已存在",
+      "cloneFailed": "克隆仓库失败",
       "fetchBranchesFailed": "获取分支失败：{{error}}",
+      "notFound": "仓库 '{{name}}' 未找到",
       "switchBranchFailed": "切换分支失败：{{error}}",
       "switchBranchSuccess": "已切换到分支 '{{branch}}'",
       "uncommittedChanges": "无法切换分支：仓库有未提交的更改。请先提交或暂存您的更改。"
@@ -47,6 +50,8 @@
       "description": "管理 Scoop 仓库 - 包含软件包清单的仓库"
     },
     "search": {
+      "backToVerified": "已验证",
+      "backToVerifiedTitle": "切换回已验证仓库（保留缓存）",
       "cancel": "取消",
       "clearSearch": "清除搜索",
       "closeSearch": "关闭搜索",
@@ -64,8 +69,12 @@
       "filterOptions": "筛选选项",
       "largeDatasetWarning": "大型数据集警告",
       "minimumGithubStars": "最低GitHub星标数",
+      "noCacheDate": "无缓存",
       "note": "注意",
+      "refreshCommunityData": "检查更新并刷新社区缓存",
+      "resetCacheTitle": "清除缓存并重置为已验证仓库",
       "resultsCount": "找到 {{total}} 个仓库，显示 {{count}} 个",
+      "retry": "重试",
       "searchBuckets": "按名称搜索仓库...",
       "searchForBuckets": "搜索新的仓库进行安装",
       "sortApps": "应用数",
@@ -76,10 +85,14 @@
       "totalBuckets": "仓库总数："
     },
     "searchResults": {
+      "copyCommand": "复制命令",
+      "customName": "自定义仓库名称",
       "details": "详情",
       "expandedSearch": "扩展搜索",
       "install": "安装",
+      "installCommand": "安装命令",
       "installTitle": "安装此仓库",
+      "installed": "已安装",
       "installing": "安装中...",
       "noBucketsFound": "未找到仓库",
       "noDescription": "无描述",
@@ -90,8 +103,8 @@
       "title": "搜索结果",
       "tryAdjustTerms": "尝试调整搜索词或启用扩展搜索以探索更多仓库。",
       "updated": "更新于 {{date}}",
-      "verified": "已验证",
-      "viewDetails": "查看详情"
+      "urlCopied": "仓库URL已复制到剪贴板",
+      "viewDetails": "查看仓库详情"
     },
     "update": {
       "hasUncommittedChanges": "无法更新仓库 '{{bucket}}'：仓库有未提交的更改。请先提交或暂存您的更改。",
@@ -115,6 +128,7 @@
     "lastUpdated": "最后更新",
     "loadAllPackages": "加载所有软件包",
     "loadAllWarning": "加载大量软件包可能会影响性能",
+    "loadPackages": "加载软件包列表",
     "loadingPackages": "正在加载软件包...",
     "localDirectory": "本地目录",
     "name": "名称",
@@ -131,8 +145,7 @@
     "type": "类型",
     "unknown": "未知",
     "viewOnGithub": "在 GitHub 上查看",
-    "viewPackagesOnRepository": "请前往\"仓库\"页面\n查看此 bucket 的软件包详情",
-    "loadPackages": "加载软件包列表"
+    "viewPackagesOnRepository": "请前往\"仓库\"页面\n查看此 bucket 的软件包详情"
   },
   "buttons": {
     "auto": "自动",
@@ -253,9 +266,6 @@
       "title": "Scoop 命令",
       "waitingForCommands": "等待命令输入..."
     },
-    "common": {
-      "actionCannotBeUndone": "此操作无法撤销"
-    },
     "proxySettings": {
       "clearSuccess": "Scoop 代理清除成功！",
       "description": "设置 Scoop 的代理地址。不是 Pailer GUI 的代理。",
@@ -281,6 +291,7 @@
     "shimDetails": {
       "arguments": "参数",
       "hide": "隐藏",
+      "noArgs": "无参数",
       "path": "路径",
       "source": "来源",
       "unhide": "取消隐藏"

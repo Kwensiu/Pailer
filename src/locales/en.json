@@ -17,7 +17,10 @@
       "view": "View"
     },
     "errors": {
+      "alreadyExists": "Bucket '{{name}}' already exists",
+      "cloneFailed": "Failed to clone repository",
       "fetchBranchesFailed": "Failed to fetch branches: {{error}}",
+      "notFound": "Bucket '{{name}}' not found",
       "switchBranchFailed": "Failed to switch branch: {{error}}",
       "switchBranchSuccess": "Switched to branch '{{branch}}'",
       "uncommittedChanges": "Cannot switch branch: repository has uncommitted changes. Please commit or stash your changes first."
@@ -47,6 +50,8 @@
       "description": "Manage Scoop buckets - repositories containing package manifests"
     },
     "search": {
+      "backToVerified": "Verified",
+      "backToVerifiedTitle": "Switch back to verified buckets (keeps cache)",
       "cancel": "Cancel",
       "clearSearch": "Clear search",
       "closeSearch": "Close search",
@@ -64,8 +69,12 @@
       "filterOptions": "Filter Options",
       "largeDatasetWarning": "Large Dataset Warning",
       "minimumGithubStars": "Minimum Github Stars",
+      "noCacheDate": "No cache",
       "note": "Note",
+      "refreshCommunityData": "Check updates and refresh community cache",
+      "resetCacheTitle": "Clear cache and reset to verified buckets",
       "resultsCount": "{{count}} of {{total}} buckets",
+      "retry": "Retry",
       "searchBuckets": "Search buckets by name...",
       "searchForBuckets": "Search for new buckets to install",
       "sortApps": "Apps",
@@ -76,10 +85,14 @@
       "totalBuckets": "Total buckets:"
     },
     "searchResults": {
+      "copyCommand": "Copy command",
+      "customName": "Custom bucket name",
       "details": "Details",
       "expandedSearch": "Expanded Search",
       "install": "Install",
+      "installCommand": "Install Command",
       "installTitle": "Install this bucket",
+      "installed": "Installed",
       "installing": "Installing...",
       "noBucketsFound": "No buckets found",
       "noDescription": "No description available",
@@ -90,7 +103,7 @@
       "title": "Search Results",
       "tryAdjustTerms": "Try adjusting your search terms or enable expanded search to explore more buckets.",
       "updated": "Updated {{date}}",
-      "verified": "Verified",
+      "urlCopied": "Bucket URL copied to clipboard",
       "viewDetails": "View bucket details"
     },
     "update": {
@@ -115,6 +128,7 @@
     "lastUpdated": "Last Updated",
     "loadAllPackages": "Load All Packages",
     "loadAllWarning": "Loading a large number of packages may affect performance",
+    "loadPackages": "Load Package List",
     "loadingPackages": "Loading packages...",
     "localDirectory": "Local Directory",
     "name": "Name",
@@ -131,8 +145,7 @@
     "type": "Type",
     "unknown": "Unknown",
     "viewOnGithub": "View on GitHub",
-    "viewPackagesOnRepository": "Go to \"Buckets\" page\nto view package details for this bucket",
-    "loadPackages": "Load Package List"
+    "viewPackagesOnRepository": "Go to \"Buckets\" page\nto view package details for this bucket"
   },
   "buttons": {
     "auto": "Auto",
@@ -253,9 +266,6 @@
       "title": "Scoop Commands",
       "waitingForCommands": "Waiting for Commands input..."
     },
-    "common": {
-      "actionCannotBeUndone": "This action cannot be undone."
-    },
     "proxySettings": {
       "clearSuccess": "Scoop proxy cleared successfully!",
       "description": "Set the Scoop proxy's address. Not the Pailer GUI.",
@@ -281,6 +291,7 @@
     "shimDetails": {
       "arguments": "Arguments",
       "hide": "Hide",
+      "noArgs": "No arguments",
       "path": "Path",
       "source": "Source",
       "unhide": "Unhide"
