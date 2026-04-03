@@ -126,6 +126,8 @@ This project uses a `Makefile` to manage common development tasks.
 
 * [Rscoop / AmarBego](https://github.com/AmarBego/Rscoop) - The original prototype and inspiration.
 * [Scoop](https://github.com/ScoopInstaller/Scoop) - The best package manager for Windows.
+* [Scoop.sh](https://github.com/ScoopInstaller/scoopinstaller.github.io) - Verified bucket icon source.
+* [Scoop Directory](https://github.com/rasa/scoop-directory) - Bucket search data source.
 * To all contributors, beta testers, and users for their feedback.
 
 ## 📄 License

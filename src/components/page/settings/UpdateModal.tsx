@@ -5,7 +5,7 @@ import { t } from '../../../i18n';
 import '../../../styles/github-markdown.css';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import DOMPurify from 'dompurify';
-import GithubIcon from '../../common/icons/GithubIcon';
+import GithubIcon from '../../common/icons/CustomIcon';
 
 interface UpdateModalProps {
   isOpen: boolean;

@@ -6,7 +6,7 @@ import { t } from '../../../i18n';
 import UpdateModal from './UpdateModal';
 import { updateStore } from '../../../stores/updateStore';
 import settingsStore from '../../../stores/settings';
-import GithubIcon from '../../common/icons/GithubIcon';
+import GithubIcon from '../../common/icons/CustomIcon';
 
 export interface AboutSectionRef {
   checkForUpdates: (manual: boolean) => Promise<void>;

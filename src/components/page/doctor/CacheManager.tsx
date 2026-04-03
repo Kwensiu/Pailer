@@ -264,9 +264,6 @@ function CacheManager() {
               <For each={packageNames}>{(name: string) => <li>{name}</li>}</For>
             </ul>
           </div>
-          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
-            <span>{t('doctor.common.actionCannotBeUndone')}</span>
-          </div>
         </div>
       ),
       onConfirm: async () => {
@@ -374,15 +371,8 @@ function CacheManager() {
                 <span class="font-medium">
                   {t('doctor.cacheManager.settings.preserveVersioned')}
                 </span>
-                <span class="text-base-content/60 text-sm">
-                  {t('doctor.cacheManager.settings.preserveVersionedDescription')}
-                </span>
               </div>
             </label>
-          </div>
-
-          <div class="status-alert status-alert-warning mt-2 rounded-lg! p-2!">
-            <span>{t('doctor.common.actionCannotBeUndone')}</span>
           </div>
         </div>
       ),

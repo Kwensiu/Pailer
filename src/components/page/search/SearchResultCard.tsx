@@ -1,5 +1,5 @@
 import { Show, createSignal, onCleanup } from 'solid-js';
-import { Download, Copy, Check, Home, BadgeInfo, FileText, Package } from 'lucide-solid';
+import { Download, Copy, Check, House, BadgeInfo, FileText, Package } from 'lucide-solid';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { ScoopPackage } from '../../../types/scoop';
 import { t } from '../../../i18n';
@@ -151,7 +151,7 @@ function SearchResultCard(props: SearchResultCardProps) {
       aria-label={`${props.pkg.name} package actions`}
     >
       <div
-        class="border-base-200/80 bg-base-100/30 hover:bg-base-100/50 focus-visible:ring-primary/40 cursor-pointer rounded-2xl border px-5 py-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+        class="border-base-200/80 bg-base-100/30 hover:bg-base-100/50 cursor-pointer rounded-2xl border px-5 py-4 transition-colors outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
         tabIndex={0}
         role="button"
         aria-expanded={isExpanded()}
@@ -173,14 +173,14 @@ function SearchResultCard(props: SearchResultCardProps) {
         <div class="flex items-center justify-between gap-4">
           <div class="flex min-w-0 flex-1 items-center gap-3">
             <div class="bg-primary/10 text-primary ring-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset">
-              <Package class="h-4 w-4" />
+              <Package size={20} />
             </div>
 
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <button
                   type="button"
-                  class="text-base-content hover:bg-base-content/10 hover:text-primary focus-visible:ring-primary/40 cursor-pointer truncate rounded-md px-2 py-0.5 text-lg font-bold tracking-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                  class="text-base-content hover:bg-base-content/10 hover:text-primary cursor-pointer truncate rounded-md px-2 py-0.5 text-lg font-bold tracking-tight transition-colors outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
                   onClick={(e) => {
                     e.stopPropagation();
                     props.onViewInfo(props.pkg);
@@ -191,7 +191,7 @@ function SearchResultCard(props: SearchResultCardProps) {
                 </button>
                 <button
                   type="button"
-                  class="bg-primary/10 text-primary hover:bg-primary/20 focus-visible:ring-primary/40 cursor-pointer rounded-lg px-2 py-1 font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                  class="bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer rounded-lg px-2 py-1 font-semibold transition-colors outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent"
                   onClick={(e) => {
                     e.stopPropagation();
                     props.onViewBucket?.(props.pkg.source);
@@ -276,7 +276,7 @@ function SearchResultCard(props: SearchResultCardProps) {
         }}
       >
         <div class="min-h-0 overflow-hidden" aria-hidden={!isExpanded()} inert={!isExpanded()}>
-          <div class="grid grid-cols-1 px-5 py-4 lg:grid-cols-5 lg:gap-4">
+          <div class="grid grid-cols-1 p-4 lg:grid-cols-5 lg:gap-4">
             <div class="space-y-3 lg:col-span-3">
               <Show when={props.pkg.info}>
                 <p class="text-base-content/75 line-clamp-3 max-w-2xl text-sm leading-relaxed">
@@ -287,7 +287,7 @@ function SearchResultCard(props: SearchResultCardProps) {
               <div class="text-base-content/70 space-y-2 text-sm">
                 <Show when={homepageUrl()}>
                   <div class="flex items-start gap-2 break-all">
-                    <Home class="text-primary/70 mt-0.5 h-4 w-4 shrink-0" />
+                    <House class="text-primary/70 mt-0.5 h-4 w-4 shrink-0" />
                     <button
                       type="button"
                       class="text-primary hover:text-primary/80 cursor-pointer transition-colors hover:underline"
