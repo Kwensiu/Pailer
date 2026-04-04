@@ -28,6 +28,8 @@ export enum OperationStatus {
   Cancelled = 'cancelled',
 }
 
+export const CANCEL_EVENT_PREFIX = 'cancel-operation:';
+
 /**
  * Operation type enum
  */
@@ -88,6 +90,7 @@ export interface OperationResult {
   operationName: string;
   errorCount?: number;
   warningCount?: number;
+  finalStatus?: OperationStatus;
   message?: string;
   timestamp: Timestamp;
 }

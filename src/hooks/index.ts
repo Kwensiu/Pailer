@@ -7,6 +7,13 @@ export {
 export { createMenuCloseHandlers } from './ui/useCloseHandlers';
 export { useMultiConfirmAction as useConfirmAction } from './ui/useConfirmAction';
 export { useContextMenuState } from './ui/useContextMenuState';
+export {
+  isRunning,
+  isTerminal,
+  isSuccessful,
+  primaryAction,
+  primaryButtonVariant,
+} from './ui/useOperationSelectors';
 
 // Storage related
 export * from './storage/createLocalStorageSignal';

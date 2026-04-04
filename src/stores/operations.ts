@@ -123,6 +123,7 @@ const operationsStore = createRoot(() => {
               operationName: payload.operationName ?? payload.operation_name ?? '',
               errorCount: payload.errorCount ?? payload.error_count,
               warningCount: payload.warningCount ?? payload.warning_count,
+              finalStatus: payload.finalStatus ?? payload.final_status,
               message: payload.message,
               timestamp: (() => {
                 const ts = payload.timestamp;
@@ -131,32 +132,32 @@ const operationsStore = createRoot(() => {
               })(),
             };
 
-            // Find the operation by operationId if available
-            let operationId: string | undefined;
-            if (result.operationId) {
-              operationId = result.operationId;
-            } else {
-              // Fallback: find operation by timestamp range (more reliable)
-              const timestamp = result.timestamp; // Already normalized to milliseconds
-              const tolerance = 5000; // 5 seconds tolerance
-              // Use untrack to read store without establishing reactive dependency
-              const found = untrack(() =>
-                Object.entries(operations).find(([, op]) => {
-                  return Math.abs(op.createdAt - timestamp) <= tolerance;
-                })
-              );
-              if (found) {
-                operationId = found[0];
-              }
-            }
+            const operationId = result.operationId || undefined;
 
             if (operationId) {
               setOperationResult(operationId, result);
 
+              // Handle VirusTotal scan special logic
+              const op = untrack(() => operations[operationId]);
+              if (op && op.isScan && result.success !== undefined) {
+                // Trigger onInstallConfirm for successful scans with no threats
+                if (
+                  result.success &&
+                  !result.message?.includes('API key') &&
+                  !result.message?.includes('detection')
+                ) {
+                  // Find the modal component and trigger onInstallConfirm
+                  // This is a workaround since we can't directly access props from store
+                  const event = new CustomEvent('virustotal-scan-success', {
+                    detail: { operationId, result },
+                  });
+                  window.dispatchEvent(event);
+                }
+              }
+
               // Refresh installed/search caches immediately on successful package operations.
               // This must live here (global listener) so it still works when OperationModal is minimized/unmounted.
               // Use untrack to read store without establishing reactive dependency
-              const op = untrack(() => operations[operationId]);
               if (result.success && op && !op.isScan) {
                 const operationType = op.operationType;
                 if (
@@ -171,7 +172,7 @@ const operationsStore = createRoot(() => {
               }
             } else {
               console.warn(
-                'Received operation-finished event but could not find matching operation:',
+                'Received operation-finished event without operationId; ignoring to prevent wrong operation binding:',
                 result
               );
             }
@@ -248,16 +249,44 @@ const operationsStore = createRoot(() => {
       });
     };
 
+    const TERMINAL_STATUSES = new Set<string>([
+      OperationStatusEnum.Success,
+      OperationStatusEnum.Warning,
+      OperationStatusEnum.Error,
+      OperationStatusEnum.Cancelled,
+    ]);
+
     // Set operation result
     const setOperationResult = (operationId: string, result: OperationResult) => {
+      // Terminal-state locking: once an operation reaches a terminal status, ignore duplicate finished events
+      const existingOp = untrack(() => operations[operationId]);
+      if (existingOp && TERMINAL_STATUSES.has(existingOp.status)) {
+        return;
+      }
+
       let status: OperationStatusEnum;
 
-      if (!result.success) {
-        status = OperationStatusEnum.Error;
-      } else if (result.warningCount && result.warningCount > 0) {
-        status = OperationStatusEnum.Warning;
+      // Prefer explicit finalStatus from backend; fall back to legacy inference
+      if (result.finalStatus) {
+        status = result.finalStatus as OperationStatusEnum;
       } else {
-        status = OperationStatusEnum.Success;
+        console.warn(
+          `[operations] operation-finished for "${operationId}" missing finalStatus; using legacy inference`
+        );
+        const isCancellation =
+          !result.success &&
+          (result.errorCount === undefined || result.errorCount === 0) &&
+          (result.warningCount === undefined || result.warningCount === 0);
+
+        if (isCancellation) {
+          status = OperationStatusEnum.Cancelled;
+        } else if (!result.success) {
+          status = OperationStatusEnum.Error;
+        } else if (result.warningCount && result.warningCount > 0) {
+          status = OperationStatusEnum.Warning;
+        } else {
+          status = OperationStatusEnum.Success;
+        }
       }
 
       updateOperation(operationId, {
@@ -398,7 +427,8 @@ const operationsStore = createRoot(() => {
         if (
           (operation.status === OperationStatusEnum.Success ||
             operation.status === OperationStatusEnum.Warning ||
-            operation.status === OperationStatusEnum.Error) &&
+            operation.status === OperationStatusEnum.Error ||
+            operation.status === OperationStatusEnum.Cancelled) &&
           now - operation.updatedAt > cleanupThreshold
         ) {
           setOperations(id, undefined as any);
