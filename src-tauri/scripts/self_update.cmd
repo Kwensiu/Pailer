@@ -2,6 +2,7 @@
 setlocal EnableExtensions
 
 set "TARGET_PID={PID}"
+set "RESTART_EXE={RESTART_EXE}"
 set "RUN_ID=%TARGET_PID%-%RANDOM%"
 set "LOG_FILE=%TEMP%\pailer-self-update-%RUN_ID%.log"
 
@@ -12,6 +13,8 @@ echo [Pailer] Self-update started at %date% %time%
 echo [Pailer] Self-update started at %date% %time%>"%LOG_FILE%"
 echo [Pailer] Target PID: %TARGET_PID%
 echo [Pailer] Target PID: %TARGET_PID%>>"%LOG_FILE%"
+echo [Pailer] Restart executable: %RESTART_EXE%
+echo [Pailer] Restart executable: %RESTART_EXE%>>"%LOG_FILE%"
 echo [Pailer] Working directory: %CD%
 echo [Pailer] Working directory: %CD%>>"%LOG_FILE%"
 echo Waiting for Pailer to exit...
@@ -55,14 +58,24 @@ if not "%UPDATE_EXIT%"=="0" (
 
 echo Update finished. Restarting Pailer...
 echo [Pailer] Restarting Pailer>>"%LOG_FILE%"
-start "" pailer >NUL 2>&1
+if not exist "%RESTART_EXE%" (
+  echo [Pailer] ERROR: restart executable not found: %RESTART_EXE%
+  echo [Pailer] ERROR: restart executable not found: %RESTART_EXE%>>"%LOG_FILE%"
+  echo Log: %LOG_FILE%
+  type "%LOG_FILE%"
+  pause
+  exit /b 1
+)
+
+start "" "%RESTART_EXE%" >NUL 2>&1
 set "RESTART_EXIT=%ERRORLEVEL%"
-if not "%RESTART_EXIT%"=="0" (
-  for /f "usebackq delims=" %%i in (`where pailer 2^>NUL`) do (
-    start "" "%%i" >NUL 2>&1
-    set "RESTART_EXIT=%ERRORLEVEL%"
-    goto restart_done
-  )
+if errorlevel 1 (
+  echo [Pailer] ERROR: failed to restart Pailer (exit code: %RESTART_EXIT%)
+  echo [Pailer] ERROR: failed to restart Pailer (exit code: %RESTART_EXIT%)>>"%LOG_FILE%"
+  echo Log: %LOG_FILE%
+  type "%LOG_FILE%"
+  pause
+  exit /b 1
 )
 
 :restart_done
