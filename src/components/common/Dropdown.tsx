@@ -199,7 +199,7 @@ export default function Dropdown(props: DropdownProps) {
     if (!open()) {
       clearTabbedState(contentRef, TABBED_ITEM_SELECTOR);
       setFloatingStyle((prev) => ({ ...prev, visibility: 'hidden' }));
-      document.body.classList.remove('contextmenu-open');
+      document.body.classList.remove('dropdown-open');
       return;
     }
 
@@ -230,7 +230,7 @@ export default function Dropdown(props: DropdownProps) {
     document.addEventListener('scroll', handleScroll, true);
     window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('visibilitychange', handleVisChange);
-    document.body.classList.add('contextmenu-open');
+    document.body.classList.add('dropdown-open');
 
     requestAnimationFrame(() => {
       if (triggerRef && contentRef) {
@@ -252,7 +252,7 @@ export default function Dropdown(props: DropdownProps) {
       document.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisChange);
-      document.body.classList.remove('contextmenu-open');
+      document.body.classList.remove('dropdown-open');
     });
   });
 
@@ -261,6 +261,7 @@ export default function Dropdown(props: DropdownProps) {
       <button
         {...props.triggerProps}
         ref={triggerRef}
+        data-dropdown-allow="true"
         type="button"
         class={`dropdown-trigger ${props.triggerClass || ''}`}
         style={props.triggerStyle}
@@ -300,7 +301,7 @@ export default function Dropdown(props: DropdownProps) {
           <div
             ref={contentRef}
             data-dropdown-menu-content="true"
-            data-contextmenu-allow="true"
+            data-dropdown-allow="true"
             class={`${
               isPanelVariant() ? 'dropdown-panel-content' : 'dropdown-menu-content'
             } flex flex-col ${props.contentClass || ''}`}

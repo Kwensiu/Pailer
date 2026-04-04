@@ -10,6 +10,16 @@ body.contextmenu-open [data-contextmenu-allow='true'] * {
   pointer-events: auto;
 }
 
+/* Dropdown selective freeze */
+body.dropdown-open * {
+  pointer-events: none;
+}
+
+body.dropdown-open [data-dropdown-allow='true'],
+body.dropdown-open [data-dropdown-allow='true'] * {
+  pointer-events: auto;
+}
+
 /* Floating menu surfaces */
 .dropdown-menu-content {
   @apply bg-base-100/40 rounded-box border-base-200 z-100 max-h-80 overflow-y-auto border p-2 shadow-lg backdrop-blur-md;
