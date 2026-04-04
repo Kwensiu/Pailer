@@ -3,8 +3,8 @@ use crate::commands::installed::get_installed_packages_full;
 use crate::state::AppState;
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
 use std::fs::read_link;
+use std::path::Path;
 use tauri::{AppHandle, Runtime, State};
 
 /// Represents a versioned application.
@@ -36,7 +36,7 @@ pub async fn get_versioned_apps<R: Runtime>(
 
     // Get all installed packages
     let installed_packages = get_installed_packages_full(app.clone(), state).await?;
-    
+
     // Filter packages that have multiple version directories (regardless of installation type)
     let packages_with_versions: Vec<_> = installed_packages
         .iter()
@@ -47,7 +47,7 @@ pub async fn get_versioned_apps<R: Runtime>(
 
     for package in packages_with_versions {
         let package_path = apps_path.join(&package.name);
-        
+
         if let Ok(entries) = fs::read_dir(&package_path) {
             // Get all version directories
             let local_versions: Vec<String> = entries
@@ -60,7 +60,8 @@ pub async fn get_versioned_apps<R: Runtime>(
                 .collect();
 
             // Get current version by reading the 'current' symlink
-            let current_version = get_current_version(&package_path).unwrap_or_else(|| "unknown".to_string());
+            let current_version =
+                get_current_version(&package_path).unwrap_or_else(|| "unknown".to_string());
 
             if !local_versions.is_empty() {
                 versioned_apps.push(VersionedApp {
@@ -68,13 +69,19 @@ pub async fn get_versioned_apps<R: Runtime>(
                     current_version,
                     local_versions,
                     bucket: package.source.clone(),
-                    is_versioned_install: matches!(package.installation_type, crate::models::InstallationType::Versioned),
+                    is_versioned_install: matches!(
+                        package.installation_type,
+                        crate::models::InstallationType::Versioned
+                    ),
                 });
             }
         }
     }
 
-    log::info!("Found {} applications with version directories", versioned_apps.len());
+    log::info!(
+        "Found {} applications with version directories",
+        versioned_apps.len()
+    );
     Ok(versioned_apps)
 }
 
@@ -104,32 +111,41 @@ pub async fn delete_app_version<R: Runtime>(
                 }
             }
             Err(_) => {
-                log::warn!("Current symlink exists but cannot be read for app '{}'", app_name);
+                log::warn!(
+                    "Current symlink exists but cannot be read for app '{}'",
+                    app_name
+                );
                 // Continue with deletion - broken symlink shouldn't prevent deletion
             }
         }
     }
 
     if !version_path.is_dir() {
-        return Err(format!("Version '{}' not found for app '{}'", version, app_name));
+        return Err(format!(
+            "Version '{}' not found for app '{}'",
+            version, app_name
+        ));
     }
 
     // Remove the version directory
-    fs::remove_dir_all(&version_path).map_err(|e| {
-        format!("Failed to remove version directory: {}", e)
-    })?;
+    fs::remove_dir_all(&version_path)
+        .map_err(|e| format!("Failed to remove version directory: {}", e))?;
 
-	// Invalidate caches so the UI doesn't see stale version data
-	{
-		let mut versions_guard = state.package_versions.lock().await;
-		*versions_guard = None;
-	}
-	{
-		let mut installed_guard = state.installed_packages.lock().await;
-		*installed_guard = None;
-	}
+    // Invalidate caches so the UI doesn't see stale version data
+    {
+        let mut versions_guard = state.package_versions.lock().await;
+        *versions_guard = None;
+    }
+    {
+        let mut installed_guard = state.installed_packages.lock().await;
+        *installed_guard = None;
+    }
 
-    log::info!("Successfully deleted version '{}' of app '{}'", version, app_name);
+    log::info!(
+        "Successfully deleted version '{}' of app '{}'",
+        version,
+        app_name
+    );
     Ok(())
 }
 
@@ -141,7 +157,11 @@ pub async fn switch_app_version<R: Runtime>(
     app_name: String,
     target_version: String,
 ) -> Result<(), String> {
-    log::info!("Switching app '{}' to version '{}'", app_name, target_version);
+    log::info!(
+        "Switching app '{}' to version '{}'",
+        app_name,
+        target_version
+    );
 
     let scoop_path = state.scoop_path();
     let apps_path = scoop_path.join("apps");
@@ -150,7 +170,10 @@ pub async fn switch_app_version<R: Runtime>(
     let current_path = app_path.join("current");
 
     if !target_path.is_dir() {
-        return Err(format!("Target version '{}' not found for app '{}'", target_version, app_name));
+        return Err(format!(
+            "Target version '{}' not found for app '{}'",
+            target_version, app_name
+        ));
     }
 
     // Remove existing current symlink/directory
@@ -159,9 +182,8 @@ pub async fn switch_app_version<R: Runtime>(
         match current_path.metadata() {
             Ok(metadata) => {
                 if metadata.file_type().is_symlink() {
-                    fs::remove_file(&current_path).map_err(|e| {
-                        format!("Failed to remove existing current symlink: {}", e)
-                    })?;
+                    fs::remove_file(&current_path)
+                        .map_err(|e| format!("Failed to remove existing current symlink: {}", e))?;
                 } else if metadata.is_dir() {
                     // It's a directory, remove it
                     fs::remove_dir_all(&current_path).map_err(|e| {
@@ -169,9 +191,8 @@ pub async fn switch_app_version<R: Runtime>(
                     })?;
                 } else {
                     // It's a file, remove it
-                    fs::remove_file(&current_path).map_err(|e| {
-                        format!("Failed to remove existing current file: {}", e)
-                    })?;
+                    fs::remove_file(&current_path)
+                        .map_err(|e| format!("Failed to remove existing current file: {}", e))?;
                 }
             }
             Err(e) => {
@@ -181,11 +202,14 @@ pub async fn switch_app_version<R: Runtime>(
     }
 
     // Creates new symlink on Windows
-    std::os::windows::fs::symlink_dir(&target_path, &current_path).map_err(|e| {
-        format!("Failed to create directory symlink: {}", e)
-    })?;
+    std::os::windows::fs::symlink_dir(&target_path, &current_path)
+        .map_err(|e| format!("Failed to create directory symlink: {}", e))?;
 
-    log::info!("Successfully switched '{}' to version '{}'", app_name, target_version);
+    log::info!(
+        "Successfully switched '{}' to version '{}'",
+        app_name,
+        target_version
+    );
     Ok(())
 }
 
@@ -196,19 +220,22 @@ pub async fn remove_versioned_apps<R: Runtime>(
     state: State<'_, AppState>,
     app_names: Vec<String>,
 ) -> Result<(), String> {
-    log::info!("Removing {} versioned apps: {:?}", app_names.len(), app_names);
+    log::info!(
+        "Removing {} versioned apps: {:?}",
+        app_names.len(),
+        app_names
+    );
 
     let scoop_path = state.scoop_path();
-    
+
     for app_name in &app_names {
         let app_path = scoop_path.join("apps").join(app_name);
-        
+
         if app_path.exists() {
             // Remove the entire app directory
-            fs::remove_dir_all(&app_path).map_err(|e| {
-                format!("Failed to remove app directory '{}': {}", app_name, e)
-            })?;
-            
+            fs::remove_dir_all(&app_path)
+                .map_err(|e| format!("Failed to remove app directory '{}': {}", app_name, e))?;
+
             log::info!("Removed versioned app: {}", app_name);
         } else {
             log::warn!("App directory not found for removal: {}", app_name);
@@ -222,24 +249,26 @@ pub async fn remove_versioned_apps<R: Runtime>(
 /// Gets the current version of an app by reading the 'current' symlink.
 fn get_current_version(app_path: &Path) -> Option<String> {
     let current_path = app_path.join("current");
-    
+
     if !current_path.exists() {
         return None;
     }
 
     // Check if it's a valid symlink
     if !current_path.is_symlink() {
-        log::warn!("Current path exists but is not a symlink: {:?}", current_path);
+        log::warn!(
+            "Current path exists but is not a symlink: {:?}",
+            current_path
+        );
         return None;
     }
 
     match read_link(&current_path) {
-        Ok(path) => {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .map(String::from)
-                .filter(|s| is_valid_version_string(s))
-        }
+        Ok(path) => path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(String::from)
+            .filter(|s| is_valid_version_string(s)),
         Err(e) => {
             log::warn!("Failed to read symlink {:?}: {}", current_path, e);
             None
@@ -249,7 +278,7 @@ fn get_current_version(app_path: &Path) -> Option<String> {
 
 /// Checks if a string represents a valid version format.
 fn is_valid_version_string(version: &str) -> bool {
-    !version.is_empty() 
+    !version.is_empty()
         && version.chars().any(|c| c.is_ascii_digit())
         && !version.starts_with('.') // Avoid directories starting with dot
         && version.len() <= 50 // Reasonable length limit

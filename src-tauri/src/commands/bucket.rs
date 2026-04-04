@@ -62,7 +62,7 @@ fn get_git_info(bucket_path: &Path) -> (Option<String>, Option<String>) {
 /// Gets the last modified time of a bucket's bucket subdirectory.
 fn get_last_updated(bucket_path: &Path) -> Option<String> {
     let bucket_subdir = bucket_path.join("bucket");
-    
+
     if bucket_subdir.is_dir() {
         fs::metadata(&bucket_subdir)
             .and_then(|m| m.modified())
@@ -268,7 +268,10 @@ pub async fn get_bucket_branches<R: Runtime>(
         fetch_options.remote_callbacks(callbacks);
 
         if let Err(e) = remote.fetch(&[] as &[&str], Some(&mut fetch_options), None) {
-            log::warn!("Failed to fetch from remote: {}, continuing with local branches", e);
+            log::warn!(
+                "Failed to fetch from remote: {}, continuing with local branches",
+                e
+            );
         } else {
             log::info!("Successfully fetched latest branches from remote");
         }
@@ -301,7 +304,7 @@ pub async fn get_bucket_branches<R: Runtime>(
 
     branches.sort();
     branches.dedup();
-    
+
     log::info!(
         "Found {} branches for bucket '{}': {:?}",
         branches.len(),
@@ -319,7 +322,11 @@ pub async fn switch_bucket_branch<R: Runtime>(
     bucket_name: String,
     branch_name: String,
 ) -> Result<String, String> {
-    log::info!("Switching bucket '{}' to branch '{}'", bucket_name, branch_name);
+    log::info!(
+        "Switching bucket '{}' to branch '{}'",
+        bucket_name,
+        branch_name
+    );
 
     let bucket_path = state.scoop_path().join("buckets").join(&bucket_name);
 
@@ -336,11 +343,11 @@ pub async fn switch_bucket_branch<R: Runtime>(
         Ok(statuses) => statuses,
         Err(e) => return Err(format!("Failed to get repository status: {}", e)),
     };
-    
-    let has_changes = repo_status.iter().any(|entry| {
-        entry.status() != git2::Status::CURRENT
-    });
-    
+
+    let has_changes = repo_status
+        .iter()
+        .any(|entry| entry.status() != git2::Status::CURRENT);
+
     if has_changes {
         log::warn!("Repository has uncommitted changes, switching branch may lose modifications");
         return Err("UNCOMMITTED_CHANGES".to_string());
@@ -348,11 +355,12 @@ pub async fn switch_bucket_branch<R: Runtime>(
 
     let local_ref_name = format!("refs/heads/{}", branch_name);
     let remote_ref_name = format!("refs/remotes/origin/{}", branch_name);
-    
+
     let (target_commit, is_remote_only) = match repo.find_reference(&local_ref_name) {
         Ok(local_ref) => {
             log::info!("Found local branch: {}", branch_name);
-            let commit = local_ref.peel_to_commit()
+            let commit = local_ref
+                .peel_to_commit()
                 .map_err(|e| format!("Failed to get commit: {}", e))?;
             (commit, false)
         }
@@ -361,7 +369,8 @@ pub async fn switch_bucket_branch<R: Runtime>(
             match repo.find_reference(&remote_ref_name) {
                 Ok(remote_ref) => {
                     log::info!("Found remote branch: {}", branch_name);
-                    let commit = remote_ref.peel_to_commit()
+                    let commit = remote_ref
+                        .peel_to_commit()
                         .map_err(|e| format!("Failed to get commit: {}", e))?;
                     (commit, true)
                 }
@@ -371,17 +380,27 @@ pub async fn switch_bucket_branch<R: Runtime>(
     };
 
     if is_remote_only {
-        log::info!("Creating local tracking branch for remote branch '{}'", branch_name);
+        log::info!(
+            "Creating local tracking branch for remote branch '{}'",
+            branch_name
+        );
         repo.branch(&branch_name, &target_commit, false)
             .map_err(|e| format!("Failed to create local branch: {}", e))?;
     }
 
-    repo.checkout_tree(&target_commit.as_object(), Some(git2::build::CheckoutBuilder::new().force()))
-        .map_err(|e| format!("Failed to checkout tree: {}", e))?;
+    repo.checkout_tree(
+        &target_commit.as_object(),
+        Some(git2::build::CheckoutBuilder::new().force()),
+    )
+    .map_err(|e| format!("Failed to checkout tree: {}", e))?;
 
     repo.set_head(&local_ref_name)
         .map_err(|e| format!("Failed to set HEAD: {}", e))?;
 
-    log::info!("Successfully switched bucket '{}' to branch '{}'", bucket_name, branch_name);
+    log::info!(
+        "Successfully switched bucket '{}' to branch '{}'",
+        bucket_name,
+        branch_name
+    );
     Ok(format!("Switched to branch '{}'", branch_name))
 }

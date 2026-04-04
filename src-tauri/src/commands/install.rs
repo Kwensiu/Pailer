@@ -1,7 +1,7 @@
 //! Command for installing Scoop packages.
 use crate::commands::auto_cleanup::trigger_auto_cleanup;
 use crate::commands::installed::invalidate_installed_cache;
-use crate::commands::scoop::{self, ScoopOp, generate_operation_id};
+use crate::commands::scoop::{self, generate_operation_id, ScoopOp};
 use crate::commands::search::invalidate_manifest_cache;
 use crate::state::AppState;
 use tauri::{AppHandle, State, Window};
@@ -35,12 +35,19 @@ pub async fn install_package(
         bucket_opt.unwrap_or("default")
     );
 
-    let operation_id = operation_id.unwrap_or_else(|| {
-        generate_operation_id(ScoopOp::Install, Some(&package_name))
-    });
+    let operation_id = operation_id
+        .unwrap_or_else(|| generate_operation_id(ScoopOp::Install, Some(&package_name)));
 
-    let install_result = scoop::execute_scoop(window, ScoopOp::Install, Some(&package_name), bucket_opt, operation_id.clone(), bypass_self_update.unwrap_or(false)).await;
-    
+    let install_result = scoop::execute_scoop(
+        window,
+        ScoopOp::Install,
+        Some(&package_name),
+        bucket_opt,
+        operation_id.clone(),
+        bypass_self_update.unwrap_or(false),
+    )
+    .await;
+
     match &install_result {
         Ok(_) => {
             log::info!("Package '{}' installed successfully", package_name);
@@ -51,7 +58,7 @@ pub async fn install_package(
     }
 
     install_result?;
-    
+
     invalidate_manifest_cache().await;
     invalidate_installed_cache(state.clone()).await;
     trigger_auto_cleanup(app, state).await;

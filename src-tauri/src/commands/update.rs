@@ -1,5 +1,5 @@
 use crate::commands::auto_cleanup::trigger_auto_cleanup;
-use crate::commands::scoop::{self, ScoopOp, generate_operation_id};
+use crate::commands::scoop::{self, generate_operation_id, ScoopOp};
 use crate::state::AppState;
 use tauri::{AppHandle, State, Window};
 
@@ -15,19 +15,26 @@ pub async fn update_package(
     bypass_self_update: Option<bool>,
 ) -> Result<(), String> {
     log::info!("Updating package '{}'", package_name);
-    
+
     let op = if force.unwrap_or(false) {
         ScoopOp::UpdateForce
     } else {
         ScoopOp::Update
     };
-    
-    let operation_id = operation_id.unwrap_or_else(|| {
-        generate_operation_id(ScoopOp::Update, Some(&package_name))
-    });
-    
-    let update_result = scoop::execute_scoop(window, op, Some(&package_name), None, operation_id.clone(), bypass_self_update.unwrap_or(false)).await;
-    
+
+    let operation_id =
+        operation_id.unwrap_or_else(|| generate_operation_id(ScoopOp::Update, Some(&package_name)));
+
+    let update_result = scoop::execute_scoop(
+        window,
+        op,
+        Some(&package_name),
+        None,
+        operation_id.clone(),
+        bypass_self_update.unwrap_or(false),
+    )
+    .await;
+
     match &update_result {
         Ok(_) => {
             log::info!("Package '{}' updated successfully", package_name);
@@ -51,14 +58,21 @@ pub async fn update_all_packages(
     operation_id: Option<String>,
 ) -> Result<(), String> {
     log::info!("Updating all packages (manual)");
-    
+
     // Use the provided operation_id or generate a new one
-    let operation_id = operation_id.unwrap_or_else(|| {
-        generate_operation_id(ScoopOp::UpdateAll, None)
-    });
-    
+    let operation_id =
+        operation_id.unwrap_or_else(|| generate_operation_id(ScoopOp::UpdateAll, None));
+
     // Execute the update through window streaming
-    let result = scoop::execute_scoop(window.clone(), ScoopOp::UpdateAll, None, None, operation_id, false).await;
+    let result = scoop::execute_scoop(
+        window.clone(),
+        ScoopOp::UpdateAll,
+        None,
+        None,
+        operation_id,
+        false,
+    )
+    .await;
 
     // Return the original result (success or error)
     result?;
@@ -85,7 +99,7 @@ pub async fn update_all_packages_headless(
 
     let mut stdout = String::new();
     let mut stderr = String::new();
-    
+
     // Capture stdout
     if let Some(mut out) = child.stdout.take() {
         let mut buf = [0u8; 8192];
@@ -94,7 +108,7 @@ pub async fn update_all_packages_headless(
             stdout.push_str(&String::from_utf8_lossy(&buf[..n]));
         }
     }
-    
+
     // Capture stderr
     if let Some(mut err) = child.stderr.take() {
         let mut buf = [0u8; 8192];
@@ -102,7 +116,7 @@ pub async fn update_all_packages_headless(
             stderr.push_str(&String::from_utf8_lossy(&buf[..n]));
         }
     }
-    
+
     let status = child
         .wait()
         .await
@@ -121,10 +135,7 @@ pub async fn update_all_packages_headless(
         }
 
         if !stderr.is_empty() {
-            log::debug!(
-                "Headless update stderr: {}",
-                stderr
-            );
+            log::debug!("Headless update stderr: {}", stderr);
         }
 
         // Return error details from stderr or stdout
@@ -136,7 +147,10 @@ pub async fn update_all_packages_headless(
             .map(|line| line.to_string())
             .collect();
 
-        return Err(format!("Headless package update failed: {}", error_lines.join("; ")));
+        return Err(format!(
+            "Headless package update failed: {}",
+            error_lines.join("; ")
+        ));
     }
 
     // Parse output to extract update details
@@ -144,17 +158,16 @@ pub async fn update_all_packages_headless(
         .lines()
         .filter(|line| {
             let trimmed = line.trim();
-            !trimmed.is_empty() && (
-                trimmed.contains("Updating") || 
-                trimmed.contains("Updated") || 
-                trimmed.contains("up to date") ||
-                trimmed.contains("Installing") ||
-                trimmed.contains("Downloading") ||
-                trimmed.contains("Extracting") ||
-                trimmed.contains("Linking") ||
-                trimmed.contains("WARN") ||
-                trimmed.contains("ERROR")
-            )
+            !trimmed.is_empty()
+                && (trimmed.contains("Updating")
+                    || trimmed.contains("Updated")
+                    || trimmed.contains("up to date")
+                    || trimmed.contains("Installing")
+                    || trimmed.contains("Downloading")
+                    || trimmed.contains("Extracting")
+                    || trimmed.contains("Linking")
+                    || trimmed.contains("WARN")
+                    || trimmed.contains("ERROR"))
         })
         .map(|line| line.trim().to_string())
         .collect();

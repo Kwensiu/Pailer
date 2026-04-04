@@ -58,8 +58,7 @@ pub fn start_background_tasks(app: AppHandle) {
 
             // Calculate sleep duration (check at most every 60 seconds)
             let remaining = interval_secs - elapsed;
-            let sleep_duration =
-                Duration::from_secs(remaining.min(60)); // Check every minute at most
+            let sleep_duration = Duration::from_secs(remaining.min(60)); // Check every minute at most
 
             log::debug!(
                 "Next scheduler check in {} seconds (auto-update interval: {}s, remaining: {}s)",

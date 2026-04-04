@@ -1,5 +1,5 @@
-use crate::state::LnkSourceIndexCache;
 use crate::state::AppState;
+use crate::state::LnkSourceIndexCache;
 use crate::utils::get_scoop_app_shortcuts_with_path;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
@@ -54,8 +54,13 @@ fn get_package_icon_cache_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf,
         .join("cache")
         .join("package-icons");
 
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create package icon cache dir {}: {}", dir.display(), e))?;
+    fs::create_dir_all(&dir).map_err(|e| {
+        format!(
+            "Failed to create package icon cache dir {}: {}",
+            dir.display(),
+            e
+        )
+    })?;
 
     Ok(dir)
 }
@@ -85,7 +90,10 @@ fn get_modified_ms(path: &Path) -> u128 {
 
 fn infer_package_name_from_target_path(scoop_path: &Path, target_path: &Path) -> Option<String> {
     let apps_root = scoop_path.join("apps");
-    let apps_root_normalized = apps_root.to_string_lossy().replace('/', "\\").to_lowercase();
+    let apps_root_normalized = apps_root
+        .to_string_lossy()
+        .replace('/', "\\")
+        .to_lowercase();
     let target_normalized = target_path
         .to_string_lossy()
         .replace('/', "\\")
@@ -161,7 +169,11 @@ fn expand_windows_env_vars(input: &str) -> Cow<'_, str> {
     }
 }
 
-fn resolve_icon_source_path(raw_icon_source_path: PathBuf, shortcut_path: &Path, target_path: &Path) -> PathBuf {
+fn resolve_icon_source_path(
+    raw_icon_source_path: PathBuf,
+    shortcut_path: &Path,
+    target_path: &Path,
+) -> PathBuf {
     if raw_icon_source_path.as_os_str().is_empty() {
         return target_path.to_path_buf();
     }
@@ -231,7 +243,8 @@ async fn build_lnk_source_index(
             continue;
         }
 
-        let Some(package_name) = infer_package_name_from_target_path(scoop_path, &target_path) else {
+        let Some(package_name) = infer_package_name_from_target_path(scoop_path, &target_path)
+        else {
             continue;
         };
 
@@ -360,7 +373,9 @@ fn resolve_from_manifest_bin(
 }
 
 fn find_first_existing_file(paths: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
-    paths.into_iter().find(|path| path.exists() && path.is_file())
+    paths
+        .into_iter()
+        .find(|path| path.exists() && path.is_file())
 }
 
 fn collect_manifest_string_or_array(value: Option<&serde_json::Value>) -> Vec<String> {
@@ -401,7 +416,10 @@ fn find_first_icon_like_file(dir: &Path) -> Option<PathBuf> {
 
     ico_candidates.sort();
     exe_candidates.sort();
-    ico_candidates.into_iter().next().or_else(|| exe_candidates.into_iter().next())
+    ico_candidates
+        .into_iter()
+        .next()
+        .or_else(|| exe_candidates.into_iter().next())
 }
 
 fn resolve_from_manifest_paths(
@@ -458,7 +476,11 @@ fn resolve_from_manifest_paths(
     None
 }
 
-fn resolve_from_lnk(_scoop_path: &Path, lnk_index: &HashMap<String, ResolvedPackageIconSource>, package_name: &str) -> Option<ResolvedPackageIconSource> {
+fn resolve_from_lnk(
+    _scoop_path: &Path,
+    lnk_index: &HashMap<String, ResolvedPackageIconSource>,
+    package_name: &str,
+) -> Option<ResolvedPackageIconSource> {
     lnk_index.get(package_name).cloned()
 }
 
@@ -520,8 +542,13 @@ fn read_cached_icon_data_url(
         return Ok(None);
     }
 
-    let raw_meta = fs::read_to_string(&meta_path)
-        .map_err(|e| format!("Failed to read icon cache metadata {}: {}", meta_path.display(), e))?;
+    let raw_meta = fs::read_to_string(&meta_path).map_err(|e| {
+        format!(
+            "Failed to read icon cache metadata {}: {}",
+            meta_path.display(),
+            e
+        )
+    })?;
     let cached_meta: PackageIconCacheMeta = match serde_json::from_str(&raw_meta) {
         Ok(meta) => meta,
         Err(error) => {
@@ -568,8 +595,13 @@ fn write_cached_icon(
 
     fs::write(&png_path, png_bytes)
         .map_err(|e| format!("Failed to write cached icon {}: {}", png_path.display(), e))?;
-    fs::write(&meta_path, meta_json)
-        .map_err(|e| format!("Failed to write icon cache metadata {}: {}", meta_path.display(), e))?;
+    fs::write(&meta_path, meta_json).map_err(|e| {
+        format!(
+            "Failed to write icon cache metadata {}: {}",
+            meta_path.display(),
+            e
+        )
+    })?;
 
     Ok(())
 }
@@ -590,7 +622,10 @@ fn encode_png_rgba(rgba: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Stri
 }
 
 #[cfg(windows)]
-fn render_hicon_to_png_bytes(icon_handle: windows_sys::Win32::UI::WindowsAndMessaging::HICON, size: i32) -> Result<Vec<u8>, String> {
+fn render_hicon_to_png_bytes(
+    icon_handle: windows_sys::Win32::UI::WindowsAndMessaging::HICON,
+    size: i32,
+) -> Result<Vec<u8>, String> {
     use std::mem::{size_of, zeroed};
     use std::ptr::null_mut;
     use windows_sys::Win32::Graphics::Gdi::{
@@ -653,7 +688,19 @@ fn render_hicon_to_png_bytes(icon_handle: windows_sys::Win32::UI::WindowsAndMess
     }
 
     let previous_object = unsafe { SelectObject(memory_dc, dib_bitmap as _) };
-    let draw_result = unsafe { DrawIconEx(memory_dc, 0, 0, icon_handle, size, size, 0, null_mut(), DI_NORMAL) };
+    let draw_result = unsafe {
+        DrawIconEx(
+            memory_dc,
+            0,
+            0,
+            icon_handle,
+            size,
+            size,
+            0,
+            null_mut(),
+            DI_NORMAL,
+        )
+    };
     if draw_result == 0 {
         unsafe {
             SelectObject(memory_dc, previous_object);
@@ -682,11 +729,12 @@ fn render_hicon_to_png_bytes(icon_handle: windows_sys::Win32::UI::WindowsAndMess
         let blue = pixel[0] as u32;
         let green = pixel[1] as u32;
         let red = pixel[2] as u32;
-        let alpha = if !has_non_zero_alpha && has_visible_rgb && (blue != 0 || green != 0 || red != 0) {
-            255
-        } else {
-            pixel[3] as u32
-        };
+        let alpha =
+            if !has_non_zero_alpha && has_visible_rgb && (blue != 0 || green != 0 || red != 0) {
+                255
+            } else {
+                pixel[3] as u32
+            };
 
         let (red, green, blue) = if alpha == 0 {
             (0, 0, 0)
@@ -718,11 +766,17 @@ fn render_hicon_to_png_bytes(icon_handle: windows_sys::Win32::UI::WindowsAndMess
 }
 
 #[cfg(windows)]
-fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -> Result<Vec<u8>, String> {
+fn extract_icon_png_bytes(
+    icon_source_path: &Path,
+    icon_index: i32,
+    size: i32,
+) -> Result<Vec<u8>, String> {
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::null_mut;
-    use windows_sys::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, HICON, PrivateExtractIconsW};
+    use windows_sys::Win32::UI::Shell::{
+        SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, PrivateExtractIconsW, HICON};
 
     let wide_path: Vec<u16> = icon_source_path
         .as_os_str()
@@ -732,7 +786,7 @@ fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -
 
     let mut extracted_icon: HICON = null_mut();
     let mut icon_id: u32 = 0;
-    
+
     // Use PrivateExtractIconsW to get the best matching icon for the requested size
     let extracted_count = unsafe {
         PrivateExtractIconsW(
@@ -747,35 +801,41 @@ fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -
         )
     };
 
-    let icon_handle = if extracted_count != u32::MAX && extracted_count > 0 && !extracted_icon.is_null() {
-        extracted_icon
-    } else {
-        let mut file_info = SHFILEINFOW {
-            hIcon: null_mut(),
-            iIcon: 0,
-            dwAttributes: 0,
-            szDisplayName: [0; 260],
-            szTypeName: [0; 80],
+    let icon_handle =
+        if extracted_count != u32::MAX && extracted_count > 0 && !extracted_icon.is_null() {
+            extracted_icon
+        } else {
+            let mut file_info = SHFILEINFOW {
+                hIcon: null_mut(),
+                iIcon: 0,
+                dwAttributes: 0,
+                szDisplayName: [0; 260],
+                szTypeName: [0; 80],
+            };
+            let flags = SHGFI_ICON
+                | if size <= 16 {
+                    SHGFI_SMALLICON
+                } else {
+                    SHGFI_LARGEICON
+                };
+            unsafe {
+                SHGetFileInfoW(
+                    wide_path.as_ptr(),
+                    0,
+                    &mut file_info,
+                    std::mem::size_of::<SHFILEINFOW>() as u32,
+                    flags,
+                );
+            }
+            if file_info.hIcon.is_null() {
+                return Err(format!(
+                    "Failed to extract icon from {} with index {}",
+                    icon_source_path.display(),
+                    icon_index
+                ));
+            }
+            file_info.hIcon
         };
-        let flags = SHGFI_ICON | if size <= 16 { SHGFI_SMALLICON } else { SHGFI_LARGEICON };
-        unsafe {
-            SHGetFileInfoW(
-                wide_path.as_ptr(),
-                0,
-                &mut file_info,
-                std::mem::size_of::<SHFILEINFOW>() as u32,
-                flags,
-            );
-        }
-        if file_info.hIcon.is_null() {
-            return Err(format!(
-                "Failed to extract icon from {} with index {}",
-                icon_source_path.display(),
-                icon_index
-            ));
-        }
-        file_info.hIcon
-    };
 
     let render_result = render_hicon_to_png_bytes(icon_handle, size);
 
@@ -787,7 +847,11 @@ fn extract_icon_png_bytes(icon_source_path: &Path, icon_index: i32, size: i32) -
 }
 
 #[cfg(not(windows))]
-fn extract_icon_png_bytes(_icon_source_path: &Path, _icon_index: i32, _size: i32) -> Result<Vec<u8>, String> {
+fn extract_icon_png_bytes(
+    _icon_source_path: &Path,
+    _icon_index: i32,
+    _size: i32,
+) -> Result<Vec<u8>, String> {
     Err("Package icon extraction is only supported on Windows".to_string())
 }
 
@@ -801,7 +865,9 @@ fn get_or_create_package_icon_data_url(
     let expected_meta = build_cache_meta(source, size);
 
     if should_use_disk_icon_cache() {
-        if let Some(cached_data_url) = read_cached_icon_data_url(cache_dir, &cache_key, &expected_meta)? {
+        if let Some(cached_data_url) =
+            read_cached_icon_data_url(cache_dir, &cache_key, &expected_meta)?
+        {
             return Ok(Some(cached_data_url));
         }
     }
@@ -836,7 +902,8 @@ pub async fn get_installed_package_icons<R: Runtime>(
 
     for package_name in package_names {
         let lookup_name = package_name.to_lowercase();
-        let Some(source) = resolve_package_icon_source(&scoop_path, &lnk_index, &lookup_name) else {
+        let Some(source) = resolve_package_icon_source(&scoop_path, &lnk_index, &lookup_name)
+        else {
             continue;
         };
 
@@ -846,7 +913,11 @@ pub async fn get_installed_package_icons<R: Runtime>(
             }
             Ok(None) => {}
             Err(error) => {
-                log::debug!("Failed to resolve icon for package '{}': {}", lookup_name, error);
+                log::debug!(
+                    "Failed to resolve icon for package '{}': {}",
+                    lookup_name,
+                    error
+                );
             }
         }
     }

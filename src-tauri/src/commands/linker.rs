@@ -327,9 +327,7 @@ async fn remove_junction(junction_path: &Path) -> Result<(), String> {
 
         // Method 4: Final fallback with Rust's fs::remove_dir
         match fs::remove_dir(junction_path) {
-            Ok(()) => {
-                Ok(())
-            }
+            Ok(()) => Ok(()),
             Err(e) => {
                 log::error!("All junction removal methods failed. Last error: {}", e);
                 Err(format!(
@@ -387,17 +385,28 @@ pub async fn get_versioned_packages(
     global: Option<bool>,
 ) -> Result<Vec<String>, String> {
     let _is_global = global.unwrap_or(false);
-    
+
     // Get installed packages and filter by installation type
-    let installed_packages = crate::commands::installed::get_installed_packages_full(app, state).await?;
-    
+    let installed_packages =
+        crate::commands::installed::get_installed_packages_full(app, state).await?;
+
     let versioned_packages: Vec<String> = installed_packages
         .iter()
-        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+        .filter(|pkg| {
+            matches!(
+                pkg.installation_type,
+                crate::models::InstallationType::Versioned
+                    | crate::models::InstallationType::Custom
+            )
+        })
         .map(|pkg| pkg.name.clone())
         .collect();
 
-    log::info!("Found {} versioned/custom packages: {:?}", versioned_packages.len(), versioned_packages);
+    log::info!(
+        "Found {} versioned/custom packages: {:?}",
+        versioned_packages.len(),
+        versioned_packages
+    );
     Ok(versioned_packages)
 }
 
@@ -499,7 +508,7 @@ pub async fn change_package_bucket(
         } else {
             // Find the latest version directory
             let mut candidates = Vec::new();
-            
+
             if let Ok(entries) = fs::read_dir(&package_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
@@ -509,11 +518,11 @@ pub async fn change_package_bucket(
                             if name.to_string_lossy() == "current" {
                                 continue;
                             }
-                            
+
                             // Check if it's a version directory (has install.json or manifest.json)
                             let install_json = path.join("install.json");
                             let manifest_json = path.join("manifest.json");
-                            
+
                             if install_json.exists() || manifest_json.exists() {
                                 if let Ok(metadata) = fs::metadata(&path) {
                                     if let Ok(modified) = metadata.modified() {
@@ -525,18 +534,29 @@ pub async fn change_package_bucket(
                     }
                 }
             }
-            
+
             // Sort by modification time and get the latest
             candidates.sort_by(|a, b| b.0.cmp(&a.0));
-            candidates.into_iter().next().map(|(_, path)| path)
-                .ok_or_else(|| format!("Could not find installation directory for package '{}'", package_name))?
+            candidates
+                .into_iter()
+                .next()
+                .map(|(_, path)| path)
+                .ok_or_else(|| {
+                    format!(
+                        "Could not find installation directory for package '{}'",
+                        package_name
+                    )
+                })?
         }
     };
 
     // Read the install.json file
     let install_json_path = install_dir.join("install.json");
     if !install_json_path.exists() {
-        return Err(format!("install.json not found for package '{}'", package_name));
+        return Err(format!(
+            "install.json not found for package '{}'",
+            package_name
+        ));
     }
 
     let install_json_content = fs::read_to_string(&install_json_path)
@@ -548,7 +568,10 @@ pub async fn change_package_bucket(
 
     // Update the bucket field
     if let Some(obj) = install_data.as_object_mut() {
-        obj.insert("bucket".to_string(), serde_json::Value::String(new_bucket.clone()));
+        obj.insert(
+            "bucket".to_string(),
+            serde_json::Value::String(new_bucket.clone()),
+        );
     } else {
         return Err("install.json is not a valid JSON object".to_string());
     }
@@ -560,5 +583,8 @@ pub async fn change_package_bucket(
     fs::write(&install_json_path, updated_content)
         .map_err(|e| format!("Failed to write updated install.json: {}", e))?;
 
-    Ok(format!("Successfully changed bucket for '{}' to '{}'", package_name, new_bucket))
+    Ok(format!(
+        "Successfully changed bucket for '{}' to '{}'",
+        package_name, new_bucket
+    ))
 }

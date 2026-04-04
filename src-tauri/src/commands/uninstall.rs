@@ -1,7 +1,7 @@
 //! Commands for uninstalling packages and clearing the cache.
 use crate::commands::auto_cleanup::trigger_auto_cleanup;
 use crate::commands::installed::invalidate_installed_cache;
-use crate::commands::scoop::{self, ScoopOp, generate_operation_id};
+use crate::commands::scoop::{self, generate_operation_id, ScoopOp};
 use crate::commands::search::invalidate_manifest_cache;
 use crate::state::AppState;
 use tauri::{AppHandle, State, Window};
@@ -106,9 +106,7 @@ async fn execute_package_operation(
     );
 
     // Use the provided operation_id or generate a new one
-    let operation_id = operation_id.unwrap_or_else(|| {
-        generate_operation_id(op, Some(package))
-    });
+    let operation_id = operation_id.unwrap_or_else(|| generate_operation_id(op, Some(package)));
 
     // Pass the bucket option along; `execute_scoop` will handle whether it's used.
     scoop::execute_scoop(window, op, Some(package), bucket, operation_id, false).await

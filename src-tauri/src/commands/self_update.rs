@@ -6,15 +6,16 @@ use tokio::time::{sleep, Duration};
 /// Updates Pailer via Scoop after closing the current process.
 /// This command is only used when Pailer itself is installed by Scoop.
 #[tauri::command]
-pub async fn update_pailer_self<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<String, String> {
+pub async fn update_pailer_self<R: Runtime>(app: AppHandle<R>) -> Result<String, String> {
     let current_pid = std::process::id();
     log::info!("Starting Pailer self-update process (PID: {})", current_pid);
-    
+
     // Verify this is a Scoop installation
     if !utils::is_scoop_installation() {
-        log::warn!("Self-update rejected: not a Scoop installation (PID: {})", current_pid);
+        log::warn!(
+            "Self-update rejected: not a Scoop installation (PID: {})",
+            current_pid
+        );
         return Err("Pailer is not installed via Scoop. Self-update is only available for Scoop installations.".to_string());
     }
 
@@ -23,19 +24,23 @@ pub async fn update_pailer_self<R: Runtime>(
     let update_script = script_template.replace("{PID}", &current_pid.to_string());
 
     log::info!("Preparing self-update script (PID: {})", current_pid);
-    
+
     // Create a temporary updater script file
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let script_path = std::env::temp_dir().join(format!("pailer_self_update_{}_{}.cmd", std::process::id(), timestamp));
-    
+    let script_path = std::env::temp_dir().join(format!(
+        "pailer_self_update_{}_{}.cmd",
+        std::process::id(),
+        timestamp
+    ));
+
     if let Err(e) = std::fs::write(&script_path, update_script) {
         return Err(format!("Failed to write updater script: {}", e));
     }
-    
+
     log::info!("Self-update script written to: {}", script_path.display());
 
     // Best effort cleanup of old temporary updater scripts to avoid buildup.
@@ -43,7 +48,10 @@ pub async fn update_pailer_self<R: Runtime>(
         for entry in entries.flatten() {
             let path = entry.path();
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if file_name.starts_with("pailer_self_update_") && file_name.ends_with(".cmd") && path != script_path {
+                if file_name.starts_with("pailer_self_update_")
+                    && file_name.ends_with(".cmd")
+                    && path != script_path
+                {
                     let _ = std::fs::remove_file(path);
                 }
             }

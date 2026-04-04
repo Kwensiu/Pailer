@@ -3,14 +3,14 @@ use tauri::{command, AppHandle};
 /// Test command to verify the current update configuration
 #[command]
 pub async fn test_update_config(_app_handle: AppHandle) -> Result<String, String> {
-    let current_dir = std::env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
-    
-    let exe_path = std::env::current_exe()
-        .map_err(|e| format!("Failed to get executable path: {}", e))?;
-    
+    let current_dir =
+        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+
+    let exe_path =
+        std::env::current_exe().map_err(|e| format!("Failed to get executable path: {}", e))?;
+
     let scoop_installed = crate::utils::is_scoop_installation();
-    
+
     let result = format!(
         "Update Configuration Test Results:\n\
         - Current Directory: {}\n\
@@ -22,7 +22,7 @@ pub async fn test_update_config(_app_handle: AppHandle) -> Result<String, String
         scoop_installed,
         std::env::consts::OS
     );
-    
+
     Ok(result)
 }
 
