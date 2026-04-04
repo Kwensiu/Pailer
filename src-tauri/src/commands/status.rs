@@ -92,7 +92,10 @@ fn get_app_status(
     held_packages: &HashSet<String>,
 ) -> Result<Option<AppStatusInfo>, String> {
     // Skip versioned installs entirely - they're intentionally locked to specific versions
-    if matches!(package.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom) {
+    if matches!(
+        package.installation_type,
+        crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom
+    ) {
         return Ok(None);
     }
 

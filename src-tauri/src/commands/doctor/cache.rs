@@ -29,15 +29,22 @@ fn get_local_versions_for_versioned_packages<R: Runtime>(
 ) -> Result<HashMap<String, Vec<String>>, String> {
     let scoop_path = app.state::<AppState>().scoop_path();
     let mut versions_map = HashMap::new();
-    
+
     log::info!("Scanning local versions for versioned packages...");
-    
+
     // Build versions map for versioned installs
     for package in installed_packages {
-        if matches!(package.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom) {
+        if matches!(
+            package.installation_type,
+            crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom
+        ) {
             let package_path = scoop_path.join("apps").join(&package.name);
-            log::info!("Scanning versions for versioned package '{}' at: {:?}", package.name, package_path);
-            
+            log::info!(
+                "Scanning versions for versioned package '{}' at: {:?}",
+                package.name,
+                package_path
+            );
+
             if let Ok(entries) = fs::read_dir(&package_path) {
                 let version_dirs: Vec<String> = entries
                     .flatten()
@@ -47,25 +54,37 @@ fn get_local_versions_for_versioned_packages<R: Runtime>(
                     .filter(|name| name != "current") // Exclude the current symlink
                     .filter(|name| is_valid_version_string(name)) // Only include valid version directories
                     .collect();
-                
-                log::info!("Found {} version directories for '{}': {:?}", version_dirs.len(), package.name, version_dirs);
-                
+
+                log::info!(
+                    "Found {} version directories for '{}': {:?}",
+                    version_dirs.len(),
+                    package.name,
+                    version_dirs
+                );
+
                 if !version_dirs.is_empty() {
                     versions_map.insert(package.name.clone(), version_dirs);
                 }
             } else {
-                log::warn!("Failed to read directory for package '{}': {:?}", package.name, package_path);
+                log::warn!(
+                    "Failed to read directory for package '{}': {:?}",
+                    package.name,
+                    package_path
+                );
             }
         }
     }
-    
-    log::info!("Built local versions map for {} packages", versions_map.len());
+
+    log::info!(
+        "Built local versions map for {} packages",
+        versions_map.len()
+    );
     Ok(versions_map)
 }
 
 /// Checks if a string represents a valid version format.
 fn is_valid_version_string(version: &str) -> bool {
-    !version.is_empty() 
+    !version.is_empty()
         && version.chars().any(|c| c.is_ascii_digit())
         && !version.starts_with('.') // Avoid directories starting with dot
         && version.len() <= 50 // Reasonable length limit
@@ -126,61 +145,80 @@ pub async fn list_cache_contents<R: Runtime>(
 
     // Get all installed packages to identify versioned installs
     let installed_packages = get_installed_packages_full(app.clone(), state.clone()).await?;
-    
+
     // Add logging to observe installation type identification process
     log::info!("Total installed packages: {}", installed_packages.len());
-    
+
     // Installed packages statistics
     let mut standard_count = 0;
     let mut versioned_count = 0;
     let mut multi_version_count = 0;
     let mut bucket_stats = std::collections::HashMap::new();
-    
+
     for pkg in &installed_packages {
         match pkg.installation_type {
             InstallationType::Standard => standard_count += 1,
             InstallationType::Versioned => versioned_count += 1,
             InstallationType::Custom => versioned_count += 1,
         }
-        
+
         if pkg.has_multiple_versions {
             multi_version_count += 1;
         }
-        
+
         *bucket_stats.entry(pkg.source.clone()).or_insert(0) += 1;
     }
-    
-    log::info!("Installation type distribution: {} standard, {} versioned", standard_count, versioned_count);
+
+    log::info!(
+        "Installation type distribution: {} standard, {} versioned",
+        standard_count,
+        versioned_count
+    );
     log::info!("Packages with multiple versions: {}", multi_version_count);
-    
+
     let mut bucket_vec: Vec<_> = bucket_stats.iter().collect();
     bucket_vec.sort_by(|a, b| b.1.cmp(a.1));
     for (bucket, count) in bucket_vec.iter().take(5) {
         log::info!("Bucket '{}': {} packages", bucket, count);
     }
-    
-    let versioned_packages: Vec<_> = installed_packages.iter()
-        .filter(|pkg| matches!(pkg.installation_type, InstallationType::Versioned | InstallationType::Custom))
+
+    let versioned_packages: Vec<_> = installed_packages
+        .iter()
+        .filter(|pkg| {
+            matches!(
+                pkg.installation_type,
+                InstallationType::Versioned | InstallationType::Custom
+            )
+        })
         .collect();
-    
+
     if !versioned_packages.is_empty() {
         log::info!("Versioned installations: {}", versioned_packages.len());
         for pkg in &versioned_packages {
             log::info!("  - '{}' from bucket '{}'", pkg.name, pkg.source);
         }
     }
-    
+
     // Use explicit installation type judgment logic
     // Versioned installs (from versions bucket) and custom installs need cache protection
     // Regular installs with multiple version directories don't protect cache
     let versioned_packages: HashSet<String> = installed_packages
         .iter()
-        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+        .filter(|pkg| {
+            matches!(
+                pkg.installation_type,
+                crate::models::InstallationType::Versioned
+                    | crate::models::InstallationType::Custom
+            )
+        })
         .map(|pkg| pkg.name.clone())
         .collect();
-    
-    log::info!("Identified {} packages with versioned/custom installation for cache protection: {:?}", 
-              versioned_packages.len(), versioned_packages);
+
+    log::info!(
+        "Identified {} packages with versioned/custom installation for cache protection: {:?}",
+        versioned_packages.len(),
+        versioned_packages
+    );
 
     let read_dir =
         fs::read_dir(&cache_path).map_err(|e| format!("Failed to read cache directory: {}", e))?;
@@ -196,23 +234,37 @@ pub async fn list_cache_contents<R: Runtime>(
     // If preserve_versioned is enabled, filter out cache entries that match local versions
     if preserve_versioned {
         log::info!("Applying preserve_versioned filter...");
-        let local_versions = get_local_versions_for_versioned_packages(app.clone(), &installed_packages)?;
-        
+        let local_versions =
+            get_local_versions_for_versioned_packages(app.clone(), &installed_packages)?;
+
         let original_count = entries.len();
         entries.retain(|entry| {
             if let Some(local_version_list) = local_versions.get(&entry.name) {
                 let should_keep = !local_version_list.contains(&entry.version);
-                log::debug!("Cache entry '{}@{}' - local versions: {:?}, should keep: {}", 
-                          entry.name, entry.version, local_version_list, should_keep);
+                log::debug!(
+                    "Cache entry '{}@{}' - local versions: {:?}, should keep: {}",
+                    entry.name,
+                    entry.version,
+                    local_version_list,
+                    should_keep
+                );
                 should_keep
             } else {
-                log::debug!("Cache entry '{}@{}' - non-versioned install, keeping", entry.name, entry.version);
+                log::debug!(
+                    "Cache entry '{}@{}' - non-versioned install, keeping",
+                    entry.name,
+                    entry.version
+                );
                 true
             }
         });
-        
-        log::info!("Preserve_versioned filter: {} -> {} entries (removed {})", 
-                  original_count, entries.len(), original_count - entries.len());
+
+        log::info!(
+            "Preserve_versioned filter: {} -> {} entries (removed {})",
+            original_count,
+            entries.len(),
+            original_count - entries.len()
+        );
     }
 
     log::info!(
@@ -254,7 +306,13 @@ pub async fn clear_cache<R: Runtime>(
     let installed_packages = get_installed_packages_full(app.clone(), state).await?;
     let versioned_packages: HashSet<String> = installed_packages
         .iter()
-        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+        .filter(|pkg| {
+            matches!(
+                pkg.installation_type,
+                crate::models::InstallationType::Versioned
+                    | crate::models::InstallationType::Custom
+            )
+        })
         .map(|pkg| pkg.name.clone())
         .collect();
 
@@ -265,16 +323,19 @@ pub async fn clear_cache<R: Runtime>(
             .filter(|file_name| !cache_path.join(file_name).is_file())
             .cloned()
             .collect();
-        
+
         if !invalid_files.is_empty() {
             log::warn!("Some cache files not found: {:?}", invalid_files);
         }
     }
 
     match files {
-        Some(files_to_delete) if !files_to_delete.is_empty() => {
-            clear_specific_files_safe(&cache_path, &files_to_delete, &versioned_packages, preserve_versioned)
-        }
+        Some(files_to_delete) if !files_to_delete.is_empty() => clear_specific_files_safe(
+            &cache_path,
+            &files_to_delete,
+            &versioned_packages,
+            preserve_versioned,
+        ),
         _ => clear_safe_cache(&cache_path, &versioned_packages, preserve_versioned),
     }
 }
@@ -330,11 +391,16 @@ fn clear_specific_files_safe(
 
 /// Removes all non-versioned files from the cache directory.
 /// Returns (success_count, failure_count)
-fn clear_safe_cache(cache_path: &Path, versioned_packages: &HashSet<String>, preserve_versioned: bool) -> Result<(usize, usize), String> {
+fn clear_safe_cache(
+    cache_path: &Path,
+    versioned_packages: &HashSet<String>,
+    preserve_versioned: bool,
+) -> Result<(usize, usize), String> {
     log::info!("Clearing cache directory (avoiding versioned installs).");
 
-    let dir_entries = fs::read_dir(cache_path).map_err(|e| format!("Failed to read cache directory: {}", e))?;
-    
+    let dir_entries =
+        fs::read_dir(cache_path).map_err(|e| format!("Failed to read cache directory: {}", e))?;
+
     let mut success_count = 0;
     let mut failure_count = 0;
 
@@ -367,7 +433,10 @@ fn clear_safe_cache(cache_path: &Path, versioned_packages: &HashSet<String>, pre
                     }
                 }
             } else {
-                log::debug!("Skipping cache file for versioned install: {:?}", path.file_name());
+                log::debug!(
+                    "Skipping cache file for versioned install: {:?}",
+                    path.file_name()
+                );
                 success_count += 1; // Count skipped files as success
             }
         }

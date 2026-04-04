@@ -1,7 +1,7 @@
 //! Command for fetching detailed information about a Scoop package.
+use crate::models::parse_notes_field;
 use crate::state::AppState;
 use crate::utils;
-use crate::models::parse_notes_field;
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -148,7 +148,7 @@ pub fn get_package_info(
         .map_err(|e| format!("Failed to parse JSON for {}: {}", package_name, e))?;
 
     let (mut details, notes) = parse_manifest_details(&json_value);
-    
+
     // Remove "Version" entry since we'll add more specific version info
     details.retain(|(key, _)| key != "Version");
 
@@ -167,7 +167,10 @@ pub fn get_package_info(
         if let Some(installed_version) = get_installed_version(&scoop_dir, &package_name) {
             // Get latest version from bucket manifest
             if let Some(latest_version) = json_value.get("version").and_then(|v| v.as_str()) {
-                details.push(("Installed Version".to_string(), installed_version.to_string()));
+                details.push((
+                    "Installed Version".to_string(),
+                    installed_version.to_string(),
+                ));
                 details.push(("Latest Version".to_string(), latest_version.to_string()));
             } else {
                 details.push(("Version".to_string(), installed_version.to_string()));
@@ -228,7 +231,7 @@ fn get_installed_package_bucket(scoop_dir: &std::path::Path, package_name: &str)
             }
         }
     }
-    
+
     None
 }
 

@@ -1,6 +1,6 @@
 use crate::commands::powershell;
 use serde::Serialize;
-use tauri::{Emitter, Window, AppHandle};
+use tauri::{AppHandle, Emitter, Window};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 /// Generate operation name for VirusTotal scanning
@@ -35,11 +35,14 @@ pub async fn scan_package(
     bucket: String,
 ) -> Result<(), String> {
     // Generate consistent operation ID at the beginning
-    let operation_id = format!("virustotal-{}-{}", package_name, 
+    let operation_id = format!(
+        "virustotal-{}-{}",
+        package_name,
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_millis());
+            .as_millis()
+    );
 
     // The `bucket` parameter may be an empty string or the literal "None"
     // if the user does not specify a bucket.
@@ -132,11 +135,11 @@ pub async fn scan_package(
                     .unwrap()
                     .as_millis() as u64,
             }
-        },
+        }
         2 => {
             // Detections found - this should be marked as failure for user awareness
             CommandResult {
-                success: false,  // Changed: threats found should be marked as failed
+                success: false, // Changed: threats found should be marked as failed
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: Some(1), // 1 error = detections found
@@ -146,11 +149,11 @@ pub async fn scan_package(
                     .unwrap()
                     .as_millis() as u64,
             }
-        },
+        }
         16 => {
             // API key missing - configuration error
             CommandResult {
-                success: false,  // Changed: API key missing is a failure
+                success: false,                     // Changed: API key missing is a failure
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: Some(1), // 1 error = API key missing
@@ -160,7 +163,7 @@ pub async fn scan_package(
                     .unwrap()
                     .as_millis() as u64,
             }
-        },
+        }
         _ => {
             // Other errors - command execution failed
             CommandResult {
@@ -174,7 +177,7 @@ pub async fn scan_package(
                     .unwrap()
                     .as_millis() as u64,
             }
-        },
+        }
     };
 
     log::info!("VirusTotal scan finished: {:?}", result);

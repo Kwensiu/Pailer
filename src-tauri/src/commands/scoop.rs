@@ -1,5 +1,5 @@
-use lazy_static::lazy_static;
 use super::powershell::{self, EVENT_CANCEL, EVENT_FINISHED, EVENT_OUTPUT};
+use lazy_static::lazy_static;
 use tauri::Window;
 use tokio::sync::Mutex;
 
@@ -39,7 +39,7 @@ pub fn generate_operation_id(op: ScoopOp, package_name: Option<&str>) -> String 
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     match (op, package_name) {
         (ScoopOp::Install, Some(pkg)) => format!("install-{}-{}", pkg, timestamp),
         (ScoopOp::Uninstall, Some(pkg)) => format!("uninstall-{}-{}", pkg, timestamp),
@@ -166,14 +166,17 @@ pub async fn execute_scoop(
         match last_update_backup {
             Some(ref backup) => {
                 let escaped_backup = backup.replace('\'', "''");
-                let restore_cmd = format!("scoop config LAST_UPDATE '{}' | Out-Null", escaped_backup);
+                let restore_cmd =
+                    format!("scoop config LAST_UPDATE '{}' | Out-Null", escaped_backup);
                 if let Err(e) = powershell::run_simple_command(&restore_cmd).await {
                     log::error!("[{}] Failed to restore LAST_UPDATE: {}", operation_id, e);
                 }
             }
             None => {
                 // Key did not exist before bypass — remove it to leave no trace.
-                if let Err(e) = powershell::run_simple_command("scoop config rm LAST_UPDATE | Out-Null").await {
+                if let Err(e) =
+                    powershell::run_simple_command("scoop config rm LAST_UPDATE | Out-Null").await
+                {
                     log::error!("[{}] Failed to remove LAST_UPDATE: {}", operation_id, e);
                 }
             }

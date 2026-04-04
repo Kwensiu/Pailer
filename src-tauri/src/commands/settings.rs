@@ -2,7 +2,7 @@
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Runtime, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_store::{Store, StoreExt};
 
 use crate::commands::crypto;
@@ -27,7 +27,11 @@ fn migrate_from_legacy_store<R: Runtime>(app: &AppHandle<R>) -> bool {
         return false;
     }
 
-    log::info!("Migrating store from {} to {}", LEGACY_STORE_PATH, STORE_PATH);
+    log::info!(
+        "Migrating store from {} to {}",
+        LEGACY_STORE_PATH,
+        STORE_PATH
+    );
 
     // Read legacy store content
     if let Ok(content) = fs::read_to_string(&legacy_path) {
@@ -35,7 +39,11 @@ fn migrate_from_legacy_store<R: Runtime>(app: &AppHandle<R>) -> bool {
         if fs::write(&new_path, &content).is_ok() {
             // Optionally remove legacy file after successful migration
             // Keep it for now as a backup
-            log::info!("Successfully migrated {} to {}", LEGACY_STORE_PATH, STORE_PATH);
+            log::info!(
+                "Successfully migrated {} to {}",
+                LEGACY_STORE_PATH,
+                STORE_PATH
+            );
             return true;
         }
     }
@@ -52,7 +60,7 @@ where
 {
     // Attempt migration from legacy store if needed
     migrate_from_legacy_store(&app);
-    
+
     let store = app
         .store(PathBuf::from(STORE_PATH))
         .map_err(|e| e.to_string())?;
@@ -68,7 +76,7 @@ where
 {
     // Attempt migration from legacy store if needed
     migrate_from_legacy_store(&app);
-    
+
     let store = app
         .store(PathBuf::from(STORE_PATH))
         .map_err(|e| e.to_string())?;
@@ -81,7 +89,12 @@ where
 fn get_scoop_config_path() -> Result<PathBuf, String> {
     std::env::var("USERPROFILE")
         .map_err(|_| "Could not get USERPROFILE environment variable".to_string())
-        .map(|profile| PathBuf::from(profile).join(".config").join("scoop").join("config.json"))
+        .map(|profile| {
+            PathBuf::from(profile)
+                .join(".config")
+                .join("scoop")
+                .join("config.json")
+        })
 }
 
 /// Reads the Scoop configuration file and returns its contents as a JSON map.
@@ -122,14 +135,16 @@ pub fn get_scoop_path<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, S
                 return scoop_path.as_str().map(String::from);
             }
         }
-        
+
         None
     })
 }
 
 /// Gets whether the scoop path was manually configured
 #[tauri::command]
-pub fn get_scoop_path_manually_configured<R: Runtime>(app: AppHandle<R>) -> Result<Option<bool>, String> {
+pub fn get_scoop_path_manually_configured<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<Option<bool>, String> {
     with_store_get(app, |store| {
         // Try to get from settings.scoopPathManuallyConfigured first
         if let Some(settings) = store.get("settings") {
@@ -137,7 +152,7 @@ pub fn get_scoop_path_manually_configured<R: Runtime>(app: AppHandle<R>) -> Resu
                 return manually_configured.as_bool();
             }
         }
-        
+
         None
     })
 }
@@ -151,11 +166,16 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
         if let Some(settings) = store.get("settings") {
             // Check if settings is an object type
             if settings.is_object() {
-                let mut settings_obj = settings.as_object().unwrap_or(&mut serde_json::Map::new()).clone();
+                let mut settings_obj = settings
+                    .as_object()
+                    .unwrap_or(&mut serde_json::Map::new())
+                    .clone();
                 settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
                 store.set("settings", serde_json::Value::Object(settings_obj));
             } else {
-                log::warn!("Settings field exists but is not an object type, creating new settings object");
+                log::warn!(
+                    "Settings field exists but is not an object type, creating new settings object"
+                );
                 let mut settings_obj = serde_json::Map::new();
                 settings_obj.insert("scoopPath".to_string(), serde_json::json!(path_clone));
                 store.set("settings", serde_json::Value::Object(settings_obj));
@@ -167,16 +187,16 @@ pub fn set_scoop_path<R: Runtime>(app: AppHandle<R>, path: String) -> Result<(),
             store.set("settings", serde_json::Value::Object(settings_obj));
         }
     })?;
-    
+
     // Also update the in-memory app state if it exists
     if let Some(state) = app.try_state::<crate::state::AppState>() {
         state.set_scoop_path(std::path::PathBuf::from(path.clone()));
         state.set_scoop_configured(true); // Mark as configured when path is set
     }
-    
+
     // Clear the Scoop root cache to ensure fresh path detection
     crate::utils::clear_scoop_root_cache();
-    
+
     Ok(())
 }
 
@@ -193,9 +213,9 @@ pub struct ValidationResult {
 #[tauri::command]
 pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String> {
     use std::path::Path;
-    
+
     let path = Path::new(&path);
-    
+
     // Check if path exists and is a directory
     if !path.exists() {
         return Ok(ValidationResult {
@@ -203,19 +223,19 @@ pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String
             message: "scoopConfigWizard.validationPathNotExist".to_string(),
         });
     }
-    
+
     if !path.is_dir() {
         return Ok(ValidationResult {
             valid: false,
             message: "scoopConfigWizard.validationPathNotDirectory".to_string(),
         });
     }
-    
+
     // Check for required Scoop directories
     let apps_dir = path.join("apps");
     let buckets_dir = path.join("buckets");
     let cache_dir = path.join("cache");
-    
+
     if !apps_dir.exists() || !buckets_dir.exists() || !cache_dir.exists() {
         let missing = vec![
             if !apps_dir.exists() { "apps" } else { "" },
@@ -223,20 +243,23 @@ pub fn validate_scoop_directory(path: String) -> Result<ValidationResult, String
             if !cache_dir.exists() { "cache" } else { "" },
         ];
         let missing: Vec<&str> = missing.into_iter().filter(|s| !s.is_empty()).collect();
-        
+
         return Ok(ValidationResult {
             valid: false,
-            message: format!("scoopConfigWizard.validationMissingDirectories|{}", missing.join(", ")),
+            message: format!(
+                "scoopConfigWizard.validationMissingDirectories|{}",
+                missing.join(", ")
+            ),
         });
     }
-    
+
     if !apps_dir.is_dir() || !buckets_dir.is_dir() || !cache_dir.is_dir() {
         return Ok(ValidationResult {
             valid: false,
             message: "scoopConfigWizard.validationPathsNotDirectories".to_string(),
         });
     }
-    
+
     Ok(ValidationResult {
         valid: true,
         message: "scoopConfigWizard.validationSuccess".to_string(),
@@ -278,7 +301,11 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
                         }
                     }
                     Err(e) => {
-                        log::error!("Failed to validate SCOOP environment variable path '{}': {}", scoop_env, e);
+                        log::error!(
+                            "Failed to validate SCOOP environment variable path '{}': {}",
+                            scoop_env,
+                            e
+                        );
                     }
                 }
             } else {
@@ -319,7 +346,11 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
                             }
                         }
                         Err(e) => {
-                            log::error!("Failed to validate Scoop config root_path '{}': {}", path_str, e);
+                            log::error!(
+                                "Failed to validate Scoop config root_path '{}': {}",
+                                path_str,
+                                e
+                            );
                         }
                     }
                 }
@@ -335,8 +366,9 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
     log::debug!("Building candidate path list...");
     let candidates = vec![
         // 1. User profile scoop installation
-        env::var("USERPROFILE").ok().map(|p| PathBuf::from(p).join("scoop")),
-
+        env::var("USERPROFILE")
+            .ok()
+            .map(|p| PathBuf::from(p).join("scoop")),
         // 2. Multi-drive common locations
         Some(PathBuf::from("C:\\scoop")),
         Some(PathBuf::from("D:\\scoop")),
@@ -346,7 +378,10 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
 
     // Filter out None values and get valid PathBufs
     let candidates: Vec<PathBuf> = candidates.into_iter().flatten().collect();
-    log::info!("Checking {} candidate paths for Scoop installation", candidates.len());
+    log::info!(
+        "Checking {} candidate paths for Scoop installation",
+        candidates.len()
+    );
 
     // Try each candidate path and validate it
     for (index, candidate) in candidates.iter().enumerate() {
@@ -360,11 +395,17 @@ pub fn auto_detect_scoop_path() -> Result<String, String> {
         }
 
         if !candidate.is_dir() {
-            log::debug!("Path '{}' exists but is not a directory, skipping", path_str);
+            log::debug!(
+                "Path '{}' exists but is not a directory, skipping",
+                path_str
+            );
             continue;
         }
 
-        log::debug!("Path '{}' exists and is a directory, validating Scoop installation...", path_str);
+        log::debug!(
+            "Path '{}' exists and is a directory, validating Scoop installation...",
+            path_str
+        );
 
         // Validate if this path is a valid Scoop installation
         match validate_scoop_directory(path_str.clone()) {
@@ -395,19 +436,20 @@ pub fn path_exists(path: String) -> Result<bool, String> {
 
 /// Gets the Scoop configuration from the default global config location
 #[tauri::command]
-pub fn get_default_scoop_config() -> Result<Option<serde_json::Map<String, serde_json::Value>>, String> {
+pub fn get_default_scoop_config(
+) -> Result<Option<serde_json::Map<String, serde_json::Value>>, String> {
     let config_path = get_scoop_config_path()?;
-    
+
     if !config_path.exists() {
         return Ok(None);
     }
-    
+
     let content = fs::read_to_string(&config_path)
         .map_err(|e| format!("Failed to read Scoop config file: {}", e))?;
-    
+
     let config: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse Scoop config: {}", e))?;
-    
+
     Ok(Some(config))
 }
 
@@ -468,7 +510,11 @@ pub fn set_config_value(
             let app_handle = app.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = crate::tray::refresh_tray_menu(&app_handle).await {
-                    log::error!("Failed to refresh tray menu after setting change ({}): {}", key, e);
+                    log::error!(
+                        "Failed to refresh tray menu after setting change ({}): {}",
+                        key,
+                        e
+                    );
                 }
             });
         }
@@ -493,7 +539,10 @@ pub fn get_scoop_config() -> Result<Option<serde_json::Map<String, serde_json::V
     // Ensure it's an object and convert to Map
     match config {
         serde_json::Value::Object(map) => Ok(Some(map)),
-        _ => Err(format!("Scoop config at {:?} is not a valid JSON object", path)),
+        _ => Err(format!(
+            "Scoop config at {:?} is not a valid JSON object",
+            path
+        )),
     }
 }
 
@@ -541,7 +590,10 @@ pub fn set_virustotal_api_key(key: String) -> Result<(), String> {
     } else {
         // Encrypt the API key before storing
         let encrypted_key = crypto::encrypt_api_key(&key)?;
-        config.insert("virustotal_api_key".to_string(), serde_json::json!(encrypted_key));
+        config.insert(
+            "virustotal_api_key".to_string(),
+            serde_json::json!(encrypted_key),
+        );
     }
     write_scoop_config(&config)
 }
@@ -603,7 +655,8 @@ pub async fn run_scoop_command(
 #[tauri::command]
 pub fn get_scoop_config_directory() -> Result<String, String> {
     let path = get_scoop_config_path()?;
-    let dir_path = path.parent()
+    let dir_path = path
+        .parent()
         .ok_or("Could not get parent directory of config file".to_string())?;
     Ok(dir_path.to_string_lossy().to_string())
 }
@@ -641,7 +694,9 @@ pub async fn run_powershell_command(
 pub fn set_powershell_exe<R: Runtime>(_app: AppHandle<R>, exe: String) -> Result<(), String> {
     // Validate executable
     if !["auto", "pwsh", "powershell"].contains(&exe.as_str()) {
-        return Err("Invalid PowerShell executable. Must be 'auto', 'pwsh', or 'powershell'.".to_string());
+        return Err(
+            "Invalid PowerShell executable. Must be 'auto', 'pwsh', or 'powershell'.".to_string(),
+        );
     }
 
     // Check availability for pwsh

@@ -45,7 +45,10 @@ fn check_package_for_update(
 
     // Compare versions and return an UpdatablePackage if a new version is found.
     // Use the latest local version for comparison if available, otherwise use the current version
-    let version_to_compare = package.local_latest_version.as_ref().unwrap_or(&package.version);
+    let version_to_compare = package
+        .local_latest_version
+        .as_ref()
+        .unwrap_or(&package.version);
 
     if version_to_compare != &manifest.version {
         Ok(Some(UpdatablePackage {

@@ -1,6 +1,6 @@
 //! Module for encryption and decryption functions, using Windows DPAPI for secure key storage.
 
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 
 /// Encrypt data using Windows DPAPI.
 /// Encrypted data can only be decrypted under the same user account.

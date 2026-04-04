@@ -22,13 +22,16 @@ pub fn is_auto_start_enabled() -> Result<bool, String> {
         match startup_key.get_value::<String, _>(REG_KEY_NAME) {
             Ok(current_value) => {
                 // Check if current executable path matches registered one
-                let current_exe = env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
-                let current_exe_canonical = current_exe.canonicalize().map_err(|e| format!("Failed to canonicalize current exe: {}", e))?;
-                
+                let current_exe =
+                    env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
+                let current_exe_canonical = current_exe
+                    .canonicalize()
+                    .map_err(|e| format!("Failed to canonicalize current exe: {}", e))?;
+
                 // Parse registry value as path, remove quotes if present
                 let registry_path_str = current_value.trim_matches('"');
                 let registry_path = std::path::Path::new(registry_path_str);
-                
+
                 // Try to canonicalize registry path, if fails, compare directly as fallback
                 match registry_path.canonicalize() {
                     Ok(registry_canonical) => Ok(current_exe_canonical == registry_canonical),
@@ -72,22 +75,39 @@ pub fn set_auto_start_enabled(enabled: bool) -> Result<(), String> {
                 Ok(_) => log::info!("Removed auto-start registry entry: {}", REG_KEY_NAME),
                 Err(e) => {
                     if e.kind() != std::io::ErrorKind::NotFound {
-                        log::warn!("Failed to remove auto-start registry entry {}: {}", REG_KEY_NAME, e);
+                        log::warn!(
+                            "Failed to remove auto-start registry entry {}: {}",
+                            REG_KEY_NAME,
+                            e
+                        );
                         return Err(e.to_string());
                     } else {
-                        log::info!("Auto-start registry entry {} was not found (already removed)", REG_KEY_NAME);
+                        log::info!(
+                            "Auto-start registry entry {} was not found (already removed)",
+                            REG_KEY_NAME
+                        );
                     }
                 }
             }
-            
+
             // Also remove silent startup entry for complete cleanup
             match startup_key.delete_value(SILENT_STARTUP_KEY) {
-                Ok(_) => log::info!("Removed silent startup registry entry: {}", SILENT_STARTUP_KEY),
+                Ok(_) => log::info!(
+                    "Removed silent startup registry entry: {}",
+                    SILENT_STARTUP_KEY
+                ),
                 Err(e) => {
                     if e.kind() != std::io::ErrorKind::NotFound {
-                        log::warn!("Failed to remove silent startup registry entry {}: {}", SILENT_STARTUP_KEY, e);
+                        log::warn!(
+                            "Failed to remove silent startup registry entry {}: {}",
+                            SILENT_STARTUP_KEY,
+                            e
+                        );
                     } else {
-                        log::info!("Silent startup registry entry {} was not found (already removed)", SILENT_STARTUP_KEY);
+                        log::info!(
+                            "Silent startup registry entry {} was not found (already removed)",
+                            SILENT_STARTUP_KEY
+                        );
                     }
                 }
             }
@@ -116,23 +136,40 @@ pub fn cleanup_startup_entries() -> Result<(), String> {
             Ok(_) => log::info!("Removed auto-start registry entry: {}", REG_KEY_NAME),
             Err(e) => {
                 if e.kind() != std::io::ErrorKind::NotFound {
-                    log::warn!("Failed to remove auto-start registry entry {}: {}", REG_KEY_NAME, e);
+                    log::warn!(
+                        "Failed to remove auto-start registry entry {}: {}",
+                        REG_KEY_NAME,
+                        e
+                    );
                     return Err(e.to_string());
                 } else {
-                    log::info!("Auto-start registry entry {} was not found (already cleaned)", REG_KEY_NAME);
+                    log::info!(
+                        "Auto-start registry entry {} was not found (already cleaned)",
+                        REG_KEY_NAME
+                    );
                 }
             }
         }
 
         // Remove silent startup registry entry
         match startup_key.delete_value(SILENT_STARTUP_KEY) {
-            Ok(_) => log::info!("Removed silent startup registry entry: {}", SILENT_STARTUP_KEY),
+            Ok(_) => log::info!(
+                "Removed silent startup registry entry: {}",
+                SILENT_STARTUP_KEY
+            ),
             Err(e) => {
                 if e.kind() != std::io::ErrorKind::NotFound {
-                    log::warn!("Failed to remove silent startup registry entry {}: {}", SILENT_STARTUP_KEY, e);
+                    log::warn!(
+                        "Failed to remove silent startup registry entry {}: {}",
+                        SILENT_STARTUP_KEY,
+                        e
+                    );
                     return Err(e.to_string());
                 } else {
-                    log::info!("Silent startup registry entry {} was not found (already cleaned)", SILENT_STARTUP_KEY);
+                    log::info!(
+                        "Silent startup registry entry {} was not found (already cleaned)",
+                        SILENT_STARTUP_KEY
+                    );
                 }
             }
         }

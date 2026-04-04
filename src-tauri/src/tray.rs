@@ -1,7 +1,7 @@
 use crate::commands::settings;
+use crate::i18n::{DEFAULT_LANGUAGE, SUPPORTED_LOCALES};
 use crate::state::AppState;
 use crate::utils::{get_scoop_app_shortcuts_with_path, launch_scoop_app, ScoopAppShortcut};
-use crate::i18n::{SUPPORTED_LOCALES, DEFAULT_LANGUAGE};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -99,11 +99,8 @@ pub fn setup_system_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 fn fetch_current_language(app: &tauri::AppHandle<tauri::Wry>) -> String {
     // First try to get the language from settings
-    if let Some(Some(lang_value)) = settings::get_config_value(
-        app.clone(),
-        "settings.language".to_string(),
-    )
-    .ok()
+    if let Some(Some(lang_value)) =
+        settings::get_config_value(app.clone(), "settings.language".to_string()).ok()
     {
         if let Some(lang_str) = lang_value.as_str() {
             if !lang_str.is_empty() {
@@ -124,7 +121,7 @@ fn get_system_language() -> String {
     #[cfg(target_os = "windows")]
     {
         use windows_sys::Win32::Globalization::GetUserDefaultLocaleName;
-        
+
         let mut buffer = [0u16; 128];
         unsafe {
             let len = GetUserDefaultLocaleName(buffer.as_mut_ptr(), buffer.len() as i32);
@@ -144,7 +141,7 @@ fn get_system_language() -> String {
             }
         }
     }
-    
+
     // For non-Windows or if detection fails, try environment variables
     if let Ok(lang) = std::env::var("LANG") {
         let extracted_lang = lang.split('_').next().unwrap_or(DEFAULT_LANGUAGE);
@@ -152,7 +149,7 @@ fn get_system_language() -> String {
             return extracted_lang.to_string();
         }
     }
-    
+
     // Default fallback
     DEFAULT_LANGUAGE.to_string()
 }
@@ -188,19 +185,24 @@ fn build_tray_menu_with_language(
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
     // Extract strings with defaults
-    let show_text = menu_strings.get("show")
+    let show_text = menu_strings
+        .get("show")
         .and_then(|v| v.as_str())
         .unwrap_or("Show Pailer");
-    let hide_text = menu_strings.get("hide")
+    let hide_text = menu_strings
+        .get("hide")
         .and_then(|v| v.as_str())
         .unwrap_or("Hide Pailer");
-    let refresh_apps_text = menu_strings.get("refreshApps")
+    let refresh_apps_text = menu_strings
+        .get("refreshApps")
         .and_then(|v| v.as_str())
         .unwrap_or("Refresh Apps");
-    let scoop_apps_text = menu_strings.get("scoopApps")
+    let scoop_apps_text = menu_strings
+        .get("scoopApps")
         .and_then(|v| v.as_str())
         .unwrap_or("Scoop Apps");
-    let quit_text = menu_strings.get("quit")
+    let quit_text = menu_strings
+        .get("quit")
         .and_then(|v| v.as_str())
         .unwrap_or("Quit");
 
@@ -253,7 +255,7 @@ fn build_tray_menu_with_language(
                 // Filter shortcuts based on configuration
                 // If no apps configured, show none (user can add them in settings)
                 let filtered_shortcuts: Vec<_> = if configured_app_names.is_empty() {
-                    Vec::new()  // Show no apps by default
+                    Vec::new() // Show no apps by default
                 } else {
                     shortcuts
                         .into_iter()
@@ -267,9 +269,10 @@ fn build_tray_menu_with_language(
                     menu_items.push(Box::new(separator));
 
                     // Add "Scoop Apps" label
-                    let apps_label = tauri::menu::MenuItemBuilder::with_id("apps_label", scoop_apps_text)
-                        .enabled(false)
-                        .build(app)?;
+                    let apps_label =
+                        tauri::menu::MenuItemBuilder::with_id("apps_label", scoop_apps_text)
+                            .enabled(false)
+                            .build(app)?;
                     menu_items.push(Box::new(apps_label));
 
                     // Build new shortcuts map first, then replace atomically
@@ -327,7 +330,10 @@ pub async fn refresh_tray_menu(app: &tauri::AppHandle<tauri::Wry>) -> Result<(),
 
     // Check if a refresh is already in progress
     {
-        let mut in_progress = refresh_in_progress.inner().lock().map_err(|e| format!("Failed to lock refresh flag: {}", e))?;
+        let mut in_progress = refresh_in_progress
+            .inner()
+            .lock()
+            .map_err(|e| format!("Failed to lock refresh flag: {}", e))?;
         if *in_progress {
             log::info!("Tray refresh already in progress, skipping...");
             return Ok(());
@@ -395,7 +401,10 @@ pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
         Err(e) => {
             // Check for specific error types more reliably
             if e.contains("cache miss") || e.contains("No cached strings") {
-                log::debug!("Using default tray strings (cache miss for language: {})", language);
+                log::debug!(
+                    "Using default tray strings (cache miss for language: {})",
+                    language
+                );
             } else {
                 log::warn!("Failed to get notification strings: {}, using defaults", e);
             }
@@ -427,7 +436,10 @@ pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
         .message(message)
         .title(title)
         .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::OkCancelCustom(close_button.to_string(), keep_button.to_string()))
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            close_button.to_string(),
+            keep_button.to_string(),
+        ))
         .blocking_show();
 
     // If user chose to close and disable tray, disable the setting and exit
@@ -450,30 +462,33 @@ pub async fn refresh_tray_apps_menu(app: tauri::AppHandle<tauri::Wry>) -> Result
 }
 
 #[tauri::command]
-pub async fn refresh_tray_with_language(app: tauri::AppHandle<tauri::Wry>, language: String) -> Result<(), String> {
-    let shortcuts_map = app.state::<Arc<Mutex<HashMap<String, ScoopAppShortcut>>>>().inner().clone();
+pub async fn refresh_tray_with_language(
+    app: tauri::AppHandle<tauri::Wry>,
+    language: String,
+) -> Result<(), String> {
+    let shortcuts_map = app
+        .state::<Arc<Mutex<HashMap<String, ScoopAppShortcut>>>>()
+        .inner()
+        .clone();
     let new_menu = build_tray_menu_with_language(&app, shortcuts_map, &language)
         .map_err(|e| format!("Failed to build new menu: {}", e))?;
-    
+
     if let Some(tray) = app.tray_by_id("main") {
         tray.set_menu(Some(new_menu))
             .map_err(|e| format!("Failed to set new menu: {}", e))?;
     }
-    
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_current_language(app: tauri::AppHandle<tauri::Wry>) -> Result<String, String> {
-    let language = settings::get_config_value(
-        app,
-        "settings.language".to_string(),
-    )
-    .ok()
-    .flatten()
-    .and_then(|v| v.as_str().map(|s| s.to_string()))
-    .unwrap_or_else(|| "en".to_string());
-    
+    let language = settings::get_config_value(app, "settings.language".to_string())
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "en".to_string());
+
     Ok(language)
 }
 
@@ -495,4 +510,3 @@ pub fn get_scoop_app_shortcuts() -> Result<Vec<serde_json::Value>, String> {
         Err(e) => Err(format!("Failed to get Scoop app shortcuts: {}", e)),
     }
 }
-
