@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/Kwensiu/Pailer/compare/v1.10.1...v1.11.0) (2026-04-04)
+
+
+### Features
+
+* **bucket:** implement bucket search with infinite scroll pagination ([fde924f](https://github.com/Kwensiu/Pailer/commit/fde924fe18a8236eb8b20c8b505587debaab195d))
+* **doctor:** add shim args editing capability ([1689995](https://github.com/Kwensiu/Pailer/commit/16899953576f248dac57b2fd7c908c239add67e8))
+* **icons:** enhance icon extraction with PrivateExtractIconsW and size support ([76a58ab](https://github.com/Kwensiu/Pailer/commit/76a58abc9f035fb8435e4cc6f87093c0a1e90936))
+* **search:** add cache prebuild setting ([303c9e6](https://github.com/Kwensiu/Pailer/commit/303c9e6ed9626c7242cd4d0ba8c59c0d229fee5c))
+* **ui:** implement global modal stack management and focus trapping ([64ea4f9](https://github.com/Kwensiu/Pailer/commit/64ea4f972aec583c64b7558e29a02df11c500c06))
+
+
+### Bug Fixes
+
+* improve state management, storage synchronization and i18n ([4183c19](https://github.com/Kwensiu/Pailer/commit/4183c1928a5d6f87ec2895607020ed61e50ea2b4))
+* minor UI fixes and README update ([ff7cf69](https://github.com/Kwensiu/Pailer/commit/ff7cf696c9baddc701608dd60a5eb72b6d5c1e50))
+
+
+### Styles
+
+* reorganize CSS files and refine component styles ([8373aa8](https://github.com/Kwensiu/Pailer/commit/8373aa89ae6bdd2eab34c1d237737eb68a629aab))
+
+
+### Refactoring
+
+* **ui:** improve modal handling and consolidate icons ([4e8f1dc](https://github.com/Kwensiu/Pailer/commit/4e8f1dcd43d24e6843f82aa9a0de9574d3de9e9d))
+* **ui:** split BucketInfoModal and PackageInfoModal into sub-components ([4eb68d3](https://github.com/Kwensiu/Pailer/commit/4eb68d34adc51baf3a47249aca45b3aa4bddbf23))
+
 ## [1.10.1](https://github.com/Kwensiu/Pailer/compare/v1.10.0...v1.10.1) (2026-03-31)
 
 
