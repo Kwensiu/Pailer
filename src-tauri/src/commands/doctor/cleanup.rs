@@ -19,7 +19,7 @@ async fn run_cleanup_command(
     operation_id: &str,
 ) -> Result<(), String> {
     log::info!("Executing cleanup command: {}", command);
-    
+
     let result = powershell::run_and_stream_command(
         window,
         command.to_string(),
@@ -30,12 +30,12 @@ async fn run_cleanup_command(
         operation_id.to_string(),
     )
     .await;
-    
+
     match &result {
         Ok(_) => log::info!("Successfully completed cleanup command: {}", command),
         Err(e) => log::error!("Failed to execute cleanup command '{}': {}", command, e),
     }
-    
+
     result
 }
 
@@ -55,8 +55,11 @@ pub async fn remove_cache_for_specific_packages(
     window: Window,
     package_names: Vec<String>,
 ) -> Result<(), String> {
-    log::info!("Running scoop cache rm for specific packages: {:?}", package_names);
-    
+    log::info!(
+        "Running scoop cache rm for specific packages: {:?}",
+        package_names
+    );
+
     if package_names.is_empty() {
         return Ok(());
     }
@@ -100,18 +103,21 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
     preserve_versioned: Option<bool>,
 ) -> Result<(), String> {
     let preserve = preserve_versioned.unwrap_or(true);
-    
+
     if preserve {
         log::info!("Running SMART cleanup of old app versions (preserving versioned installs)");
-        
+
         // Get all installed packages to identify versioned installs
         let installed_packages_result = get_installed_packages_full(app, state.clone()).await;
-        
+
         let installed_packages = match installed_packages_result {
             Ok(packages) => {
-                log::info!("Successfully retrieved {} installed packages", packages.len());
+                log::info!(
+                    "Successfully retrieved {} installed packages",
+                    packages.len()
+                );
                 packages
-            },
+            }
             Err(e) => {
                 log::error!("Failed to retrieve installed packages: {}", e);
                 return Err(format!("Failed to retrieve installed packages: {}", e));
@@ -121,7 +127,13 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
         // Count versioned installs for logging
         let versioned_count = installed_packages
             .iter()
-            .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Versioned | crate::models::InstallationType::Custom))
+            .filter(|pkg| {
+                matches!(
+                    pkg.installation_type,
+                    crate::models::InstallationType::Versioned
+                        | crate::models::InstallationType::Custom
+                )
+            })
             .count();
 
         if versioned_count > 0 {
@@ -133,7 +145,12 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
             // Get only regular packages (standard installations)
             let regular_packages: Vec<String> = installed_packages
                 .iter()
-                .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
+                .filter(|pkg| {
+                    matches!(
+                        pkg.installation_type,
+                        crate::models::InstallationType::Standard
+                    )
+                })
                 .map(|pkg| pkg.name.clone())
                 .collect();
 
@@ -163,12 +180,7 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
             )
             .await;
 
-            finish_cleanup_operation(
-                &window,
-                "cleanup-apps",
-                "Cleanup Old App Versions",
-                result,
-            )
+            finish_cleanup_operation(&window, "cleanup-apps", "Cleanup Old App Versions", result)
         } else {
             log::info!("No versioned installs found - running standard cleanup");
 
@@ -193,12 +205,7 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
             )
             .await;
 
-            finish_cleanup_operation(
-                &window,
-                "cleanup-apps",
-                "Cleanup Old App Versions",
-                result,
-            )
+            finish_cleanup_operation(&window, "cleanup-apps", "Cleanup Old App Versions", result)
         }
     } else {
         log::warn!("Running FORCE cleanup of ALL app versions (including versioned installs)");
@@ -279,6 +286,11 @@ fn finish_cleanup_operation(
             operation_name: operation_name.to_string(),
             error_count: if success { None } else { Some(1) },
             warning_count: None,
+            final_status: if success {
+                powershell::FinalStatus::Success
+            } else {
+                powershell::FinalStatus::Error
+            },
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -319,14 +331,20 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
 
     // Get all installed packages to identify versioned installs
     let installed_packages_result = get_installed_packages_full(app, state.clone()).await;
-    
+
     let installed_packages = match installed_packages_result {
         Ok(packages) => {
-            log::info!("Successfully retrieved {} installed packages for cache cleanup", packages.len());
+            log::info!(
+                "Successfully retrieved {} installed packages for cache cleanup",
+                packages.len()
+            );
             packages
-        },
+        }
         Err(e) => {
-            log::error!("Failed to retrieve installed packages for cache cleanup: {}", e);
+            log::error!(
+                "Failed to retrieve installed packages for cache cleanup: {}",
+                e
+            );
             return Err(format!("Failed to retrieve installed packages: {}", e));
         }
     };
@@ -334,7 +352,12 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
     // Collect packages that are NOT versioned installs (safe to clean cache)
     let safe_packages: Vec<String> = installed_packages
         .iter()
-        .filter(|pkg| matches!(pkg.installation_type, crate::models::InstallationType::Standard))
+        .filter(|pkg| {
+            matches!(
+                pkg.installation_type,
+                crate::models::InstallationType::Standard
+            )
+        })
         .map(|pkg| pkg.name.clone())
         .collect();
 
@@ -348,5 +371,11 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
     let command = format!("scoop cache rm {}", packages_str);
 
     log::info!("Running cache cleanup for packages: {}", packages_str);
-    run_cleanup_command(window, &command, "Cleanup Outdated App Caches", "cleanup-cache").await
+    run_cleanup_command(
+        window,
+        &command,
+        "Cleanup Outdated App Caches",
+        "cleanup-cache",
+    )
+    .await
 }

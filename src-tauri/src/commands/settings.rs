@@ -571,8 +571,21 @@ pub fn set_scoop_proxy(proxy: String) -> Result<(), String> {
 
 /// Executes an arbitrary Scoop command
 #[tauri::command]
-pub async fn run_scoop_command(window: tauri::Window, command: String) -> Result<(), String> {
+pub async fn run_scoop_command(
+    window: tauri::Window,
+    command: String,
+    operation_id: Option<String>,
+) -> Result<(), String> {
     let full_command = format!("scoop {}", command);
+    let resolved_operation_id = operation_id.unwrap_or_else(|| {
+        format!(
+            "settings-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     crate::commands::powershell::run_and_stream_command(
         window,
         full_command,
@@ -580,7 +593,7 @@ pub async fn run_scoop_command(window: tauri::Window, command: String) -> Result
         crate::commands::powershell::EVENT_OUTPUT,
         crate::commands::powershell::EVENT_FINISHED,
         crate::commands::powershell::EVENT_CANCEL,
-        format!("settings-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()),
+        resolved_operation_id,
     )
     .await
 }
@@ -597,7 +610,20 @@ pub fn get_scoop_config_directory() -> Result<String, String> {
 
 /// Executes an arbitrary PowerShell command directly without adding any prefix
 #[tauri::command]
-pub async fn run_powershell_command(window: tauri::Window, command: String) -> Result<(), String> {
+pub async fn run_powershell_command(
+    window: tauri::Window,
+    command: String,
+    operation_id: Option<String>,
+) -> Result<(), String> {
+    let resolved_operation_id = operation_id.unwrap_or_else(|| {
+        format!(
+            "settings-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        )
+    });
     crate::commands::powershell::run_and_stream_command(
         window,
         command.clone(),
@@ -605,7 +631,7 @@ pub async fn run_powershell_command(window: tauri::Window, command: String) -> R
         crate::commands::powershell::EVENT_OUTPUT,
         crate::commands::powershell::EVENT_FINISHED,
         crate::commands::powershell::EVENT_CANCEL,
-        format!("settings-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()),
+        resolved_operation_id,
     )
     .await
 }

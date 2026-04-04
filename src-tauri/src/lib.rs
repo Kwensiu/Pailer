@@ -207,6 +207,7 @@ pub fn run() {
             commands::settings::get_scoop_config_directory,
             commands::settings::set_powershell_exe,
             commands::settings::get_available_powershell_executables,
+            commands::powershell::request_cancel_operation,
             commands::virustotal::scan_package,
             commands::auto_cleanup::run_auto_cleanup,
             commands::doctor::checkup::run_scoop_checkup,

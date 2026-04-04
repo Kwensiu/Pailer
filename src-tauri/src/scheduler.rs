@@ -74,6 +74,7 @@ pub fn start_background_tasks(app: AppHandle) {
 
 async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     log::info!("Starting auto bucket update task");
+    let operation_id = format!("scheduler-bucket-update-{}", run_started_at);
 
     // Check if silent update is enabled
     let silent_update_enabled = crate::commands::settings::get_config_value(
@@ -93,7 +94,8 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                 "operation-output",
                 serde_json::json!({
                     "line": "Starting automatic bucket update...",
-                    "source": "stdout"
+                    "source": "stdout",
+                    "operationId": operation_id
                 }),
             );
         }
@@ -125,14 +127,17 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                         "operation-output",
                         serde_json::json!({
                             "line": line.clone(),
-                            "source": if result.success { "stdout" } else { "stderr" }
+                            "source": if result.success { "stdout" } else { "stderr" },
+                            "operationId": operation_id
                         }),
                     );
                 }
 
                 let _ = window.emit("operation-finished", serde_json::json!({
                     "success": successes == results.len(),
-                    "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len())
+                    "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len()),
+                    "operationId": operation_id,
+                    "finalStatus": if successes == results.len() { "success" } else { "error" }
                 }));
             }
 
@@ -165,7 +170,8 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                     "operation-output",
                     serde_json::json!({
                         "line": format!("Error: {}", e),
-                        "source": "stderr"
+                        "source": "stderr",
+                        "operationId": operation_id
                     }),
                 );
 
@@ -173,7 +179,9 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                     "operation-finished",
                     serde_json::json!({
                         "success": false,
-                        "message": format!("Bucket update failed: {}", e)
+                        "message": format!("Bucket update failed: {}", e),
+                        "operationId": operation_id,
+                        "finalStatus": "error"
                     }),
                 );
             }
@@ -190,6 +198,13 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
 
 async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_update_enabled: bool) {
     log::info!("Starting auto package update after bucket refresh");
+    let operation_id = format!(
+        "scheduler-package-update-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    );
 
     // Notify UI that package update is starting only if not silent update
     if !silent_update_enabled {
@@ -199,7 +214,8 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                 "operation-output",
                 serde_json::json!({
                     "line": "Starting automatic package update...",
-                    "source": "stdout"
+                    "source": "stdout",
+                    "operationId": operation_id
                 }),
             );
         }
@@ -216,7 +232,8 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                             "operation-output",
                             serde_json::json!({
                                 "line": line,
-                                "source": "stdout"
+                                "source": "stdout",
+                                "operationId": operation_id
                             }),
                         );
                     }
@@ -227,7 +244,8 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                             "success": true,
                             "operation_name": "Automatic package update",
                             "error_count": None::<usize>,
-                            "operation_id": None::<String>,
+                            "operation_id": operation_id,
+                            "final_status": "success",
                             "timestamp": std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
                                 .unwrap()
@@ -248,7 +266,8 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                         "operation-output",
                         serde_json::json!({
                             "line": error_line,
-                            "source": "stderr"
+                            "source": "stderr",
+                            "operationId": operation_id
                         }),
                     );
 
@@ -258,7 +277,8 @@ async fn update_packages_after_buckets(app_handle: &tauri::AppHandle, silent_upd
                             "success": false,
                             "operation_name": "Automatic package update",
                             "error_count": Some(1),
-                            "operation_id": None::<String>,
+                            "operation_id": operation_id,
+                            "final_status": "error",
                             "timestamp": std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
                                 .unwrap()

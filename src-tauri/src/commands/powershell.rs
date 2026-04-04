@@ -1,23 +1,59 @@
 use serde::Serialize;
-use std::process::Stdio;
-use tauri::{Emitter, Listener, Window};
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, Command};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use tokio::sync::oneshot;
+use std::process::Stdio;
+use tauri::{Emitter, Window};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::{Child, Command};
 
 use lazy_static::lazy_static;
+use std::collections::HashSet;
 use std::sync::RwLock;
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use tokio::time::{sleep, Duration};
 
 lazy_static! {
     pub static ref POWERSHELL_EXE: RwLock<String> = RwLock::new("auto".to_string());
+    pub static ref CANCEL_REQUESTED: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
 }
 
 pub const EVENT_OUTPUT: &str = "operation-output";
 pub const EVENT_FINISHED: &str = "operation-finished";
 pub const EVENT_CANCEL: &str = "cancel-operation";
+
+#[tauri::command]
+pub fn request_cancel_operation(operation_id: String) -> Result<(), String> {
+    match CANCEL_REQUESTED.write() {
+        Ok(mut pending) => {
+            pending.insert(operation_id.clone());
+            log::info!(
+                "Queued cancellation request for operation: {}",
+                operation_id
+            );
+            Ok(())
+        }
+        Err(_) => Err("Failed to queue cancellation request due to lock contention".to_string()),
+    }
+}
+
+fn take_cancel_requested(operation_id: &str) -> bool {
+    match CANCEL_REQUESTED.write() {
+        Ok(mut pending) => pending.remove(operation_id),
+        Err(_) => false,
+    }
+}
+
+async fn wait_for_cancel_request(operation_id: String) {
+    loop {
+        if take_cancel_requested(&operation_id) {
+            break;
+        }
+        sleep(Duration::from_millis(50)).await;
+    }
+}
 
 /// Executes a simple PowerShell command and returns its stdout output.
 /// Used for non-streaming operations like reading/writing Scoop config.
@@ -80,6 +116,17 @@ pub struct StreamOutput {
     pub source: String,
 }
 
+/// Explicit terminal status emitted to the frontend so it no longer has to
+/// infer cancellation from the combination of success/errorCount/warningCount.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub enum FinalStatus {
+    Success,
+    Warning,
+    Error,
+    Cancelled,
+}
+
 /// Represents the final result of a command with minimal structured data for frontend i18n.
 #[derive(Serialize, Clone)]
 pub struct CommandResult {
@@ -92,6 +139,8 @@ pub struct CommandResult {
     pub error_count: Option<usize>,
     #[serde(rename = "warningCount")]
     pub warning_count: Option<usize>,
+    #[serde(rename = "finalStatus")]
+    pub final_status: FinalStatus,
     pub timestamp: u64,
 }
 
@@ -99,9 +148,16 @@ pub struct CommandResult {
 /// Prefers PowerShell Core (pwsh) if available, falls back to Windows PowerShell.
 pub fn create_powershell_command(command_str: &str) -> Command {
     // Determine which PowerShell executable to use
-    let exe = POWERSHELL_EXE.try_read().map(|guard| guard.clone()).unwrap_or_else(|_| "auto".to_string());
+    let exe = POWERSHELL_EXE
+        .try_read()
+        .map(|guard| guard.clone())
+        .unwrap_or_else(|_| "auto".to_string());
     let ps_exe: &str = if exe == "auto" {
-        if is_pwsh_available() { "pwsh" } else { "powershell" }
+        if is_pwsh_available() {
+            "pwsh"
+        } else {
+            "powershell"
+        }
     } else {
         exe.as_str()
     };
@@ -138,9 +194,7 @@ pub fn is_pwsh_available() -> bool {
     // Prevents a console window from appearing on Windows.
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    cmd.status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    cmd.status().map(|status| status.success()).unwrap_or(false)
 }
 
 /// Checks if Windows PowerShell is available on the system.
@@ -153,9 +207,7 @@ pub fn is_powershell_available() -> bool {
     // Prevents a console window from appearing on Windows.
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-    cmd.status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    cmd.status().map(|status| status.success()).unwrap_or(false)
 }
 
 /// Spawns a task to read lines from a stream (stdout or stderr) and sends them to the frontend.
@@ -172,7 +224,7 @@ fn spawn_output_reader(
     operation_id: String,
 ) {
     let mut reader = BufReader::new(stream).lines();
-    let op_id = operation_id.clone();  // Clone once outside the loop
+    let op_id = operation_id.clone(); // Clone once outside the loop
 
     tokio::spawn(async move {
         while let Ok(Some(line)) = reader.next_line().await {
@@ -182,39 +234,22 @@ fn spawn_output_reader(
                 warning_count.fetch_add(1, Ordering::Relaxed);
             }
 
-            let _ = window.emit(
-                &output_event,
-                StreamOutput {
-                    line: line.clone(),
-                    source: source.to_string(),
-                    operation_id: op_id.clone(),
-                },
-            ).map_err(|e| {
-                log::error!("emit failed for line '{}': {}", line, e);
-            });
+            let _ = window
+                .emit(
+                    &output_event,
+                    StreamOutput {
+                        line: line.clone(),
+                        source: source.to_string(),
+                        operation_id: op_id.clone(),
+                    },
+                )
+                .map_err(|e| {
+                    log::error!("emit failed for line '{}': {}", line, e);
+                });
         }
 
         log::debug!("Output stream handler for {} ended", source);
     });
-}
-
-/// Sets up a listener for a cancellation event from the frontend.
-///
-/// When the event is received, it sends a signal through the `cancel_tx` channel.
-fn setup_cancellation_handler(window: &Window, cancel_event: &str, cancel_tx: oneshot::Sender<()>) {
-    let op_name = cancel_event.to_string();
-    let mut cancel_tx_opt = Some(cancel_tx);
-
-    // Clone the name for the closure to avoid borrowing issues.
-    let op_name_clone = op_name.clone();
-    window.once(&op_name, move |_| {
-        log::warn!("Received cancellation request for {}", op_name_clone);
-        if let Some(tx) = cancel_tx_opt.take() {
-            let _ = tx.send(());
-        }
-    });
-    
-    log::info!("Set up cancellation handler for event: {}", cancel_event);
 }
 
 /// Executes a long-running command and streams its output to the frontend.
@@ -228,10 +263,35 @@ pub async fn run_and_stream_command(
     operation_name: String,
     output_event: &str,
     finished_event: &str,
-    cancel_event: &str,
+    _cancel_event: &str,
     operation_id: String,
 ) -> Result<(), String> {
     log::info!("[{}] Starting: {}", operation_id, operation_name);
+
+    if take_cancel_requested(&operation_id) {
+        log::warn!(
+            "[{}] Cancellation requested before command start; skipping execution",
+            operation_id
+        );
+        if let Err(e) = window.emit(
+            finished_event,
+            CommandResult {
+                success: false,
+                operation_name: operation_name.clone(),
+                error_count: Some(0),
+                warning_count: Some(0),
+                final_status: FinalStatus::Cancelled,
+                operation_id: operation_id.clone(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            },
+        ) {
+            log::error!("Failed to emit pre-start cancellation event: {}", e);
+        }
+        return Err(format!("{} cancelled by user", operation_name));
+    }
 
     let mut child = create_powershell_command(&command_str)
         .spawn()
@@ -249,10 +309,8 @@ pub async fn run_and_stream_command(
         .take()
         .expect("Child process did not have a handle to stderr");
 
-    let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
     let warning_count = Arc::new(AtomicUsize::new(0));
-
-    setup_cancellation_handler(&window, cancel_event, cancel_tx);
+    let cancel_poll_operation_id = operation_id.clone();
 
     spawn_output_reader(
         stdout,
@@ -271,7 +329,7 @@ pub async fn run_and_stream_command(
         operation_id.clone(),
     );
 
-    tokio::select! {
+    let result = tokio::select! {
         status_res = child.wait() => {
             handle_command_completion(
                 status_res,
@@ -282,10 +340,15 @@ pub async fn run_and_stream_command(
                 operation_id.clone(),
             ).await
         },
-        _ = cancel_rx => {
+        _ = wait_for_cancel_request(cancel_poll_operation_id) => {
             handle_cancellation(child, &operation_name, &window, finished_event, operation_id.clone()).await
         }
-    }
+    };
+
+    // Best-effort cleanup for late or duplicate cancel requests.
+    let _ = take_cancel_requested(&operation_id);
+
+    result
 }
 
 /// Handles the completion of the command, checking for errors and emitting the final result.
@@ -299,24 +362,46 @@ async fn handle_command_completion(
 ) -> Result<(), String> {
     let status = status_res.map_err(|e| {
         log::error!("[{}] Process wait failed: {}", operation_id, e);
-        format!("Failed to wait on child process for {}: {}", operation_name, e)
+        format!(
+            "Failed to wait on child process for {}: {}",
+            operation_name, e
+        )
     })?;
-    
+
     let success = status.success();
-    log::info!("[{}] Completed: {} (success: {})", operation_id, operation_name, success);
+    log::info!(
+        "[{}] Completed: {} (success: {})",
+        operation_id,
+        operation_name,
+        success
+    );
 
     // Command is successful if process exits with code 0
     let process_successful = status.success();
 
     let warning_count = if process_successful {
         let count = warning_count.load(Ordering::Relaxed);
-        if count > 0 { Some(count) } else { None }
+        if count > 0 {
+            Some(count)
+        } else {
+            None
+        }
     } else {
         None
     };
 
     let was_successful = process_successful;
     let error_count: Option<usize> = None;
+
+    let final_status = if was_successful {
+        if warning_count.is_some() {
+            FinalStatus::Warning
+        } else {
+            FinalStatus::Success
+        }
+    } else {
+        FinalStatus::Error
+    };
 
     if let Err(e) = window.emit(
         finished_event,
@@ -325,6 +410,7 @@ async fn handle_command_completion(
             operation_name: operation_name.to_string(),
             error_count: error_count,
             warning_count: warning_count,
+            final_status,
             operation_id: operation_id,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -338,7 +424,7 @@ async fn handle_command_completion(
     if was_successful {
         Ok(())
     } else {
-    // Use operation name for better context, frontend will handle i18n
+        // Use operation name for better context, frontend will handle i18n
         Err(format!("{} failed", operation_name))
     }
 }
@@ -363,8 +449,9 @@ async fn handle_cancellation(
         CommandResult {
             success: false,
             operation_name: operation_name.to_string(),
-            error_count: Some(0), // Cancelled operation, not an error
+            error_count: Some(0),   // Cancelled operation, not an error
             warning_count: Some(0), // No warnings for cancelled operations
+            final_status: FinalStatus::Cancelled,
             operation_id: operation_id,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

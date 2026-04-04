@@ -18,6 +18,8 @@ pub struct CommandResult {
     pub operation_name: String,
     #[serde(rename = "errorCount")]
     pub error_count: Option<usize>,
+    #[serde(rename = "finalStatus")]
+    pub final_status: powershell::FinalStatus,
     pub timestamp: u64,
 }
 
@@ -124,6 +126,7 @@ pub async fn scan_package(
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: None,
+                final_status: powershell::FinalStatus::Success,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -137,6 +140,7 @@ pub async fn scan_package(
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: Some(1), // 1 error = detections found
+                final_status: powershell::FinalStatus::Error,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -150,6 +154,7 @@ pub async fn scan_package(
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: Some(1), // 1 error = API key missing
+                final_status: powershell::FinalStatus::Error,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
@@ -163,6 +168,7 @@ pub async fn scan_package(
                 operation_id: operation_id.clone(), // Use consistent operation_id
                 operation_name: generate_virustotal_operation_name(&package_name),
                 error_count: Some(1), // 1 error = unknown error
+                final_status: powershell::FinalStatus::Error,
                 timestamp: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
