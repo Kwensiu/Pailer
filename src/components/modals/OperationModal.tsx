@@ -1,23 +1,20 @@
 import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from 'solid-js';
-import { listen, UnlistenFn, emit } from '@tauri-apps/api/event';
+import { emit } from '@tauri-apps/api/event';
 import { useOperations } from '../../stores/operations';
-import {
-  OperationResult as StoreOperationResult,
-  OperationModalProps,
-  OperationStatus,
-} from '../../types/operations';
+import { OperationModalProps, OperationStatus } from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
 import { t } from '../../i18n';
 import { isErrorLineWithContext } from '../../utils/errorDetection';
 import { ansiToHtml, stripAnsi, hasAnsiCodes } from '../../utils/ansiUtils';
+import { requestCancelWithRetry } from '../../utils/operationCancellation';
+import {
+  isRunning,
+  isTerminal,
+  isSuccessful,
+  primaryButtonVariant,
+} from '../../hooks/ui/useOperationSelectors';
 import Modal from '../common/Modal';
 import { useScrollManager } from '../common/ScrollManager';
-
-// Define VirustotalResult locally since it's not exported from types
-interface VirustotalResult {
-  detections_found: number;
-  is_api_key_missing: boolean;
-}
 
 const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (
   props
@@ -121,7 +118,7 @@ const FormattedErrorMessage: Component<{ message: string }> = (props) => {
 
 const getOperationDisplayName = (operation: any) => {
   const result = operation?.result;
-  return result?.operationName || result?.operation_name || operation?.title || 'Operation';
+  return operation?.title || result?.operationName || result?.operation_name || 'Operation';
 };
 
 const getErrorMessage = (operation: any) => {
@@ -220,22 +217,13 @@ const getWarningMessage = (operation: any) => {
 };
 
 function OperationModal(props: OperationModalProps) {
-  const {
-    removeOperation,
-    setOperationResult,
-    toggleMinimize,
-    setOperationStatus,
-    generateOperationId,
-    operations,
-  } = useOperations();
+  const { removeOperation, toggleMinimize, setOperationStatus, generateOperationId, operations } =
+    useOperations();
 
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
   const [isMinimizing, setIsMinimizing] = createSignal(false);
-
-  const isSuccessfulStatus = (status: OperationStatus | undefined) => {
-    return status === 'success' || status === 'warning';
-  };
+  let cancelRetryCleanup: (() => void) | null = null;
 
   const operationId = createMemo(() => {
     if (props.operationId) {
@@ -273,19 +261,9 @@ function OperationModal(props: OperationModalProps) {
     const newStatus = op.status;
     const prevStatus = previousStatus();
 
-    if (
-      prevStatus !== null &&
-      newStatus !== prevStatus &&
-      (newStatus === 'success' ||
-        newStatus === 'warning' ||
-        newStatus === 'error' ||
-        newStatus === 'cancelled')
-    ) {
+    if (prevStatus !== null && newStatus !== prevStatus && isTerminal({ status: newStatus })) {
       if (props.onOperationFinished) {
-        props.onOperationFinished(
-          operationId(),
-          newStatus === 'success' || newStatus === 'warning'
-        );
+        props.onOperationFinished(operationId(), isSuccessful({ status: newStatus }));
       }
 
       if (newStatus === 'success' && props.nextStep) {
@@ -301,16 +279,10 @@ function OperationModal(props: OperationModalProps) {
 
     setRendered(true);
 
-    if (
-      currentOp.status === 'success' ||
-      currentOp.status === 'warning' ||
-      currentOp.status === 'error' ||
-      currentOp.status === 'cancelled'
-    ) {
+    if (isTerminal(currentOp)) {
       return;
     }
 
-    let vtResultListener: UnlistenFn | undefined;
     let isDisposed = false;
     let listenersSetup = false;
 
@@ -318,48 +290,28 @@ function OperationModal(props: OperationModalProps) {
       if (listenersSetup) return;
       listenersSetup = true;
 
-      try {
-        if (props.isScan) {
-          vtResultListener = await listen<VirustotalResult>('virustotal-scan-finished', (event) => {
-            if (isDisposed) return;
-            const result: StoreOperationResult = {
-              operationId: operationId(),
-              success: event.payload.detections_found === 0,
-              operationName: `Scanning`,
-              errorCount: event.payload.detections_found > 0 ? 1 : undefined,
-              timestamp: Date.now(),
-              message: event.payload.is_api_key_missing
-                ? 'VirusTotal API key is not configured.'
-                : event.payload.detections_found > 0
-                  ? `VirusTotal found ${event.payload.detections_found} detection(s).`
-                  : 'No threats found.',
-            };
-
-            setOperationResult(operationId(), result);
-
-            if (!event.payload.detections_found && !event.payload.is_api_key_missing) {
-              props.onInstallConfirm?.();
-            }
-          });
+      // Listen for VirusTotal scan success events from global store
+      const handleVirusTotalSuccess = (event: CustomEvent) => {
+        if (isDisposed) return;
+        if (event.detail.operationId === operationId()) {
+          props.onInstallConfirm?.();
         }
-      } catch (error) {
-        console.error('Failed to setup operation listeners:', error);
-        const errorResult: StoreOperationResult = {
-          operationId: operationId(),
-          success: false,
-          operationName: 'Operation Error',
-          message: 'Failed to initialize operation monitoring',
-          timestamp: Date.now(),
-        };
-        setOperationResult(operationId(), errorResult);
-      }
+      };
+
+      window.addEventListener('virustotal-scan-success', handleVirusTotalSuccess as EventListener);
+
+      onCleanup(() => {
+        window.removeEventListener(
+          'virustotal-scan-success',
+          handleVirusTotalSuccess as EventListener
+        );
+      });
     };
 
     setupListeners();
 
     onCleanup(() => {
       isDisposed = true;
-      vtResultListener?.();
     });
   });
 
@@ -373,13 +325,28 @@ function OperationModal(props: OperationModalProps) {
     }
   });
 
+  onCleanup(() => {
+    cancelRetryCleanup?.();
+    cancelRetryCleanup = null;
+  });
+
+  const requestOperationCancel = () => {
+    cancelRetryCleanup?.();
+    cancelRetryCleanup = requestCancelWithRetry({
+      operationId: operationId(),
+      logPrefix: 'OperationModal',
+      isInProgress: () => operation()?.status === OperationStatus.InProgress,
+    });
+  };
+
   const handleCloseOrCancelPanel = (status: OperationStatus | undefined) => {
     setIsClosing(true);
-    const finalStatus = status === 'in-progress' || !status ? OperationStatus.Cancelled : status;
-    setOperationStatus(operationId(), finalStatus);
+    const resolvedStatus =
+      status === OperationStatus.InProgress || !status ? OperationStatus.Cancelled : status;
+    setOperationStatus(operationId(), resolvedStatus);
     setTimeout(() => {
       try {
-        props.onClose(operationId(), isSuccessfulStatus(finalStatus));
+        props.onClose(operationId(), isSuccessful({ status: resolvedStatus }));
       } catch (error) {
         console.error('Error calling onClose:', error);
       }
@@ -390,48 +357,38 @@ function OperationModal(props: OperationModalProps) {
 
   const handleForceClose = () => {
     const currentOperation = operation();
-    if (currentOperation && currentOperation.status === 'in-progress') {
-      emit('cancel-operation');
+    if (isRunning(currentOperation)) {
+      // Cancel the operation but don't close the modal
+      requestOperationCancel();
+    } else {
+      // Close the modal if operation is completed/cancelled
+      cancelRetryCleanup?.();
+      cancelRetryCleanup = null;
+      removeOperation(operationId());
+      props.onClose(operationId(), isSuccessful(currentOperation));
     }
-    // Immediately remove the operation when X is clicked
-    removeOperation(operationId());
-    props.onClose(operationId(), false);
   };
 
   const handleCancelOperation = () => {
     const currentOperation = operation();
 
-    if (currentOperation && currentOperation.status === 'in-progress') {
-      // Emit cancel event first, then update status for consistency
-      emit('cancel-operation');
-      // Update status to provide visual feedback
-      setOperationStatus(operationId(), OperationStatus.Cancelled);
+    if (isRunning(currentOperation)) {
+      requestOperationCancel();
     }
   };
 
   const handleMainButtonClick = (e: MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling to modal
     const currentOperation = operation();
-    if (currentOperation?.status === 'in-progress') {
+    if (isRunning(currentOperation)) {
       handleCancelOperation();
     } else {
       handleCloseOrCancelPanel(currentOperation?.status);
     }
   };
 
-  const getOperationResultStatus = (status: OperationStatus) => {
-    if (status === 'success') return 'success';
-    if (status === 'error') return 'error';
-    if (status === 'warning') return 'warning';
-    return 'in-progress';
-  };
-
   const getCloseButtonText = () => {
-    const currentOperation = operation();
-    if (currentOperation?.status === 'in-progress') {
-      return t('buttons.cancel');
-    }
-    return t('buttons.close');
+    return isRunning(operation()) ? t('buttons.cancel') : t('buttons.close');
   };
 
   const handleMinimize = () => {
@@ -445,7 +402,7 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: true,
         showIndicator: true,
         title: currentOperation.title,
-        result: getOperationResultStatus(currentOperation.status),
+        result: currentOperation.status,
       });
 
       // Start minimize animation with proper timing
@@ -465,7 +422,7 @@ function OperationModal(props: OperationModalProps) {
         isMinimized: false,
         showIndicator: false,
         title: currentOperation.title,
-        result: getOperationResultStatus(currentOperation.status),
+        result: currentOperation.status,
       });
 
       toggleMinimize(operationId());
@@ -521,19 +478,13 @@ function OperationModal(props: OperationModalProps) {
       }
       footer={
         <div class="flex justify-end gap-2">
-          <Show when={props.nextStep && currentOperation?.status === 'success'}>
+          <Show when={props.nextStep && currentOperation?.status === OperationStatus.Success}>
             <button class="btn btn-primary btn-sm" onClick={() => props.nextStep?.onNext()}>
               {props.nextStep?.buttonLabel}
             </button>
           </Show>
           <button
-            classList={{
-              btn: true,
-              'btn-error': currentOperation?.status === 'in-progress',
-              'btn-primary': currentOperation?.status === 'success',
-              'btn-warning':
-                currentOperation?.status === 'error' || currentOperation?.status === 'warning',
-            }}
+            class={`btn ${primaryButtonVariant(currentOperation)}`}
             onClick={handleMainButtonClick}
           >
             {getCloseButtonText()}
@@ -558,7 +509,7 @@ function OperationModal(props: OperationModalProps) {
             </div>
           )}
         </For>
-        <Show when={currentOperation?.status === 'in-progress'}>
+        <Show when={isRunning(currentOperation)}>
           <div class="mt-2 flex animate-pulse items-center">
             <span class="loading loading-spinner loading-xs mr-2"></span>
             {t('status.inProgress')}
@@ -568,7 +519,7 @@ function OperationModal(props: OperationModalProps) {
 
       {/* Status alerts */}
       <div class="my-2">
-        <Show when={currentOperation?.status === 'error'}>
+        <Show when={currentOperation?.status === OperationStatus.Error}>
           <div class="status-alert status-alert-error rounded-lg!">
             <Show when={currentOperation.result?.message}>
               <FormattedErrorMessage message={currentOperation.result?.message || ''} />
@@ -579,13 +530,21 @@ function OperationModal(props: OperationModalProps) {
           </div>
         </Show>
 
-        <Show when={currentOperation?.status === 'warning'}>
+        <Show when={currentOperation?.status === OperationStatus.Warning}>
           <div class="status-alert status-alert-warning rounded-lg!">
             <span>{getWarningMessage(currentOperation)}</span>
           </div>
         </Show>
 
-        <Show when={currentOperation?.status === 'success'}>
+        <Show when={currentOperation?.status === OperationStatus.Cancelled}>
+          <div class="status-alert status-alert-warning rounded-lg!">
+            <span>
+              {t('operation.cancelled', { name: getOperationDisplayName(currentOperation) })}
+            </span>
+          </div>
+        </Show>
+
+        <Show when={currentOperation?.status === OperationStatus.Success}>
           <div class="status-alert status-alert-success rounded-lg!">
             <span>{getSuccessMessage(currentOperation)}</span>
           </div>

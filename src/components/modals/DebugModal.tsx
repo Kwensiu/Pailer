@@ -98,7 +98,7 @@ const DebugModal = () => {
       id: id,
       title: `Custom Command: ${command}`,
       status: OperationStatus.InProgress,
-      isMinimized: false,
+      isMinimized: true,
       output: [],
       isScan: true,
     });
@@ -314,7 +314,7 @@ const DebugModal = () => {
                         id: id,
                         title: 'Test Operation',
                         status: OperationStatus.InProgress,
-                        isMinimized: false,
+                        isMinimized: true,
                         output: [],
                         isScan: true,
                       });
@@ -331,7 +331,7 @@ const DebugModal = () => {
                         id: id,
                         title: 'Auto-scroll Test',
                         status: OperationStatus.InProgress,
-                        isMinimized: false,
+                        isMinimized: true,
                         output: [],
                         isScan: true,
                       });

@@ -68,6 +68,7 @@ function CommandInputField() {
 
     try {
       const fullCommand = exec.useScoopPrefix ? `scoop ${exec.command}` : exec.command;
+      const commandOperationId = `command-execution-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       addCommandOutput({
         operationId: 'command-execution',
@@ -78,6 +79,8 @@ function CommandInputField() {
       setCommandRunning(true);
 
       const unlisten: UnlistenFn = await listen('operation-output', (event: any) => {
+        const eventOperationId = event.payload?.operationId ?? event.payload?.operation_id;
+        if (eventOperationId !== commandOperationId) return;
         const cleanLine = {
           operationId: 'command-execution',
           line: fixEncoding(event.payload.line),
@@ -89,6 +92,8 @@ function CommandInputField() {
 
       let unlistenFinished: UnlistenFn;
       unlistenFinished = await listen('operation-finished', (event: any) => {
+        const eventOperationId = event.payload?.operationId ?? event.payload?.operation_id;
+        if (eventOperationId !== commandOperationId) return;
         unlisten();
         unlistenFinished();
         currentUnlisteners = currentUnlisteners.filter(
@@ -114,9 +119,15 @@ function CommandInputField() {
       currentUnlisteners.push(unlisten, unlistenFinished);
 
       if (exec.useScoopPrefix) {
-        await invoke('run_scoop_command', { command: exec.command });
+        await invoke('run_scoop_command', {
+          command: exec.command,
+          operationId: commandOperationId,
+        });
       } else {
-        await invoke('run_powershell_command', { command: exec.command });
+        await invoke('run_powershell_command', {
+          command: exec.command,
+          operationId: commandOperationId,
+        });
       }
     } catch (error: any) {
       const errorMessage = typeof error === 'string' ? error : error.message || 'Unknown error';

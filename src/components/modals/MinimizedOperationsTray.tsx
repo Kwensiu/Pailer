@@ -1,23 +1,58 @@
 import { createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
-import { CircleCheckBig, CircleX, LoaderCircle, AlertTriangle } from 'lucide-solid';
+import { CircleCheckBig, CircleX, TriangleAlert, CircleSlash } from 'lucide-solid';
 import { useOperations } from '../../stores/operations';
 import type { MinimizedIndicatorProps } from '../../types/operations';
+import { OperationStatus } from '../../types/operations';
 import { t } from '../../i18n';
+import { requestCancelWithRetry } from '../../utils/operationCancellation';
 
 // Single minimized operation indicator
 const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
+  const handleCancelClick = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    props.onClose?.();
+  };
+
+  const handleMiddleClick = (e: MouseEvent) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    props.onClose?.();
+  };
+
   const getStatusIcon = () => {
     switch (props.status) {
       case 'in-progress':
-        return <LoaderCircle class="h-4 w-4 animate-spin text-blue-500" />;
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.cancel')}
+            title={t('buttons.cancel')}
+          >
+            <CircleX class="text-base-content/60 h-4 w-4" />
+          </button>
+        );
       case 'success':
         return <CircleCheckBig class="text-success h-4 w-4" />;
       case 'warning':
-        return <AlertTriangle class="text-warning h-4 w-4" />;
+        return <TriangleAlert class="text-warning h-4 w-4" />;
       case 'error':
         return <CircleX class="text-error h-4 w-4" />;
       case 'cancelled':
-        return <CircleX class="text-warning h-4 w-4" />;
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.close')}
+            title={t('buttons.close')}
+          >
+            <CircleSlash class="text-base-content/60 h-4 w-4" />
+          </button>
+        );
       default:
         return null;
     }
@@ -43,11 +78,14 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
   return (
     <div
       class="minimized-indicator"
+      style={`--index: ${props.index ?? 0};`}
       classList={{
         'minimized-indicator--minimized': props.isMinimized,
         'minimized-indicator--active': !props.isMinimized,
+        'minimized-indicator--in-progress': props.status === 'in-progress',
       }}
       onClick={props.onClick}
+      onMouseDown={handleMiddleClick}
       role="button"
       tabindex="0"
       aria-label={`${props.title} - ${getStatusText()}`}
@@ -73,6 +111,7 @@ const MinimizedOperationsTray = () => {
   const { getActiveOperations, removeOperation, toggleMinimize } = useOperations();
 
   const [showMore, setShowMore] = createSignal(false);
+  const cancelRetryCleanups = new Map<string, () => void>();
 
   // Get minimized operations list
   const getMinimizedOperations = () => {
@@ -95,6 +134,29 @@ const MinimizedOperationsTray = () => {
 
   // Handle indicator close
   const handleIndicatorClose = (operationId: string) => {
+    const operation = getActiveOperations().find((op) => op.id === operationId);
+    if (!operation) {
+      console.warn(`[MinimizedOperationsTray] Operation not found: ${operationId}`);
+      return;
+    }
+
+    if (operation.status === OperationStatus.InProgress) {
+      console.log(`[MinimizedOperationsTray] Cancelling operation: ${operationId}`);
+      cancelRetryCleanups.get(operationId)?.();
+      const cleanup = requestCancelWithRetry({
+        operationId,
+        logPrefix: 'MinimizedOperationsTray',
+        isInProgress: () => {
+          const currentOp = getActiveOperations().find((op) => op.id === operationId);
+          return currentOp?.status === OperationStatus.InProgress;
+        },
+      });
+      cancelRetryCleanups.set(operationId, cleanup);
+      return;
+    }
+
+    cancelRetryCleanups.get(operationId)?.();
+    cancelRetryCleanups.delete(operationId);
     removeOperation(operationId);
   };
 
@@ -117,6 +179,10 @@ const MinimizedOperationsTray = () => {
 
   onCleanup(() => {
     document.removeEventListener('keydown', handleKeyDown);
+    for (const cleanup of cancelRetryCleanups.values()) {
+      cleanup();
+    }
+    cancelRetryCleanups.clear();
   });
 
   return (
@@ -141,6 +207,7 @@ const MinimizedOperationsTray = () => {
         <Show when={hasMoreOperations() && !showMore()}>
           <button
             class="minimized-indicator minimized-indicator--more"
+            style={`--index: ${getVisibleOperations().length};`}
             onClick={() => setShowMore(true)}
             aria-label={t('buttons.showMore')}
           >
@@ -154,6 +221,7 @@ const MinimizedOperationsTray = () => {
         <Show when={showMore() && hasMoreOperations()}>
           <button
             class="minimized-indicator minimized-indicator--collapse"
+            style={`--index: ${getVisibleOperations().length};`}
             onClick={() => setShowMore(false)}
             aria-label={t('buttons.showLess')}
           >
