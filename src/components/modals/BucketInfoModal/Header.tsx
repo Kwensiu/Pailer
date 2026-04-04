@@ -1,5 +1,6 @@
 import { Show, createMemo } from 'solid-js';
 import { Ellipsis, RefreshCw, FolderOpen, Globe } from 'lucide-solid';
+import { openPath, openUrl } from '@tauri-apps/plugin-opener';
 import Dropdown, { type DropdownItem } from '../../common/Dropdown';
 import { t } from '../../../i18n';
 import type { BucketInfoModalProps } from './types';
@@ -34,7 +35,6 @@ export function BucketInfoModalHeader(props: BucketInfoModalHeaderProps) {
         label: t('bucketInfo.openFolder'),
         onClick: async () => {
           try {
-            const { openPath } = await import('@tauri-apps/plugin-opener');
             await openPath(path);
           } catch (error) {
             console.error('Failed to open folder:', error);
@@ -50,7 +50,6 @@ export function BucketInfoModalHeader(props: BucketInfoModalHeaderProps) {
       onClick: async () => {
         if (url) {
           try {
-            const { openUrl } = await import('@tauri-apps/plugin-opener');
             await openUrl(url);
           } catch (error) {
             console.error('Failed to open URL:', error);

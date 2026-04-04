@@ -1,4 +1,6 @@
 import { Ellipsis, FileText, Braces, FolderOpen, CircleFadingArrowUp } from 'lucide-solid';
+import { invoke } from '@tauri-apps/api/core';
+import { openPath } from '@tauri-apps/plugin-opener';
 import Dropdown from '../../common/Dropdown';
 import { t } from '../../../i18n';
 import type { ScoopPackage } from '../../../types/scoop';
@@ -31,7 +33,6 @@ export function PackageInfoModalHeader(props: PackageInfoModalHeaderProps) {
                 onClick: async () => {
                   if (props.pkg) {
                     try {
-                      const { invoke } = await import('@tauri-apps/api/core');
                       const debug = await invoke<string>('debug_package_structure', {
                         packageName: props.pkg!.name,
                         global: false,
@@ -54,8 +55,6 @@ export function PackageInfoModalHeader(props: PackageInfoModalHeaderProps) {
                 onClick: async () => {
                   if (props.pkg) {
                     try {
-                      const { invoke } = await import('@tauri-apps/api/core');
-                      const { openPath } = await import('@tauri-apps/plugin-opener');
                       const packagePath = await invoke<string>('get_package_path', {
                         packageName: props.pkg!.name,
                       });
