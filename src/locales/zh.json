@@ -396,6 +396,7 @@
     "title": "未找到软件包"
   },
   "operation": {
+    "cancelled": "{{name}} 已被用户取消",
     "completed": "{{name}} 操作成功",
     "failed": {
       "generic": "{{name}} 操作失败",

@@ -396,6 +396,7 @@ export interface Dict {
     title: string;
   };
   operation: {
+    cancelled: string;
     completed: string;
     failed: {
       generic: string;

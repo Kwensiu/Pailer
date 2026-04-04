@@ -396,6 +396,7 @@
     "title": "No packages found"
   },
   "operation": {
+    "cancelled": "{{name}} was cancelled by user",
     "completed": "{{name}} completed successfully",
     "failed": {
       "generic": "{{name}} operation failed",
