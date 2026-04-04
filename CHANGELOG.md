@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1](https://github.com/Kwensiu/Pailer/compare/v1.11.0...v1.11.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **dropdown:** use independent body class and allow marker ([2a6e02f](https://github.com/Kwensiu/Pailer/commit/2a6e02f8c968629e43cd6221b7518b0c7cc664e1))
+
+
+### UI
+
+* add minimized operations tray with cancellation UI ([82e3593](https://github.com/Kwensiu/Pailer/commit/82e3593d2a1afe72774fbcd3e23ba6ba55404d4f))
+
+
+### Performance
+
+* **backend:** add operation cancellation support ([5f3212f](https://github.com/Kwensiu/Pailer/commit/5f3212fde19bebe5749af35d193615b7f44b3b3c))
+* **operations:** add cancellation infrastructure and hooks ([ff5c2b6](https://github.com/Kwensiu/Pailer/commit/ff5c2b6fbf90450b0aaf904a5075b93c8437ac63))
+
 ## [1.11.0](https://github.com/Kwensiu/Pailer/compare/v1.10.1...v1.11.0) (2026-04-04)
 
 
