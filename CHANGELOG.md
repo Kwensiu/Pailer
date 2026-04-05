@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0](https://github.com/Kwensiu/Pailer/compare/v1.11.1...v1.12.0) (2026-04-05)
+
+
+### Features
+
+* add administrator privilege retry support for package operations ([8de04dc](https://github.com/Kwensiu/Pailer/commit/8de04dc655620d14b932954c14b941e3a3a84dfb))
+* add notify icon settings dedupe commands and doctor UI ([59300de](https://github.com/Kwensiu/Pailer/commit/59300de64052a49396e6eb0e51cb6349165ed270))
+* add robust tray config migration with snapshot sync and safer dedupe ([bc38596](https://github.com/Kwensiu/Pailer/commit/bc385962db2706c75237c191cc674ca30bf4f7de))
+
+
+### Bug Fixes
+
+* improve self-update script restart logic ([0d0f888](https://github.com/Kwensiu/Pailer/commit/0d0f8880a684276fe3fa2ba7d0f85fde8cdc830e))
+* PackageInfoModal version flicker and cloud icon logic ([eea3199](https://github.com/Kwensiu/Pailer/commit/eea31997c43c59b2b97ba9e470a5bb73571df74f))
+
 ## [1.11.1](https://github.com/Kwensiu/Pailer/compare/v1.11.0...v1.11.1) (2026-04-04)
 
 
