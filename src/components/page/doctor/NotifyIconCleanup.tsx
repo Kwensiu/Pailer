@@ -1,6 +1,6 @@
 import { createSignal, For } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { ShieldCheck } from 'lucide-solid';
+import { Dock } from 'lucide-solid';
 import Card from '../../common/Card';
 import Modal from '../../common/Modal';
 import { t } from '../../../i18n';
@@ -52,9 +52,13 @@ function NotifyIconSettingsCleanup() {
         console.log('[NotifyIconSettingsCleanup] dedupe preview result:', result);
       }
       if (result.candidates > 0) {
-        toast.success(t('doctor.notifyIconSettingsCleanup.dedupePreviewFound', { count: result.candidates }));
+        toast.success(
+          t('doctor.notifyIconSettingsCleanup.dedupePreviewFound', { count: result.candidates })
+        );
+        setIsDedupeDetailsOpen(true);
       } else {
         toast.success(t('doctor.notifyIconSettingsCleanup.dedupePreviewNoChanges'));
+        setIsDedupeDetailsOpen(true);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -77,7 +81,9 @@ function NotifyIconSettingsCleanup() {
         })
       );
       if (result.failed.length > 0) {
-        toast.error(t('doctor.notifyIconSettingsCleanup.partialFailure', { count: result.failed.length }));
+        toast.error(
+          t('doctor.notifyIconSettingsCleanup.partialFailure', { count: result.failed.length })
+        );
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
@@ -108,8 +114,7 @@ function NotifyIconSettingsCleanup() {
           candidates: Math.max(0, prev.candidates - 1),
           deduped: sameIdentityRemaining ? prev.deduped : prev.deduped + 1,
           dropped: prev.dropped + 1,
-          propagated:
-            pair.propagated_is_promoted != null ? prev.propagated + 1 : prev.propagated,
+          propagated: pair.propagated_is_promoted != null ? prev.propagated + 1 : prev.propagated,
         });
       }
 
@@ -125,7 +130,7 @@ function NotifyIconSettingsCleanup() {
   return (
     <Card
       title={t('doctor.notifyIconSettingsCleanup.title')}
-      icon={ShieldCheck}
+      icon={Dock}
       description={t('doctor.notifyIconSettingsCleanup.dedupeCardDescription')}
     >
       <div class="space-y-3">
@@ -144,13 +149,6 @@ function NotifyIconSettingsCleanup() {
             {isDeduping()
               ? t('doctor.notifyIconSettingsCleanup.deduping')
               : t('doctor.notifyIconSettingsCleanup.dedupeApply')}
-          </button>
-          <button
-            class="btn btn-ghost"
-            disabled={!lastDedupeResult() || lastDedupeResult()!.pairs.length === 0}
-            onClick={() => setIsDedupeDetailsOpen(true)}
-          >
-            {t('doctor.notifyIconSettingsCleanup.viewDedupeDetails')}
           </button>
         </div>
 
@@ -178,7 +176,7 @@ function NotifyIconSettingsCleanup() {
             {t('doctor.notifyIconSettingsCleanup.dedupeDetailsDescription')}
           </div>
           <div class="max-h-[55vh] overflow-auto">
-            <table class="table table-zebra table-sm w-full">
+            <table class="table-zebra table-sm table w-full">
               <thead>
                 <tr>
                   <th>{t('doctor.notifyIconSettingsCleanup.identity')}</th>
@@ -190,22 +188,22 @@ function NotifyIconSettingsCleanup() {
               <tbody>
                 <For each={lastDedupeResult()?.pairs || []}>
                   {(pair) => (
-                  <tr>
-                    <td class="font-mono text-xs">{pair.identity}</td>
-                    <td class="font-mono text-xs break-all">{pair.keep_path}</td>
-                    <td class="font-mono text-xs break-all">{pair.drop_path}</td>
-                    <td>
-                      <button
-                        class="btn btn-xs btn-secondary"
-                        disabled={resolvingDropSubkey() !== null}
-                        onClick={() => handleResolveSingleDedupe(pair)}
-                      >
-                        {resolvingDropSubkey() === pair.drop_subkey
-                          ? t('doctor.notifyIconSettingsCleanup.resolving')
-                          : t('doctor.notifyIconSettingsCleanup.resolveSingle')}
-                      </button>
-                    </td>
-                  </tr>
+                    <tr>
+                      <td class="font-mono text-xs">{pair.identity}</td>
+                      <td class="font-mono text-xs break-all">{pair.keep_path}</td>
+                      <td class="font-mono text-xs break-all">{pair.drop_path}</td>
+                      <td>
+                        <button
+                          class="btn btn-xs btn-secondary"
+                          disabled={resolvingDropSubkey() !== null}
+                          onClick={() => handleResolveSingleDedupe(pair)}
+                        >
+                          {resolvingDropSubkey() === pair.drop_subkey
+                            ? t('doctor.notifyIconSettingsCleanup.resolving')
+                            : t('doctor.notifyIconSettingsCleanup.resolveSingle')}
+                        </button>
+                      </td>
+                    </tr>
                   )}
                 </For>
               </tbody>

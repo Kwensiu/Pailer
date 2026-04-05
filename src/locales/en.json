@@ -297,12 +297,11 @@
       "identity": "Identity",
       "keepRegistryEntryPath": "Keep Registry Entry (ExecutablePath)",
       "partialFailure": "Some entries could not be removed ({{count}}).",
-      "resolveSingle": "Resolve Entry",
+      "resolveSingle": "Resolve",
       "resolving": "Resolving...",
       "singleDedupeApplied": "Resolved one duplicate registry entry.",
       "tip": "Targets: HKCU\\Control Panel\\NotifyIconSettings (only entries with missing ExecutablePath files are removed).",
-      "title": "Tray Icon Settings Cleanup",
-      "viewDedupeDetails": "View Dedupe Details"
+      "title": "Tray Icon Settings Cleanup"
     },
     "refreshAll": "Refresh All Doctor Data",
     "scoopInfo": {
@@ -651,6 +650,12 @@
       "description": "Automatically tidy up old package versions and outdated cache assets after install, update, or uninstall operations.",
       "title": "Auto Cleanup",
       "versionsToKeep": "Old Versions to Keep: {{count}}"
+    },
+    "trayConfigMigration": {
+      "description": "Automatically preserve tray visibility preferences during package updates (registry only).",
+      "preserveVersioned": "Preserve versioned install tray entries",
+      "preserveVersionedDescription": "For versioned installs, only propagate preference to current entry and do not auto-remove old tray registry entries.",
+      "title": "Auto Handle Tray Config"
     },
     "bucketAutoUpdate": {
       "active": "Active: {{interval}}",

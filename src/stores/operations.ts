@@ -17,6 +17,28 @@ import { OperationType } from '../types/operations';
 import installedPackagesStore from './installedPackagesStore';
 import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import settingsStore from './settings';
+
+interface TrayMigrationPrepareResult {
+  operation_id: string;
+  captured: number;
+  package_count: number;
+}
+
+interface TrayMigrationFinalizeResult {
+  operation_id: string;
+  rewritten_paths: number;
+  propagated_is_promoted: number;
+  removed_duplicates: number;
+  skipped_versioned: number;
+  failed: string[];
+}
+
+interface TrayMigrationDiscardResult {
+  operation_id: string;
+  discarded: boolean;
+}
 
 // Command execution state interface
 export interface CommandExecutionState {
@@ -28,6 +50,9 @@ export interface CommandExecutionState {
 
 // Wrap reactive computations in createRoot for proper disposal
 const operationsStore = createRoot(() => {
+  const trayMigrationPreparedOps = new Set<string>();
+  const trayMigrationPreparePromises = new Map<string, Promise<void>>();
+
   // Operation state store
   const [operations, setOperations] = createStore<Record<string, OperationState>>({});
 
@@ -206,6 +231,67 @@ const operationsStore = createRoot(() => {
       setOperations(newOperation.id, newOperation);
       // Active operations count will be automatically updated through createMemo
 
+      if (
+        settingsStore.settings.automation.autoTrayConfigMigration &&
+        !newOperation.isScan &&
+        (newOperation.operationType === OperationType.Update ||
+          newOperation.operationType === OperationType.UpdateAll) &&
+        newOperation.status === OperationStatusEnum.InProgress &&
+        !trayMigrationPreparedOps.has(newOperation.id)
+      ) {
+        trayMigrationPreparedOps.add(newOperation.id);
+        const startLine = '[Pailer][tray-migration] Started prepare snapshot';
+        setOperations(newOperation.id, 'output', (prev) => [
+          ...(prev || []),
+          {
+            operationId: newOperation.id,
+            source: 'system',
+            line: startLine,
+            message: 'tray migration prepare started',
+            timestamp: Date.now(),
+          },
+        ]);
+        const preparePromise = invoke<TrayMigrationPrepareResult>('prepare_tray_config_migration', {
+          args: {
+            operation_id: newOperation.id,
+            operation_type: newOperation.operationType,
+            package_name:
+              newOperation.operationType === OperationType.Update ? newOperation.packageName : null,
+            preserve_versioned_installs:
+              settingsStore.settings.automation.preserveTrayEntriesForVersionedInstalls,
+          },
+        })
+          .then((res) => {
+            setOperations(newOperation.id, 'output', (prev) => [
+              ...(prev || []),
+              {
+                operationId: newOperation.id,
+                source: 'system',
+                line: `[Pailer][tray-migration] Prepared snapshot, found ${res.captured} entries across ${res.package_count} package(s)`,
+                message: 'tray migration prepare done',
+                timestamp: Date.now(),
+              },
+            ]);
+          })
+          .catch((err) => {
+            console.warn(`[tray-migration] prepare failed for ${newOperation.id}:`, err);
+            setOperations(newOperation.id, 'output', (prev) => [
+              ...(prev || []),
+              {
+                operationId: newOperation.id,
+                source: 'error',
+                line: `[Pailer][tray-migration] Prepare failed: ${String(err)}`,
+                message: String(err),
+                timestamp: Date.now(),
+              },
+            ]);
+          })
+          .finally(() => {
+            trayMigrationPreparePromises.delete(newOperation.id);
+          });
+        trayMigrationPreparePromises.set(newOperation.id, preparePromise);
+      }
+
       // Check if multi-instance warning needs to be displayed
       checkMultiInstanceWarning();
     };
@@ -213,6 +299,8 @@ const operationsStore = createRoot(() => {
     // Remove operation
     const removeOperation = (id: string) => {
       setOperations(id, undefined as any);
+      trayMigrationPreparedOps.delete(id);
+      trayMigrationPreparePromises.delete(id);
       // Active operations count will be automatically updated through createMemo
     };
 
@@ -293,6 +381,96 @@ const operationsStore = createRoot(() => {
         status,
         result,
       });
+
+      const op = untrack(() => operations[operationId]);
+      const isUpdateOperation =
+        !!op &&
+        !op.isScan &&
+        (op.operationType === OperationType.Update || op.operationType === OperationType.UpdateAll);
+
+      if (isUpdateOperation && trayMigrationPreparedOps.has(operationId)) {
+        const command =
+          status === OperationStatusEnum.Success || status === OperationStatusEnum.Warning
+            ? 'finalize_tray_config_migration'
+            : 'discard_tray_config_migration';
+
+        void (async () => {
+          const preparePromise = trayMigrationPreparePromises.get(operationId);
+          if (preparePromise) {
+            addOperationOutput(operationId, {
+              operationId,
+              source: 'system',
+              line: '[Pailer][tray-migration] Waiting for prepare to complete',
+              message: 'waiting prepare',
+            });
+            try {
+              await preparePromise;
+            } catch {
+              // keep going: migration failure must not block operation flow
+            }
+          }
+
+          addOperationOutput(operationId, {
+            operationId,
+            source: 'system',
+            line: `[Pailer][tray-migration] Started ${
+              command === 'finalize_tray_config_migration' ? 'finalize' : 'discard'
+            }`,
+            message: `${command} started`,
+          });
+
+          try {
+            const res = await invoke<TrayMigrationFinalizeResult | TrayMigrationDiscardResult>(
+              command,
+              {
+                args: { operation_id: operationId },
+              }
+            );
+
+            if (command === 'finalize_tray_config_migration') {
+              const r = res as TrayMigrationFinalizeResult;
+              addOperationOutput(operationId, {
+                operationId,
+                source: 'system',
+                line:
+                  `[Pailer][tray-migration] Finalized, rewritten=${r.rewritten_paths}, ` +
+                  `propagated=${r.propagated_is_promoted}, removed=${r.removed_duplicates}, ` +
+                  `skippedVersioned=${r.skipped_versioned}, failed=${r.failed.length}`,
+                message: 'tray migration finalize done',
+              });
+              if (r.failed.length > 0) {
+                r.failed.slice(0, 10).forEach((line) => {
+                  addOperationOutput(operationId, {
+                    operationId,
+                    source: 'error',
+                    line: `[Pailer][tray-migration] ${line}`,
+                    message: line,
+                  });
+                });
+              }
+            } else {
+              const r = res as TrayMigrationDiscardResult;
+              addOperationOutput(operationId, {
+                operationId,
+                source: 'system',
+                line: `[Pailer][tray-migration] Discarded snapshot=${r.discarded}`,
+                message: 'tray migration discard done',
+              });
+            }
+          } catch (err) {
+            console.warn(`[tray-migration] ${command} failed for ${operationId}:`, err);
+            addOperationOutput(operationId, {
+              operationId,
+              source: 'error',
+              line: `[Pailer][tray-migration] ${command} failed: ${String(err)}`,
+              message: String(err),
+            });
+          } finally {
+            trayMigrationPreparedOps.delete(operationId);
+            trayMigrationPreparePromises.delete(operationId);
+          }
+        })();
+      }
     };
 
     // Toggle minimize status
@@ -431,6 +609,13 @@ const operationsStore = createRoot(() => {
             operation.status === OperationStatusEnum.Cancelled) &&
           now - operation.updatedAt > cleanupThreshold
         ) {
+          if (trayMigrationPreparedOps.has(id)) {
+            void invoke('discard_tray_config_migration', { args: { operation_id: id } }).catch(
+              () => {}
+            );
+            trayMigrationPreparedOps.delete(id);
+          }
+          trayMigrationPreparePromises.delete(id);
           setOperations(id, undefined as any);
         }
       });

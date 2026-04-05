@@ -67,6 +67,10 @@ interface Settings {
   search: {
     allowCachePrebuild: boolean;
   };
+  automation: {
+    autoTrayConfigMigration: boolean;
+    preserveTrayEntriesForVersionedInstalls: boolean;
+  };
 }
 
 const defaultSettings: Settings = {
@@ -111,6 +115,10 @@ const defaultSettings: Settings = {
   },
   search: {
     allowCachePrebuild: false,
+  },
+  automation: {
+    autoTrayConfigMigration: false,
+    preserveTrayEntriesForVersionedInstalls: true,
   },
 };
 
@@ -233,6 +241,10 @@ function createSettingsStore() {
             search: {
               ...defaultSettings.search,
               ...stored.search,
+            },
+            automation: {
+              ...defaultSettings.automation,
+              ...stored.automation,
             },
           };
         }
@@ -392,6 +404,15 @@ function createSettingsStore() {
     });
   };
 
+  const setAutomationSettings = async (newAutomationSettings: Partial<Settings['automation']>) => {
+    await saveSettings({
+      automation: {
+        ...settings.automation,
+        ...newAutomationSettings,
+      },
+    });
+  };
+
   const setCoreSettings = async (newCoreSettings: Partial<Settings>) => {
     await saveSettings(newCoreSettings);
   };
@@ -432,6 +453,7 @@ function createSettingsStore() {
     setScoopPath,
     setScoopSettings,
     setSearchSettings,
+    setAutomationSettings,
     setCoreSettings,
   };
 }

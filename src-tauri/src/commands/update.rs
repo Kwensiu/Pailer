@@ -88,39 +88,98 @@ pub async fn update_all_packages_headless(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
+    use crate::commands::doctor::notify_icon_settings::{
+        discard_tray_config_migration, finalize_tray_config_migration,
+        prepare_tray_config_migration, TrayMigrationFinalizeArgs, TrayMigrationPrepareArgs,
+    };
     use crate::commands::powershell;
+    use crate::commands::settings;
     use tokio::io::AsyncReadExt;
 
     log::info!("(Headless) Updating all packages");
+    let tray_migration_op_id = format!(
+        "headless-update-all-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    );
+    let tray_auto_enabled = settings::get_config_value(
+        app.clone(),
+        "automation.autoTrayConfigMigration".to_string(),
+    )
+    .ok()
+    .flatten()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
+    let preserve_versioned = settings::get_config_value(
+        app.clone(),
+        "automation.preserveTrayEntriesForVersionedInstalls".to_string(),
+    )
+    .ok()
+    .flatten()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(true);
+
+    if tray_auto_enabled {
+        let prepare_args = TrayMigrationPrepareArgs {
+            operation_id: tray_migration_op_id.clone(),
+            operation_type: "update-all-headless".to_string(),
+            package_name: None,
+            preserve_versioned_installs: Some(preserve_versioned),
+        };
+        if let Err(e) = prepare_tray_config_migration(state.clone(), prepare_args).await {
+            log::warn!(
+                "[tray-migration][headless] prepare failed (op={}): {}",
+                tray_migration_op_id,
+                e
+            );
+        }
+    }
+
     let mut cmd = powershell::create_powershell_command("function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *");
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn scoop update *: {}", e))?;
 
-    let mut stdout = String::new();
-    let mut stderr = String::new();
+    let stdout_task = {
+        let mut out = child.stdout.take();
+        tokio::spawn(async move {
+            let mut buf = Vec::new();
+            if let Some(mut stream) = out.take() {
+                stream
+                    .read_to_end(&mut buf)
+                    .await
+                    .map_err(|e| format!("Failed to read stdout: {}", e))?;
+            }
+            Ok::<String, String>(String::from_utf8_lossy(&buf).to_string())
+        })
+    };
 
-    // Capture stdout
-    if let Some(mut out) = child.stdout.take() {
-        let mut buf = [0u8; 8192];
-        // Read a chunk to avoid huge memory usage; not streaming to UI
-        if let Ok(n) = out.read(&mut buf).await {
-            stdout.push_str(&String::from_utf8_lossy(&buf[..n]));
-        }
-    }
-
-    // Capture stderr
-    if let Some(mut err) = child.stderr.take() {
-        let mut buf = [0u8; 8192];
-        if let Ok(n) = err.read(&mut buf).await {
-            stderr.push_str(&String::from_utf8_lossy(&buf[..n]));
-        }
-    }
+    let stderr_task = {
+        let mut err = child.stderr.take();
+        tokio::spawn(async move {
+            let mut buf = Vec::new();
+            if let Some(mut stream) = err.take() {
+                stream
+                    .read_to_end(&mut buf)
+                    .await
+                    .map_err(|e| format!("Failed to read stderr: {}", e))?;
+            }
+            Ok::<String, String>(String::from_utf8_lossy(&buf).to_string())
+        })
+    };
 
     let status = child
         .wait()
         .await
         .map_err(|e| format!("Failed to execute scoop update *: {}", e))?;
+    let stdout = stdout_task
+        .await
+        .map_err(|e| format!("Failed to join stdout task: {}", e))??;
+    let stderr = stderr_task
+        .await
+        .map_err(|e| format!("Failed to join stderr task: {}", e))??;
 
     if !status.success() {
         log::warn!(
@@ -147,10 +206,22 @@ pub async fn update_all_packages_headless(
             .map(|line| line.to_string())
             .collect();
 
-        return Err(format!(
-            "Headless package update failed: {}",
-            error_lines.join("; ")
-        ));
+        let err = format!("Headless package update failed: {}", error_lines.join("; "));
+        if tray_auto_enabled {
+            let _ = discard_tray_config_migration(TrayMigrationFinalizeArgs {
+                operation_id: tray_migration_op_id.clone(),
+            })
+            .await
+            .map_err(|e| {
+                log::warn!(
+                    "[tray-migration][headless] discard failed (op={}): {}",
+                    tray_migration_op_id,
+                    e
+                );
+                e
+            });
+        }
+        return Err(err);
     }
 
     // Parse output to extract update details
@@ -183,6 +254,24 @@ pub async fn update_all_packages_headless(
     } else {
         update_lines
     };
+
+    if tray_auto_enabled {
+        let _ = finalize_tray_config_migration(
+            state.clone(),
+            TrayMigrationFinalizeArgs {
+                operation_id: tray_migration_op_id.clone(),
+            },
+        )
+        .await
+        .map_err(|e| {
+            log::warn!(
+                "[tray-migration][headless] finalize failed (op={}): {}",
+                tray_migration_op_id,
+                e
+            );
+            e
+        });
+    }
 
     // Trigger auto cleanup after successful headless update
     trigger_auto_cleanup(app, state).await;

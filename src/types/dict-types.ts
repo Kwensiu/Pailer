@@ -279,6 +279,30 @@ export interface Dict {
       saveSuccess: string;
       title: string;
     };
+    notifyIconSettingsCleanup: {
+      actions: string;
+      dedupeApply: string;
+      dedupeApplied: string;
+      dedupeCardDescription: string;
+      dedupeDetailsDescription: string;
+      dedupeDetailsTitle: string;
+      dedupePreview: string;
+      dedupePreviewFound: string;
+      dedupePreviewNoChanges: string;
+      dedupePreviewing: string;
+      dedupeSummary: string;
+      deduping: string;
+      dropRegistryEntryPath: string;
+      failed: string;
+      identity: string;
+      keepRegistryEntryPath: string;
+      partialFailure: string;
+      resolveSingle: string;
+      resolving: string;
+      singleDedupeApplied: string;
+      tip: string;
+      title: string;
+    };
     refreshAll: string;
     scoopInfo: {
       cancel: string;
@@ -626,6 +650,12 @@ export interface Dict {
       description: string;
       title: string;
       versionsToKeep: string;
+    };
+    trayConfigMigration: {
+      description: string;
+      preserveVersioned: string;
+      preserveVersionedDescription: string;
+      title: string;
     };
     bucketAutoUpdate: {
       active: string;

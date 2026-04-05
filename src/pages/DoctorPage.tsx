@@ -7,7 +7,7 @@ import VersionedAppsManager from '../components/page/doctor/VersionedAppsManager
 import ShimManager from '../components/page/doctor/ShimManager';
 import ScoopInfo from '../components/page/doctor/ScoopInfo';
 import ScoopProxySettings from '../components/page/doctor/ScoopProxySettings';
-import NotifyIconSettingsCleanup from '../components/page/doctor/NotifyIconSettingsCleanup';
+import NotifyIconSettingsCleanup from '../components/page/doctor/NotifyIconCleanup';
 import CommandInputField from '../components/page/doctor/CommandInputField';
 import { createSessionStorage } from '../hooks';
 import installedPackagesStore from '../stores/installedPackagesStore';

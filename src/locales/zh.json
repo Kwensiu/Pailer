@@ -297,12 +297,11 @@
       "identity": "标识",
       "keepRegistryEntryPath": "保留注册表记录（ExecutablePath）",
       "partialFailure": "部分项删除失败（{{count}}）。",
-      "resolveSingle": "处理该记录",
+      "resolveSingle": "处理",
       "resolving": "处理中...",
       "singleDedupeApplied": "已处理一条重复注册表记录。",
       "tip": "目标位置：HKCU\\Control Panel\\NotifyIconSettings（仅删除 ExecutablePath 对应文件不存在的项）。",
-      "title": "托盘图标设置清理",
-      "viewDedupeDetails": "查看去重详情"
+      "title": "托盘图标设置清理"
     },
     "refreshAll": "刷新所有诊断数据",
     "scoopInfo": {
@@ -651,6 +650,12 @@
       "description": "在安装、更新或卸载操作后，自动清理旧版本的软件包和过时的缓存资源。",
       "title": "自动清理",
       "versionsToKeep": "保留旧版本数：{{count}}"
+    },
+    "trayConfigMigration": {
+      "description": "在更新软件包时自动保留托盘显隐偏好（仅注册表）。",
+      "preserveVersioned": "多版本安装时保留旧托盘记录",
+      "preserveVersionedDescription": "对多版本安装仅补写 current 项偏好，不自动删除旧版本托盘注册表记录。",
+      "title": "自动处理托盘配置"
     },
     "bucketAutoUpdate": {
       "active": "当前：{{interval}}",

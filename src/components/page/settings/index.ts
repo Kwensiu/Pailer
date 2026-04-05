@@ -7,6 +7,7 @@ export { default as AboutSection } from './AboutSection';
 export { default as DebugSettings } from './DebugSettings';
 export { default as AutoCleanupSettings } from './AutoCleanupSettings';
 export { default as BucketAutoUpdateSettings } from './BucketAutoUpdateSettings';
+export { default as AutoTrayConfigMigrationSettings } from './AutoTrayConfigMigration';
 export { default as TraySettings } from './TraySettings';
 export { default as ThemeSettings } from './ThemeSettings';
 export { default as DefaultLaunchPageSettings } from './DefaultLaunchPageSettings';

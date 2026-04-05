@@ -75,6 +75,7 @@ function SettingsPage(props: SettingsPageProps) {
               <div class="space-y-6">
                 <SC.AutoCleanupSettings />
                 <SC.BucketAutoUpdateSettings />
+                <SC.AutoTrayConfigMigrationSettings />
               </div>
             </Show>
 
