@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0](https://github.com/Kwensiu/Pailer/compare/v1.12.0...v1.13.0) (2026-04-05)
+
+
+### Features
+
+* stabilize Windows startup identity with Scoop shim and fixed AUMID ([#124](https://github.com/Kwensiu/Pailer/issues/124)) ([beea204](https://github.com/Kwensiu/Pailer/commit/beea2042fd2e068e2dd33c3b0ffcad41dc43fb09))
+
 ## [1.12.0](https://github.com/Kwensiu/Pailer/compare/v1.11.1...v1.12.0) (2026-04-05)
 
 
