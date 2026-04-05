@@ -297,7 +297,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const fetchVersionInfo = async (pkg: ScoopPackage) => {
     setVersionLoading(true);
     setVersionError(undefined);
-    setVersionInfo(undefined);
     try {
       const result = await invoke<VersionedPackageInfo>('get_package_versions', {
         packageName: pkg.name,

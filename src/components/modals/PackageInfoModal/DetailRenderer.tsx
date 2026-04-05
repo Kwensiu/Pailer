@@ -332,11 +332,16 @@ export default function DetailRenderer(props: DetailRendererProps) {
                 const sortedVersions = props.versionInfo?.available_versions
                   ?.slice()
                   .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+                const latestExistsInAvailable =
+                  !!latest && !!sortedVersions?.some((v) => v.version === latest);
+                const latestIsLocal =
+                  latestExistsInAvailable || props.pkg?.local_latest_version === latest;
+                const showCloud = hasUpdate && !latestIsLocal;
 
                 return (
                   <>
                     <Show
-                      when={hasUpdate}
+                      when={showCloud}
                       fallback={
                         <Show when={latest}>
                           <button

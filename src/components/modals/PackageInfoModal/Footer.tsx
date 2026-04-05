@@ -134,7 +134,7 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
               />
             </div>
           </Show>
-          <button class="btn btn-soft" data-modal-close>
+          <button class="btn btn-footer btn-soft" data-modal-close>
             {props.showBackButton ? t('packageInfo.backToBucket') : t('packageInfo.close')}
           </button>
         </form>
