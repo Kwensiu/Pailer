@@ -2,6 +2,7 @@
 //! Commands for managing application startup settings on Windows.
 
 use std::env;
+use std::path::{Path, PathBuf};
 use tauri;
 #[cfg(target_os = "windows")]
 use winreg::{enums::*, RegKey};
@@ -9,6 +10,90 @@ use winreg::{enums::*, RegKey};
 const REG_KEY_PATH: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const REG_KEY_NAME: &str = "Pailer";
 const SILENT_STARTUP_KEY: &str = "PailerSilentStartup";
+const SCOOP_SHIM_RELATIVE_PATH: &str = "shims\\pailer.exe";
+
+#[cfg(target_os = "windows")]
+fn normalize_path(path: &str) -> String {
+    path.trim_matches('"').replace('/', "\\").to_lowercase()
+}
+
+#[cfg(target_os = "windows")]
+fn is_legacy_scoop_pailer_startup_entry(path: &str) -> bool {
+    let normalized = normalize_path(path);
+    normalized.contains("\\scoop\\apps\\pailer\\") && normalized.ends_with("\\pailer.exe")
+}
+
+#[cfg(target_os = "windows")]
+fn find_scoop_root_from_current_exe(exe_path: &Path) -> Option<PathBuf> {
+    let mut current = exe_path.parent();
+    while let Some(dir) = current {
+        if let Some(name) = dir.file_name().and_then(|v| v.to_str()) {
+            if name.eq_ignore_ascii_case("apps") {
+                return dir.parent().map(|p| p.to_path_buf());
+            }
+        }
+        current = dir.parent();
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_scoop_shim_path() -> Result<PathBuf, String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(scoop_env) = env::var("SCOOP") {
+        candidates.push(PathBuf::from(scoop_env).join(SCOOP_SHIM_RELATIVE_PATH));
+    }
+
+    if let Ok(current_exe) = env::current_exe() {
+        if let Some(root) = find_scoop_root_from_current_exe(&current_exe) {
+            candidates.push(root.join(SCOOP_SHIM_RELATIVE_PATH));
+        }
+    }
+
+    if let Ok(user_profile) = env::var("USERPROFILE") {
+        candidates.push(
+            PathBuf::from(user_profile)
+                .join("scoop")
+                .join(SCOOP_SHIM_RELATIVE_PATH),
+        );
+    }
+
+    for candidate in candidates {
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+
+    Err("Scoop shim not found at expected locations".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_startup_command_path() -> Result<String, String> {
+    let current_exe =
+        env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
+    let current_exe_str = current_exe.to_string_lossy().to_string();
+
+    if crate::utils::is_scoop_installation() {
+        match resolve_scoop_shim_path() {
+            Ok(shim_path) => {
+                let shim = shim_path.to_string_lossy().to_string();
+                log::info!("Using Scoop shim path for startup entry: {}", shim);
+                Ok(shim)
+            }
+            Err(e) => {
+                log::error!(
+                    "Failed to resolve Scoop shim path for startup entry (fallback to current exe: {}): {}",
+                    current_exe_str,
+                    e
+                );
+                Ok(current_exe_str)
+            }
+        }
+    } else {
+        Ok(current_exe_str)
+    }
+}
 
 /// Checks if the application is configured to start automatically on Windows boot.
 #[tauri::command]
@@ -21,27 +106,41 @@ pub fn is_auto_start_enabled() -> Result<bool, String> {
         // Check if our registry key exists
         match startup_key.get_value::<String, _>(REG_KEY_NAME) {
             Ok(current_value) => {
-                // Check if current executable path matches registered one
-                let current_exe =
-                    env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
-                let current_exe_canonical = current_exe
-                    .canonicalize()
-                    .map_err(|e| format!("Failed to canonicalize current exe: {}", e))?;
+                let expected_startup_path = resolve_startup_command_path()?;
+                let expected_path = Path::new(&expected_startup_path);
 
                 // Parse registry value as path, remove quotes if present
                 let registry_path_str = current_value.trim_matches('"');
                 let registry_path = std::path::Path::new(registry_path_str);
 
                 // Try to canonicalize registry path, if fails, compare directly as fallback
-                match registry_path.canonicalize() {
-                    Ok(registry_canonical) => Ok(current_exe_canonical == registry_canonical),
-                    Err(_) => {
-                        // Fallback to string comparison if canonicalize fails
-                        let current_exe_str = current_exe.to_string_lossy();
-                        let normalize_path = |path: &str| path.replace('/', "\\").to_lowercase();
-                        Ok(normalize_path(&current_value) == normalize_path(&current_exe_str))
-                    }
+                let is_expected_match =
+                    match (registry_path.canonicalize(), expected_path.canonicalize()) {
+                        (Ok(registry_canonical), Ok(expected_canonical)) => {
+                            registry_canonical == expected_canonical
+                        }
+                        _ => {
+                            normalize_path(&current_value) == normalize_path(&expected_startup_path)
+                        }
+                    };
+
+                if is_expected_match {
+                    return Ok(true);
                 }
+
+                // Compatibility only: recognize legacy Scoop versioned path as enabled.
+                // We intentionally do not auto-migrate here to keep the implementation simple.
+                if crate::utils::is_scoop_installation()
+                    && is_legacy_scoop_pailer_startup_entry(&current_value)
+                {
+                    log::warn!(
+                        "Detected legacy Scoop auto-start entry path; treating as enabled without migration: {}",
+                        current_value
+                    );
+                    return Ok(true);
+                }
+
+                Ok(false)
             }
             Err(_) => Ok(false),
         }
@@ -64,10 +163,15 @@ pub fn set_auto_start_enabled(enabled: bool) -> Result<(), String> {
 
         if enabled {
             // Enable auto-start by adding registry key
-            let current_exe = env::current_exe().map_err(|e| e.to_string())?;
+            let startup_target = resolve_startup_command_path()?;
             startup_key
-                .set_value(REG_KEY_NAME, &current_exe.to_string_lossy().to_string())
+                .set_value(REG_KEY_NAME, &startup_target)
                 .map_err(|e| e.to_string())?;
+            log::info!(
+                "Set auto-start registry entry {} -> {}",
+                REG_KEY_NAME,
+                startup_target
+            );
         } else {
             // Disable auto-start by removing both registry keys
             // Remove main auto-start entry

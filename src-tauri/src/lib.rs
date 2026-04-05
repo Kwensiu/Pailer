@@ -21,6 +21,9 @@ mod config_keys {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    set_explicit_app_user_model_id();
+
     // Set up panic handler for better crash reporting
     std::panic::set_hook(Box::new(|panic_info| {
         let location = panic_info
@@ -299,6 +302,23 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(windows)]
+fn set_explicit_app_user_model_id() {
+    use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+
+    // Keep AppUserModelID stable across updates so shell preferences remain associated.
+    let app_id_wide: Vec<u16> = "com.pailer.ks\0".encode_utf16().collect();
+    unsafe {
+        let hr = SetCurrentProcessExplicitAppUserModelID(app_id_wide.as_ptr());
+        if hr < 0 {
+            eprintln!(
+                "Failed to set explicit AppUserModelID to com.pailer.ks (HRESULT={:#X})",
+                hr
+            );
+        }
+    }
 }
 
 // Helper function: Clean up old log files in the specified directory
