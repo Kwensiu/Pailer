@@ -31,8 +31,13 @@ fn resolve_self_restart_executable(current_dir: &PathBuf) -> Result<PathBuf, Str
                 e
             )
         })?;
-        let manifest_json: serde_json::Value = serde_json::from_str(&manifest_content)
-            .map_err(|e| format!("Failed to parse Pailer manifest for restart path resolution: {}", e))?;
+        let manifest_json: serde_json::Value =
+            serde_json::from_str(&manifest_content).map_err(|e| {
+                format!(
+                    "Failed to parse Pailer manifest for restart path resolution: {}",
+                    e
+                )
+            })?;
 
         for bin_entry in collect_manifest_bin_entries(manifest_json.get("bin")) {
             let candidate = current_dir.join(bin_entry);
@@ -48,7 +53,12 @@ fn resolve_self_restart_executable(current_dir: &PathBuf) -> Result<PathBuf, Str
     }
 
     let mut exe_candidates = fs::read_dir(current_dir)
-        .map_err(|e| format!("Failed to scan current directory for restart executable: {}", e))?
+        .map_err(|e| {
+            format!(
+                "Failed to scan current directory for restart executable: {}",
+                e
+            )
+        })?
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| {

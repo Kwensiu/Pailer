@@ -1,6 +1,6 @@
 use super::powershell::{self, EVENT_CANCEL, EVENT_FINISHED, EVENT_OUTPUT};
 use lazy_static::lazy_static;
-use tauri::Window;
+use tauri::{Emitter, Window};
 use tokio::sync::Mutex;
 
 lazy_static! {
@@ -184,4 +184,163 @@ pub async fn execute_scoop(
     }
 
     result
+}
+
+#[tauri::command]
+pub async fn retry_operation_elevated(
+    window: Window,
+    operation_id: String,
+    operation_name: String,
+    operation_type: String,
+    package_name: Option<String>,
+    bucket_name: Option<String>,
+    force_update: Option<bool>,
+    bypass_self_update: Option<bool>,
+) -> Result<(), String> {
+    let op = match operation_type.as_str() {
+        "install" => ScoopOp::Install,
+        "uninstall" => ScoopOp::Uninstall,
+        "update" | "auto-update" => {
+            if force_update.unwrap_or(false) {
+                ScoopOp::UpdateForce
+            } else {
+                ScoopOp::Update
+            }
+        }
+        "update-all" => ScoopOp::UpdateAll,
+        "clear-cache" => ScoopOp::ClearCache,
+        other => {
+            return Err(format!(
+                "Unsupported operation type for elevated retry: {}",
+                other
+            ))
+        }
+    };
+
+    let bypass = bypass_self_update.unwrap_or(false);
+
+    // Hold LAST_UPDATE_LOCK and backup/restore for bypass updates, same as execute_scoop.
+    let _last_update_guard = if bypass {
+        Some(LAST_UPDATE_LOCK.lock().await)
+    } else {
+        None
+    };
+
+    let last_update_backup = if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
+        powershell::run_simple_command("scoop config LAST_UPDATE")
+            .await
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && !s.contains("is not set"))
+    } else {
+        None
+    };
+
+    let scoop_cmd = build_scoop_cmd(op, package_name.as_deref(), bucket_name.as_deref(), bypass)?;
+
+    let ps_exe = powershell::resolve_powershell_exe();
+    let escaped_cmd = scoop_cmd.replace('\'', "''");
+    let wrapped = format!(
+        "$ErrorActionPreference = 'Stop'; \
+         $p = Start-Process '{}' -Verb RunAs -WindowStyle Hidden -PassThru -Wait -ArgumentList @('-NoProfile','-Command','{}'); \
+         if ($null -eq $p) {{ throw 'Failed to start elevated process.' }}; \
+         Write-Output ('Elevated process exit code: ' + $p.ExitCode); \
+         if ($p.ExitCode -ne 0) {{ exit $p.ExitCode }}",
+        ps_exe, escaped_cmd
+    );
+
+    let _ = window.emit(
+        EVENT_OUTPUT,
+        powershell::StreamOutput {
+            operation_id: operation_id.clone(),
+            line: "Requesting administrator privileges...".to_string(),
+            source: "system".to_string(),
+        },
+    );
+    let _ = window.emit(
+        EVENT_OUTPUT,
+        powershell::StreamOutput {
+            operation_id: operation_id.clone(),
+            line: "Output from the elevated process will appear after it completes.".to_string(),
+            source: "system".to_string(),
+        },
+    );
+
+    let mut cmd = powershell::create_powershell_command(&wrapped);
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("Failed to run elevated retry for {}: {}", operation_name, e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    for line in stdout.lines().filter(|line| !line.trim().is_empty()) {
+        let _ = window.emit(
+            EVENT_OUTPUT,
+            powershell::StreamOutput {
+                operation_id: operation_id.clone(),
+                line: line.to_string(),
+                source: "stdout".to_string(),
+            },
+        );
+    }
+
+    for line in stderr.lines().filter(|line| !line.trim().is_empty()) {
+        let _ = window.emit(
+            EVENT_OUTPUT,
+            powershell::StreamOutput {
+                operation_id: operation_id.clone(),
+                line: line.to_string(),
+                source: "stderr".to_string(),
+            },
+        );
+    }
+
+    let success = output.status.success();
+    let result = powershell::CommandResult {
+        success,
+        operation_id: operation_id.clone(),
+        operation_name: operation_name.clone(),
+        error_count: if success { None } else { Some(1) },
+        warning_count: None,
+        final_status: if success {
+            powershell::FinalStatus::Success
+        } else {
+            powershell::FinalStatus::Error
+        },
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64,
+    };
+
+    let _ = window.emit(EVENT_FINISHED, result);
+
+    // Restore LAST_UPDATE after elevated retry, same as execute_scoop.
+    if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
+        match last_update_backup {
+            Some(ref backup) => {
+                let escaped_backup = backup.replace('\'', "''");
+                let restore_cmd =
+                    format!("scoop config LAST_UPDATE '{}' | Out-Null", escaped_backup);
+                if let Err(e) = powershell::run_simple_command(&restore_cmd).await {
+                    log::error!("[{}] Failed to restore LAST_UPDATE: {}", operation_id, e);
+                }
+            }
+            None => {
+                if let Err(e) =
+                    powershell::run_simple_command("scoop config rm LAST_UPDATE | Out-Null").await
+                {
+                    log::error!("[{}] Failed to remove LAST_UPDATE: {}", operation_id, e);
+                }
+            }
+        }
+    }
+
+    if success {
+        Ok(())
+    } else {
+        Err(format!("Elevated retry failed for {}", operation_name))
+    }
 }

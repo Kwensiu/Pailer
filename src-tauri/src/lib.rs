@@ -179,6 +179,7 @@ pub fn run() {
             commands::package_icon::get_installed_package_icons,
             commands::info::get_package_info,
             commands::install::install_package,
+            commands::scoop::retry_operation_elevated,
             commands::manifest::get_package_manifest,
             commands::updates::check_for_updates,
             commands::update::update_package,

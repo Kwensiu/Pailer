@@ -139,6 +139,8 @@ export interface PackageOperationState {
   isScan: false;
   operationType: OperationType;
   packageName: string;
+  bucketName?: string;
+  forceUpdate?: boolean;
   onInstallConfirm?: () => void;
   nextStep?: OperationNextStep;
 }

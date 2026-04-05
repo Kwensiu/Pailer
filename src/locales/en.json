@@ -166,6 +166,8 @@
     "remove": "Remove",
     "removeAll": "Remove All",
     "removeSelected": "Selected",
+    "retry": "Retry",
+    "retryAsAdmin": "Retry as Admin",
     "save": "Save",
     "showLess": "Show Less",
     "showMore": "Show More",

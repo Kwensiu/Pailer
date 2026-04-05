@@ -1,5 +1,6 @@
 import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup } from 'solid-js';
 import { emit } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { useOperations } from '../../stores/operations';
 import { OperationModalProps, OperationStatus } from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
@@ -7,6 +8,7 @@ import { t } from '../../i18n';
 import { isErrorLineWithContext } from '../../utils/errorDetection';
 import { ansiToHtml, stripAnsi, hasAnsiCodes } from '../../utils/ansiUtils';
 import { requestCancelWithRetry } from '../../utils/operationCancellation';
+import settingsStore from '../../stores/settings';
 import {
   isRunning,
   isTerminal,
@@ -217,8 +219,15 @@ const getWarningMessage = (operation: any) => {
 };
 
 function OperationModal(props: OperationModalProps) {
-  const { removeOperation, toggleMinimize, setOperationStatus, generateOperationId, operations } =
-    useOperations();
+  const {
+    removeOperation,
+    toggleMinimize,
+    setOperationStatus,
+    updateOperation,
+    addOperationOutput,
+    generateOperationId,
+    operations,
+  } = useOperations();
 
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
@@ -387,6 +396,81 @@ function OperationModal(props: OperationModalProps) {
     }
   };
 
+  const hasElevationError = () => {
+    // TODO(elevation-followups): If new privilege-related failure patterns appear,
+    // extend detection here and keep backend patterns in sync.
+    // Related components to update together:
+    // - src-tauri/src/commands/powershell.rs (contains_error_keywords)
+    // - src-tauri/src/commands/scoop.rs (retry_operation_elevated)
+    // - src/hooks/packages/usePackageOps.ts (operation metadata: bucket/flags)
+    // - src/types/operations.ts (operation state fields)
+    // - src/locales/en.json + src/locales/zh.json (button/error i18n text)
+    const op = operation();
+    if (!op || op.status !== OperationStatus.Error) return false;
+
+    const permissionPatterns = [
+      'permission denied',
+      'access is denied',
+      'administrator',
+      'admin rights',
+      'requires elevation',
+      'elevation required',
+      'unauthorizedaccessexception',
+    ];
+
+    const resultMessage = (op.result?.message || '').toLowerCase();
+    if (permissionPatterns.some((pattern) => resultMessage.includes(pattern))) {
+      return true;
+    }
+
+    return (op.output || []).some((line) =>
+      permissionPatterns.some((pattern) => line.line.toLowerCase().includes(pattern))
+    );
+  };
+
+  const handleElevatedRetry = async () => {
+    const currentOp = operation();
+    if (!currentOp || currentOp.status !== OperationStatus.Error) return;
+
+    updateOperation(operationId(), {
+      status: OperationStatus.InProgress,
+      result: undefined,
+    });
+
+    addOperationOutput(operationId(), {
+      operationId: operationId(),
+      source: 'system',
+      line: '[Pailer] Retrying with administrator privileges...',
+      message: 'Retrying with administrator privileges...',
+    });
+
+    try {
+      await invoke('retry_operation_elevated', {
+        operationId: operationId(),
+        operationName: currentOp.title,
+        operationType: currentOp.isScan ? 'scan' : currentOp.operationType,
+        packageName: currentOp.isScan ? undefined : currentOp.packageName,
+        bucketName: currentOp.isScan ? undefined : currentOp.bucketName,
+        forceUpdate: !currentOp.isScan && currentOp.forceUpdate === true,
+        bypassSelfUpdate: settingsStore.settings.scoop.bypassSelfUpdate,
+      });
+    } catch (error) {
+      // Only update if EVENT_FINISHED hasn't already moved the operation to a terminal state.
+      const op = operation();
+      if (op && op.status === OperationStatus.InProgress) {
+        updateOperation(operationId(), {
+          status: OperationStatus.Error,
+        });
+        addOperationOutput(operationId(), {
+          operationId: operationId(),
+          source: 'error',
+          line: `[Pailer] Elevated retry failed to start: ${String(error)}`,
+          message: String(error),
+        });
+      }
+    }
+  };
+
   const getCloseButtonText = () => {
     return isRunning(operation()) ? t('buttons.cancel') : t('buttons.close');
   };
@@ -478,13 +562,21 @@ function OperationModal(props: OperationModalProps) {
       }
       footer={
         <div class="flex justify-end gap-2">
+          <Show when={hasElevationError()}>
+            <button
+              class="btn btn-footer btn-soft btn-warning"
+              onClick={() => void handleElevatedRetry()}
+            >
+              {t('buttons.retryAsAdmin')}
+            </button>
+          </Show>
           <Show when={props.nextStep && currentOperation?.status === OperationStatus.Success}>
-            <button class="btn btn-primary btn-sm" onClick={() => props.nextStep?.onNext()}>
+            <button class="btn btn-footer btn-primary" onClick={() => props.nextStep?.onNext()}>
               {props.nextStep?.buttonLabel}
             </button>
           </Show>
           <button
-            class={`btn ${primaryButtonVariant(currentOperation)}`}
+            class={`btn btn-footer btn-soft ${primaryButtonVariant(currentOperation)}`}
             onClick={handleMainButtonClick}
           >
             {getCloseButtonText()}

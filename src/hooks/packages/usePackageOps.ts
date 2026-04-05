@@ -170,6 +170,7 @@ const performInstall = (pkg: ScoopPackage) => {
     isScan: false,
     operationType: OperationType.Install,
     packageName: pkg.name,
+    bucketName: pkg.source,
   } as Parameters<typeof addOperation>[0]);
 
   invoke('install_package', {
@@ -231,6 +232,7 @@ const handleUninstall = (pkg: ScoopPackage) => {
     isScan: false,
     operationType: OperationType.Uninstall,
     packageName: pkg.name,
+    bucketName: pkg.source,
   } as Parameters<typeof addOperation>[0]);
 
   invoke('uninstall_package', {
@@ -273,6 +275,7 @@ const handleUpdate = async (pkg: ScoopPackage) => {
     isScan: false,
     operationType: OperationType.Update,
     packageName: pkg.name,
+    bucketName: pkg.source,
   } as Parameters<typeof addOperation>[0]);
 
   // Call backend command with operationId
@@ -314,6 +317,8 @@ const handleForceUpdate = async (pkg: ScoopPackage) => {
     isScan: false,
     operationType: OperationType.Update,
     packageName: pkg.name,
+    bucketName: pkg.source,
+    forceUpdate: true,
   } as Parameters<typeof addOperation>[0]);
 
   const bypassSelfUpdate = settingsStore.settings.scoop.bypassSelfUpdate;

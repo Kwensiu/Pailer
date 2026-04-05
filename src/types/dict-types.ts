@@ -166,6 +166,8 @@ export interface Dict {
     remove: string;
     removeAll: string;
     removeSelected: string;
+    retry: string;
+    retryAsAdmin: string;
     save: string;
     showLess: string;
     showMore: string;

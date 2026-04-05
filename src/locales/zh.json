@@ -166,6 +166,8 @@
     "remove": "移除",
     "removeAll": "全部删除",
     "removeSelected": "选择",
+    "retry": "重试",
+    "retryAsAdmin": "以管理员权限重试",
     "save": "保存",
     "showLess": "收起",
     "showMore": "显示更多",

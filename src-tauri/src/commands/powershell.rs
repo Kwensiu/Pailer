@@ -75,6 +75,33 @@ pub async fn run_simple_command(command_str: &str) -> Result<String, String> {
     }
 }
 
+fn contains_error_keywords(line: &str) -> bool {
+    // TODO(elevation-followups): Keep this matcher conservative. When adding new patterns,
+    // verify they do not create false positives and align with frontend detection in
+    // src/components/modals/OperationModal.tsx (hasElevationError).
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let lower = trimmed.to_lowercase();
+
+    // Explicit hard-error signals that should fail the operation even if exit code is 0.
+    // Keep these strict to avoid false positives from generic diagnostic text.
+    if lower.contains("requires admin rights")
+        || lower.contains("requires administrator")
+        || lower.contains("permission denied")
+        || lower.contains("access is denied")
+        || lower.contains("access denied")
+        || lower.contains("unauthorizedaccessexception")
+    {
+        return true;
+    }
+
+    // Match only explicit ERROR prefixes, e.g. "ERROR xxx".
+    lower.starts_with("error ") || lower.starts_with("error:")
+}
+
 fn contains_warning_keywords(line: &str) -> bool {
     let trimmed = line.trim_start();
     if trimmed.is_empty() {
@@ -87,13 +114,9 @@ fn contains_warning_keywords(line: &str) -> bool {
     if lower.starts_with("warn") {
         return true;
     }
-    if lower.starts_with("error") {
-        return true;
-    }
 
     // Common warning/error indicators (case-insensitive)
     let indicators = [
-        "error:",
         "warn",
         "warning",
         "not found",
@@ -144,25 +167,30 @@ pub struct CommandResult {
     pub timestamp: u64,
 }
 
-/// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
-/// Prefers PowerShell Core (pwsh) if available, falls back to Windows PowerShell.
-pub fn create_powershell_command(command_str: &str) -> Command {
-    // Determine which PowerShell executable to use
+/// Returns the resolved PowerShell executable name respecting user configuration.
+/// Prefers PowerShell Core (pwsh) when set to "auto", falls back to Windows PowerShell.
+pub fn resolve_powershell_exe() -> String {
     let exe = POWERSHELL_EXE
         .try_read()
         .map(|guard| guard.clone())
         .unwrap_or_else(|_| "auto".to_string());
-    let ps_exe: &str = if exe == "auto" {
+    if exe == "auto" {
         if is_pwsh_available() {
-            "pwsh"
+            "pwsh".to_string()
         } else {
-            "powershell"
+            "powershell".to_string()
         }
     } else {
-        exe.as_str()
-    };
+        exe
+    }
+}
 
-    let mut cmd = Command::new(ps_exe);
+/// Creates a `tokio::process::Command` for running a PowerShell command without a visible window.
+/// Prefers PowerShell Core (pwsh) if available, falls back to Windows PowerShell.
+pub fn create_powershell_command(command_str: &str) -> Command {
+    let ps_exe = resolve_powershell_exe();
+
+    let mut cmd = Command::new(&ps_exe);
 
     let wrapped_command = format!(
         "$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; \
@@ -220,6 +248,7 @@ fn spawn_output_reader(
     source: &'static str,
     window: Window,
     output_event: String,
+    error_count: Arc<AtomicUsize>,
     warning_count: Arc<AtomicUsize>,
     operation_id: String,
 ) {
@@ -230,7 +259,9 @@ fn spawn_output_reader(
         while let Ok(Some(line)) = reader.next_line().await {
             log::debug!("Output line [{}]: {}", source, line);
 
-            if contains_warning_keywords(&line) {
+            if contains_error_keywords(&line) {
+                error_count.fetch_add(1, Ordering::Relaxed);
+            } else if contains_warning_keywords(&line) {
                 warning_count.fetch_add(1, Ordering::Relaxed);
             }
 
@@ -309,6 +340,7 @@ pub async fn run_and_stream_command(
         .take()
         .expect("Child process did not have a handle to stderr");
 
+    let error_count = Arc::new(AtomicUsize::new(0));
     let warning_count = Arc::new(AtomicUsize::new(0));
     let cancel_poll_operation_id = operation_id.clone();
 
@@ -317,6 +349,7 @@ pub async fn run_and_stream_command(
         "stdout",
         window.clone(),
         output_event.to_string(),
+        error_count.clone(),
         warning_count.clone(),
         operation_id.clone(),
     );
@@ -325,6 +358,7 @@ pub async fn run_and_stream_command(
         "stderr",
         window.clone(),
         output_event.to_string(),
+        error_count.clone(),
         warning_count.clone(),
         operation_id.clone(),
     );
@@ -336,6 +370,7 @@ pub async fn run_and_stream_command(
                 &operation_name,
                 &window,
                 finished_event,
+                error_count.clone(),
                 warning_count.clone(),
                 operation_id.clone(),
             ).await
@@ -357,6 +392,7 @@ async fn handle_command_completion(
     operation_name: &str,
     window: &Window,
     finished_event: &str,
+    error_count: Arc<AtomicUsize>,
     warning_count: Arc<AtomicUsize>,
     operation_id: String,
 ) -> Result<(), String> {
@@ -379,19 +415,22 @@ async fn handle_command_completion(
     // Command is successful if process exits with code 0
     let process_successful = status.success();
 
-    let warning_count = if process_successful {
-        let count = warning_count.load(Ordering::Relaxed);
-        if count > 0 {
-            Some(count)
-        } else {
-            None
-        }
+    let detected_errors = error_count.load(Ordering::Relaxed);
+    let detected_warnings = warning_count.load(Ordering::Relaxed);
+
+    let error_count = if detected_errors > 0 {
+        Some(detected_errors)
+    } else {
+        None
+    };
+    let warning_count = if detected_warnings > 0 {
+        Some(detected_warnings)
     } else {
         None
     };
 
-    let was_successful = process_successful;
-    let error_count: Option<usize> = None;
+    // Consider command failed if hard error lines were detected, even when exit code is 0.
+    let was_successful = process_successful && detected_errors == 0;
 
     let final_status = if was_successful {
         if warning_count.is_some() {
