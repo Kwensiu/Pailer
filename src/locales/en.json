@@ -461,6 +461,9 @@
     "name": "Name",
     "notes": "Notes",
     "openFolder": "Open Folder",
+    "run": "Run",
+    "running": "Running...",
+    "runFailed": "Failed to run: {{error}}",
     "success": {
       "changeBucket": "{{name}} switched to bucket {{bucket}}",
       "forceUpdate": "{{name}} force updated successfully",

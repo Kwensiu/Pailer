@@ -2,7 +2,7 @@ import { Show } from 'solid-js';
 import { Download, ChevronUp } from 'lucide-solid';
 import Dropdown from '../../common/Dropdown';
 import { t } from '../../../i18n';
-import type { PackageInfoModalProps } from './types';
+import type { PackageInfoModalProps, PackageRunEntry } from './types';
 
 interface ConfirmActionReturn {
   isConfirming: (key: string) => boolean;
@@ -22,9 +22,16 @@ interface PackageInfoModalFooterProps {
   onUpdate?: PackageInfoModalProps['onUpdate'];
   onForceUpdate?: PackageInfoModalProps['onForceUpdate'];
   onPackageStateChanged?: PackageInfoModalProps['onPackageStateChanged'];
+  runEntries: () => PackageRunEntry[];
+  runningEntryName: () => string | null;
+  onRunDefault: () => void;
+  onRunEntry: (entryName: string) => void;
 }
 
 export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
+  const hasRunEntries = () => props.runEntries().length > 0;
+  const hasMultipleRunEntries = () => props.runEntries().length > 1;
+
   return (
     <div class="flex w-full items-center justify-between">
       <div class="flex space-x-2">
@@ -134,10 +141,65 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
               />
             </div>
           </Show>
-          <button class="btn btn-footer btn-soft" data-modal-close>
-            {props.showBackButton ? t('packageInfo.backToBucket') : t('packageInfo.close')}
-          </button>
+          <Show when={!props.isInstalled()}>
+            <button class="btn btn-footer btn-soft" data-modal-close>
+              {props.showBackButton ? t('packageInfo.backToBucket') : t('packageInfo.close')}
+            </button>
+          </Show>
         </form>
+        <Show when={props.isInstalled()}>
+          <Show
+            when={hasRunEntries()}
+            fallback={
+              <button type="button" class="btn btn-footer btn-soft" disabled>
+                {t('packageInfo.run')}
+              </button>
+            }
+          >
+            <Show
+              when={hasMultipleRunEntries()}
+              fallback={
+                <button
+                  type="button"
+                  class="btn btn-footer btn-soft btn-success"
+                  disabled={!!props.runningEntryName()}
+                  onClick={props.onRunDefault}
+                >
+                  {props.runningEntryName() ? t('packageInfo.running') : t('packageInfo.run')}
+                </button>
+              }
+            >
+              <div class="join">
+                <button
+                  type="button"
+                  class="btn btn-soft btn-success join-item btn-l-split"
+                  disabled={!!props.runningEntryName()}
+                  onClick={props.onRunDefault}
+                >
+                  {props.runningEntryName() ? t('packageInfo.running') : t('packageInfo.run')}
+                </button>
+                <Dropdown
+                  direction="up"
+                  position="end"
+                  trigger={
+                    <button
+                      type="button"
+                      class="btn btn-soft join-item btn-r-split"
+                      disabled={!!props.runningEntryName()}
+                    >
+                      <ChevronUp class="h-4 w-4 shrink-0" />
+                    </button>
+                  }
+                  triggerClass="btn-square"
+                  items={props.runEntries().map((entry) => ({
+                    label: entry.name,
+                    onClick: () => props.onRunEntry(entry.name),
+                  }))}
+                />
+              </div>
+            </Show>
+          </Show>
+        </Show>
       </div>
     </div>
   );

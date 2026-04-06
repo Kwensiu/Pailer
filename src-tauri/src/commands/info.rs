@@ -5,6 +5,8 @@ use crate::utils;
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use tauri::State;
 
 /// Represents the structured information for a Scoop package, suitable for frontend display.
@@ -14,6 +16,17 @@ pub struct ScoopInfo {
     pub details: Vec<(String, String)>,
     /// Optional installation notes provided by the package manifest.
     pub notes: Option<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct PackageRunEntry {
+    pub name: String,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedRunEntry {
+    name: String,
+    executable_path: PathBuf,
 }
 
 /// Formats a JSON key for display, capitalizing it and handling special cases.
@@ -254,4 +267,302 @@ fn locate_installed_manifest(
         .unwrap_or_else(|| "Installed (Bucket missing)".to_string());
 
     Some((installed_manifest_path, bucket_name))
+}
+
+fn alias_from_path(path: &str, fallback: &str) -> String {
+    Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn collect_bin_value_candidates(
+    bin_value: &Value,
+    package_name: &str,
+    items: &mut Vec<(String, String)>,
+) {
+    match bin_value {
+        Value::String(path) => {
+            items.push((alias_from_path(path, package_name), path.to_string()));
+        }
+        Value::Array(values) => {
+            for value in values {
+                match value {
+                    Value::String(path) => {
+                        items.push((alias_from_path(path, package_name), path.to_string()));
+                    }
+                    Value::Array(parts) => {
+                        let rel = parts.first().and_then(|v| v.as_str());
+                        let alias = parts.get(1).and_then(|v| v.as_str());
+                        if let Some(rel_path) = rel {
+                            items.push((
+                                alias
+                                    .filter(|v| !v.trim().is_empty())
+                                    .map(|v| v.to_string())
+                                    .unwrap_or_else(|| alias_from_path(rel_path, package_name)),
+                                rel_path.to_string(),
+                            ));
+                        }
+                    }
+                    Value::Object(map) => {
+                        for (alias, value) in map {
+                            if let Some(path) = value.as_str() {
+                                items.push((alias.to_string(), path.to_string()));
+                            } else if let Value::Array(parts) = value {
+                                if let Some(path) = parts.first().and_then(|v| v.as_str()) {
+                                    items.push((alias.to_string(), path.to_string()));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Value::Object(map) => {
+            for (alias, value) in map {
+                if let Some(path) = value.as_str() {
+                    items.push((alias.to_string(), path.to_string()));
+                } else if let Value::Array(parts) = value {
+                    if let Some(path) = parts.first().and_then(|v| v.as_str()) {
+                        items.push((alias.to_string(), path.to_string()));
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn current_scoop_architecture_keys() -> &'static [&'static str] {
+    #[cfg(target_arch = "x86_64")]
+    {
+        &["64bit", "32bit"]
+    }
+
+    #[cfg(target_arch = "x86")]
+    {
+        &["32bit"]
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        &["arm64", "64bit", "32bit"]
+    }
+}
+
+fn collect_manifest_bin_candidates(
+    manifest_json: &Value,
+    package_name: &str,
+) -> Vec<(String, String)> {
+    let mut items = Vec::new();
+
+    if let Some(bin_value) = manifest_json.get("bin") {
+        collect_bin_value_candidates(bin_value, package_name, &mut items);
+    }
+
+    if let Some(architecture) = manifest_json.get("architecture").and_then(|value| value.as_object())
+    {
+        for key in current_scoop_architecture_keys() {
+            let Some(arch_entry) = architecture.get(*key) else {
+                continue;
+            };
+            if let Some(bin_value) = arch_entry.get("bin") {
+                collect_bin_value_candidates(bin_value, package_name, &mut items);
+            }
+        }
+    }
+
+    items
+}
+
+fn resolve_executable_from_relative(current_dir: &Path, relative_path: &str) -> Option<PathBuf> {
+    let rel = Path::new(relative_path);
+    let mut candidates = vec![
+        current_dir.join(rel),
+        current_dir.join("bin").join(rel),
+    ];
+
+    let has_ext = rel.extension().is_some();
+    if !has_ext {
+        for ext in ["exe", "cmd", "bat", "ps1"] {
+            candidates.push(current_dir.join(rel).with_extension(ext));
+            candidates.push(current_dir.join("bin").join(rel).with_extension(ext));
+        }
+    }
+
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn resolve_package_run_entries(
+    scoop_dir: &Path,
+    package_name: &str,
+) -> Result<Vec<ResolvedRunEntry>, String> {
+    let current_dir = scoop_dir.join("apps").join(package_name).join("current");
+    if !current_dir.is_dir() {
+        return Err(format!(
+            "Package '{}' is not installed or missing current directory",
+            package_name
+        ));
+    }
+
+    let manifest_path = current_dir.join("manifest.json");
+    let mut resolved = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    if manifest_path.is_file() {
+        let manifest_content = fs::read_to_string(&manifest_path)
+            .map_err(|e| format!("Failed to read manifest for {}: {}", package_name, e))?;
+        let manifest_json: Value = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Failed to parse manifest for {}: {}", package_name, e))?;
+
+        for (alias, rel_path) in collect_manifest_bin_candidates(&manifest_json, package_name) {
+            let alias_key = alias.to_ascii_lowercase();
+            if seen.contains(&alias_key) {
+                continue;
+            }
+
+            let shims_dir = scoop_dir.join("shims");
+            let mut shim_candidates = ["exe", "cmd", "bat", "ps1"]
+                .iter()
+                .map(|ext| shims_dir.join(format!("{}.{}", alias, ext)));
+            let executable_path = shim_candidates
+                .find(|path| path.is_file())
+                .or_else(|| resolve_executable_from_relative(&current_dir, &rel_path));
+
+            if let Some(path) = executable_path {
+                seen.insert(alias_key);
+                resolved.push(ResolvedRunEntry {
+                    name: alias,
+                    executable_path: path,
+                });
+            }
+        }
+    }
+
+    if resolved.is_empty() {
+        let mut fallback_files: Vec<PathBuf> = Vec::new();
+        for dir in [current_dir.clone(), current_dir.join("bin")] {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if !path.is_file() {
+                        continue;
+                    }
+                    let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+                        continue;
+                    };
+                    if ["exe", "cmd", "bat", "ps1"]
+                        .iter()
+                        .any(|candidate| ext.eq_ignore_ascii_case(candidate))
+                    {
+                        fallback_files.push(path);
+                    }
+                }
+            }
+        }
+        fallback_files.sort();
+
+        for file in fallback_files {
+            let Some(stem) = file.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let key = stem.to_ascii_lowercase();
+            if seen.contains(&key) {
+                continue;
+            }
+            seen.insert(key);
+            resolved.push(ResolvedRunEntry {
+                name: stem.to_string(),
+                executable_path: file,
+            });
+        }
+    }
+
+    resolved.sort_by(|a, b| {
+        let a_default = a.name.eq_ignore_ascii_case(package_name);
+        let b_default = b.name.eq_ignore_ascii_case(package_name);
+        b_default.cmp(&a_default).then_with(|| a.name.cmp(&b.name))
+    });
+
+    Ok(resolved)
+}
+
+fn launch_executable(path: &Path) -> Result<(), String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    let parent_dir = path
+        .parent()
+        .ok_or_else(|| format!("Failed to resolve parent directory for {}", path.display()))?;
+
+    let spawn_result = if ext == "ps1" {
+        let ps_exe = crate::commands::powershell::resolve_powershell_exe();
+        Command::new(ps_exe)
+            .arg("-NoProfile")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-File")
+            .arg(path)
+            .current_dir(parent_dir)
+            .spawn()
+    } else if ext == "cmd" || ext == "bat" {
+        Command::new("cmd")
+            .arg("/C")
+            .arg(path)
+            .current_dir(parent_dir)
+            .spawn()
+    } else {
+        Command::new(path).current_dir(parent_dir).spawn()
+    };
+
+    spawn_result
+        .map(|_| ())
+        .map_err(|e| format!("Failed to launch executable '{}': {}", path.display(), e))
+}
+
+#[tauri::command]
+pub fn get_package_run_entries(
+    state: State<'_, AppState>,
+    package_name: String,
+) -> Result<Vec<PackageRunEntry>, String> {
+    let entries = resolve_package_run_entries(&state.scoop_path(), &package_name)?;
+    Ok(entries
+        .into_iter()
+        .map(|entry| PackageRunEntry { name: entry.name })
+        .collect())
+}
+
+#[tauri::command]
+pub fn run_package_entry(
+    state: State<'_, AppState>,
+    package_name: String,
+    entry_name: Option<String>,
+) -> Result<String, String> {
+    let entries = resolve_package_run_entries(&state.scoop_path(), &package_name)?;
+    if entries.is_empty() {
+        return Err(format!("No runnable entries found for '{}'", package_name));
+    }
+
+    let selected = if let Some(requested_name) = entry_name {
+        entries
+            .into_iter()
+            .find(|entry| entry.name.eq_ignore_ascii_case(&requested_name))
+            .ok_or_else(|| {
+                format!(
+                    "Runnable entry '{}' not found for '{}'",
+                    requested_name, package_name
+                )
+            })?
+    } else {
+        entries[0].clone()
+    };
+
+    launch_executable(&selected.executable_path)?;
+    Ok(format!("Launched {}", selected.name))
 }

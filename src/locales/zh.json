@@ -461,6 +461,9 @@
     "name": "软件名",
     "notes": "备注",
     "openFolder": "打开文件夹",
+    "run": "运行",
+    "running": "运行中...",
+    "runFailed": "运行失败：{{error}}",
     "success": {
       "changeBucket": "{{name}} 已切换到仓库 {{bucket}}",
       "forceUpdate": "{{name}} 强制更新成功",

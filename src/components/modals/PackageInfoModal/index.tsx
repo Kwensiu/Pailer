@@ -9,12 +9,13 @@ import ManifestModal from '../ManifestModal';
 import { t, locale } from '../../../i18n';
 import { searchCacheManager } from '../../../hooks/search/useSearchCache';
 import { useMultiConfirmAction } from '../../../hooks/ui/useConfirmAction';
+import { toast } from '../../common/ToastAlert';
 import DetailRenderer from './DetailRenderer';
 import VersionSwitcher from './VersionSwitcher';
 import { usePackageIcons } from '../../../hooks';
 import { PackageInfoModalHeader } from './Header';
 import { PackageInfoModalFooter } from './Footer';
-import type { PackageInfoModalProps } from './types';
+import type { PackageInfoModalProps, PackageRunEntry } from './types';
 
 function PackageInfoModal(props: PackageInfoModalProps) {
   const { buckets } = useBuckets();
@@ -155,6 +156,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const packageKey = () => (props.pkg ? `${props.pkg.name}::${props.pkg.source}` : null);
 
   const [showVersionSwitcher, setShowVersionSwitcher] = createSignal(false);
+  const [runEntries, setRunEntries] = createSignal<PackageRunEntry[]>([]);
+  const [runningEntryName, setRunningEntryName] = createSignal<string | null>(null);
+  let activeRunEntriesRequestToken = 0;
 
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
   const [showBucketInfo, setShowBucketInfo] = createSignal(false);
@@ -261,6 +265,9 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setManifestContent(null);
       setManifestError(null);
       setManifestLoading(false);
+      setRunEntries([]);
+      setRunningEntryName(null);
+      activeRunEntriesRequestToken += 1;
       uninstallConfirm.cancelConfirm();
       updateConfirm.cancelConfirm();
     }
@@ -286,11 +293,67 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     }
   };
 
+  const fetchRunEntries = async (pkg: ScoopPackage) => {
+    if (!pkg.is_installed) {
+      activeRunEntriesRequestToken += 1;
+      setRunEntries([]);
+      return;
+    }
+
+    const requestToken = ++activeRunEntriesRequestToken;
+    try {
+      const entries = await invoke<PackageRunEntry[]>('get_package_run_entries', {
+        packageName: pkg.name,
+      });
+      if (requestToken !== activeRunEntriesRequestToken || props.pkg?.name !== pkg.name) {
+        return;
+      }
+      setRunEntries(entries);
+    } catch (error) {
+      if (requestToken !== activeRunEntriesRequestToken || props.pkg?.name !== pkg.name) {
+        return;
+      }
+      console.error(`Failed to get run entries for ${pkg.name}:`, error);
+      setRunEntries([]);
+    }
+  };
+
+  const runEntry = async (entryName?: string) => {
+    const pkg = props.pkg;
+    if (!pkg || !pkg.is_installed) return;
+
+    const selectedName = entryName || runEntries()[0]?.name || pkg.name;
+    setRunningEntryName(selectedName);
+    try {
+      await invoke<string>('run_package_entry', {
+        packageName: pkg.name,
+        entryName,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(t('packageInfo.runFailed', { error: errorMessage }));
+      console.error(`Failed to run package entry for ${pkg.name}:`, errorMessage);
+    } finally {
+      setRunningEntryName(null);
+    }
+  };
+
   const closeManifestModal = () => {
     setManifestContent(null);
     setManifestLoading(false);
     setManifestError(null);
   };
+
+  createEffect(() => {
+    const pkg = props.pkg;
+    if (!pkg || !pkg.is_installed) {
+      activeRunEntriesRequestToken += 1;
+      setRunEntries([]);
+      return;
+    }
+
+    void fetchRunEntries(pkg);
+  });
 
   const fetchVersionInfo = async (pkg: ScoopPackage) => {
     setVersionLoading(true);
@@ -373,6 +436,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       onUpdate={props.onUpdate}
       onForceUpdate={props.onForceUpdate}
       onPackageStateChanged={props.onPackageStateChanged}
+      runEntries={runEntries}
+      runningEntryName={runningEntryName}
+      onRunDefault={() => void runEntry()}
+      onRunEntry={(entryName) => void runEntry(entryName)}
     />
   );
 

@@ -461,6 +461,9 @@ export interface Dict {
     name: string;
     notes: string;
     openFolder: string;
+    run: string;
+    running: string;
+    runFailed: string;
     success: {
       changeBucket: string;
       forceUpdate: string;

@@ -1,5 +1,9 @@
 import type { ScoopPackage, ScoopInfo, VersionedPackageInfo } from '../../../types/scoop';
 
+export interface PackageRunEntry {
+  name: string;
+}
+
 export interface PackageInfoModalProps {
   pkg?: ScoopPackage | null;
   info?: ScoopInfo | null;

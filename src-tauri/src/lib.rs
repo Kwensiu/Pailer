@@ -205,6 +205,8 @@ pub fn run() {
             commands::installed::get_current_version_update_date,
             commands::package_icon::get_installed_package_icons,
             commands::info::get_package_info,
+            commands::info::get_package_run_entries,
+            commands::info::run_package_entry,
             commands::install::install_package,
             commands::scoop::retry_operation_elevated,
             commands::manifest::get_package_manifest,
