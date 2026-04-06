@@ -652,10 +652,11 @@
       "versionsToKeep": "Old Versions to Keep: {{count}}"
     },
     "trayConfigMigration": {
-      "description": "Automatically preserve tray visibility preferences during package updates (registry only).",
-      "preserveVersioned": "Preserve versioned install tray entries",
-      "preserveVersionedDescription": "For versioned installs, only propagate preference to current entry and do not auto-remove old tray registry entries.",
-      "title": "Auto Handle Tray Config"
+      "description": "Automatically preserve tray visibility preferences during package updates. This will attempt to modify the registry.",
+      "preserveVersioned": "Preserve old tray entries for multi-version installs",
+      "preserveVersionedDescription": "When multiple local version directories exist, only propagate preference to the kept entry and do not auto-remove old tray registry entries.",
+      "title": "Auto Handle Tray Config (Beta)",
+      "tooltip": "Due to Windows internals, this only takes effect after restarting Explorer to trigger list reordering."
     },
     "bucketAutoUpdate": {
       "active": "Active: {{interval}}",

@@ -31,7 +31,7 @@ interface TrayMigrationFinalizeResult {
   rewritten_paths: number;
   propagated_is_promoted: number;
   removed_duplicates: number;
-  skipped_versioned: number;
+  skipped_multi_version: number;
   failed: string[];
 }
 
@@ -435,7 +435,7 @@ const operationsStore = createRoot(() => {
                 line:
                   `[Pailer][tray-migration] Finalized, rewritten=${r.rewritten_paths}, ` +
                   `propagated=${r.propagated_is_promoted}, removed=${r.removed_duplicates}, ` +
-                  `skippedVersioned=${r.skipped_versioned}, failed=${r.failed.length}`,
+                  `skippedMultiVersion=${r.skipped_multi_version}, failed=${r.failed.length}`,
                 message: 'tray migration finalize done',
               });
               if (r.failed.length > 0) {

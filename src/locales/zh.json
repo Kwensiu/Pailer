@@ -652,10 +652,11 @@
       "versionsToKeep": "保留旧版本数：{{count}}"
     },
     "trayConfigMigration": {
-      "description": "在更新软件包时自动保留托盘显隐偏好（仅注册表）。",
-      "preserveVersioned": "多版本安装时保留旧托盘记录",
-      "preserveVersionedDescription": "对多版本安装仅补写 current 项偏好，不自动删除旧版本托盘注册表记录。",
-      "title": "自动处理托盘配置"
+      "description": "在更新软件包时自动保留托盘显隐偏好，这会尝试修改注册表。",
+      "preserveVersioned": "检测到多版本安装时保留旧托盘记录",
+      "preserveVersionedDescription": "当本地同时存在多个版本目录时，仅补写保留项偏好，不自动删除旧版本托盘注册表记录。",
+      "title": "自动处理托盘配置（实验）",
+      "tooltip": "限制于 Windows 底层原因，需要重启任务管理器触发列表重排才可生效"
     },
     "bucketAutoUpdate": {
       "active": "当前：{{interval}}",

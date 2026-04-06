@@ -1,4 +1,4 @@
-import { WandSparkles } from 'lucide-solid';
+import { CircleQuestionMark, WandSparkles } from 'lucide-solid';
 import settingsStore from '../../../stores/settings';
 import SettingsToggle from '../../common/SettingsToggle';
 import Card from '../../common/Card';
@@ -9,7 +9,17 @@ function AutoTrayConfigMigrationSettings() {
 
   return (
     <Card
-      title={t('settings.trayConfigMigration.title')}
+      title={
+        <span class="flex items-center gap-2">
+          <span>{t('settings.trayConfigMigration.title')}</span>
+          <span
+            class="tooltip tooltip-bottom inline-flex"
+            data-tip={t('settings.trayConfigMigration.tooltip')}
+          >
+            <CircleQuestionMark class="text-base-content/50 h-4 w-4 cursor-help" />
+          </span>
+        </span>
+      }
       icon={WandSparkles}
       description={t('settings.trayConfigMigration.description')}
       headerAction={

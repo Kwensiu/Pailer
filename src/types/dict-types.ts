@@ -656,6 +656,7 @@ export interface Dict {
       preserveVersioned: string;
       preserveVersionedDescription: string;
       title: string;
+      tooltip: string;
     };
     bucketAutoUpdate: {
       active: string;
