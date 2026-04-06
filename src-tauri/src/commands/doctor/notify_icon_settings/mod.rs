@@ -102,6 +102,7 @@ pub struct TrayMigrationDiscardResult {
     pub discarded: bool,
 }
 
+#[cfg(windows)]
 #[derive(Deserialize)]
 struct PendingSelfUpdateTrayRecord {
     #[serde(rename = "SubKey")]
@@ -133,6 +134,11 @@ const PENDING_SELF_UPDATE_TRAY_SNAPSHOT_FILE: &str = "pailer-self-update-tray-sn
 #[cfg(windows)]
 pub fn pending_self_update_tray_snapshot_path() -> PathBuf {
     std::env::temp_dir().join(PENDING_SELF_UPDATE_TRAY_SNAPSHOT_FILE)
+}
+
+#[cfg(not(windows))]
+pub fn pending_self_update_tray_snapshot_path() -> PathBuf {
+    std::env::temp_dir().join("pailer-self-update-tray-snapshot.json")
 }
 
 #[cfg(windows)]
@@ -389,7 +395,8 @@ pub async fn apply_pending_self_update_tray_migration(
         )
     })?;
     let _ = std::fs::remove_file(&snapshot_path);
-    let pending_records = match serde_json::from_str::<PendingSelfUpdateTraySnapshot>(&raw) {
+    let raw = raw.trim_start_matches('\u{FEFF}');
+    let pending_records = match serde_json::from_str::<PendingSelfUpdateTraySnapshot>(raw) {
         Ok(PendingSelfUpdateTraySnapshot::Many(records)) => records,
         Ok(PendingSelfUpdateTraySnapshot::One(record)) => vec![record],
         Err(e) => {

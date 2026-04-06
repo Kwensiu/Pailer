@@ -39,7 +39,7 @@ if errorlevel 1 (
   echo [Pailer] ERROR: scoop.cmd not found
   echo [Pailer] ERROR: scoop.cmd not found>>"%LOG_FILE%"
   echo Log: %LOG_FILE%
-  echo 按任意键结束...
+  echo Press any key to exit...
   pause >NUL
   exit /b 1
 )
@@ -63,7 +63,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "    [pscustomobject]@{ SubKey=$_.PSChildName; ExecutablePath=$path; IsPromoted=$props.IsPromoted }" ^
   "  }" ^
   "} | Where-Object { $_ -ne $null };" ^
-  "if($items){ @($items) | ConvertTo-Json -Depth 3 | Out-File -FilePath $snapshotPath -Encoding UTF8 }" >>"%LOG_FILE%" 2>&1
+  "$json = if($items){ @($items) | ConvertTo-Json -Depth 3 } else { $null };" ^
+  "if($json){ [System.IO.File]::WriteAllText($snapshotPath, $json, [System.Text.UTF8Encoding]::new($false)) }" >>"%LOG_FILE%" 2>&1
 if exist "%TRAY_SNAPSHOT_FILE%" (
   echo [Pailer][tray-migration] Snapshot saved: %TRAY_SNAPSHOT_FILE%
   echo [Pailer][tray-migration] Snapshot saved: %TRAY_SNAPSHOT_FILE%>>"%LOG_FILE%"
@@ -83,7 +84,7 @@ if errorlevel 1 (
   del /Q "%TRAY_SNAPSHOT_FILE%" >NUL 2>&1
   echo Log: %LOG_FILE%
   type "%LOG_FILE%"
-  echo 按任意键结束...
+  echo Press any key to exit...
   pause >NUL
   exit /b 1
 )
@@ -104,7 +105,7 @@ if not exist "%RESTART_EXE%" (
   echo [Pailer] ERROR: restart executable not found: %RESTART_EXE%>>"%LOG_FILE%"
   echo Log: %LOG_FILE%
   type "%LOG_FILE%"
-  echo 按任意键结束...
+  echo Press any key to exit...
   pause >NUL
   exit /b 1
 )
@@ -115,7 +116,7 @@ if errorlevel 1 (
   echo [Pailer] ERROR: failed to restart Pailer (exit code: %ERRORLEVEL%)>>"%LOG_FILE%"
   echo Log: %LOG_FILE%
   type "%LOG_FILE%"
-  echo 按任意键结束...
+  echo Press any key to exit...
   pause >NUL
   exit /b 1
 )
@@ -126,6 +127,6 @@ echo [Pailer] restart exit code: 0>>"%LOG_FILE%"
 echo [Pailer] Self-update finished at %date% %time%
 echo [Pailer] Self-update finished at %date% %time%>>"%LOG_FILE%"
 echo Log: %LOG_FILE%
-echo 按任意键结束...
+echo Press any key to exit...
 pause >NUL
 exit /b 0
