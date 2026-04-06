@@ -214,7 +214,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
 
   const uninstallConfirm = useMultiConfirmAction(3000);
   const updateConfirm = useMultiConfirmAction(3000);
-  const deleteVersionConfirm = useMultiConfirmAction(3000);
 
   createEffect(() => {
     if (props.pkg?.is_installed) {
@@ -264,7 +263,6 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setManifestLoading(false);
       uninstallConfirm.cancelConfirm();
       updateConfirm.cancelConfirm();
-      deleteVersionConfirm.cancelConfirm();
     }
     return currentPackageKey;
   });
@@ -335,25 +333,20 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   };
 
   const deleteVersion = async (pkg: ScoopPackage, versionToDelete: string) => {
-    if (deleteVersionConfirm.isConfirming(versionToDelete)) {
-      deleteVersionConfirm.cancelConfirm(versionToDelete);
-      try {
-        await invoke('delete_app_version', {
-          appName: pkg.name,
-          version: versionToDelete,
-        });
-        await fetchVersionInfo(pkg);
-        props.onPackageStateChanged?.();
-        searchCacheManager.invalidateCache();
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        setVersionError(
-          t('packageInfo.errorDeletingVersion', { version: versionToDelete, error: errorMsg })
-        );
-        console.error(`Failed to delete version ${versionToDelete} for ${pkg.name}:`, errorMsg);
-      }
-    } else {
-      deleteVersionConfirm.startConfirm(versionToDelete);
+    try {
+      await invoke('delete_app_version', {
+        appName: pkg.name,
+        version: versionToDelete,
+      });
+      await fetchVersionInfo(pkg);
+      props.onPackageStateChanged?.();
+      searchCacheManager.invalidateCache();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setVersionError(
+        t('packageInfo.errorDeletingVersion', { version: versionToDelete, error: errorMsg })
+      );
+      console.error(`Failed to delete version ${versionToDelete} for ${pkg.name}:`, errorMsg);
     }
   };
 
