@@ -137,7 +137,8 @@ pub async fn update_all_packages_headless(
         }
     }
 
-    let mut cmd = powershell::create_powershell_command("function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *");
+    let update_all_command = powershell::build_scoop_update_all_skip_self_update_command();
+    let mut cmd = powershell::create_powershell_command(&update_all_command);
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn scoop update *: {}", e))?;
@@ -271,6 +272,7 @@ pub async fn update_all_packages_headless(
             );
             e
         });
+
     }
 
     // Trigger auto cleanup after successful headless update

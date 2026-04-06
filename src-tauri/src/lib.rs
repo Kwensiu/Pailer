@@ -154,6 +154,30 @@ pub fn run() {
 
             app.manage(state::AppState::new(scoop_path, configured));
 
+            #[cfg(windows)]
+            {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    match commands::doctor::notify_icon_settings::apply_pending_self_update_tray_migration(app_handle).await {
+                        Ok(Some(result)) => {
+                            if !result.failed.is_empty() {
+                                log::warn!(
+                                    "[tray-migration][self-update] startup apply completed with {} failures",
+                                    result.failed.len()
+                                );
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            log::warn!(
+                                "[tray-migration][self-update] startup apply failed: {}",
+                                e
+                            );
+                        }
+                    }
+                });
+            }
+
             // Show the main application window
             show_main_window(app)?;
 

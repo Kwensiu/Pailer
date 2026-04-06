@@ -103,7 +103,7 @@ fn build_scoop_cmd(
             let pkg = package.ok_or("A package name is required to clear the cache.")?;
             format!("scoop cache rm {}", pkg)
         }
-        ScoopOp::UpdateAll => "function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *".to_string(),
+        ScoopOp::UpdateAll => crate::commands::powershell::build_scoop_update_all_skip_self_update_command(),
     };
 
     Ok(command)

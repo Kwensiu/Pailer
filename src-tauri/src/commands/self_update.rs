@@ -110,17 +110,40 @@ pub async fn update_pailer_self<R: Runtime>(app: AppHandle<R>) -> Result<String,
     }
 
     let restart_exe = resolve_pailer_current_restart_exe(app.clone())?;
+    let tray_migration_enabled = crate::commands::settings::get_config_value(
+        app.clone(),
+        "automation.autoTrayConfigMigration".to_string(),
+    )
+    .ok()
+    .flatten()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
+    let tray_snapshot_path =
+        crate::commands::doctor::notify_icon_settings::pending_self_update_tray_snapshot_path();
 
     // Load the detached updater batch script with PID and restart path injection.
     let script_template = include_str!("../../scripts/self_update.cmd");
     let update_script = script_template
         .replace("{PID}", &current_pid.to_string())
-        .replace("{RESTART_EXE}", &restart_exe.to_string_lossy());
+        .replace("{RESTART_EXE}", &restart_exe.to_string_lossy())
+        .replace("{TRAY_SNAPSHOT_FILE}", &tray_snapshot_path.to_string_lossy())
+        .replace(
+            "{TRAY_MIGRATION_ENABLED}",
+            if tray_migration_enabled { "1" } else { "0" },
+        );
 
     log::info!("Preparing self-update script (PID: {})", current_pid);
     log::info!(
         "Resolved self-update restart executable: {}",
         restart_exe.display()
+    );
+    log::info!(
+        "Self-update tray migration enabled: {}",
+        tray_migration_enabled
+    );
+    log::info!(
+        "Self-update tray migration snapshot path: {}",
+        tray_snapshot_path.display()
     );
 
     // Create a temporary updater script file

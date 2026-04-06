@@ -213,6 +213,13 @@ pub fn create_powershell_command(command_str: &str) -> Command {
     cmd
 }
 
+/// Builds the Scoop update-all command while suppressing Scoop self-update.
+/// This intentionally relies on Scoop's current internal `is_scoop_outdated`
+/// function and should remain the single integration point for that hack.
+pub fn build_scoop_update_all_skip_self_update_command() -> String {
+    "function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *".to_string()
+}
+
 /// Checks if PowerShell Core (pwsh) is available on the system.
 pub fn is_pwsh_available() -> bool {
     let mut cmd = std::process::Command::new("pwsh");
