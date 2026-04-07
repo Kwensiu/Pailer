@@ -300,7 +300,6 @@ pub fn run() {
             commands::debug::check_factory_reset_marker,
             commands::debug::clear_application_data,
             commands::debug::clear_store_data,
-            commands::debug::clear_store_data,
             commands::debug::clear_registry_data,
             commands::debug::clear_webview_cache,
             commands::debug::factory_reset,
