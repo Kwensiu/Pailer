@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0](https://github.com/Kwensiu/Pailer/compare/v1.13.0...v1.14.0) (2026-04-07)
+
+
+### Features
+
+* **package-info:** add fast path for low-risk version switches ([5d59651](https://github.com/Kwensiu/Pailer/commit/5d59651e0c37ee8a1d556fdeb85da1959be2fe4d))
+* **package-info:** add Run action with split entry selector in footer ([802d563](https://github.com/Kwensiu/Pailer/commit/802d563c41cd95ff526466cb5ce2b1217793628c))
+* **tauri:** add tray config migration for updates and self-update ([f0c5773](https://github.com/Kwensiu/Pailer/commit/f0c57731bbd263af4f47e1d3adf0fa0bafe75443))
+* **ui:** expose tray config migration settings and status ([e6ea108](https://github.com/Kwensiu/Pailer/commit/e6ea108f41105ec9401516fd66757c4b9b12deab))
+
+
+### Bug Fixes
+
+* harden tray self-update snapshot handling ([04c9a89](https://github.com/Kwensiu/Pailer/commit/04c9a894d5d76eae7385dddc9f63f4adb10f8b76))
+* **package-info:** refine modal details and version actions ([f73985e](https://github.com/Kwensiu/Pailer/commit/f73985ed9ad5ceb2926d73c41ef4ab7894199c3e))
+* **package-info:** sync package state after mutation events ([103e3ed](https://github.com/Kwensiu/Pailer/commit/103e3edd60e162dd9118386d7ed4c71ed53ae117))
+* prevent stale info refresh across pages ([8f09314](https://github.com/Kwensiu/Pailer/commit/8f09314b79f7c5c92ca293adf49f8cf1aff6f37b))
+
+
+### Refactoring
+
+* **ui:** remove redundant package version delete confirm ([f3e9a2c](https://github.com/Kwensiu/Pailer/commit/f3e9a2cd04ae324789aed58d9368263c69fa9847))
+
 ## [1.13.0](https://github.com/Kwensiu/Pailer/compare/v1.12.0...v1.13.0) (2026-04-05)
 
 
