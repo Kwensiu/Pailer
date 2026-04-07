@@ -297,6 +297,9 @@ export function useInstalledPackages() {
     buckets,
 
     selectedPackage: packageInfo.selectedPackage,
+    updateSelectedPackage: packageInfo.updateSelectedPackage,
+    syncSelectedPackage: packageInfo.syncSelectedPackage,
+    refreshSelectedPackageInfo: packageInfo.refreshSelectedPackageInfo,
     info: packageInfo.info,
     hasVersions: installedPackagesStore.hasVersions,
     handleUpdate: packageOperations.handleUpdate,

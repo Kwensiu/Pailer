@@ -20,6 +20,19 @@ interface DebugInfo {
   };
 }
 
+interface FastSwitchAnalysis {
+  packageName: string;
+  targetVersion: string;
+  bucket?: string | null;
+  isCandidate: boolean;
+  reasons: string[];
+  hasBin: boolean;
+  hasPersist: boolean;
+  hasEnv: boolean;
+  hasShortcuts: boolean;
+  isCustomBucket: boolean;
+}
+
 const DebugModal = () => {
   const [isOpen, setIsOpen] = createSignal(false);
   const [debugInfo, setDebugInfo] = createSignal<DebugInfo | null>(null);
@@ -32,6 +45,11 @@ const DebugModal = () => {
   const [operationId, setOperationId] = createSignal<string | undefined>(undefined);
   const [showScoopConfigWizard, setShowScoopConfigWizard] = createSignal(false);
   const [customCommand, setCustomCommand] = createSignal('scoop status');
+  const [fastSwitchPackageName, setFastSwitchPackageName] = createSignal('');
+  const [fastSwitchTargetVersion, setFastSwitchTargetVersion] = createSignal('');
+  const [fastSwitchLoading, setFastSwitchLoading] = createSignal(false);
+  const [fastSwitchAnalysis, setFastSwitchAnalysis] = createSignal<FastSwitchAnalysis | null>(null);
+  const [fastSwitchError, setFastSwitchError] = createSignal<string | null>(null);
   const { addOperation, generateOperationId, addOperationOutput, setOperationStatus } =
     useOperations();
 
@@ -115,6 +133,33 @@ const DebugModal = () => {
         line: `Failed to invoke command: ${error}`,
         source: 'stderr',
       });
+    }
+  };
+
+  const analyzeFastSwitch = async () => {
+    const packageName = fastSwitchPackageName().trim();
+    const targetVersion = fastSwitchTargetVersion().trim();
+
+    if (!packageName || !targetVersion) {
+      toast.warning('Please enter both package name and target version');
+      return;
+    }
+
+    setFastSwitchLoading(true);
+    setFastSwitchError(null);
+    setFastSwitchAnalysis(null);
+    try {
+      const result = await invoke<FastSwitchAnalysis>('analyze_package_fast_switch', {
+        packageName,
+        targetVersion,
+        global: false,
+      });
+      setFastSwitchAnalysis(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setFastSwitchError(message);
+    } finally {
+      setFastSwitchLoading(false);
     }
   };
 
@@ -299,6 +344,77 @@ const DebugModal = () => {
                   <div class="text-base-content/60 text-xs">
                     Examples: scoop status, scoop list, scoop search python, Get-Process
                   </div>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <h4 class="font-medium">Fast Switch Analysis</h4>
+                <div class="space-y-2">
+                  <div class="grid grid-cols-[minmax(0,1fr)_180px_auto] gap-2">
+                    <input
+                      type="text"
+                      class="input input-bordered text-sm"
+                      placeholder="Package name (e.g., uv)"
+                      value={fastSwitchPackageName()}
+                      onInput={(e) => setFastSwitchPackageName(e.currentTarget.value)}
+                    />
+                    <input
+                      type="text"
+                      class="input input-bordered text-sm"
+                      placeholder="Target version"
+                      value={fastSwitchTargetVersion()}
+                      onInput={(e) => setFastSwitchTargetVersion(e.currentTarget.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          void analyzeFastSwitch();
+                        }
+                      }}
+                    />
+                    <button
+                      class="btn btn-secondary"
+                      onClick={() => void analyzeFastSwitch()}
+                      disabled={
+                        fastSwitchLoading() ||
+                        !fastSwitchPackageName().trim() ||
+                        !fastSwitchTargetVersion().trim()
+                      }
+                    >
+                      {fastSwitchLoading() ? 'Analyzing...' : 'Analyze'}
+                    </button>
+                  </div>
+                  <Show when={fastSwitchError()}>
+                    <div class="alert alert-error text-sm">
+                      <span>{fastSwitchError()}</span>
+                    </div>
+                  </Show>
+                  <Show when={fastSwitchAnalysis()}>
+                    {(analysis) => (
+                      <div class="bg-base-200 space-y-2 rounded p-3 font-mono text-xs">
+                        <div>
+                          <strong>Candidate:</strong> {analysis().isCandidate ? 'yes' : 'no'}
+                        </div>
+                        <div>
+                          <strong>Bucket:</strong> {analysis().bucket || 'unknown'}
+                        </div>
+                        <div>
+                          <strong>Flags:</strong> bin={String(analysis().hasBin)} persist=
+                          {String(analysis().hasPersist)} env={String(analysis().hasEnv)} shortcuts=
+                          {String(analysis().hasShortcuts)} customBucket=
+                          {String(analysis().isCustomBucket)}
+                        </div>
+                        <div>
+                          <strong>Reasons:</strong>{' '}
+                          {analysis().reasons.length > 0 ? analysis().reasons.join(' | ') : 'none'}
+                        </div>
+                        <button
+                          class="btn btn-xs btn-outline"
+                          onClick={() => copyToClipboard(JSON.stringify(analysis(), null, 2))}
+                        >
+                          Copy Result
+                        </button>
+                      </div>
+                    )}
+                  </Show>
                 </div>
               </div>
 
