@@ -248,6 +248,7 @@ function OperationModal(props: OperationModalProps) {
   let scrollRef: HTMLDivElement | undefined;
 
   const [previousStatus, setPreviousStatus] = createSignal<OperationStatus | null>(null);
+  const [lastFinishedStatus, setLastFinishedStatus] = createSignal<OperationStatus | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
 
   // Initialize scroll manager with reactive scrollRef
@@ -269,15 +270,25 @@ function OperationModal(props: OperationModalProps) {
 
     const newStatus = op.status;
     const prevStatus = previousStatus();
+    const finishedStatus = lastFinishedStatus();
 
-    if (prevStatus !== null && newStatus !== prevStatus && isTerminal({ status: newStatus })) {
+    if (
+      isTerminal({ status: newStatus }) &&
+      newStatus !== finishedStatus &&
+      (prevStatus === null || newStatus !== prevStatus)
+    ) {
       if (props.onOperationFinished) {
         props.onOperationFinished(operationId(), isSuccessful({ status: newStatus }));
       }
+      setLastFinishedStatus(newStatus);
 
       if (newStatus === 'success' && props.nextStep) {
         props.nextStep.onNext();
       }
+    }
+
+    if (!isTerminal({ status: newStatus }) && finishedStatus !== null) {
+      setLastFinishedStatus(null);
     }
     setPreviousStatus(newStatus);
   });

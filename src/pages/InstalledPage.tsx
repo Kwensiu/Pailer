@@ -1,10 +1,12 @@
-import { Show, createSignal, createMemo, createEffect } from 'solid-js';
+import { Show, createSignal, createMemo, createEffect, onMount, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { openPath } from '@tauri-apps/plugin-opener';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
+import OperationModal from '../components/modals/OperationModal';
 import { useInstalledPackages, usePackageOperations, handleBucketPackageClick } from '../hooks';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
 import PackageListView from '../components/page/installed/PackageListView';
@@ -14,6 +16,7 @@ import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 import { t } from '../i18n';
 import versionedPackagesStore from '../stores/versionedPackagesStore';
 import installedPackagesStore from '../stores/installedPackagesStore';
+import type { OperationResult } from '../types/operations';
 
 interface InstalledPageProps {
   onNavigate?: (view: View) => void;
@@ -36,6 +39,8 @@ function InstalledPage(props: InstalledPageProps) {
     selectedVersionType,
     setSelectedVersionType,
     selectedPackage,
+    updateSelectedPackage,
+    refreshSelectedPackageInfo,
     info,
     operatingOn,
     scoopStatus,
@@ -71,6 +76,11 @@ function InstalledPage(props: InstalledPageProps) {
 
   const {
     handleInstall,
+    operationTitle,
+    operationNextStep,
+    isScanning,
+    handleInstallConfirm,
+    closeOperationModal,
     pailerUpdateConfirmOpen,
     pailerUpdateType,
     handlePailerUpdateConfirm,
@@ -152,6 +162,79 @@ function InstalledPage(props: InstalledPageProps) {
   );
 
   const isRefreshing = () => refreshing();
+
+  onMount(() => {
+    let disposed = false;
+    let unlistenOperationFinished: (() => void) | undefined;
+
+    const setupOperationFinishedListener = async () => {
+      const unlisten = await listen('package-mutation-finished', (event) => {
+        const payload = event.payload as OperationResult & {
+          operation_name?: string;
+          packageName?: string;
+          packageSource?: string | null;
+          packageState?: ScoopPackage;
+        };
+
+        const currentSelected = selectedPackage();
+        if (!payload.success || !currentSelected) {
+          return;
+        }
+
+        const packageState = payload.packageState;
+        const matchesSelectedPackage = packageState
+          ? packageState.name === currentSelected.name &&
+            packageState.source === currentSelected.source
+          : payload.packageName === currentSelected.name &&
+            (!payload.packageSource || payload.packageSource === currentSelected.source);
+
+        if (!matchesSelectedPackage) {
+          return;
+        }
+
+        if (packageState) {
+          updateSelectedPackage({
+            ...currentSelected,
+            ...packageState,
+            available_version: undefined,
+          });
+          void refreshSelectedPackageInfo({
+            ...currentSelected,
+            ...packageState,
+            available_version: undefined,
+          });
+          return;
+        }
+
+        updateSelectedPackage({
+          ...currentSelected,
+          is_installed: false,
+          is_installed_from_current_bucket: false,
+          available_version: undefined,
+        });
+        void refreshSelectedPackageInfo({
+          ...currentSelected,
+          is_installed: false,
+          is_installed_from_current_bucket: false,
+          available_version: undefined,
+        });
+      });
+
+      if (disposed) {
+        unlisten();
+        return;
+      }
+
+      unlistenOperationFinished = unlisten;
+    };
+
+    void setupOperationFinishedListener();
+
+    onCleanup(() => {
+      disposed = true;
+      unlistenOperationFinished?.();
+    });
+  });
 
   return (
     <div class="mx-auto max-w-7xl">
@@ -345,11 +428,31 @@ function InstalledPage(props: InstalledPageProps) {
           onPackageStateChanged={async () => {
             await installedPackagesStore.silentRefetch();
 
-            if (selectedPackage()) {
-              await versionedPackagesStore.fetchPackageVersions(selectedPackage()!.name, false);
+            const currentSelected = selectedPackage();
+            if (currentSelected) {
+              const refreshedPackage = installedPackagesStore
+                .packages()
+                .find(
+                  (pkg) =>
+                    pkg.name === currentSelected.name && pkg.source === currentSelected.source
+                );
+              if (refreshedPackage) {
+                updateSelectedPackage(refreshedPackage);
+              }
+
+              await versionedPackagesStore.fetchPackageVersions(currentSelected.name, false);
             }
           }}
           context="installed"
+        />
+        <OperationModal
+          title={operationTitle()}
+          onClose={async (_operationId: string, wasSuccess: boolean) => {
+            await closeOperationModal(wasSuccess);
+          }}
+          isScan={isScanning()}
+          onInstallConfirm={handleInstallConfirm}
+          nextStep={operationNextStep() ?? undefined}
         />
         <ScoopStatusModal
           isOpen={showStatusModal()}

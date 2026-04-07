@@ -1,10 +1,14 @@
 //! Commands for uninstalling packages and clearing the cache.
 use crate::commands::auto_cleanup::trigger_auto_cleanup;
 use crate::commands::installed::invalidate_installed_cache;
+use crate::commands::package_mutation::{
+    PackageMutationFinishedEvent, EVENT_PACKAGE_MUTATION_FINISHED,
+};
+use crate::commands::powershell::{CommandResult, FinalStatus};
 use crate::commands::scoop::{self, generate_operation_id, ScoopOp};
 use crate::commands::search::invalidate_manifest_cache;
 use crate::state::AppState;
-use tauri::{AppHandle, State, Window};
+use tauri::{AppHandle, Emitter, State, Window};
 
 /// Uninstalls a Scoop package.
 ///
@@ -27,16 +31,41 @@ pub async fn uninstall_package(
     bucket: String,
     operation_id: Option<String>,
 ) -> Result<(), String> {
+    let event_window = window.clone();
+    let operation_id = operation_id
+        .unwrap_or_else(|| generate_operation_id(ScoopOp::Uninstall, Some(&package_name)));
+
     execute_package_operation(
-        window.clone(),
+        window,
         ScoopOp::Uninstall,
         &package_name,
         Some(&bucket),
-        operation_id,
+        Some(operation_id.clone()),
     )
     .await?;
     invalidate_manifest_cache().await;
     invalidate_installed_cache(state.clone()).await;
+    let _ = event_window.emit(
+        EVENT_PACKAGE_MUTATION_FINISHED,
+        PackageMutationFinishedEvent {
+            result: CommandResult {
+                success: true,
+                operation_id,
+                operation_name: format!("Uninstalling {}", package_name),
+                error_count: None,
+                warning_count: None,
+                final_status: FinalStatus::Success,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64,
+            },
+            package_name: package_name.clone(),
+            package_source: (!bucket.is_empty() && !bucket.eq_ignore_ascii_case("none"))
+                .then_some(bucket.clone()),
+            package_state: None,
+        },
+    );
 
     // Trigger auto cleanup after uninstall
     trigger_auto_cleanup(app, state).await;

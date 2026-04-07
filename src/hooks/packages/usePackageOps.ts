@@ -21,7 +21,7 @@ interface UsePackageOperationsReturn {
   handleUpdate: (pkg: ScoopPackage) => Promise<void>;
   handleForceUpdate: (pkg: ScoopPackage) => Promise<void>;
   handleUpdateAll: () => void;
-  closeOperationModal: (wasSuccess: boolean) => void;
+  closeOperationModal: (wasSuccess: boolean) => Promise<void>;
   addCloseListener: (handler: (wasSuccess: boolean) => void) => () => void;
   // Pailer self-update confirmation
   pailerUpdateConfirmOpen: () => boolean;
@@ -378,14 +378,11 @@ const handlePailerUpdateConfirm = async () => {
 };
 
 const handlePailerUpdateCancel = () => {
-  console.log('Pailer self-update cancelled by user');
   setPailerUpdateConfirmOpen(false);
   setPendingPailerUpdate(null);
 };
 
-const closeOperationModal = (wasSuccess: boolean) => {
-  console.log('🎯🎯🎯 closeOperationModal FINALLY called with:', { wasSuccess });
-
+const closeOperationModal = async (wasSuccess: boolean) => {
   // Clear all operation states to ensure clean slate for next operation
   setOperationTitle(null);
   setOperationNextStep(null);
@@ -393,22 +390,13 @@ const closeOperationModal = (wasSuccess: boolean) => {
   setPendingInstallPackage(null);
 
   const operation = currentOperation();
+  setCurrentOperation(null);
 
   if (wasSuccess && operation) {
-    console.log(
-      `Package operation completed successfully: ${operation.type} - ${operation.packageName}`
-    );
-
     // Silent refresh to avoid loading UI
-    console.log('🔄 Calling installedPackagesStore.silentRefetch()');
-    installedPackagesStore.silentRefetch();
-    console.log('✅ silentRefetch completed');
+    await installedPackagesStore.silentRefetch();
     // Search cache invalidation
-    console.log('🗑️ Invalidating search cache');
     searchCacheManager.invalidateCache();
-    console.log('✅ Search cache invalidated');
-  } else if (operation) {
-    console.log(`Package operation failed: ${operation.type} - ${operation.packageName}`);
   }
 
   closeHandlers.forEach((handler) => handler(wasSuccess));

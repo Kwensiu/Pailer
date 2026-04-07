@@ -598,6 +598,19 @@ fn load_package_details(package_path: &Path, scoop_path: &Path) -> Result<ScoopP
     Ok(pkg)
 }
 
+pub fn get_installed_package_state(
+    scoop_path: &Path,
+    package_name: &str,
+) -> Result<Option<ScoopPackage>, String> {
+    let package_path = scoop_path.join("apps").join(package_name);
+
+    if !package_path.is_dir() {
+        return Ok(None);
+    }
+
+    load_package_details(&package_path, scoop_path).map(Some)
+}
+
 /// Check if scoop path is available, but don't auto-detect or update it.
 /// This function now only validates the existing configured path.
 async fn refresh_scoop_path_if_needed<R: Runtime>(
@@ -776,11 +789,12 @@ pub async fn invalidate_installed_cache(state: State<'_, AppState>) {
 pub async fn refresh_installed_packages<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
+    force: Option<bool>,
 ) -> Result<Vec<ScoopPackage>, String> {
     log::info!("=== INSTALLED REFRESH === refresh_installed_packages called");
 
     // Check if we should debounce this refresh call
-    if state.should_debounce_refresh() {
+    if !force.unwrap_or(false) && state.should_debounce_refresh() {
         log::debug!(
             "=== INSTALLED REFRESH === Debouncing refresh (less than 1 second since last refresh)"
         );

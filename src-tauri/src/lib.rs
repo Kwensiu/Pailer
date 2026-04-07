@@ -286,6 +286,7 @@ pub fn run() {
             commands::app_info::is_scoop_installation,
             commands::linker::get_package_versions,
             commands::linker::switch_package_version,
+            commands::linker::analyze_package_fast_switch,
             commands::linker::get_versioned_packages,
             commands::linker::debug_package_structure,
             commands::linker::change_package_bucket,

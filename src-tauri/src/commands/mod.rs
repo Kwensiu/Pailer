@@ -15,6 +15,7 @@ pub mod installed;
 pub mod linker;
 pub mod manifest;
 pub mod package_icon;
+pub mod package_mutation;
 pub mod powershell;
 pub mod scoop;
 pub mod search;

@@ -93,6 +93,9 @@ export interface OperationResult {
   finalStatus?: OperationStatus;
   message?: string;
   timestamp: Timestamp;
+  packageName?: string;
+  packageSource?: string | null;
+  packageState?: ScoopPackage;
 }
 
 /**
