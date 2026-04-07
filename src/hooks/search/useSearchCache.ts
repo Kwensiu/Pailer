@@ -1,4 +1,3 @@
-import { onCleanup } from 'solid-js';
 import { getManifestCache } from '../buckets/useBuckets';
 import { ScoopPackage } from '../../types/scoop';
 
@@ -21,7 +20,6 @@ class SearchCacheManager {
   // Invalidate all search caches
   invalidateCache(): void {
     this.cacheVersion++;
-    console.log('🔄 Search cache invalidated globally, version:', this.cacheVersion);
 
     // Notify all listeners
     this.listeners.forEach((listener) => listener());
@@ -76,9 +74,6 @@ export const localStorageUtils = {
     }
 
     keysToRemove.forEach((key) => localStorage.removeItem(key));
-    if (keysToRemove.length > 0) {
-      console.log(`🧹 Cleaned up ${keysToRemove.length} old cache entries`);
-    }
   },
 
   // Limit total cache size by removing oldest entries
@@ -123,10 +118,6 @@ export const localStorageUtils = {
       localStorage.removeItem(entry.key);
       currentSizeAfterRemoval -= entry.size * 2; // Rough estimate
       removedCount++;
-    }
-
-    if (removedCount > 0) {
-      console.log(`🧹 Limited cache size, removed ${removedCount} entries`);
     }
   },
 };
@@ -197,7 +188,6 @@ const setSearchCache = (bucketName: string, searchTerm: string, packages: ScoopP
       // Retry writing after cleanup
       try {
         localStorage.setItem(cacheKey, JSON.stringify(cache));
-        console.log('Successfully wrote cache after cleanup');
       } catch (retryError) {
         // If still failing, limit cache size and retry
         console.warn('Still failing after cleanup, limiting cache size');
@@ -205,7 +195,6 @@ const setSearchCache = (bucketName: string, searchTerm: string, packages: ScoopP
 
         try {
           localStorage.setItem(cacheKey, JSON.stringify(cache));
-          console.log('Successfully wrote cache after size limit');
         } catch (finalError) {
           console.error('Failed to write cache even after cleanup and size limit:', finalError);
           // Final failure: disable cache instead of crashing
@@ -248,13 +237,6 @@ export function useSearchCache(): UseSearchCacheReturn {
     try {
       localStorageUtils.cleanupOldCache();
       localStorageUtils.limitCacheSize();
-
-      // Listen for cache invalidation events
-      const unsubscribe = searchCacheManager.subscribe(() => {
-        console.log('Search cache invalidated by package operation');
-      });
-
-      onCleanup(unsubscribe);
     } catch (error) {
       console.warn('Failed to clean up localStorage cache:', error);
     }
@@ -263,13 +245,11 @@ export function useSearchCache(): UseSearchCacheReturn {
   const getCachedSearch = (bucketName: string, searchTerm: string): ScoopPackage[] | null => {
     const searchCache = getSearchCache(bucketName, searchTerm);
     if (searchCache) {
-      console.log(`Using cached search results for bucket: ${bucketName}, term: ${searchTerm}`);
       return searchCache.packages;
     }
 
     const manifestCache = getManifestCache(bucketName);
     if (manifestCache && searchTerm.trim()) {
-      console.log(`Using bucket manifests cache for fast filtering: ${bucketName}`);
       const query = searchTerm.toLowerCase();
       return manifestCache.manifests
         .filter((manifest) => manifest.toLowerCase().includes(query))

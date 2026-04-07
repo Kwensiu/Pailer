@@ -28,9 +28,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const [versionInfo, setVersionInfo] = createSignal<VersionedPackageInfo | undefined>(undefined);
   const [versionLoading, setVersionLoading] = createSignal(false);
   const [versionError, setVersionError] = createSignal<string | undefined>(undefined);
-  const [switchingVersion, setSwitchingVersion] = createSignal<string | undefined>(undefined);
+  const [versionAction, setVersionAction] = createSignal<
+    { type: 'switch' | 'delete'; version: string } | undefined
+  >(undefined);
 
   const [currentVersionInstallTime, setCurrentVersionInstallTime] = createSignal<string>('');
+  let currentInstallTimePackageKey: string | null = null;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -125,8 +128,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
     const map = detailByKey();
     return primaryDetailKeys()
       .map((key) => map.get(key))
+      .filter((item) => item?.key !== 'License' && item?.key !== 'Install Date')
       .filter((item): item is { key: string; label: string; value: string } => !!item);
   });
+
+  const installDateDetail = createMemo(() => detailByKey().get('Install Date'));
+  const licenseDetail = createMemo(() => detailByKey().get('License'));
 
   type VersionDetailItem = { key: string; label: string; value: string; latestVersion: string };
 
@@ -159,6 +166,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   const [runEntries, setRunEntries] = createSignal<PackageRunEntry[]>([]);
   const [runningEntryName, setRunningEntryName] = createSignal<string | null>(null);
   let activeRunEntriesRequestToken = 0;
+  let activeVersionInfoRequestToken = 0;
 
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
   const [showBucketInfo, setShowBucketInfo] = createSignal(false);
@@ -228,11 +236,18 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   createEffect(() => {
     let cancelled = false;
     const packageName = props.pkg?.name;
+    const currentPackageKey = packageKey();
     if (!props.pkg?.is_installed || !packageName) {
       setCurrentVersionInstallTime('');
+      currentInstallTimePackageKey = null;
       return;
     }
-    setCurrentVersionInstallTime('');
+
+    if (currentInstallTimePackageKey !== currentPackageKey) {
+      setCurrentVersionInstallTime('');
+      currentInstallTimePackageKey = currentPackageKey;
+    }
+
     getCurrentVersionInstallTime(packageName)
       .then((installTime: string) => {
         if (!cancelled && props.pkg?.name === packageName) {
@@ -250,7 +265,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setVersionInfo(undefined);
       setVersionError(undefined);
       setVersionLoading(false);
-      setSwitchingVersion(undefined);
+      setVersionAction(undefined);
     }
   });
 
@@ -261,7 +276,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setVersionInfo(undefined);
       setVersionError(undefined);
       setVersionLoading(false);
-      setSwitchingVersion(undefined);
+      setVersionAction(undefined);
       setManifestContent(null);
       setManifestError(null);
       setManifestLoading(false);
@@ -356,6 +371,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
   });
 
   const fetchVersionInfo = async (pkg: ScoopPackage) => {
+    const requestToken = ++activeVersionInfoRequestToken;
     setVersionLoading(true);
     setVersionError(undefined);
     try {
@@ -363,18 +379,31 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         packageName: pkg.name,
         global: false,
       });
+      if (requestToken !== activeVersionInfoRequestToken || props.pkg?.name !== pkg.name) {
+        return;
+      }
       setVersionInfo(result);
-      setVersionLoading(false);
     } catch (err) {
+      if (requestToken !== activeVersionInfoRequestToken || props.pkg?.name !== pkg.name) {
+        return;
+      }
       const errorMsg = err instanceof Error ? err.message : String(err);
       setVersionError(t('packageInfo.errorLoadingVersions', { name: pkg.name, error: errorMsg }));
-      setVersionLoading(false);
       console.error(`Failed to fetch versions for ${pkg.name}:`, errorMsg);
+    } finally {
+      if (requestToken === activeVersionInfoRequestToken && props.pkg?.name === pkg.name) {
+        setVersionLoading(false);
+      }
     }
   };
 
   const switchVersion = async (pkg: ScoopPackage, targetVersion: string) => {
-    setSwitchingVersion(targetVersion);
+    if (versionAction()) {
+      return;
+    }
+
+    setVersionError(undefined);
+    setVersionAction({ type: 'switch', version: targetVersion });
     try {
       await invoke<string>('switch_package_version', {
         packageName: pkg.name,
@@ -391,11 +420,16 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       );
       console.error(`Failed to switch ${pkg.name} to version ${targetVersion}:`, errorMsg);
     } finally {
-      setSwitchingVersion(undefined);
+      setVersionAction(undefined);
     }
   };
 
   const deleteVersion = async (pkg: ScoopPackage, versionToDelete: string) => {
+    if (versionAction()) {
+      return;
+    }
+
+    setVersionAction({ type: 'delete', version: versionToDelete });
     try {
       await invoke('delete_app_version', {
         appName: pkg.name,
@@ -410,6 +444,8 @@ function PackageInfoModal(props: PackageInfoModalProps) {
         t('packageInfo.errorDeletingVersion', { version: versionToDelete, error: errorMsg })
       );
       console.error(`Failed to delete version ${versionToDelete} for ${pkg.name}:`, errorMsg);
+    } finally {
+      setVersionAction(undefined);
     }
   };
 
@@ -485,10 +521,39 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                         onBucketClick={handleBucketClick}
                         onVersionSwitch={openVersionSwitcher}
                         disableBucketClick={props.showBackButton}
+                        disableVersionActions={!!versionAction()}
                       />
                     </div>
                   )}
                 </For>
+                <Show when={installDateDetail() || licenseDetail()}>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="min-w-0 text-sm">
+                      <Show when={installDateDetail()}>
+                        {(item) => (
+                          <DetailRenderer
+                            key={item().key}
+                            value={item().value}
+                            label={item().label}
+                            pkg={props.pkg}
+                          />
+                        )}
+                      </Show>
+                    </div>
+                    <div class="min-w-0 text-sm">
+                      <Show when={licenseDetail()}>
+                        {(item) => (
+                          <DetailRenderer
+                            key={item().key}
+                            value={item().value}
+                            label={item().label}
+                            pkg={props.pkg}
+                          />
+                        )}
+                      </Show>
+                    </div>
+                  </div>
+                </Show>
                 <Show when={props.info?.notes}>
                   <div class="min-w-0 text-sm">
                     <div class="border-base-content/10 bg-base-100/70 overflow-hidden rounded-xl border">
@@ -524,6 +589,7 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                         onVersionSwitch={openVersionSwitcher}
                         onVersionClick={(version) => props.pkg && switchVersion(props.pkg, version)}
                         disableBucketClick={props.showBackButton}
+                        disableVersionActions={!!versionAction()}
                       />
                     </div>
                   )}
@@ -537,7 +603,12 @@ function PackageInfoModal(props: PackageInfoModalProps) {
                 loading={versionLoading()}
                 error={versionError()}
                 versionInfo={versionInfo()}
-                switchingVersion={switchingVersion()}
+                switchingVersion={
+                  versionAction()?.type === 'switch' ? versionAction()?.version : undefined
+                }
+                deletingVersion={
+                  versionAction()?.type === 'delete' ? versionAction()?.version : undefined
+                }
                 onClose={closeVersionSwitcher}
                 onSwitchVersion={switchVersion}
                 onDeleteVersion={deleteVersion}

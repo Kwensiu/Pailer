@@ -5,7 +5,6 @@ import {
   Globe,
   FolderOpen,
   Package as PackageIcon,
-  Scale,
   CloudDownload,
   ArrowRightLeft,
   FileText,
@@ -31,6 +30,7 @@ interface DetailRendererProps {
   onVersionSwitch?: () => void;
   onVersionClick?: (version: string) => void;
   disableBucketClick?: boolean;
+  disableVersionActions?: boolean;
 }
 
 function DetailValue(props: { value: string }) {
@@ -120,15 +120,14 @@ function LicenseValue(props: { value: string }) {
             href={license()?.url}
             target="_blank"
             rel="noopener noreferrer"
-            class="text-primary hover:bg-primary/20 inline-flex w-fit items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
+            class="text-base-content/80 hover:text-primary inline-flex w-fit items-center gap-1 text-sm leading-6 transition-colors"
           >
-            <Scale class="h-4 w-4" />
             <span>{license()?.identifier}</span>
-            <ExternalLink class="h-4 w-4" />
+            <ExternalLink class="h-3.5 w-3.5 shrink-0" />
           </a>
         </Match>
         <Match when={!license()?.url}>
-          <span class="bg-base-100 border-base-content/10 inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium wrap-break-word shadow-sm">
+          <span class="text-base-content/80 min-w-0 text-sm leading-6">
             {license()?.identifier}
           </span>
         </Match>
@@ -301,11 +300,20 @@ export default function DetailRenderer(props: DetailRendererProps) {
       </Match>
 
       <Match when={props.key === 'License'}>
-        <div class="flex flex-col gap-1">
+        <div class="flex min-w-0 flex-col gap-1">
           <Show when={props.label}>
             <span class="detail-label-text">{props.label}</span>
           </Show>
           <LicenseValue value={props.value} />
+        </div>
+      </Match>
+
+      <Match when={props.key === 'Install Date' || props.key === 'Update Date'}>
+        <div class="flex min-w-0 flex-col gap-1">
+          <Show when={props.label}>
+            <span class="detail-label-text">{props.label}</span>
+          </Show>
+          <span class="text-base-content/80 min-w-0 text-sm leading-6">{props.value}</span>
         </div>
       </Match>
 
@@ -334,8 +342,7 @@ export default function DetailRenderer(props: DetailRendererProps) {
                   .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
                 const latestExistsInAvailable =
                   !!latest && !!sortedVersions?.some((v) => v.version === latest);
-                const latestIsLocal =
-                  latestExistsInAvailable || props.pkg?.local_latest_version === latest;
+                const latestIsLocal = latestExistsInAvailable;
                 const showCloud = hasUpdate && !latestIsLocal;
 
                 return (
@@ -346,11 +353,12 @@ export default function DetailRenderer(props: DetailRendererProps) {
                         <Show when={latest}>
                           <button
                             type="button"
-                            class={
-                              latest === current
-                                ? 'version-button-active'
-                                : 'version-button-inactive'
-                            }
+                            class={`${latest === current ? 'version-button-active' : 'version-button-inactive'} ${
+                              props.disableVersionActions
+                                ? 'cursor-not-allowed opacity-60 hover:border-inherit hover:text-inherit'
+                                : ''
+                            }`}
+                            disabled={props.disableVersionActions}
                             onClick={() => latest && props.onVersionClick?.(latest)}
                           >
                             {latest}
@@ -369,11 +377,12 @@ export default function DetailRenderer(props: DetailRendererProps) {
                         {(v) => (
                           <button
                             type="button"
-                            class={
-                              v.version === current
-                                ? 'version-button-active'
-                                : 'version-button-inactive'
-                            }
+                            class={`${v.version === current ? 'version-button-active' : 'version-button-inactive'} ${
+                              props.disableVersionActions
+                                ? 'cursor-not-allowed opacity-60 hover:border-inherit hover:text-inherit'
+                                : ''
+                            }`}
+                            disabled={props.disableVersionActions}
                             onClick={() => props.onVersionClick?.(v.version)}
                           >
                             {v.version}
@@ -391,7 +400,13 @@ export default function DetailRenderer(props: DetailRendererProps) {
               </span>
             </Show>
             <Show when={props.pkg?.is_installed}>
-              <button class="btn btn-xs btn-primary rounded-full" onClick={props.onVersionSwitch}>
+              <button
+                class={`btn btn-xs btn-primary rounded-full ${
+                  props.disableVersionActions ? 'opacity-70' : ''
+                }`}
+                disabled={props.disableVersionActions}
+                onClick={props.onVersionSwitch}
+              >
                 {t('buttons.switch')}
               </button>
             </Show>

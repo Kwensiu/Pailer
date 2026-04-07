@@ -10,6 +10,7 @@ interface VersionSwitcherProps {
   error?: string;
   versionInfo?: VersionedPackageInfo;
   switchingVersion?: string;
+  deletingVersion?: string;
   onClose: () => void;
   onSwitchVersion: (pkg: ScoopPackage, version: string) => void;
   onDeleteVersion: (pkg: ScoopPackage, version: string) => void;
@@ -115,7 +116,7 @@ export default function VersionSwitcher(props: VersionSwitcherProps) {
                           <Show when={!version.is_current}>
                             <button
                               class="btn btn-sm btn-primary"
-                              disabled={props.switchingVersion === version.version}
+                              disabled={!!props.switchingVersion || !!props.deletingVersion}
                               onClick={() => handleSwitchVersion(version.version)}
                             >
                               <Show
@@ -132,13 +133,21 @@ export default function VersionSwitcher(props: VersionSwitcherProps) {
                               classList={{
                                 'btn-warning': isConfirming(version.version),
                               }}
+                              disabled={!!props.switchingVersion || !!props.deletingVersion}
                               onClick={() => handleDeleteVersion(version.version)}
                             >
                               <Show
-                                when={isConfirming(version.version)}
-                                fallback={<Trash2 class="h-4 w-4" />}
+                                when={props.deletingVersion === version.version}
+                                fallback={
+                                  <Show
+                                    when={isConfirming(version.version)}
+                                    fallback={<Trash2 class="h-4 w-4" />}
+                                  >
+                                    {t('buttons.sure')}
+                                  </Show>
+                                }
                               >
-                                {t('buttons.sure')}
+                                <span class="loading loading-spinner loading-xs"></span>
                               </Show>
                             </button>
                           </Show>
