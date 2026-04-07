@@ -32,8 +32,10 @@ interface UseSearchReturn {
   infoLoading: () => boolean;
   infoError: () => string | null;
   fetchPackageInfo: (pkg: ScoopPackage) => Promise<void>;
+  refreshSelectedPackageInfo: (pkg?: ScoopPackage | null) => Promise<void>;
   closeModal: () => void;
   updateSelectedPackage: (pkg: ScoopPackage) => void;
+  syncSelectedPackage: (packages: ScoopPackage[]) => ScoopPackage | null;
 
   // From usePackageOperations (with enhanced closeOperationModal)
   operationTitle: () => string | null;
@@ -351,7 +353,7 @@ export function useSearch(): UseSearchReturn {
 
   // Enhanced close operation modal that intelligently refreshes search results
   const closeOperationModal = async (_operationId: string, wasSuccess: boolean) => {
-    packageOperations.closeOperationModal(wasSuccess);
+    await packageOperations.closeOperationModal(wasSuccess);
     if (wasSuccess) {
       // Only refresh search results if they might be affected by the package operation
       const currentSearch = searchTerm().trim();
@@ -366,12 +368,8 @@ export function useSearch(): UseSearchReturn {
       // Update selectedPackage if it exists
       const currentSelected = packageInfo.selectedPackage();
       if (currentSelected) {
-        const updatedPackage = results().find(
-          (p) => p.name === currentSelected.name && p.source === currentSelected.source
-        );
-        if (updatedPackage) {
-          packageInfo.updateSelectedPackage(updatedPackage);
-        }
+        const refreshedPackage = packageInfo.syncSelectedPackage(results());
+        await packageInfo.refreshSelectedPackageInfo(refreshedPackage ?? currentSelected);
       }
     }
   };
@@ -436,8 +434,10 @@ export function useSearch(): UseSearchReturn {
     infoLoading: packageInfo.loading,
     infoError: packageInfo.error,
     fetchPackageInfo: packageInfo.fetchPackageInfo,
+    refreshSelectedPackageInfo: packageInfo.refreshSelectedPackageInfo,
     closeModal: packageInfo.closeModal,
     updateSelectedPackage: packageInfo.updateSelectedPackage,
+    syncSelectedPackage: packageInfo.syncSelectedPackage,
 
     // From usePackageOperations (with enhanced closeOperationModal)
     operationTitle: packageOperations.operationTitle,

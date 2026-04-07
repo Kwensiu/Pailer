@@ -97,7 +97,9 @@ function createInstalledPackagesStore() {
     setLoading(true);
     setError(null);
     try {
-      const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages');
+      const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages', {
+        force: true,
+      });
       setPackages(mergeExistingUpdateInfo(installedPackages));
       const buckets = new Set<string>(installedPackages.map((p) => p.source));
       setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
@@ -120,7 +122,7 @@ function createInstalledPackagesStore() {
     try {
       // Parallel fetch package data and update info
       const [installedPackages, updateInfo] = await Promise.all([
-        invoke<ScoopPackage[]>('refresh_installed_packages'),
+        invoke<ScoopPackage[]>('refresh_installed_packages', { force: true }),
         invoke<UpdatablePackage[]>('check_for_updates').catch(() => []),
       ]);
 

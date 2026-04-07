@@ -693,40 +693,59 @@ function BucketPage() {
         onUpdate={packageOperations.handleUpdate}
         onForceUpdate={packageOperations.handleForceUpdate}
         showBackButton={true}
-        onPackageStateChanged={() => {
+        onPackageStateChanged={async () => {
+          await installedPackagesStore.silentRefetch();
+
+          const currentSelectedPackage = packageInfo.selectedPackage();
+          if (currentSelectedPackage) {
+            const matchedInstalledPackage = packageInfo.syncSelectedPackage(
+              installedPackagesStore.packages()
+            );
+
+            if (!matchedInstalledPackage && currentSelectedPackage.is_installed) {
+              const fallbackPackage = {
+                ...currentSelectedPackage,
+                is_installed: false,
+                is_installed_from_current_bucket: false,
+                available_version: undefined,
+              };
+              packageInfo.updateSelectedPackage(fallbackPackage);
+              await packageInfo.refreshSelectedPackageInfo(fallbackPackage);
+            }
+          }
+
           // Refresh bucket manifests to reflect installation changes
           const currentBucket = selectedBucket();
           if (currentBucket) {
-            handleFetchManifests(currentBucket.name);
+            await handleFetchManifests(currentBucket.name);
           }
         }}
       />
 
       <OperationModal
         title={packageOperations.operationTitle()}
-        onClose={(_operationId: string, wasSuccess: boolean) => {
-          packageOperations.closeOperationModal(wasSuccess);
+        onClose={async (_operationId: string, wasSuccess: boolean) => {
+          await packageOperations.closeOperationModal(wasSuccess);
           if (wasSuccess) {
             const currentSelected = packageInfo.selectedPackage();
             if (currentSelected) {
-              (async () => {
-                try {
-                  const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
-                    'search_scoop',
-                    {
-                      term: currentSelected.name,
-                    }
-                  );
-                  const match = response.packages.find(
-                    (p) => p.name === currentSelected.name && p.source === currentSelected.source
-                  );
-                  if (match) {
-                    packageInfo.updateSelectedPackage(match);
+              try {
+                const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
+                  'search_scoop',
+                  {
+                    term: currentSelected.name,
                   }
-                } catch (e) {
-                  console.error('Failed to check package status', e);
+                );
+                const match = response.packages.find(
+                  (p) => p.name === currentSelected.name && p.source === currentSelected.source
+                );
+                if (match) {
+                  const refreshedPackage = packageInfo.syncSelectedPackage(response.packages);
+                  await packageInfo.refreshSelectedPackageInfo(refreshedPackage ?? currentSelected);
                 }
-              })();
+              } catch (e) {
+                console.error('Failed to check package status', e);
+              }
             }
           }
         }}

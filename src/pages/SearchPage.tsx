@@ -45,7 +45,10 @@ function SearchPage() {
     handleForceUpdate,
     handleInstallConfirm,
     fetchPackageInfo,
+    updateSelectedPackage,
+    refreshSelectedPackageInfo,
     closeModal,
+    syncSelectedPackage,
     closeOperationModal,
     cleanup,
     restoreSearchResults,
@@ -517,9 +520,28 @@ function SearchPage() {
         onUpdate={handleUpdate}
         onForceUpdate={handleForceUpdate}
         context="search"
-        onPackageStateChanged={() => {
-          // This will be called when install/uninstall buttons are clicked
-          // The actual refresh will happen in closeOperationModal when the operation completes
+        onPackageStateChanged={async () => {
+          await installedPackagesStore.silentRefetch();
+
+          const currentSelected = selectedPackage();
+          if (!currentSelected) {
+            return;
+          }
+
+          const candidatePackages = [...packageResults(), ...binaryResults()];
+          const matchedPackage = syncSelectedPackage(candidatePackages);
+
+          if (!matchedPackage && currentSelected.is_installed) {
+            const fallbackPackage = {
+              ...currentSelected,
+              is_installed: false,
+              is_installed_from_current_bucket: false,
+              available_version: undefined,
+            };
+            await refreshSearchResults(true);
+            updateSelectedPackage(fallbackPackage);
+            await refreshSelectedPackageInfo(fallbackPackage);
+          }
         }}
         bucketGitUrl={bucketGitUrlMap().get(selectedPackage()?.source ?? '') ?? null}
         bucketGitBranch={bucketGitBranchMap().get(selectedPackage()?.source ?? '') ?? null}
