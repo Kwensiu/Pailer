@@ -4,7 +4,6 @@ import { ScoopPackage } from '../../types/scoop';
 import { OperationNextStep, OperationStatus, OperationType } from '../../types/operations';
 import installedPackagesStore from '../../stores/installedPackagesStore';
 import { useOperations } from '../../stores/operations';
-import { searchCacheManager } from '../search/useSearchCache';
 import { t } from '../../i18n';
 import { toast } from '../../components/common/ToastAlert';
 import settingsStore from '../../stores/settings';
@@ -37,7 +36,7 @@ const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
 const [operationNextStep, setOperationNextStep] = createSignal<OperationNextStep | null>(null);
 const [isScanning, setIsScanning] = createSignal(false);
 const [pendingInstallPackage, setPendingInstallPackage] = createSignal<ScoopPackage | null>(null);
-const [currentOperation, setCurrentOperation] = createSignal<{
+const [setCurrentOperation] = createSignal<{
   type: 'install' | 'uninstall' | 'update' | 'update-all';
   packageName: string;
   bucket?: string;
@@ -389,15 +388,7 @@ const closeOperationModal = async (wasSuccess: boolean) => {
   setIsScanning(false);
   setPendingInstallPackage(null);
 
-  const operation = currentOperation();
   setCurrentOperation(null);
-
-  if (wasSuccess && operation) {
-    // Silent refresh to avoid loading UI
-    await installedPackagesStore.silentRefetch();
-    // Search cache invalidation
-    searchCacheManager.invalidateCache();
-  }
 
   closeHandlers.forEach((handler) => handler(wasSuccess));
 };

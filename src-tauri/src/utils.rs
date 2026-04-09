@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Runtime};
 use url::Url;
 
@@ -18,6 +18,13 @@ pub struct ScoopAppShortcut {
     pub target_path: String,
     pub working_directory: String,
     pub icon_path: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ScoopAppShortcutsCache {
+    shortcuts_dir: PathBuf,
+    dir_modified_ms: u128,
+    shortcuts: Vec<ScoopAppShortcut>,
 }
 
 /// Checks if the application is installed via Scoop
@@ -426,8 +433,12 @@ pub fn locate_current_install_dir(
         return Ok(current_path);
     }
 
-    find_latest_install_dir(&package_dir)
-        .ok_or_else(|| format!("Could not find installation directory for package '{}'", package_name))
+    find_latest_install_dir(&package_dir).ok_or_else(|| {
+        format!(
+            "Could not find installation directory for package '{}'",
+            package_name
+        )
+    })
 }
 
 pub fn read_install_bucket_from_dir(dir: &std::path::Path) -> Option<String> {
@@ -580,6 +591,10 @@ pub fn get_scoop_app_shortcuts_with_path(
         return Ok(Vec::new());
     }
 
+    if let Some(cached) = get_cached_scoop_app_shortcuts(&scoop_apps_path) {
+        return Ok(cached);
+    }
+
     let mut shortcuts = Vec::new();
 
     for entry in fs::read_dir(&scoop_apps_path)
@@ -613,8 +628,10 @@ pub fn get_scoop_app_shortcuts_with_path(
     }
 
     if !shortcuts.is_empty() {
-        log::info!("Scoop Apps shortcuts detected: {}", shortcuts.len());
+        log::debug!("Scoop Apps shortcuts detected: {}", shortcuts.len());
     }
+
+    update_scoop_app_shortcuts_cache(&scoop_apps_path, &shortcuts);
     Ok(shortcuts)
 }
 
@@ -678,6 +695,48 @@ use std::sync::{Mutex, OnceLock};
 
 // Global cache for Scoop root to avoid repeated detection
 static SCOOP_ROOT_CACHE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
+static SCOOP_APP_SHORTCUTS_CACHE: OnceLock<Mutex<Option<ScoopAppShortcutsCache>>> = OnceLock::new();
+
+fn get_path_modified_ms(path: &Path) -> u128 {
+    fs::metadata(path)
+        .and_then(|meta| meta.modified())
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
+}
+
+fn get_cached_scoop_app_shortcuts(shortcuts_dir: &Path) -> Option<Vec<ScoopAppShortcut>> {
+    let cache = SCOOP_APP_SHORTCUTS_CACHE.get_or_init(|| Mutex::new(None));
+    let cache_guard = cache.lock().ok()?;
+    let entry = cache_guard.as_ref()?;
+
+    if entry.shortcuts_dir != shortcuts_dir {
+        return None;
+    }
+
+    let current_modified_ms = get_path_modified_ms(shortcuts_dir);
+    if current_modified_ms == entry.dir_modified_ms {
+        log::trace!(
+            "Reusing cached Scoop Apps shortcuts (count={})",
+            entry.shortcuts.len()
+        );
+        return Some(entry.shortcuts.clone());
+    }
+
+    None
+}
+
+fn update_scoop_app_shortcuts_cache(shortcuts_dir: &Path, shortcuts: &[ScoopAppShortcut]) {
+    let cache = SCOOP_APP_SHORTCUTS_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut cache_guard) = cache.lock() {
+        *cache_guard = Some(ScoopAppShortcutsCache {
+            shortcuts_dir: shortcuts_dir.to_path_buf(),
+            dir_modified_ms: get_path_modified_ms(shortcuts_dir),
+            shortcuts: shortcuts.to_vec(),
+        });
+    }
+}
 
 /// Get Scoop root directory as fallback when AppState is not available
 pub fn get_scoop_root_fallback() -> PathBuf {

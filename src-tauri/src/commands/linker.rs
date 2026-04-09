@@ -362,7 +362,6 @@ fn read_install_bucket(dir: &Path) -> Option<String> {
         .map(|v| v.to_string())
 }
 
-
 fn manifest_has_any_key(manifest: &Value, key: &str) -> bool {
     if manifest.get(key).is_some() {
         return true;
@@ -904,7 +903,7 @@ pub async fn get_versioned_packages(
         .map(|pkg| pkg.name.clone())
         .collect();
 
-    log::info!(
+    log::debug!(
         "Found {} versioned/custom packages: {:?}",
         versioned_packages.len(),
         versioned_packages
@@ -1010,7 +1009,10 @@ pub async fn change_package_bucket(
     let package_dir = apps_dir.join(trimmed_package_name);
 
     if !package_dir.exists() {
-        return Err(format!("Package '{}' is not installed", trimmed_package_name));
+        return Err(format!(
+            "Package '{}' is not installed",
+            trimmed_package_name
+        ));
     }
 
     let manifest_path = scoop_path

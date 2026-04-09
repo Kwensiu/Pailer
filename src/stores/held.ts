@@ -32,8 +32,6 @@ function createHeldPackagesStore() {
     return store.packages.includes(packageName);
   };
 
-  fetchHeldPackages();
-
   return { store, isHeld, refetch: fetchHeldPackages };
 }
 

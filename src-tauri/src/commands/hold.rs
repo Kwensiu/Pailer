@@ -81,7 +81,7 @@ pub async fn list_held_packages<R: Runtime>(
     _app: AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
-    log::info!("Listing held packages by checking install.json files");
+    log::debug!("Listing held packages by checking install.json files");
 
     let scoop_path = state.scoop_path();
     let apps_path = scoop_path.join("apps");
@@ -124,7 +124,7 @@ pub async fn list_held_packages<R: Runtime>(
         })
         .collect::<Vec<String>>();
 
-    log::info!("Found {} held packages", held_packages.len());
+    log::debug!("Found {} held packages", held_packages.len());
     Ok(held_packages)
 }
 

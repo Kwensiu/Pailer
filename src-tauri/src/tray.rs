@@ -2,7 +2,6 @@ use crate::commands::settings;
 use crate::i18n::{DEFAULT_LANGUAGE, SUPPORTED_LOCALES};
 use crate::state::AppState;
 use crate::utils::{get_scoop_app_shortcuts_with_path, launch_scoop_app, ScoopAppShortcut};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -154,20 +153,6 @@ fn get_system_language() -> String {
     DEFAULT_LANGUAGE.to_string()
 }
 
-fn get_default_tray_strings() -> Value {
-    serde_json::json!({
-        "show": "Show Pailer",
-        "hide": "Hide Pailer",
-        "refreshApps": "Refresh Apps",
-        "scoopApps": "Scoop Apps",
-        "quit": "Quit",
-        "notificationTitle": "Pailer - Minimized to Tray",
-        "notificationMessage": "Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior",
-        "closeAndDisable": "Close and Disable Tray",
-        "keepInTray": "Keep in Tray"
-    })
-}
-
 fn build_tray_menu(
     app: &tauri::AppHandle<tauri::Wry>,
     shortcuts_map: Arc<Mutex<HashMap<String, ScoopAppShortcut>>>,
@@ -181,8 +166,17 @@ fn build_tray_menu_with_language(
     shortcuts_map: Arc<Mutex<HashMap<String, ScoopAppShortcut>>>,
     language: &str,
 ) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    let menu_strings = crate::i18n::get_tray_locale_strings(language)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let menu_strings = match crate::i18n::get_tray_locale_strings(language) {
+        Ok(strings) => strings,
+        Err(e) => {
+            log::debug!(
+                "Using default tray strings while localized strings are unavailable for '{}': {}",
+                language,
+                e
+            );
+            crate::i18n::default_tray_strings()
+        }
+    };
 
     // Extract strings with defaults
     let show_text = menu_strings
@@ -408,7 +402,7 @@ pub fn show_system_notification_blocking(app: &tauri::AppHandle) {
             } else {
                 log::warn!("Failed to get notification strings: {}, using defaults", e);
             }
-            get_default_tray_strings()
+            crate::i18n::default_tray_strings()
         }
     };
 

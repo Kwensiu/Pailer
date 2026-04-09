@@ -48,7 +48,7 @@ fn get_install_modification_time(install_dir: &Path) -> u128 {
 fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> {
     let buckets_path = scoop_path.join("buckets");
 
-    log::info!(
+    log::trace!(
         "Searching for package bucket. Scoop path: {}, Package name: {}",
         scoop_path.display(),
         package_name
@@ -64,13 +64,13 @@ fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> 
                     .join("bucket")
                     .join(format!("{}.json", package_name));
 
-                log::debug!(
+                log::trace!(
                     "Checking bucket: {}, manifest path: {}",
                     bucket_name,
                     manifest_path.display()
                 );
                 if manifest_path.exists() {
-                    log::info!("Found package {} in bucket {}", package_name, bucket_name);
+                    log::trace!("Found package {} in bucket {}", package_name, bucket_name);
                     return Some(bucket_name);
                 }
             }
@@ -78,7 +78,7 @@ fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> 
     }
 
     // Fallback: check if it's in the main bucket (which might not be in buckets dir)
-    log::info!("Package {} not found in any bucket", package_name);
+    log::trace!("Package {} not found in any bucket", package_name);
     None
 }
 
@@ -87,7 +87,7 @@ fn find_package_bucket(scoop_path: &Path, package_name: &str) -> Option<String> 
 fn find_latest_version_dir(package_path: &Path) -> Option<PathBuf> {
     let mut candidates: Vec<(u128, PathBuf)> = Vec::new();
 
-    log::info!(
+    log::trace!(
         "Finding latest version directory for package: {}",
         package_path.display()
     );
@@ -131,7 +131,7 @@ fn find_latest_version_dir(package_path: &Path) -> Option<PathBuf> {
 
     candidates.sort_by(|a, b| b.0.cmp(&a.0));
     let result = candidates.into_iter().map(|(_, path)| path).next();
-    log::info!(
+    log::trace!(
         "Latest version directory found: {:?}",
         result.as_ref().map(|p| p.display().to_string())
     );
@@ -145,7 +145,7 @@ fn locate_install_dir(package_path: &Path) -> Result<PathBuf, String> {
     if current_path.is_dir() {
         Ok(current_path)
     } else if let Some(fallback_dir) = find_latest_version_dir(package_path) {
-        log::info!(
+        log::debug!(
             "=== INSTALLED SCAN === 'current' missing for {}; using latest version directory '{}'",
             package_name,
             fallback_dir.display(),
@@ -186,7 +186,7 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
         .collect();
 
     // Log located packages summary
-    log::info!(
+    log::debug!(
         "Located current directories for {} packages",
         located_packages.len()
     );
@@ -199,13 +199,7 @@ fn compute_apps_fingerprint(app_dirs: &[PathBuf]) -> String {
 
     let mut sorted_entries = entries;
     sorted_entries.sort();
-    let fingerprint = format!("{}|{}", app_dirs.len(), sorted_entries.join(";"));
-    log::debug!(
-        "{} [FINGERPRINT] Computed (length: {} chars)",
-        "=== INSTALLED SCAN ===",
-        fingerprint.len()
-    );
-    fingerprint
+    format!("{}|{}", app_dirs.len(), sorted_entries.join(";"))
 }
 
 /// Attempts to load manifest.json and install.json with various fallback strategies.
@@ -215,7 +209,7 @@ fn load_manifests_with_fallback(
 ) -> Result<(PackageManifest, InstallManifest), String> {
     // Try to read manifest.json
     let manifest_path = install_root.join("manifest.json");
-    log::debug!("Reading manifest.json for package: {}", package_name);
+    log::trace!("Reading manifest.json for package: {}", package_name);
 
     let manifest = if manifest_path.exists() {
         let manifest_content = fs::read_to_string(&manifest_path)
@@ -255,7 +249,7 @@ fn load_manifests_with_fallback(
 
     // Try to read install.json
     let install_manifest_path = install_root.join("install.json");
-    log::debug!("Reading install.json for package: {}", package_name);
+    log::trace!("Reading install.json for package: {}", package_name);
 
     let install_manifest = if install_manifest_path.exists() {
         let install_manifest_content = fs::read_to_string(&install_manifest_path)
@@ -396,7 +390,7 @@ fn load_package_info(
 ) -> Result<(PackageManifest, InstallManifest), String> {
     // Exclude Scoop itself
     if package_name.eq_ignore_ascii_case("scoop") {
-        return Err(format!("Skipping Scoop system package: {}", package_name));
+        return Err("Skipping Scoop system package".to_string());
     }
 
     match load_manifests_with_fallback(install_root, package_name) {
@@ -443,12 +437,12 @@ fn determine_bucket(
         // Custom or unknown installation - try to find in buckets first
         match find_package_bucket(scoop_path, package_name) {
             Some(found_bucket) => {
-                log::debug!("Found package {} in bucket: {}", package_name, found_bucket);
+                log::trace!("Found package {} in bucket: {}", package_name, found_bucket);
                 found_bucket
             }
             None => {
                 // Truly custom installation
-                log::debug!(
+                log::trace!(
                     "Package {} appears to be custom installed, marking as Custom",
                     package_name
                 );
@@ -619,7 +613,7 @@ async fn refresh_scoop_path_if_needed<R: Runtime>(
     reason: &str,
 ) -> Option<PathBuf> {
     let current_path = state.scoop_path();
-    log::info!(
+    log::debug!(
         "Checking scoop path availability. Current path: {}, reason: {}",
         current_path.display(),
         reason
@@ -627,7 +621,7 @@ async fn refresh_scoop_path_if_needed<R: Runtime>(
 
     // Only check if the current path exists, don't auto-detect or update
     if current_path.exists() {
-        log::info!("Scoop path is valid: {}", current_path.display());
+        log::debug!("Scoop path is valid: {}", current_path.display());
         Some(current_path)
     } else {
         log::warn!(
@@ -696,11 +690,6 @@ async fn scan_installed_packages_internal<R: Runtime>(
 
     // Check cache
     if let Some(cached_packages) = check_cache(state, &fingerprint, log_prefix).await {
-        log::info!(
-            "{} [CACHE] ✓ Hit - returning {} cached packages",
-            log_prefix,
-            cached_packages.len()
-        );
         return Ok(cached_packages);
     }
 
@@ -716,19 +705,32 @@ async fn scan_installed_packages_internal<R: Runtime>(
                         .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or("unknown");
-                    log::warn!(
-                        "{} [SCAN] Skipping package '{}': {}",
-                        log_prefix,
-                        package_name,
-                        e
-                    );
+                    if e == "Skipping Scoop system package" {
+                        log::debug!("{} [SCAN] Skipping Scoop system package", log_prefix);
+                    } else if e.contains("'current' directory not found")
+                        && e.contains("no version directories available")
+                    {
+                        log::debug!(
+                            "{} [SCAN] Skipping package '{}': {}",
+                            log_prefix,
+                            package_name,
+                            e
+                        );
+                    } else {
+                        log::warn!(
+                            "{} [SCAN] Skipping package '{}': {}",
+                            log_prefix,
+                            package_name,
+                            e
+                        );
+                    }
                     None
                 }
             },
         )
         .collect();
 
-    log::info!(
+    log::debug!(
         "{} [SCAN] ✓ Completed scan: {} directories processed, {} valid packages found",
         log_prefix,
         app_dirs.len(),
@@ -749,16 +751,50 @@ async fn scan_installed_packages_internal<R: Runtime>(
     Ok(packages)
 }
 
+async fn get_recent_cached_packages(
+    state: &AppState,
+    log_prefix: &str,
+) -> Option<Vec<ScoopPackage>> {
+    const RECENT_CACHE_WINDOW_MS: u64 = 30_000;
+
+    let mut cache_guard = state.installed_packages.lock().await;
+    let cache = cache_guard.as_mut()?;
+    let cache_age_ms = AppState::now_ms().saturating_sub(cache.cached_at_ms);
+
+    if cache_age_ms <= RECENT_CACHE_WINDOW_MS {
+        cache.cached_at_ms = AppState::now_ms();
+        log::debug!(
+            "{} [CACHE] Reusing recent installed packages cache (age={}ms, packages={})",
+            log_prefix,
+            cache_age_ms,
+            cache.packages.len()
+        );
+        Some(cache.packages.clone())
+    } else {
+        None
+    }
+}
+
 #[tauri::command]
 pub async fn get_installed_packages_full<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<Vec<ScoopPackage>, String> {
-    log::info!("=== INSTALLED SCAN === get_installed_packages_full called");
+    log::debug!("=== INSTALLED SCAN === get_installed_packages_full called");
+
+    if let Some(cached_packages) =
+        get_recent_cached_packages(&state, "=== INSTALLED SCAN ===").await
+    {
+        log::debug!(
+            "=== INSTALLED SCAN === get_installed_packages_full completed, result: Ok({})",
+            cached_packages.len()
+        );
+        return Ok(cached_packages);
+    }
 
     // Perform the scan (cache is checked inside)
     let result = scan_installed_packages_internal(app, &state, false).await;
-    log::info!(
+    log::debug!(
         "=== INSTALLED SCAN === get_installed_packages_full completed, result: {:?}",
         result.as_ref().map(|pkgs| pkgs.len())
     );
@@ -777,7 +813,7 @@ pub async fn invalidate_installed_cache(state: State<'_, AppState>) {
     let mut versions_guard = state.package_versions.lock().await;
     *versions_guard = None;
 
-    log::info!(
+    log::debug!(
         "=== INSTALLED CACHE === Cache invalidated (was_cached: {}). Also invalidated versions cache.",
         was_cached
     );
@@ -791,7 +827,7 @@ pub async fn refresh_installed_packages<R: Runtime>(
     state: State<'_, AppState>,
     force: Option<bool>,
 ) -> Result<Vec<ScoopPackage>, String> {
-    log::info!("=== INSTALLED REFRESH === refresh_installed_packages called");
+    log::debug!("=== INSTALLED REFRESH === refresh_installed_packages called");
 
     // Check if we should debounce this refresh call
     if !force.unwrap_or(false) && state.should_debounce_refresh() {
@@ -801,7 +837,7 @@ pub async fn refresh_installed_packages<R: Runtime>(
         // Return cached results without rescanning
         let cache_guard = state.installed_packages.lock().await;
         if let Some(cache) = cache_guard.as_ref() {
-            log::info!("=== INSTALLED REFRESH === Returning cached packages due to debounce");
+            log::debug!("=== INSTALLED REFRESH === Returning cached packages due to debounce");
             return Ok(cache.packages.clone());
         }
     }
@@ -809,14 +845,14 @@ pub async fn refresh_installed_packages<R: Runtime>(
     state.update_refresh_time();
 
     // First invalidate cache to ensure fresh data
-    log::info!("=== INSTALLED REFRESH === Invalidating cache");
+    log::debug!("=== INSTALLED REFRESH === Invalidating cache");
     invalidate_installed_cache(state.clone()).await;
 
     // Then fetch fresh data
-    log::info!("=== INSTALLED REFRESH === Fetching fresh data");
+    log::debug!("=== INSTALLED REFRESH === Fetching fresh data");
     let result = scan_installed_packages_internal(app, &state, false).await;
 
-    log::info!("=== INSTALLED REFRESH === refresh_installed_packages completed");
+    log::debug!("=== INSTALLED REFRESH === refresh_installed_packages completed");
     result
 }
 
@@ -856,7 +892,7 @@ async fn ensure_apps_path<R: Runtime>(
         {
             scoop_path = updated_path;
             apps_path = scoop_path.join("apps");
-            log::info!("{} Path refreshed to: {}", log_prefix, apps_path.display());
+            log::debug!("{} Path refreshed to: {}", log_prefix, apps_path.display());
         }
     }
 
@@ -872,17 +908,18 @@ async fn check_cache(
     fingerprint: &str,
     log_prefix: &str,
 ) -> Option<Vec<ScoopPackage>> {
-    let cache_guard = state.installed_packages.lock().await;
-    if let Some(cache) = cache_guard.as_ref() {
+    let mut cache_guard = state.installed_packages.lock().await;
+    if let Some(cache) = cache_guard.as_mut() {
         if cache.fingerprint == *fingerprint {
-            log::info!(
+            cache.cached_at_ms = AppState::now_ms();
+            log::debug!(
                 "{} ✓ Cache HIT - returning {} cached packages",
                 log_prefix,
                 cache.packages.len()
             );
             return Some(cache.packages.clone());
         } else {
-            log::info!(
+            log::debug!(
                 "{} Cache fingerprint mismatch. Old: {}, New: {}",
                 log_prefix,
                 cache.fingerprint,
@@ -890,7 +927,7 @@ async fn check_cache(
             );
         }
     } else {
-        log::info!("{} Cache MISS - no cached data found", log_prefix);
+        log::debug!("{} Cache MISS - no cached data found", log_prefix);
     }
     None
 }
@@ -905,8 +942,9 @@ async fn update_cache(
     *cache_guard = Some(InstalledPackagesCache {
         packages: packages.clone(),
         fingerprint: fingerprint.clone(),
+        cached_at_ms: AppState::now_ms(),
     });
-    log::info!(
+    log::debug!(
         "{} ✓ Cache updated with {} packages",
         log_prefix,
         packages.len()
@@ -955,7 +993,7 @@ async fn update_package_versions_cache(
         versions_map,
     });
 
-    log::info!(
+    log::debug!(
         "✓ Package versions cache updated with {} versioned packages",
         versions_count
     );

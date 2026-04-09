@@ -8,6 +8,7 @@ mod state;
 mod tray;
 pub mod utils;
 
+use std::env;
 use std::path::PathBuf;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
@@ -17,6 +18,48 @@ mod config_keys {
     pub const WINDOW_CLOSE_TO_TRAY: &str = "window.closeToTray";
     pub const WINDOW_FIRST_TRAY_NOTIFICATION_SHOWN: &str = "window.firstTrayNotificationShown";
     pub const TRAY_APPS_LIST: &str = "tray.appsList";
+}
+
+fn parse_log_level(value: &str) -> Option<log::LevelFilter> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "off" => Some(log::LevelFilter::Off),
+        "error" => Some(log::LevelFilter::Error),
+        "warn" | "warning" => Some(log::LevelFilter::Warn),
+        "info" => Some(log::LevelFilter::Info),
+        "debug" => Some(log::LevelFilter::Debug),
+        "trace" => Some(log::LevelFilter::Trace),
+        _ => None,
+    }
+}
+
+fn resolve_default_log_level() -> log::LevelFilter {
+    if let Ok(value) = env::var("PAILER_LOG_LEVEL") {
+        if let Some(level) = parse_log_level(&value) {
+            return level;
+        }
+
+        eprintln!(
+            "Invalid PAILER_LOG_LEVEL '{}', falling back to default log level",
+            value
+        );
+    }
+
+    if cfg!(debug_assertions) {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
+    }
+}
+
+fn should_trace_installed_commands() -> bool {
+    env::var("PAILER_TRACE_INSTALLED")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -95,8 +138,10 @@ pub fn run() {
         eprintln!("Failed to create log directory {:?}: {}", log_dir, e);
     }
 
+    let default_log_level = resolve_default_log_level();
+
     // Configure logging plugin with multiple targets
-    let log_plugin = tauri_plugin_log::Builder::new()
+    let mut log_plugin_builder = tauri_plugin_log::Builder::new()
         .targets([
             Target::new(TargetKind::Stdout),
             Target::new(TargetKind::Folder {
@@ -104,15 +149,17 @@ pub fn run() {
                 file_name: None,
             }),
         ])
-        .level(if cfg!(debug_assertions) {
-            log::LevelFilter::Trace
-        } else {
-            log::LevelFilter::Info
-        })
+        .level(default_log_level)
         .level_for("lnk", log::LevelFilter::Warn)
         .level_for("reqwest", log::LevelFilter::Warn)
-        .level_for("tauri_plugin_updater", log::LevelFilter::Debug)
-        .build();
+        .level_for("tauri_plugin_updater", log::LevelFilter::Info);
+
+    if should_trace_installed_commands() {
+        log_plugin_builder = log_plugin_builder
+            .level_for("pailer_lib::commands::installed", log::LevelFilter::Trace);
+    }
+
+    let log_plugin = log_plugin_builder.build();
 
     builder
         .plugin(log_plugin)

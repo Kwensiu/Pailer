@@ -97,21 +97,19 @@ function App() {
     info('Starting data preload for all pages');
     console.log('🔄 [App] Starting data preload');
 
-    // Parallel preload all page data
-    await Promise.allSettled([
-      // Preload installed packages
-      (async () => {
-        console.log('🔄 [App] Preloading installed packages...');
-        try {
-          await installedPackagesStore.refetch();
-          console.log('✅ [App] Installed packages preloaded');
-          info('Installed packages preload completed');
-        } catch (err: unknown) {
-          console.log('⚠️ [App] Failed to preload installed packages');
-          logError(`Failed to preload installed packages: ${err}`);
-        }
-      })(),
+    // Preload installed packages first so later consumers can reuse the warmed backend cache
+    console.log('🔄 [App] Preloading installed packages...');
+    try {
+      await installedPackagesStore.fetch();
+      console.log('✅ [App] Installed packages preloaded');
+      info('Installed packages preload completed');
+    } catch (err: unknown) {
+      console.log('⚠️ [App] Failed to preload installed packages');
+      logError(`Failed to preload installed packages: ${err}`);
+    }
 
+    // Preload remaining page data in parallel once installed data is available
+    await Promise.allSettled([
       // Preload buckets
       (async () => {
         console.log('🔄 [App] Preloading buckets...');

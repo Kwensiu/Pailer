@@ -71,7 +71,7 @@ pub async fn check_for_updates<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
 ) -> Result<Vec<UpdatablePackage>, String> {
-    log::info!("Checking for updates using filesystem");
+    log::debug!("Checking for updates using filesystem");
 
     let installed_packages = get_installed_packages_full(app.clone(), state.clone()).await?;
     let scoop_path = state.scoop_path();
@@ -111,6 +111,6 @@ pub async fn check_for_updates<R: Runtime>(
     .await
     .map_err(|e| e.to_string())?;
 
-    log::info!("Found {} updatable packages", updatable_packages.len());
+    log::debug!("Found {} updatable packages", updatable_packages.len());
     Ok(updatable_packages)
 }

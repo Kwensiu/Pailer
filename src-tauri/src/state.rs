@@ -10,6 +10,7 @@ use tokio::sync::{Mutex, RwLock as AsyncRwLock};
 pub struct InstalledPackagesCache {
     pub packages: Vec<ScoopPackage>,
     pub fingerprint: String,
+    pub cached_at_ms: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -96,5 +97,12 @@ impl AppState {
         }
 
         now.saturating_sub(last_refresh) < 1000 // Debounce within 1 second
+    }
+
+    pub fn now_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
     }
 }

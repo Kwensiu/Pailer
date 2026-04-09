@@ -35,6 +35,20 @@ pub fn get_tray_locale_strings(language: &str) -> Result<Value, String> {
     }
 }
 
+pub fn default_tray_strings() -> Value {
+    serde_json::json!({
+        "show": "Show Pailer",
+        "hide": "Hide Pailer",
+        "refreshApps": "Refresh Apps",
+        "scoopApps": "Scoop Apps",
+        "quit": "Quit",
+        "notificationTitle": "Pailer - Minimized to Tray",
+        "notificationMessage": "Pailer has been minimized to the system tray and will continue running in the background.\n\nYou can:\n• Click the tray icon to restore the window\n• Right-click the tray icon to access the context menu\n• Change this behavior in Settings > Window Behavior",
+        "closeAndDisable": "Close and Disable Tray",
+        "keepInTray": "Keep in Tray"
+    })
+}
+
 #[tauri::command]
 pub fn update_backend_tray_strings(
     app: tauri::AppHandle,
@@ -49,7 +63,7 @@ pub fn update_backend_tray_strings(
 
             if !TRAY_INITIALIZED.swap(true, Ordering::SeqCst) {
                 if let Err(e) = crate::tray::setup_system_tray(&app) {
-                    log::error!("Failed to create tray: {}", e);
+                    log::warn!("Failed to create tray: {}", e);
                     TRAY_INITIALIZED.store(false, Ordering::SeqCst);
                 }
             } else {
