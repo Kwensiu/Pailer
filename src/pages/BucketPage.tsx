@@ -1,8 +1,9 @@
-import { createSignal, onMount, Show, onCleanup } from 'solid-js';
+import { createSignal, createEffect, onMount, Show, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import {
   useBuckets,
   type BucketInfo,
+  type BulkUpdateResult,
   updateBucketsCache,
   clearManifestCache,
   handleBucketPackageClick,
@@ -18,23 +19,14 @@ import OperationModal from '../components/modals/OperationModal';
 import BucketSearch from '../components/page/buckets/BucketSearch';
 import BucketGrid from '../components/page/buckets/BucketGrid';
 import { BucketSearchResults } from '../components/page/buckets/BucketSearch';
-import BulkUpdateProgress, { BulkUpdateState } from '../components/page/buckets/BulkUpdateProgress';
+import BulkUpdateProgress from '../components/page/buckets/BulkUpdateProgress';
 import { SearchableBucket } from '../hooks';
 import { t } from '../i18n';
 import { toast } from '../components/common/ToastAlert';
 import installedPackagesStore from '../stores/installedPackagesStore';
+import bucketBulkUpdateStore from '../stores/bucketBulkUpdateStore';
 
 const UPDATE_RESULT_DISPLAY_DURATION = 2000;
-
-interface BucketUpdateResult {
-  success: boolean;
-  message: string;
-  bucket_name: string;
-  bucket_path?: string;
-  manifest_count?: number;
-}
-
-type UpdateState = BulkUpdateState;
 
 function BucketPage() {
   const ITEMS_PER_PAGE = 8;
@@ -42,6 +34,7 @@ function BucketPage() {
     useBuckets();
   const packageInfo = usePackageInfo();
   const packageOperations = usePackageOperations();
+  const bulkUpdate = bucketBulkUpdateStore;
 
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
   const [manifests, setManifests] = createSignal<string[]>([]);
@@ -67,20 +60,7 @@ function BucketPage() {
   const [updateResultStatuses, setUpdateResultStatuses] = createSignal<{
     [key: string]: 'success' | 'info' | 'error' | 'default';
   }>({});
-  const [updateState, setUpdateState] = createSignal<UpdateState>({
-    status: 'idle',
-    current: 0,
-    total: 0,
-    message: '',
-  });
-  const [isCancelling, setIsCancelling] = createSignal(false);
-  const [failedResults, setFailedResults] = createSignal<BucketUpdateResult[]>([]);
-
-  // Error details expansion state
-  const [showErrorDetails, setShowErrorDetails] = createSignal(false);
-
   let resultTimerIds: Map<string, number> = new Map();
-  let stateTimerId: number | null = null;
 
   onMount(() => {
     // If we already have buckets (from preloading), don't force a refresh
@@ -91,6 +71,15 @@ function BucketPage() {
   onCleanup(() => {
     cleanupTimers();
     cleanup();
+  });
+
+  createEffect(() => {
+    if (bulkUpdate.needsRefresh() && bulkUpdate.updateState().status !== 'updating') {
+      void (async () => {
+        await fetchBuckets(true, true);
+        bulkUpdate.clearRefreshFlag();
+      })();
+    }
   });
 
   const toggleSearch = () => {
@@ -179,22 +168,6 @@ function BucketPage() {
     }
   };
 
-  const handleCloseBulkUpdate = () => {
-    setUpdateState((prev) => ({
-      ...prev,
-      status: 'idle',
-    }));
-    setIsCancelling(false); // Reset cancelling state when closing
-    setFailedResults([]); // Reset failed results when closing
-    setShowErrorDetails(false); // Reset error details when closing
-  };
-
-  // Helper function to get error details from structured data
-  const getErrorDetails = () => {
-    if (updateState().status !== 'completed') return [];
-    return failedResults();
-  };
-
   const closeModal = () => {
     setSelectedBucket(null);
     setSelectedSearchBucket(null);
@@ -241,8 +214,7 @@ function BucketPage() {
       return { success: false, message: 'Operation already in progress', bucket_name: bucketName };
     }
 
-    // Check if bulk update is being cancelled
-    const isBulkUpdateCancelling = isCancelling();
+    const isBulkUpdateCancelling = bulkUpdate.isCancelling();
 
     // Add to updating set
     setUpdatingBuckets((prev) => new Set([...prev, bucketName]));
@@ -253,7 +225,7 @@ function BucketPage() {
         return { success: false, message: 'Operation cancelled', bucket_name: bucketName };
       }
 
-      const result = await invoke<BucketUpdateResult>('update_bucket', {
+      const result = await invoke<BulkUpdateResult>('update_bucket', {
         bucketName: bucketName,
       });
 
@@ -386,28 +358,16 @@ function BucketPage() {
     }
   };
 
-  // Handle updating all buckets - simplified to just trigger the update
   const handleUpdateAllBuckets = () => {
-    // If we're already updating, don't start a new update
-    if (updateState().status === 'updating') return;
-
-    // Set updating state to trigger the component's logic
-    setUpdateState({
-      status: 'updating',
-      current: 0,
-      total: 0, // Will be set by the component
-      message: t('bucket.grid.updatingBuckets'),
+    void bulkUpdate.start({
+      buckets: buckets().map((bucket) => ({ name: bucket.name, is_git_repo: bucket.is_git_repo })),
+      updateAllBuckets: handleUpdateAllBucketsSequential,
+      updateBucket: handleUpdateBucket,
     });
   };
 
-  // Handle state updates from BulkUpdateProgress component
-  const handleUpdateStateChange = (newState: BulkUpdateState) => {
-    setUpdateState(newState);
-  };
-
-  // Handle failed results from BulkUpdateProgress component
-  const handleFailedResultsChange = (results: BucketUpdateResult[]) => {
-    setFailedResults(results);
+  const handleUpdateAllBucketsSequential = async (runId: string): Promise<BulkUpdateResult[]> => {
+    return invoke<BulkUpdateResult[]>('update_all_buckets', { runId });
   };
 
   // Handle manual reload of local buckets
@@ -462,11 +422,6 @@ function BucketPage() {
       window.clearTimeout(timerId);
     });
     resultTimerIds.clear();
-
-    if (stateTimerId) {
-      window.clearTimeout(stateTimerId);
-      stateTimerId = null;
-    }
   };
 
   const handlePageChange = async (page: number) => {
@@ -617,17 +572,13 @@ function BucketPage() {
         </Show>
 
         <BulkUpdateProgress
-          buckets={buckets().map((b) => ({ name: b.name, is_git_repo: b.is_git_repo }))}
-          updateState={updateState}
-          onUpdateStateChange={handleUpdateStateChange}
-          onClose={handleCloseBulkUpdate}
-          onRefreshBuckets={() => fetchBuckets(true, true)}
-          onUpdateBucket={handleUpdateBucket}
-          errorDetails={getErrorDetails}
-          showErrorDetails={showErrorDetails}
-          onToggleErrorDetails={() => setShowErrorDetails(!showErrorDetails())}
-          onSetCancelling={setIsCancelling}
-          onFailedResultsChange={handleFailedResultsChange}
+          updateState={bulkUpdate.updateState}
+          errorDetails={bulkUpdate.getErrorDetails}
+          showErrorDetails={bulkUpdate.showErrorDetails}
+          canCancel={bulkUpdate.canCancel}
+          onCancel={bulkUpdate.cancel}
+          onClose={bulkUpdate.close}
+          onToggleErrorDetails={bulkUpdate.toggleErrorDetails}
         />
 
         {/* Regular Buckets View */}
@@ -643,16 +594,15 @@ function BucketPage() {
               onRefresh={handleReloadLocalBuckets}
               onUpdateBucket={handleUpdateBucket}
               onUpdateAll={handleUpdateAllBuckets}
-              onCloseBulkUpdate={handleCloseBulkUpdate}
               updatingBuckets={updatingBuckets()}
               updateResults={updateResults()}
               updateResultStatuses={updateResultStatuses()}
-              loading={loading() && updateState().status !== 'updating'} // Only show loading when not updating specific buckets
-              isUpdatingAll={updateState().status === 'updating'}
-              isCancelling={isCancelling()}
-              bulkUpdateCompleted={updateState().status === 'completed'}
-              bulkUpdateMessage={updateState().message}
-              isBulkUpdate={updateState().status === 'updating'}
+              loading={loading() && bulkUpdate.updateState().status !== 'updating'}
+              isUpdatingAll={bulkUpdate.updateState().status === 'updating'}
+              isCancelling={bulkUpdate.isCancelling()}
+              bulkUpdateCompleted={bulkUpdate.updateState().status === 'completed'}
+              bulkUpdateMessage={bulkUpdate.updateState().message}
+              isBulkUpdate={bulkUpdate.updateState().status === 'updating'}
               onBucketUpdated={handleBucketUpdated}
             />
           </div>

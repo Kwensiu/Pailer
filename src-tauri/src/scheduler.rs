@@ -101,7 +101,12 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     }
 
     // Update Buckets
-    match crate::commands::bucket_install::update_all_buckets().await {
+    match crate::commands::bucket_install::update_all_buckets(
+        app_handle.clone(),
+        format!("scheduler-bucket-update-progress-{}", run_started_at),
+    )
+    .await
+    {
         Ok(results) => {
             let successes = results.iter().filter(|r| r.success).count();
             log::info!(
