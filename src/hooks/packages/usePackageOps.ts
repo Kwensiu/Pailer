@@ -36,7 +36,7 @@ const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
 const [operationNextStep, setOperationNextStep] = createSignal<OperationNextStep | null>(null);
 const [isScanning, setIsScanning] = createSignal(false);
 const [pendingInstallPackage, setPendingInstallPackage] = createSignal<ScoopPackage | null>(null);
-const [setCurrentOperation] = createSignal<{
+const [, setCurrentOperation] = createSignal<{
   type: 'install' | 'uninstall' | 'update' | 'update-all';
   packageName: string;
   bucket?: string;

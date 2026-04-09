@@ -524,13 +524,14 @@ function OperationModal(props: OperationModalProps) {
     }
   };
 
-  const currentOperation = operation();
+  const currentOperation = createMemo(() => operation());
 
   // Modal state for the common Modal component
   const [isModalOpen, setIsModalOpen] = createSignal(false);
 
   createEffect(() => {
-    setIsModalOpen(rendered() && currentOperation && !currentOperation.isMinimized);
+    const op = currentOperation();
+    setIsModalOpen(rendered() && !!op && !op.isMinimized);
   });
 
   const handleModalClose = () => {
@@ -545,7 +546,7 @@ function OperationModal(props: OperationModalProps) {
     <Modal
       isOpen={isModalOpen()}
       onClose={handleModalClose}
-      title={currentOperation?.title || ''}
+      title={currentOperation()?.title || ''}
       size="large"
       showCloseButton={false}
       preventBackdropClose={true}
@@ -581,13 +582,13 @@ function OperationModal(props: OperationModalProps) {
               {t('buttons.retryAsAdmin')}
             </button>
           </Show>
-          <Show when={props.nextStep && currentOperation?.status === OperationStatus.Success}>
+          <Show when={props.nextStep && currentOperation()?.status === OperationStatus.Success}>
             <button class="btn btn-footer btn-primary" onClick={() => props.nextStep?.onNext()}>
               {props.nextStep?.buttonLabel}
             </button>
           </Show>
           <button
-            class={`btn btn-footer btn-soft ${primaryButtonVariant(currentOperation)}`}
+            class={`btn btn-footer btn-soft ${primaryButtonVariant(currentOperation())}`}
             onClick={handleMainButtonClick}
           >
             {getCloseButtonText()}
@@ -601,18 +602,20 @@ function OperationModal(props: OperationModalProps) {
         class="overflow-y-auto rounded-lg bg-black/90 p-4 font-mono text-xs text-white"
         style="white-space: pre; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;"
       >
-        <For each={currentOperation?.output || []}>
+        <For each={currentOperation()?.output || []}>
           {(line, index) => (
             <div class="mb-1">
               <LineWithLinks
                 line={line.line}
                 isStderr={line.source === 'stderr'}
-                previousLines={currentOperation?.output?.slice(0, index()).map((item) => item.line)}
+                previousLines={currentOperation()
+                  ?.output?.slice(0, index())
+                  .map((item) => item.line)}
               />
             </div>
           )}
         </For>
-        <Show when={isRunning(currentOperation)}>
+        <Show when={isRunning(currentOperation())}>
           <div class="mt-2 flex animate-pulse items-center">
             <span class="loading loading-spinner loading-xs mr-2"></span>
             {t('status.inProgress')}
@@ -622,34 +625,34 @@ function OperationModal(props: OperationModalProps) {
 
       {/* Status alerts */}
       <div class="my-2">
-        <Show when={currentOperation?.status === OperationStatus.Error}>
+        <Show when={currentOperation()?.status === OperationStatus.Error}>
           <div class="status-alert status-alert-error rounded-lg!">
-            <Show when={currentOperation.result?.message}>
-              <FormattedErrorMessage message={currentOperation.result?.message || ''} />
+            <Show when={currentOperation()?.result?.message}>
+              <FormattedErrorMessage message={currentOperation()?.result?.message || ''} />
             </Show>
-            <Show when={!currentOperation.result?.message}>
-              <span>{getErrorMessage(currentOperation)}</span>
+            <Show when={!currentOperation()?.result?.message}>
+              <span>{getErrorMessage(currentOperation())}</span>
             </Show>
           </div>
         </Show>
 
-        <Show when={currentOperation?.status === OperationStatus.Warning}>
+        <Show when={currentOperation()?.status === OperationStatus.Warning}>
           <div class="status-alert status-alert-warning rounded-lg!">
-            <span>{getWarningMessage(currentOperation)}</span>
+            <span>{getWarningMessage(currentOperation())}</span>
           </div>
         </Show>
 
-        <Show when={currentOperation?.status === OperationStatus.Cancelled}>
+        <Show when={currentOperation()?.status === OperationStatus.Cancelled}>
           <div class="status-alert status-alert-warning rounded-lg!">
             <span>
-              {t('operation.cancelled', { name: getOperationDisplayName(currentOperation) })}
+              {t('operation.cancelled', { name: getOperationDisplayName(currentOperation()) })}
             </span>
           </div>
         </Show>
 
-        <Show when={currentOperation?.status === OperationStatus.Success}>
+        <Show when={currentOperation()?.status === OperationStatus.Success}>
           <div class="status-alert status-alert-success rounded-lg!">
-            <span>{getSuccessMessage(currentOperation)}</span>
+            <span>{getSuccessMessage(currentOperation())}</span>
           </div>
         </Show>
       </div>

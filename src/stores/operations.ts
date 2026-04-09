@@ -88,133 +88,270 @@ const operationsStore = createRoot(() => {
       dismissed: false,
     }
   );
+  let operationListenersInitialized = false;
+
+  // Add operation output - optimize performance, reduce array creation
+  const addOperationOutput = (operationId: string, output: Omit<OperationOutput, 'timestamp'>) => {
+    const timestamp = Date.now();
+    const newOutput: OperationOutput = { ...output, timestamp };
+
+    setOperations(operationId, 'output', (prev) => {
+      const current = prev || [];
+      // Use more reasonable limits to avoid excessive memory usage
+      const MAX_OUTPUT_LINES = 500;
+      const KEEP_LINES_AFTER_TRIM = 200;
+
+      if (current.length >= MAX_OUTPUT_LINES) {
+        // Keep more history to avoid losing important intermediate logs
+        const updated = current.slice(-KEEP_LINES_AFTER_TRIM);
+        updated.push(newOutput);
+        return updated;
+      }
+      // Add directly in normal cases
+      return [...current, newOutput];
+    });
+  };
+
+  const TERMINAL_STATUSES = new Set<string>([
+    OperationStatusEnum.Success,
+    OperationStatusEnum.Warning,
+    OperationStatusEnum.Error,
+    OperationStatusEnum.Cancelled,
+  ]);
+
+  // Set operation result
+  const setOperationResult = (operationId: string, result: OperationResult) => {
+    // Terminal-state locking: once an operation reaches a terminal status, ignore duplicate finished events
+    const existingOp = untrack(() => operations[operationId]);
+    if (existingOp && TERMINAL_STATUSES.has(existingOp.status)) {
+      return;
+    }
+
+    let status: OperationStatusEnum;
+
+    // Prefer explicit finalStatus from backend; fall back to legacy inference
+    if (result.finalStatus) {
+      status = result.finalStatus as OperationStatusEnum;
+    } else {
+      console.warn(
+        `[operations] operation-finished for "${operationId}" missing finalStatus; using legacy inference`
+      );
+      const isCancellation =
+        !result.success &&
+        (result.errorCount === undefined || result.errorCount === 0) &&
+        (result.warningCount === undefined || result.warningCount === 0);
+
+      if (isCancellation) {
+        status = OperationStatusEnum.Cancelled;
+      } else if (!result.success) {
+        status = OperationStatusEnum.Error;
+      } else if (result.warningCount && result.warningCount > 0) {
+        status = OperationStatusEnum.Warning;
+      } else {
+        status = OperationStatusEnum.Success;
+      }
+    }
+
+    setOperations(operationId, {
+      status,
+      result,
+      updatedAt: Date.now(),
+    });
+
+    const op = untrack(() => operations[operationId]);
+    const isUpdateOperation =
+      !!op &&
+      !op.isScan &&
+      (op.operationType === OperationType.Update || op.operationType === OperationType.UpdateAll);
+
+    if (isUpdateOperation && trayMigrationPreparedOps.has(operationId)) {
+      const command =
+        status === OperationStatusEnum.Success || status === OperationStatusEnum.Warning
+          ? 'finalize_tray_config_migration'
+          : 'discard_tray_config_migration';
+
+      void (async () => {
+        const preparePromise = trayMigrationPreparePromises.get(operationId);
+        if (preparePromise) {
+          addOperationOutput(operationId, {
+            operationId,
+            source: 'system',
+            line: '[Pailer][tray-migration] Waiting for prepare to complete',
+            message: 'waiting prepare',
+          });
+          try {
+            await preparePromise;
+          } catch {
+            // keep going: migration failure must not block operation flow
+          }
+        }
+
+        addOperationOutput(operationId, {
+          operationId,
+          source: 'system',
+          line: `[Pailer][tray-migration] Started ${
+            command === 'finalize_tray_config_migration' ? 'finalize' : 'discard'
+          }`,
+          message: `${command} started`,
+        });
+
+        try {
+          const res = await invoke<TrayMigrationFinalizeResult | TrayMigrationDiscardResult>(
+            command,
+            {
+              args: { operation_id: operationId },
+            }
+          );
+
+          if (command === 'finalize_tray_config_migration') {
+            const r = res as TrayMigrationFinalizeResult;
+            addOperationOutput(operationId, {
+              operationId,
+              source: 'system',
+              line:
+                `[Pailer][tray-migration] Finalized, rewritten=${r.rewritten_paths}, ` +
+                `propagated=${r.propagated_is_promoted}, removed=${r.removed_duplicates}, ` +
+                `skippedMultiVersion=${r.skipped_multi_version}, failed=${r.failed.length}`,
+              message: 'tray migration finalize done',
+            });
+            if (r.failed.length > 0) {
+              r.failed.slice(0, 10).forEach((line) => {
+                addOperationOutput(operationId, {
+                  operationId,
+                  source: 'error',
+                  line: `[Pailer][tray-migration] ${line}`,
+                  message: line,
+                });
+              });
+            }
+          } else {
+            const r = res as TrayMigrationDiscardResult;
+            addOperationOutput(operationId, {
+              operationId,
+              source: 'system',
+              line: `[Pailer][tray-migration] Discarded snapshot=${r.discarded}`,
+              message: 'tray migration discard done',
+            });
+          }
+        } catch (err) {
+          console.warn(`[tray-migration] ${command} failed for ${operationId}:`, err);
+          addOperationOutput(operationId, {
+            operationId,
+            source: 'error',
+            line: `[Pailer][tray-migration] ${command} failed: ${String(err)}`,
+            message: String(err),
+          });
+        } finally {
+          trayMigrationPreparedOps.delete(operationId);
+          trayMigrationPreparePromises.delete(operationId);
+        }
+      })();
+    }
+  };
+
+  const ensureOperationListeners = () => {
+    if (operationListenersInitialized) {
+      return;
+    }
+    operationListenersInitialized = true;
+
+    void (async () => {
+      try {
+        await listen('operation-output', (event) => {
+          const payload = event.payload as any;
+          const operationId = payload.operationId ?? payload.operation_id;
+
+          if (operationId) {
+            const currentOp = untrack(() => operations[operationId]);
+            if (currentOp) {
+              const currentOutput = currentOp.output || [];
+              const lastLine =
+                currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
+
+              if (lastLine !== payload.line) {
+                addOperationOutput(operationId, {
+                  operationId,
+                  line: payload.line,
+                  source: payload.source,
+                  message: payload.message,
+                });
+              }
+            }
+          }
+        });
+      } catch (e) {
+        operationListenersInitialized = false;
+        console.error('Failed to setup operation-output listener:', e);
+      }
+    })();
+
+    void (async () => {
+      try {
+        await listen('operation-finished', (event) => {
+          const payload = event.payload as any;
+          const result: OperationResult = {
+            operationId: payload.operationId ?? payload.operation_id ?? '',
+            success: !!payload.success,
+            operationName: payload.operationName ?? payload.operation_name ?? '',
+            errorCount: payload.errorCount ?? payload.error_count,
+            warningCount: payload.warningCount ?? payload.warning_count,
+            finalStatus: payload.finalStatus ?? payload.final_status,
+            message: payload.message,
+            timestamp: (() => {
+              const ts = payload.timestamp;
+              if (typeof ts !== 'number') return Date.now();
+              return ts < 1e12 ? ts * 1000 : ts;
+            })(),
+          };
+
+          const operationId = result.operationId || undefined;
+
+          if (operationId) {
+            setOperationResult(operationId, result);
+
+            const op = untrack(() => operations[operationId]);
+            if (op && op.isScan && result.success !== undefined) {
+              if (
+                result.success &&
+                !result.message?.includes('API key') &&
+                !result.message?.includes('detection')
+              ) {
+                const event = new CustomEvent('virustotal-scan-success', {
+                  detail: { operationId, result },
+                });
+                window.dispatchEvent(event);
+              }
+            }
+
+            if (result.success && op && !op.isScan) {
+              const operationType = op.operationType;
+              if (
+                operationType === OperationType.Install ||
+                operationType === OperationType.Uninstall ||
+                operationType === OperationType.Update ||
+                operationType === OperationType.UpdateAll
+              ) {
+                installedPackagesStore.silentRefetch();
+                searchCacheManager.invalidateCache();
+              }
+            }
+          } else {
+            console.warn(
+              'Received operation-finished event without operationId; ignoring to prevent wrong operation binding:',
+              result
+            );
+          }
+        });
+      } catch (e) {
+        operationListenersInitialized = false;
+        console.error('Failed to setup operation-finished listener:', e);
+      }
+    })();
+  };
 
   // Operation management Hook
   const useOperations = () => {
-    // Global event listener for operation-output events (must be global so minimized modals still receive output)
-    createEffect(() => {
-      let unlisten: (() => void) | undefined;
-
-      const setupOutputListener = async () => {
-        try {
-          unlisten = await listen('operation-output', (event) => {
-            const payload = event.payload as any;
-            const operationId = payload.operationId ?? payload.operation_id;
-
-            if (operationId) {
-              // Use untrack to read store without establishing reactive dependency
-              const currentOp = untrack(() => operations[operationId]);
-              if (currentOp) {
-                const currentOutput = currentOp.output || [];
-                const lastLine =
-                  currentOutput.length > 0 ? currentOutput[currentOutput.length - 1].line : null;
-
-                if (lastLine !== payload.line) {
-                  addOperationOutput(operationId, {
-                    operationId,
-                    line: payload.line,
-                    source: payload.source,
-                    message: payload.message,
-                  });
-                }
-              }
-            }
-          });
-        } catch (e) {
-          console.error('Failed to setup operation-output listener:', e);
-        }
-      };
-
-      setupOutputListener();
-
-      onCleanup(() => {
-        if (unlisten) {
-          unlisten();
-        }
-      });
-    });
-
-    // Global event listener for operation-finished events
-    createEffect(() => {
-      let unlisten: (() => void) | undefined;
-
-      const setupListener = async () => {
-        try {
-          unlisten = await listen('operation-finished', (event) => {
-            const payload = event.payload as any;
-            const result: OperationResult = {
-              operationId: payload.operationId ?? payload.operation_id ?? '',
-              success: !!payload.success,
-              operationName: payload.operationName ?? payload.operation_name ?? '',
-              errorCount: payload.errorCount ?? payload.error_count,
-              warningCount: payload.warningCount ?? payload.warning_count,
-              finalStatus: payload.finalStatus ?? payload.final_status,
-              message: payload.message,
-              timestamp: (() => {
-                const ts = payload.timestamp;
-                if (typeof ts !== 'number') return Date.now();
-                return ts < 1e12 ? ts * 1000 : ts;
-              })(),
-            };
-
-            const operationId = result.operationId || undefined;
-
-            if (operationId) {
-              setOperationResult(operationId, result);
-
-              // Handle VirusTotal scan special logic
-              const op = untrack(() => operations[operationId]);
-              if (op && op.isScan && result.success !== undefined) {
-                // Trigger onInstallConfirm for successful scans with no threats
-                if (
-                  result.success &&
-                  !result.message?.includes('API key') &&
-                  !result.message?.includes('detection')
-                ) {
-                  // Find the modal component and trigger onInstallConfirm
-                  // This is a workaround since we can't directly access props from store
-                  const event = new CustomEvent('virustotal-scan-success', {
-                    detail: { operationId, result },
-                  });
-                  window.dispatchEvent(event);
-                }
-              }
-
-              // Refresh installed/search caches immediately on successful package operations.
-              // This must live here (global listener) so it still works when OperationModal is minimized/unmounted.
-              // Use untrack to read store without establishing reactive dependency
-              if (result.success && op && !op.isScan) {
-                const operationType = op.operationType;
-                if (
-                  operationType === OperationType.Install ||
-                  operationType === OperationType.Uninstall ||
-                  operationType === OperationType.Update ||
-                  operationType === OperationType.UpdateAll
-                ) {
-                  installedPackagesStore.silentRefetch();
-                  searchCacheManager.invalidateCache();
-                }
-              }
-            } else {
-              console.warn(
-                'Received operation-finished event without operationId; ignoring to prevent wrong operation binding:',
-                result
-              );
-            }
-          });
-        } catch (e) {
-          console.error('Failed to setup operation-finished listener:', e);
-        }
-      };
-
-      setupListener();
-
-      onCleanup(() => {
-        if (unlisten) {
-          unlisten();
-        }
-      });
-    });
+    ensureOperationListeners();
 
     // Add new operation
     type AddOperationPayload = Omit<BaseOperationState, 'createdAt' | 'updatedAt'> &
@@ -310,167 +447,6 @@ const operationsStore = createRoot(() => {
         ...updates,
         updatedAt: Date.now(),
       });
-    };
-
-    // Add operation output - optimize performance, reduce array creation
-    const addOperationOutput = (
-      operationId: string,
-      output: Omit<OperationOutput, 'timestamp'>
-    ) => {
-      const timestamp = Date.now();
-      const newOutput: OperationOutput = { ...output, timestamp };
-
-      setOperations(operationId, 'output', (prev) => {
-        const current = prev || [];
-        // Use more reasonable limits to avoid excessive memory usage
-        const MAX_OUTPUT_LINES = 500;
-        const KEEP_LINES_AFTER_TRIM = 200;
-
-        if (current.length >= MAX_OUTPUT_LINES) {
-          // Keep more history to avoid losing important intermediate logs
-          const updated = current.slice(-KEEP_LINES_AFTER_TRIM);
-          updated.push(newOutput);
-          return updated;
-        }
-        // Add directly in normal cases
-        return [...current, newOutput];
-      });
-    };
-
-    const TERMINAL_STATUSES = new Set<string>([
-      OperationStatusEnum.Success,
-      OperationStatusEnum.Warning,
-      OperationStatusEnum.Error,
-      OperationStatusEnum.Cancelled,
-    ]);
-
-    // Set operation result
-    const setOperationResult = (operationId: string, result: OperationResult) => {
-      // Terminal-state locking: once an operation reaches a terminal status, ignore duplicate finished events
-      const existingOp = untrack(() => operations[operationId]);
-      if (existingOp && TERMINAL_STATUSES.has(existingOp.status)) {
-        return;
-      }
-
-      let status: OperationStatusEnum;
-
-      // Prefer explicit finalStatus from backend; fall back to legacy inference
-      if (result.finalStatus) {
-        status = result.finalStatus as OperationStatusEnum;
-      } else {
-        console.warn(
-          `[operations] operation-finished for "${operationId}" missing finalStatus; using legacy inference`
-        );
-        const isCancellation =
-          !result.success &&
-          (result.errorCount === undefined || result.errorCount === 0) &&
-          (result.warningCount === undefined || result.warningCount === 0);
-
-        if (isCancellation) {
-          status = OperationStatusEnum.Cancelled;
-        } else if (!result.success) {
-          status = OperationStatusEnum.Error;
-        } else if (result.warningCount && result.warningCount > 0) {
-          status = OperationStatusEnum.Warning;
-        } else {
-          status = OperationStatusEnum.Success;
-        }
-      }
-
-      updateOperation(operationId, {
-        status,
-        result,
-      });
-
-      const op = untrack(() => operations[operationId]);
-      const isUpdateOperation =
-        !!op &&
-        !op.isScan &&
-        (op.operationType === OperationType.Update || op.operationType === OperationType.UpdateAll);
-
-      if (isUpdateOperation && trayMigrationPreparedOps.has(operationId)) {
-        const command =
-          status === OperationStatusEnum.Success || status === OperationStatusEnum.Warning
-            ? 'finalize_tray_config_migration'
-            : 'discard_tray_config_migration';
-
-        void (async () => {
-          const preparePromise = trayMigrationPreparePromises.get(operationId);
-          if (preparePromise) {
-            addOperationOutput(operationId, {
-              operationId,
-              source: 'system',
-              line: '[Pailer][tray-migration] Waiting for prepare to complete',
-              message: 'waiting prepare',
-            });
-            try {
-              await preparePromise;
-            } catch {
-              // keep going: migration failure must not block operation flow
-            }
-          }
-
-          addOperationOutput(operationId, {
-            operationId,
-            source: 'system',
-            line: `[Pailer][tray-migration] Started ${
-              command === 'finalize_tray_config_migration' ? 'finalize' : 'discard'
-            }`,
-            message: `${command} started`,
-          });
-
-          try {
-            const res = await invoke<TrayMigrationFinalizeResult | TrayMigrationDiscardResult>(
-              command,
-              {
-                args: { operation_id: operationId },
-              }
-            );
-
-            if (command === 'finalize_tray_config_migration') {
-              const r = res as TrayMigrationFinalizeResult;
-              addOperationOutput(operationId, {
-                operationId,
-                source: 'system',
-                line:
-                  `[Pailer][tray-migration] Finalized, rewritten=${r.rewritten_paths}, ` +
-                  `propagated=${r.propagated_is_promoted}, removed=${r.removed_duplicates}, ` +
-                  `skippedMultiVersion=${r.skipped_multi_version}, failed=${r.failed.length}`,
-                message: 'tray migration finalize done',
-              });
-              if (r.failed.length > 0) {
-                r.failed.slice(0, 10).forEach((line) => {
-                  addOperationOutput(operationId, {
-                    operationId,
-                    source: 'error',
-                    line: `[Pailer][tray-migration] ${line}`,
-                    message: line,
-                  });
-                });
-              }
-            } else {
-              const r = res as TrayMigrationDiscardResult;
-              addOperationOutput(operationId, {
-                operationId,
-                source: 'system',
-                line: `[Pailer][tray-migration] Discarded snapshot=${r.discarded}`,
-                message: 'tray migration discard done',
-              });
-            }
-          } catch (err) {
-            console.warn(`[tray-migration] ${command} failed for ${operationId}:`, err);
-            addOperationOutput(operationId, {
-              operationId,
-              source: 'error',
-              line: `[Pailer][tray-migration] ${command} failed: ${String(err)}`,
-              message: String(err),
-            });
-          } finally {
-            trayMigrationPreparedOps.delete(operationId);
-            trayMigrationPreparePromises.delete(operationId);
-          }
-        })();
-      }
     };
 
     // Toggle minimize status

@@ -120,11 +120,10 @@ function createInstalledPackagesStore() {
   const silentRefetch = async () => {
     setError(null);
     try {
-      // Parallel fetch package data and update info
-      const [installedPackages, updateInfo] = await Promise.all([
-        invoke<ScoopPackage[]>('refresh_installed_packages', { force: true }),
-        invoke<UpdatablePackage[]>('check_for_updates').catch(() => []),
-      ]);
+      const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages', {
+        force: true,
+      });
+      const updateInfo = await invoke<UpdatablePackage[]>('check_for_updates').catch(() => []);
 
       // One-time merge data
       const packagesWithUpdates = installedPackages.map((pkg) => ({
@@ -139,7 +138,7 @@ function createInstalledPackagesStore() {
       setIsLoaded(true);
 
       // Silently update other states
-      await Promise.all([heldStore.refetch(), fetchVersionedPackages()]);
+      await fetchVersionedPackages();
     } catch (err) {
       console.error('Failed to silently refresh installed packages:', err);
       setError('Failed to refresh installed packages');
