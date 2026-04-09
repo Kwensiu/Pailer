@@ -256,7 +256,7 @@ function SearchPage() {
 
   const handleOpenChangeBucket = (pkg: ScoopPackage) => {
     setCurrentPackageForBucketChange(pkg);
-    setNewBucketName(pkg.source);
+    setNewBucketName('');
     setChangeBucketModalOpen(true);
   };
 
@@ -279,6 +279,22 @@ function SearchPage() {
 
       await installedPackagesStore.silentRefetch();
       updatePackageInstalledBucketInResults(pkg.name, targetBucket);
+
+      const currentSelected = selectedPackage();
+      if (
+        currentSelected &&
+        currentSelected.name === pkg.name &&
+        currentSelected.source === pkg.source
+      ) {
+        const refreshedSelectedPackage: ScoopPackage = {
+          ...currentSelected,
+          source: targetBucket,
+          is_installed: true,
+          is_installed_from_current_bucket: true,
+        };
+        await fetchPackageInfo(refreshedSelectedPackage);
+      }
+
       toast.success(
         t('packageInfo.success.changeBucket', { name: pkg.name, bucket: targetBucket })
       );

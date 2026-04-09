@@ -362,6 +362,7 @@ fn read_install_bucket(dir: &Path) -> Option<String> {
         .map(|v| v.to_string())
 }
 
+
 fn manifest_has_any_key(manifest: &Value, key: &str) -> bool {
     if manifest.get(key).is_some() {
         return true;
@@ -993,12 +994,36 @@ pub async fn change_package_bucket(
     package_name: String,
     new_bucket: String,
 ) -> Result<String, String> {
+    let trimmed_package_name = package_name.trim();
+    let trimmed_new_bucket = new_bucket.trim();
+
+    if trimmed_package_name.is_empty() {
+        return Err("Package name cannot be empty".to_string());
+    }
+
+    if trimmed_new_bucket.is_empty() {
+        return Err("Bucket name cannot be empty".to_string());
+    }
+
     let scoop_path = state.scoop_path();
     let apps_dir = scoop_path.join("apps");
-    let package_dir = apps_dir.join(&package_name);
+    let package_dir = apps_dir.join(trimmed_package_name);
 
     if !package_dir.exists() {
-        return Err(format!("Package '{}' is not installed", package_name));
+        return Err(format!("Package '{}' is not installed", trimmed_package_name));
+    }
+
+    let manifest_path = scoop_path
+        .join("buckets")
+        .join(trimmed_new_bucket)
+        .join("bucket")
+        .join(format!("{}.json", trimmed_package_name));
+
+    if !manifest_path.exists() {
+        return Err(format!(
+            "Bucket '{}' does not contain manifest '{}'",
+            trimmed_new_bucket, trimmed_package_name
+        ));
     }
 
     // Find the current installation directory (either "current" or latest version)
@@ -1045,7 +1070,7 @@ pub async fn change_package_bucket(
                 .ok_or_else(|| {
                     format!(
                         "Could not find installation directory for package '{}'",
-                        package_name
+                        trimmed_package_name
                     )
                 })?
         }
@@ -1056,7 +1081,7 @@ pub async fn change_package_bucket(
     if !install_json_path.exists() {
         return Err(format!(
             "install.json not found for package '{}'",
-            package_name
+            trimmed_package_name
         ));
     }
 
@@ -1071,7 +1096,7 @@ pub async fn change_package_bucket(
     if let Some(obj) = install_data.as_object_mut() {
         obj.insert(
             "bucket".to_string(),
-            serde_json::Value::String(new_bucket.clone()),
+            serde_json::Value::String(trimmed_new_bucket.to_string()),
         );
     } else {
         return Err("install.json is not a valid JSON object".to_string());
@@ -1086,6 +1111,6 @@ pub async fn change_package_bucket(
 
     Ok(format!(
         "Successfully changed bucket for '{}' to '{}'",
-        package_name, new_bucket
+        trimmed_package_name, trimmed_new_bucket
     ))
 }

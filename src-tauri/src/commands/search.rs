@@ -2,6 +2,7 @@
 use crate::commands::installed::get_installed_packages_full;
 use crate::models::{parse_notes_field, MatchSource, ScoopPackage, SearchResult};
 use crate::state::AppState;
+use crate::utils;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use serde_json::Value;
@@ -15,6 +16,46 @@ use tokio::sync::Mutex;
 
 type ManifestCache = Arc<Vec<CachedManifest>>;
 type NameToBuckets = Arc<HashMap<String, Vec<String>>>;
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageBucketContext {
+    pub current_bucket: Option<String>,
+    pub candidate_buckets: Vec<String>,
+}
+
+fn collect_candidate_buckets(
+    buckets_dir: &Path,
+    normalized_name: &str,
+) -> Result<Vec<String>, String> {
+    let manifest_filename = format!("{}.json", normalized_name);
+    let mut candidate_buckets = Vec::new();
+
+    if !buckets_dir.is_dir() {
+        return Ok(candidate_buckets);
+    }
+
+    let entries = std::fs::read_dir(buckets_dir)
+        .map_err(|e| format!("Failed to read buckets directory '{}': {}", buckets_dir.display(), e))?;
+
+    for entry in entries.flatten() {
+        let bucket_path = entry.path();
+        if !bucket_path.is_dir() {
+            continue;
+        }
+
+        let root_manifest_path = bucket_path.join(&manifest_filename);
+        let nested_manifest_path = bucket_path.join("bucket").join(&manifest_filename);
+
+        if root_manifest_path.exists() || nested_manifest_path.exists() {
+            if let Some(bucket_name) = bucket_path.file_name().and_then(|name| name.to_str()) {
+                candidate_buckets.push(bucket_name.to_string());
+            }
+        }
+    }
+
+    Ok(candidate_buckets)
+}
 
 #[derive(Clone, Debug)]
 struct CachedManifest {
@@ -327,30 +368,44 @@ pub async fn search_scoop<R: tauri::Runtime>(
     Ok(SearchResult { packages, is_cold })
 }
 
-/// Returns bucket names that contain the specified package manifest.
-/// Reuses the global manifest cache for fast lookup.
+/// Returns the current installed bucket and exact candidate buckets for a package.
+/// This is intentionally scoped to the change-bucket flow and avoids warming the
+/// global search manifest cache for a single-package lookup.
 #[tauri::command]
 pub async fn get_package_buckets<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     package_name: String,
-) -> Result<Vec<String>, String> {
+) -> Result<PackageBucketContext, String> {
     let normalized_name = normalize_search_text(&package_name);
     if normalized_name.is_empty() {
-        return Ok(vec![]);
+        return Ok(PackageBucketContext {
+            current_bucket: None,
+            candidate_buckets: vec![],
+        });
     }
 
-    // Ensure cache is populated
-    get_manifests(app).await?;
+    let scoop_path = app.state::<AppState>().scoop_path();
+    let buckets_dir = scoop_path.join("buckets");
+    let mut candidate_buckets = collect_candidate_buckets(&buckets_dir, &normalized_name)?;
 
-    // Use HashMap index for O(1) lookup
-    let guard = NAME_TO_BUCKETS.lock().await;
-    if let Some(name_to_buckets) = guard.as_ref() {
-        let buckets = name_to_buckets.get(&normalized_name).cloned();
-        return Ok(buckets.unwrap_or_default());
+    let current_bucket = utils::get_installed_package_bucket(&scoop_path, &package_name);
+    if let Some(current_bucket_name) = current_bucket.as_ref() {
+        if !candidate_buckets
+            .iter()
+            .any(|bucket| bucket.eq_ignore_ascii_case(current_bucket_name))
+        {
+            candidate_buckets.insert(0, current_bucket_name.clone());
+        }
     }
 
-    Ok(vec![])
+    Ok(PackageBucketContext {
+        current_bucket,
+        candidate_buckets,
+    })
 }
+
+#[cfg(test)]
+mod search_tests;
 
 /// Warms (populates) the global manifest cache if it is empty. Intended for use by the
 /// cold-start routine so that the first search from the UI is instant.

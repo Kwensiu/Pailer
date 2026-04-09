@@ -5,6 +5,11 @@ import { ScoopPackage } from '../../types/scoop';
 import { BucketInfo } from '../../hooks/buckets/useBuckets';
 import { invoke } from '@tauri-apps/api/core';
 
+interface PackageBucketContext {
+  currentBucket: string | null;
+  candidateBuckets: string[];
+}
+
 interface ChangeBucketModalProps {
   isOpen: boolean;
   package: ScoopPackage | null;
@@ -18,6 +23,7 @@ interface ChangeBucketModalProps {
 function ChangeBucketModal(props: ChangeBucketModalProps) {
   const [filteredBuckets, setFilteredBuckets] = createSignal<BucketInfo[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [currentBucketName, setCurrentBucketName] = createSignal('');
   let requestToken = 0;
 
   createEffect(() => {
@@ -29,26 +35,46 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
       requestToken += 1;
       setFilteredBuckets([]);
       setLoading(false);
+      setCurrentBucketName('');
       return;
     }
 
     const token = ++requestToken;
     setLoading(true);
-    invoke<string[]>('get_package_buckets', { packageName: pkg.name })
-      .then((bucketNames) => {
+    invoke<PackageBucketContext>('get_package_buckets', { packageName: pkg.name })
+      .then(({ candidateBuckets, currentBucket }) => {
         if (token !== requestToken) return;
 
-        const availableSet = new Set(bucketNames.map((name) => name.toLowerCase()));
-        const nextBuckets = availableBuckets.filter(
-          (bucket) =>
-            availableSet.has(bucket.name.toLowerCase()) &&
-            bucket.name.toLowerCase() !== pkg.source.toLowerCase()
+        const resolvedCurrentBucket = currentBucket || pkg.source;
+        setCurrentBucketName(resolvedCurrentBucket);
+        const bucketMap = new Map(
+          availableBuckets.map((bucket) => [bucket.name.toLowerCase(), bucket])
         );
+        const nextBuckets = candidateBuckets.map((bucketName) => {
+          const existingBucket = bucketMap.get(bucketName.toLowerCase());
+          return (
+            existingBucket ?? {
+              name: bucketName,
+              path: '',
+              manifest_count: 0,
+              is_git_repo: false,
+            }
+          );
+        });
         setFilteredBuckets(nextBuckets);
 
-        const currentNewBucketName = untrack(() => props.newBucketName);
-        if (!nextBuckets.some((bucket) => bucket.name === currentNewBucketName)) {
-          props.onNewBucketNameChange(nextBuckets[0]?.name ?? '');
+        const selectedBucket =
+          nextBuckets.find(
+            (bucket) => bucket.name.toLowerCase() === resolvedCurrentBucket.toLowerCase()
+          ) ?? nextBuckets[0];
+
+        const currentValue = (untrack(() => props.newBucketName) || '').trim();
+        const hasValidCurrentValue = nextBuckets.some(
+          (bucket) => bucket.name.toLowerCase() === currentValue.toLowerCase()
+        );
+
+        if (!hasValidCurrentValue) {
+          props.onNewBucketNameChange(selectedBucket?.name ?? '');
         }
       })
       .catch((err) => {
@@ -56,7 +82,8 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
 
         console.error(`Failed to query available buckets for ${pkg.name}:`, err);
         setFilteredBuckets([]);
-        props.onNewBucketNameChange('');
+        setCurrentBucketName(pkg.source);
+        props.onNewBucketNameChange(pkg.source);
       })
       .finally(() => {
         if (token === requestToken) {
@@ -68,7 +95,8 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
   const canConfirm = () => {
     if (loading()) return false;
     if (!props.newBucketName) return false;
-    return filteredBuckets().some((bucket) => bucket.name === props.newBucketName);
+    if (!filteredBuckets().some((bucket) => bucket.name === props.newBucketName)) return false;
+    return props.newBucketName.toLowerCase() !== currentBucketName().toLowerCase();
   };
 
   return (
@@ -81,10 +109,14 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
       zIndex="z-61"
       footer={
         <>
-          <button class="btn btn-close-outline" onClick={props.onCancel}>
+          <button class="btn btn-footer btn-close-outline" onClick={props.onCancel}>
             {t('buttons.cancel')}
           </button>
-          <button class="btn btn-primary" onClick={props.onConfirm} disabled={!canConfirm()}>
+          <button
+            class="btn btn-footer btn-primary"
+            onClick={props.onConfirm}
+            disabled={!canConfirm()}
+          >
             {t('buttons.confirm')}
           </button>
         </>
@@ -106,7 +138,7 @@ function ChangeBucketModal(props: ChangeBucketModalProps) {
             </For>
           </select>
           <div class="text-base-content/70 mt-2 text-sm">
-            {t('packageInfo.current')}: {props.package?.source}
+            {t('packageInfo.current')}: {currentBucketName() || props.package?.source}
           </div>
         </div>
         <div class="status-alert-warning border-info/20 rounded-sm border p-3">

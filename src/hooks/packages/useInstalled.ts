@@ -185,7 +185,7 @@ export function useInstalledPackages() {
 
   const handleOpenChangeBucket = (pkg: ScoopPackage) => {
     setCurrentPackageForBucketChange(pkg);
-    setNewBucketName(pkg.source);
+    setNewBucketName('');
     setChangeBucketModalOpen(true);
   };
 
@@ -194,6 +194,12 @@ export function useInstalledPackages() {
     const newBucket = newBucketName();
     if (!pkg || !newBucket) return;
 
+    const selectedBeforeChange = packageInfo.selectedPackage();
+    const wasViewingChangedPackage =
+      !!selectedBeforeChange &&
+      selectedBeforeChange.name === pkg.name &&
+      selectedBeforeChange.source === pkg.source;
+
     setOperatingOn(pkg.name);
     try {
       await invoke('change_package_bucket', {
@@ -201,16 +207,45 @@ export function useInstalledPackages() {
         newBucket,
       });
       await refetch();
+
+      if (wasViewingChangedPackage) {
+        const refreshedPackage =
+          installedPackagesStore
+            .packages()
+            .find(
+              (installedPkg) => installedPkg.name === pkg.name && installedPkg.source === newBucket
+            ) ??
+          ({
+            ...pkg,
+            source: newBucket,
+          } as ScoopPackage);
+
+        await packageInfo.fetchPackageInfo(refreshedPackage);
+      }
+
+      toast.success(t('packageInfo.success.changeBucket', { name: pkg.name, bucket: newBucket }));
+      setChangeBucketModalOpen(false);
+      setCurrentPackageForBucketChange(null);
+      setNewBucketName('');
     } catch (err) {
       console.error(`Failed to change bucket for ${pkg.name}:`, err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      toast.error(
+        t('packageInfo.errorChangingBucket', {
+          name: pkg.name,
+          bucket: newBucket,
+          error: errorMsg,
+        })
+      );
     } finally {
       setOperatingOn(null);
-      setChangeBucketModalOpen(false);
     }
   };
 
   const handleChangeBucketCancel = () => {
     setChangeBucketModalOpen(false);
+    setCurrentPackageForBucketChange(null);
+    setNewBucketName('');
   };
 
   const handleForceRefresh = async () => {
