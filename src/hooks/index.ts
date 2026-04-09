@@ -43,7 +43,9 @@ export {
 } from './buckets/useBuckets';
 export { useBucketInstall } from './buckets/useBucketInstall';
 export { useBucketSearch } from './buckets/useBucketSearch';
+export { useBulkBucketUpdate } from './buckets/useBulkBucketUpdate';
 export type { SearchableBucket } from './buckets/useBucketSearch';
+export type { BulkUpdateResult, BulkUpdateState } from './buckets/useBulkBucketUpdate';
 
 // Global functionality
 export { useGlobalHotkey, useGlobalSearchHotkey } from './global/useGlobalHotkey';

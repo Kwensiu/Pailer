@@ -2,7 +2,7 @@ use git2::{Cred, CredentialType, FetchOptions, RemoteCallbacks, Repository};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::command;
+use tauri::{command, Emitter};
 
 use crate::commands::search::invalidate_manifest_cache;
 use crate::utils;
@@ -21,6 +21,15 @@ pub struct BucketInstallResult {
     pub bucket_name: String,
     pub bucket_path: Option<String>,
     pub manifest_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BucketUpdateProgressEvent {
+    pub run_id: String,
+    pub current: usize,
+    pub total: usize,
+    pub bucket_name: String,
+    pub result: BucketInstallResult,
 }
 
 // Get the buckets directory path
@@ -534,7 +543,10 @@ fn update_bucket_sync(
 /// Command to update all buckets sequentially.
 /// Returns a list of per-bucket results. Non-fatal errors are captured in each result.
 #[command]
-pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
+pub async fn update_all_buckets(
+    app: tauri::AppHandle,
+    run_id: String,
+) -> Result<Vec<BucketInstallResult>, String> {
     log::info!("Updating all buckets (auto-update task)");
 
     // Pre-fetch and cache the scoop root to avoid repeated path detection
@@ -554,6 +566,7 @@ pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
     }
 
     let mut results = Vec::new();
+    let mut git_buckets = Vec::new();
 
     let entries = match fs::read_dir(&buckets_dir) {
         Ok(e) => e,
@@ -565,32 +578,59 @@ pub async fn update_all_buckets() -> Result<Vec<BucketInstallResult>, String> {
         if !path.is_dir() {
             continue;
         }
+        if !path.join(".git").is_dir() {
+            continue;
+        }
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            let name_clone = name.to_string();
-            let path_clone = path.clone();
-            match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone))
-                .await
-            {
-                Ok(Ok(res)) => results.push(res),
-                Ok(Err(e)) => results.push(BucketInstallResult {
-                    success: false,
-                    message: e,
-                    bucket_name: name.to_string(),
-                    bucket_path: Some(path.to_string_lossy().to_string()),
-                    manifest_count: None,
-                }),
-                Err(e) => results.push(BucketInstallResult {
-                    success: false,
-                    message: format!("Task failed: {}", e),
-                    bucket_name: name.to_string(),
-                    bucket_path: Some(path.to_string_lossy().to_string()),
-                    manifest_count: None,
-                }),
-            }
+            git_buckets.push((name.to_string(), path));
         }
     }
 
+    let total = git_buckets.len();
+
+    for (index, (name, path)) in git_buckets.into_iter().enumerate() {
+        let name_clone = name.clone();
+        let path_clone = path.clone();
+        let result = match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone))
+                .await
+        {
+            Ok(Ok(res)) => res,
+            Ok(Err(e)) => BucketInstallResult {
+                success: false,
+                message: e,
+                bucket_name: name.clone(),
+                bucket_path: Some(path.to_string_lossy().to_string()),
+                manifest_count: None,
+            },
+            Err(e) => BucketInstallResult {
+                success: false,
+                message: format!("Task failed: {}", e),
+                bucket_name: name.clone(),
+                bucket_path: Some(path.to_string_lossy().to_string()),
+                manifest_count: None,
+            },
+        };
+
+        let progress_event = BucketUpdateProgressEvent {
+            run_id: run_id.clone(),
+            current: index + 1,
+            total,
+            bucket_name: name,
+            result: result.clone(),
+        };
+
+        if let Err(e) = app.emit("bucket-update-progress", progress_event) {
+            log::warn!("Failed to emit bucket update progress event: {}", e);
+        }
+
+        results.push(result);
+    }
+
     log::info!("Completed updating {} buckets", results.len());
+
+    if results.iter().any(|r| r.success) {
+        invalidate_manifest_cache().await;
+    }
 
     // Clear the scoop root cache after batch update to allow for fresh detection next time
     crate::utils::clear_scoop_root_cache();

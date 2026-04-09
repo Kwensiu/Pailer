@@ -275,6 +275,7 @@ pub fn run() {
             commands::bucket_install::install_bucket,
             commands::bucket_install::validate_bucket_install,
             commands::bucket_install::update_bucket,
+            commands::bucket_install::update_all_buckets,
             commands::bucket_install::remove_bucket,
             commands::bucket_search::search_buckets,
             // commands::bucket_search::get_expanded_search_info,
