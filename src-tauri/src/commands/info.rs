@@ -120,7 +120,7 @@ pub fn get_package_info(
         .filter(|value| !value.is_empty() && *value != "None")
         .map(|value| value.to_string());
 
-    let installed_bucket = get_installed_package_bucket(&scoop_dir, &package_name);
+    let installed_bucket = utils::get_installed_package_bucket(&scoop_dir, &package_name);
 
     // When the caller provides a bucket, treat it as the source of truth and avoid
     // falling back to any other bucket. This prevents cross-bucket ambiguity for
@@ -227,27 +227,6 @@ fn get_installed_version(scoop_dir: &std::path::Path, package_name: &str) -> Opt
         })
 }
 
-/// Gets the bucket name for an installed package from install.json
-fn get_installed_package_bucket(scoop_dir: &std::path::Path, package_name: &str) -> Option<String> {
-    let install_json_path = scoop_dir
-        .join("apps")
-        .join(package_name)
-        .join("current")
-        .join("install.json");
-
-    if install_json_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(install_json_path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(bucket) = json.get("bucket").and_then(|b| b.as_str()) {
-                    return Some(bucket.to_string());
-                }
-            }
-        }
-    }
-
-    None
-}
-
 fn locate_installed_manifest(
     scoop_dir: &std::path::Path,
     package_name: &str,
@@ -262,7 +241,7 @@ fn locate_installed_manifest(
         return None;
     }
 
-    let bucket_name = get_installed_package_bucket(scoop_dir, package_name)
+    let bucket_name = utils::get_installed_package_bucket(scoop_dir, package_name)
         .map(|bucket| format!("{} (missing)", bucket))
         .unwrap_or_else(|| "Installed (Bucket missing)".to_string());
 

@@ -2,6 +2,7 @@ use crate::commands::powershell;
 use crate::commands::settings;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use serde_json::Value;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -371,6 +372,83 @@ pub fn locate_package_manifest(
 ) -> Result<(PathBuf, String), String> {
     locate_package_manifest_impl(scoop_dir, package_name, package_source)
 }
+
+fn is_install_version_directory(path: &std::path::Path) -> bool {
+    path.join("manifest.json").exists() || path.join("install.json").exists()
+}
+
+fn find_latest_install_dir(package_dir: &std::path::Path) -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(package_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.eq_ignore_ascii_case("current"))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+
+            if !is_install_version_directory(&path) {
+                continue;
+            }
+
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                if let Ok(modified) = metadata.modified() {
+                    candidates.push((modified, path));
+                }
+            }
+        }
+    }
+
+    candidates.sort_by(|a, b| b.0.cmp(&a.0));
+    candidates.into_iter().next().map(|(_, path)| path)
+}
+
+pub fn locate_current_install_dir(
+    scoop_dir: &std::path::Path,
+    package_name: &str,
+) -> Result<PathBuf, String> {
+    let package_dir = scoop_dir.join("apps").join(package_name);
+    if !package_dir.exists() {
+        return Err(format!("Package '{}' is not installed", package_name));
+    }
+
+    let current_path = package_dir.join("current");
+    if current_path.exists() && current_path.is_dir() {
+        return Ok(current_path);
+    }
+
+    find_latest_install_dir(&package_dir)
+        .ok_or_else(|| format!("Could not find installation directory for package '{}'", package_name))
+}
+
+pub fn read_install_bucket_from_dir(dir: &std::path::Path) -> Option<String> {
+    let install_path = dir.join("install.json");
+    let content = std::fs::read_to_string(install_path).ok()?;
+    let json: Value = serde_json::from_str(&content).ok()?;
+    json.get("bucket")
+        .and_then(|v| v.as_str())
+        .map(|v| v.to_string())
+}
+
+pub fn get_installed_package_bucket(
+    scoop_dir: &std::path::Path,
+    package_name: &str,
+) -> Option<String> {
+    let install_dir = locate_current_install_dir(scoop_dir, package_name).ok()?;
+    read_install_bucket_from_dir(&install_dir).filter(|bucket| !bucket.trim().is_empty())
+}
+
+#[cfg(test)]
+mod utils_tests;
 
 // Internal implementation that contains the previous logic. This avoids code
 // duplication while giving us the opportunity to phase out the old API.
