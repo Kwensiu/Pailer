@@ -45,8 +45,8 @@ importers:
         specifier: ^1.7.0
         version: 1.7.0(solid-js@1.9.12)
       simple-icons:
-        specifier: ^16.14.0
-        version: 16.14.0
+        specifier: ^16.16.0
+        version: 16.16.0
       solid-js:
         specifier: ^1.9.12
         version: 1.9.12
@@ -973,8 +973,8 @@ packages:
     resolution: {integrity: sha512-OwrZRZAfhHww0WEnKHDY8OM0U/Qs8OTfIDWhUD4BLpNJUfXK4cGmjiagGze086m+mhI+V2nD0gfbHEnJjb9STA==}
     engines: {node: '>=10'}
 
-  simple-icons@16.14.0:
-    resolution: {integrity: sha512-2Nvs3jJpCfMWQerD4zdv91g/MpnWn81a7uhyAC0reuhrjmS2MtSmwIKwewOJR6Xe97ZmfltDntCDqKJIBawQOw==}
+  simple-icons@16.16.0:
+    resolution: {integrity: sha512-H+Z29a0TrCw6mrG42V2aqHQaKdJCT87x5aojLlPiIXOf1lpMqnKFAR/jP5xkI5hLrVTCBWs33e9sOtyNWqCx1A==}
     engines: {node: '>=0.12.18'}
 
   solid-js@1.9.12:
@@ -1790,7 +1790,7 @@ snapshots:
 
   seroval@1.5.1: {}
 
-  simple-icons@16.14.0: {}
+  simple-icons@16.16.0: {}
 
   solid-js@1.9.12:
     dependencies:
