@@ -37,7 +37,7 @@
     "solid-js": "^1.9.12"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.0",
+    "@tailwindcss/vite": "^4.2.3",
     "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^25.5.0",
     "daisyui": "^5.5.19",
