@@ -15,6 +15,7 @@ function createInstalledPackagesStore() {
   const [isLoaded, setIsLoaded] = createSignal(false);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = createSignal(false);
   const [versionedPackages, setVersionedPackages] = createSignal<string[]>([]);
+  let silentRefetchInFlight: Promise<void> | null = null;
 
   const mergeExistingUpdateInfo = (nextPackages: ScoopPackage[]): DisplayPackage[] => {
     // Create a map of existing update info to preserve it during refresh
@@ -118,32 +119,42 @@ function createInstalledPackagesStore() {
   // Silent refetch - refreshes data without showing loading UI
   // Used after operations complete to update the list in the background
   const silentRefetch = async () => {
-    setError(null);
-    try {
-      const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages', {
-        force: true,
-      });
-      const updateInfo = await invoke<UpdatablePackage[]>('check_for_updates').catch(() => []);
-
-      // One-time merge data
-      const packagesWithUpdates = installedPackages.map((pkg) => ({
-        ...pkg,
-        available_version: updateInfo.find((u) => u.name === pkg.name)?.available,
-      }));
-
-      // One-time set complete data
-      setPackages(packagesWithUpdates);
-      const buckets = new Set<string>(installedPackages.map((p) => p.source));
-      setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
-      setIsLoaded(true);
-
-      // Silently update other states
-      await fetchVersionedPackages();
-    } catch (err) {
-      console.error('Failed to silently refresh installed packages:', err);
-      setError('Failed to refresh installed packages');
-      setPackages([]);
+    if (silentRefetchInFlight) {
+      return silentRefetchInFlight;
     }
+
+    silentRefetchInFlight = (async () => {
+      setError(null);
+      try {
+        const installedPackages = await invoke<ScoopPackage[]>('refresh_installed_packages', {
+          force: true,
+        });
+        const updateInfo = await invoke<UpdatablePackage[]>('check_for_updates').catch(() => []);
+
+        // One-time merge data
+        const packagesWithUpdates = installedPackages.map((pkg) => ({
+          ...pkg,
+          available_version: updateInfo.find((u) => u.name === pkg.name)?.available,
+        }));
+
+        // One-time set complete data
+        setPackages(packagesWithUpdates);
+        const buckets = new Set<string>(installedPackages.map((p) => p.source));
+        setUniqueBuckets(['all', ...Array.from(buckets).sort()]);
+        setIsLoaded(true);
+
+        // Silently update other states
+        await fetchVersionedPackages();
+      } catch (err) {
+        console.error('Failed to silently refresh installed packages:', err);
+        setError('Failed to refresh installed packages');
+        setPackages([]);
+      } finally {
+        silentRefetchInFlight = null;
+      }
+    })();
+
+    return silentRefetchInFlight;
   };
 
   const hasVersions = (packageName: string) => {

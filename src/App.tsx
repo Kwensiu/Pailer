@@ -26,6 +26,12 @@ import { t } from './i18n';
 import { updateStore } from './stores/updateStore';
 import { localStorageUtils } from './hooks/index';
 
+type InstalledPackagesChangedEvent = {
+  reason: string;
+  operationId?: string;
+  timestamp: number;
+};
+
 function App() {
   const { settings } = settingsStore;
   let mainContentRef: HTMLElement | undefined;
@@ -244,6 +250,23 @@ function App() {
       onCleanup(unlisten);
     } catch (e) {
       logError(`Failed to register auto-operation-start listener: ${e}`);
+    }
+
+    try {
+      const unlisten = await listen<InstalledPackagesChangedEvent>(
+        'installed-packages-changed',
+        (event) => {
+          info(
+            `Installed packages changed: ${event.payload.reason}${
+              event.payload.operationId ? ` (${event.payload.operationId})` : ''
+            }`
+          );
+          void installedPackagesStore.silentRefetch();
+        }
+      );
+      onCleanup(unlisten);
+    } catch (e) {
+      logError(`Failed to register installed-packages-changed listener: ${e}`);
     }
 
     // Check if installed via Scoop

@@ -225,7 +225,7 @@ fn select_versions_to_remove(
     keep_count: usize,
     current_version: Option<String>,
 ) -> Vec<String> {
-    let keep_count = keep_count.saturating_add(1).max(1);
+    let versions_to_keep_count = keep_count.saturating_add(1).max(1);
 
     let mut backup_map: HashMap<String, Vec<String>> = HashMap::new();
     let mut versions: Vec<(String, u128)> = Vec::new();
@@ -246,7 +246,7 @@ fn select_versions_to_remove(
         }
     }
 
-    if versions.len() > keep_count {
+    if versions.len() > versions_to_keep_count {
         versions.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| compare_versions(&b.0, &a.0)));
 
         let mut versions_to_keep = HashSet::new();
@@ -255,7 +255,7 @@ fn select_versions_to_remove(
         }
 
         for (version, _) in &versions {
-            if versions_to_keep.len() >= keep_count {
+            if versions_to_keep.len() >= versions_to_keep_count {
                 break;
             }
             versions_to_keep.insert(version.clone());
@@ -618,13 +618,39 @@ mod tests {
         }
 
         #[test]
+        fn preserves_current_version_when_keep_count_is_zero() {
+            let versions = vec![
+                VersionEntry::Version {
+                    file_name: "1.0.0".to_string(),
+                    modified_time: 1,
+                },
+                VersionEntry::Version {
+                    file_name: "1.5.0".to_string(),
+                    modified_time: 2,
+                },
+                VersionEntry::Version {
+                    file_name: "2.0.0".to_string(),
+                    modified_time: 3,
+                },
+            ];
+
+            let versions_to_remove =
+                select_versions_to_remove(versions, 0, Some("1.0.0".to_string()));
+
+            assert_eq!(
+                versions_to_remove,
+                vec!["2.0.0".to_string(), "1.5.0".to_string()]
+            );
+        }
+
+        #[test]
         fn keeps_backup_folders_attached_to_kept_versions() {
             let temp_dir = tempdir().unwrap();
             let package_path = temp_dir.path().join("demo");
 
             create_version_directories(&package_path, &["1.0.0", "2.0.0", "3.0.0"]);
-            fs::create_dir_all(package_path.join("_1.0.0.old")).unwrap();
-            fs::create_dir_all(package_path.join("_1.0.0.old(1)")).unwrap();
+            fs::create_dir_all(package_path.join("_2.0.0.old")).unwrap();
+            fs::create_dir_all(package_path.join("_2.0.0.old(1)")).unwrap();
             fs::create_dir_all(package_path.join("current")).unwrap();
 
             let versions_to_remove = get_versions_to_remove(&package_path, 1).unwrap();
@@ -632,10 +658,10 @@ mod tests {
             assert_eq!(versions_to_remove.len(), 1);
             assert!(!versions_to_remove
                 .iter()
-                .any(|version| version == "_1.0.0.old"));
+                .any(|version| version == "_2.0.0.old"));
             assert!(!versions_to_remove
                 .iter()
-                .any(|version| version == "_1.0.0.old(1)"));
+                .any(|version| version == "_2.0.0.old(1)"));
         }
     }
 
@@ -693,8 +719,10 @@ mod tests {
             assert!(commands[0].contains("'pkg''o'"));
             assert!(commands
                 .iter()
-                .all(|command| command.starts_with("scoop cleanup ")));
-            assert!(commands.iter().all(|command| command.ends_with(" --cache")));
+                .all(|command| command.starts_with("scoop cache rm ")));
+            assert!(commands
+                .iter()
+                .all(|command| command.len() <= 6000 + " 'package-000'".len()));
         }
     }
 
