@@ -47,8 +47,8 @@ fn test_update_status(repo_path: &Path) -> Result<bool, String> {
     };
 
     let branch_name = match head.shorthand() {
-        Some(name) => name,
-        None => return Ok(false), // No current branch name
+        Ok(name) => name,
+        Err(_) => return Ok(false), // No current branch name
     };
 
     // Try to fetch from origin (this might fail due to network issues)

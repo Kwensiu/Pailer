@@ -45,18 +45,28 @@ fn get_git_info(bucket_path: &Path) -> (Option<String>, Option<String>) {
     let mut git_branch = None;
 
     if let Ok(remote) = repo.find_remote("origin") {
-        if let Some(url) = remote.url() {
+        if let Ok(url) = remote.url() {
             git_url = Some(url.to_string());
         }
     }
 
     if let Ok(head) = repo.head() {
-        if let Some(name) = head.shorthand() {
+        if let Ok(name) = head.shorthand() {
             git_branch = Some(normalize_branch_name(name).to_string());
         }
     }
 
     (git_url, git_branch)
+}
+
+fn compress_git_refs(repo: &Repository, bucket_name: &str) {
+    if let Err(e) = repo.refdb_compress() {
+        log::warn!(
+            "Failed to compress git refs for bucket '{}': {}",
+            bucket_name,
+            e
+        );
+    }
 }
 
 /// Gets the last modified time of a bucket's bucket subdirectory.
@@ -286,7 +296,7 @@ pub async fn get_bucket_branches<R: Runtime>(
 
     for reference_result in references {
         if let Ok(reference) = reference_result {
-            if let Some(name) = reference.name() {
+            if let Ok(name) = reference.name() {
                 if name.starts_with("refs/heads/") {
                     let branch_name = &name[11..];
                     if branch_name != "HEAD" {
@@ -396,6 +406,8 @@ pub async fn switch_bucket_branch<R: Runtime>(
 
     repo.set_head(&local_ref_name)
         .map_err(|e| format!("Failed to set HEAD: {}", e))?;
+
+    compress_git_refs(&repo, &bucket_name);
 
     log::info!(
         "Successfully switched bucket '{}' to branch '{}'",
