@@ -18,6 +18,7 @@ pub mod package_icon;
 pub mod package_mutation;
 pub mod powershell;
 pub mod scoop;
+pub mod scoop_update_runner;
 pub mod search;
 pub mod self_update;
 pub mod settings;
