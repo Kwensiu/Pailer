@@ -13,9 +13,9 @@ function AutoCleanupSettings() {
   const versionsToKeep = () => localVersionCount() + 1;
 
   const handleVersionCountChange = async (e: Event) => {
-    const value = Number.parseInt((e.target as HTMLInputElement).value, 10);
+    const value = parseInt((e.target as HTMLInputElement).value);
     setLocalVersionCount(value);
-    if (Number.isInteger(value) && value >= 0 && value <= 10) {
+    if (value >= 1 && value <= 10) {
       await setCleanupSettings({ preserveVersionCount: value });
     }
   };
@@ -69,7 +69,7 @@ function AutoCleanupSettings() {
                   <input
                     type="range"
                     id="preserveVersionCount"
-                    min="0"
+                    min="1"
                     max="10"
                     value={localVersionCount()}
                     onInput={handleVersionCountChange}
