@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0](https://github.com/Kwensiu/Pailer/compare/v1.14.1...v1.15.0) (2026-05-27)
+
+
+### Features
+
+* allow zero old versions in auto cleanup ([b8adf6c](https://github.com/Kwensiu/Pailer/commit/b8adf6ce72b4c252fb3338ad4cba6523369cd865))
+* allow zero old versions in auto cleanup ([d8ada6a](https://github.com/Kwensiu/Pailer/commit/d8ada6a6b810c9127943b80b99b8f61a471a0749))
+
+
+### Refactoring
+
+* **update:** centralize package mutation refresh flow ([#155](https://github.com/Kwensiu/Pailer/issues/155)) ([e591ba4](https://github.com/Kwensiu/Pailer/commit/e591ba40222720fc1a73de2d392f6c4c7d442c88))
+
 ## [1.14.1](https://github.com/Kwensiu/Pailer/compare/v1.14.0...v1.14.1) (2026-04-10)
 
 
