@@ -64,7 +64,7 @@ pub async fn remove_cache_for_specific_packages(
         return Ok(());
     }
 
-    let commands = build_cache_rm_commands(&package_names);
+    let commands = auto_cleanup::build_cleanup_cache_commands(&package_names);
     let operation_name = "Cleanup Specific Packages Cache";
 
     for (index, command) in commands.iter().enumerate() {
@@ -219,37 +219,6 @@ pub async fn cleanup_all_apps_smart<R: Runtime>(
     }
 }
 
-fn build_cache_rm_commands(package_names: &[String]) -> Vec<String> {
-    let max_command_length = 6000;
-    let base_command = "scoop cache rm";
-    let mut chunks: Vec<Vec<String>> = Vec::new();
-    let mut current_chunk = Vec::new();
-    let mut current_length = base_command.len();
-
-    for package_name in package_names {
-        let quoted_package = auto_cleanup::quote_powershell_arg(package_name);
-        let next_length = current_length + quoted_package.len() + 1;
-
-        if !current_chunk.is_empty() && next_length > max_command_length {
-            chunks.push(current_chunk);
-            current_chunk = Vec::new();
-            current_length = base_command.len();
-        }
-
-        current_length += quoted_package.len() + 1;
-        current_chunk.push(quoted_package);
-    }
-
-    if !current_chunk.is_empty() {
-        chunks.push(current_chunk);
-    }
-
-    chunks
-        .into_iter()
-        .map(|chunk| format!("{} {}", base_command, chunk.join(" ")))
-        .collect()
-}
-
 fn emit_cleanup_line(window: &Window, operation_id: &str, line: String) {
     if let Err(error) = window.emit(
         powershell::EVENT_OUTPUT,
@@ -366,16 +335,24 @@ pub async fn cleanup_outdated_cache<R: Runtime>(
         return Ok(());
     }
 
-    // Build the scoop cache rm command for specific packages
-    let packages_str = safe_packages.join(" ");
-    let command = format!("scoop cache rm {}", packages_str);
+    let commands = auto_cleanup::build_cleanup_cache_commands(&safe_packages);
 
-    log::info!("Running cache cleanup for packages: {}", packages_str);
-    run_cleanup_command(
-        window,
-        &command,
-        "Cleanup Outdated App Caches",
-        "cleanup-cache",
-    )
-    .await
+    for (index, command) in commands.iter().enumerate() {
+        let operation_id = if commands.len() == 1 {
+            "cleanup-cache".to_string()
+        } else {
+            format!("cleanup-cache-{}", index + 1)
+        };
+
+        log::info!("Running cache cleanup command: {}", command);
+        run_cleanup_command(
+            window.clone(),
+            command,
+            "Cleanup Outdated App Caches",
+            &operation_id,
+        )
+        .await?;
+    }
+
+    Ok(())
 }
