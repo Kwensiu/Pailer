@@ -619,15 +619,32 @@ mod tests {
 
         #[test]
         fn keeps_backup_folders_attached_to_kept_versions() {
-            let temp_dir = tempdir().unwrap();
-            let package_path = temp_dir.path().join("demo");
-
-            create_version_directories(&package_path, &["1.0.0", "2.0.0", "3.0.0"]);
-            fs::create_dir_all(package_path.join("_1.0.0.old")).unwrap();
-            fs::create_dir_all(package_path.join("_1.0.0.old(1)")).unwrap();
-            fs::create_dir_all(package_path.join("current")).unwrap();
-
-            let versions_to_remove = get_versions_to_remove(&package_path, 1).unwrap();
+            let versions_to_remove = select_versions_to_remove(
+                vec![
+                    VersionEntry::Version {
+                        file_name: "1.0.0".to_string(),
+                        modified_time: 1,
+                    },
+                    VersionEntry::Version {
+                        file_name: "2.0.0".to_string(),
+                        modified_time: 2,
+                    },
+                    VersionEntry::Version {
+                        file_name: "3.0.0".to_string(),
+                        modified_time: 3,
+                    },
+                    VersionEntry::Backup {
+                        file_name: "_1.0.0.old".to_string(),
+                        parent_version: "1.0.0".to_string(),
+                    },
+                    VersionEntry::Backup {
+                        file_name: "_1.0.0.old(1)".to_string(),
+                        parent_version: "1.0.0".to_string(),
+                    },
+                ],
+                1,
+                Some("1.0.0".to_string()),
+            );
 
             assert_eq!(versions_to_remove.len(), 1);
             assert!(!versions_to_remove
@@ -693,8 +710,10 @@ mod tests {
             assert!(commands[0].contains("'pkg''o'"));
             assert!(commands
                 .iter()
-                .all(|command| command.starts_with("scoop cleanup ")));
-            assert!(commands.iter().all(|command| command.ends_with(" --cache")));
+                .all(|command| command.starts_with("scoop cache rm ")));
+            assert!(commands
+                .iter()
+                .all(|command| command.len() <= 6000 + " 'package-000'".len()));
         }
     }
 
