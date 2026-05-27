@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1](https://github.com/Kwensiu/Pailer/compare/v1.14.0...v1.14.1) (2026-04-10)
+
+
+### Bug Fixes
+
+* **bucket:** persist bulk update progress across navigation ([#136](https://github.com/Kwensiu/Pailer/issues/136)) ([07c039e](https://github.com/Kwensiu/Pailer/commit/07c039e661d5e71bdaa74d8bb153974d911b76bf))
+* change bucket modal state and bucket resolution ([#135](https://github.com/Kwensiu/Pailer/issues/135)) ([5fbd9b7](https://github.com/Kwensiu/Pailer/commit/5fbd9b7b00d09eef3ea0bd04ee25b95d4c098454))
+* operation modal completion state and reduce ([a7cd2f0](https://github.com/Kwensiu/Pailer/commit/a7cd2f0ea4aa09bc0d3676f2cfecf70f8269802d))
+
 ## [1.14.0](https://github.com/Kwensiu/Pailer/compare/v1.13.0...v1.14.0) (2026-04-07)
 
 
