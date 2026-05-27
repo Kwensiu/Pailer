@@ -117,6 +117,16 @@ fn remove_bucket_directory(bucket_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn compress_git_refs(repo: &Repository, bucket_name: &str) {
+    if let Err(e) = repo.refdb_compress() {
+        log::warn!(
+            "Failed to compress git refs for bucket '{}': {}",
+            bucket_name,
+            e
+        );
+    }
+}
+
 // Main function to install a bucket
 async fn install_bucket_internal(
     options: BucketInstallOptions,
@@ -169,7 +179,9 @@ async fn install_bucket_internal(
     .map_err(|e| e.to_string())?;
 
     match repo_result {
-        Ok(_repo) => {
+        Ok(repo) => {
+            compress_git_refs(&repo, &bucket_name);
+
             // Count manifests
             let manifest_count = utils::count_manifests(&bucket_path);
 
@@ -411,7 +423,7 @@ fn update_bucket_sync(
                         }
                     };
 
-                    if let Some(branch_name) = head.shorthand() {
+                    if let Ok(branch_name) = head.shorthand() {
                         // Try to merge origin/branch into current branch
                         let remote_branch_name = format!("origin/{}", branch_name);
                         match repo.find_branch(&remote_branch_name, git2::BranchType::Remote) {
@@ -474,6 +486,8 @@ fn update_bucket_sync(
                                 .map_err(|e| {
                                     format!("Failed to update bucket '{}': {}", bucket_name, e)
                                 })?;
+
+                                compress_git_refs(&repo, bucket_name);
 
                                 let manifest_count = utils::count_manifests(bucket_path);
 
@@ -591,25 +605,26 @@ pub async fn update_all_buckets(
     for (index, (name, path)) in git_buckets.into_iter().enumerate() {
         let name_clone = name.clone();
         let path_clone = path.clone();
-        let result = match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone))
+        let result =
+            match tokio::task::spawn_blocking(move || update_bucket_sync(&name_clone, &path_clone))
                 .await
-        {
-            Ok(Ok(res)) => res,
-            Ok(Err(e)) => BucketInstallResult {
-                success: false,
-                message: e,
-                bucket_name: name.clone(),
-                bucket_path: Some(path.to_string_lossy().to_string()),
-                manifest_count: None,
-            },
-            Err(e) => BucketInstallResult {
-                success: false,
-                message: format!("Task failed: {}", e),
-                bucket_name: name.clone(),
-                bucket_path: Some(path.to_string_lossy().to_string()),
-                manifest_count: None,
-            },
-        };
+            {
+                Ok(Ok(res)) => res,
+                Ok(Err(e)) => BucketInstallResult {
+                    success: false,
+                    message: e,
+                    bucket_name: name.clone(),
+                    bucket_path: Some(path.to_string_lossy().to_string()),
+                    manifest_count: None,
+                },
+                Err(e) => BucketInstallResult {
+                    success: false,
+                    message: format!("Task failed: {}", e),
+                    bucket_name: name.clone(),
+                    bucket_path: Some(path.to_string_lossy().to_string()),
+                    manifest_count: None,
+                },
+            };
 
         let progress_event = BucketUpdateProgressEvent {
             run_id: run_id.clone(),

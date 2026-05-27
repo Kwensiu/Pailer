@@ -49,7 +49,7 @@ sha2 = "0.11"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2"
 tauri-plugin-opener = "2"
-git2 = "0.21"
+git2 = { version = "0.21", features = ["https", "ssh"] }
 url = "2.5"
 lazy_static = "1.4.0"
 tempfile = "3.27"
