@@ -1,5 +1,5 @@
 import { For, Show, Accessor } from 'solid-js';
-import { CircleArrowUp, Lock, Ellipsis } from 'lucide-solid';
+import { Lock, Ellipsis } from 'lucide-solid';
 import { computePosition, flip, shift } from '@floating-ui/dom';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
@@ -15,6 +15,7 @@ import HighlightText from '../../common/HighlightText';
 import { formatIsoDate } from '../../../utils/date';
 import { useConfirmAction, useContextMenuState, useVersionFetch } from '../../../hooks';
 import versionedPackagesStore from '../../../stores/versionedPackagesStore';
+import PackageUpdateAction from './PackageUpdateAction';
 
 interface PackageGridViewProps {
   packages: Accessor<DisplayPackage[]>;
@@ -115,23 +116,19 @@ const PackageCard = (props: {
                   pkg.installation_type !== 'custom'
                 }
               >
-                <div
-                  class="tooltip tooltip-bottom"
-                  data-tip={
+                <PackageUpdateAction
+                  pkg={pkg}
+                  onUpdate={props.onUpdate}
+                  tooltip={
                     t('installed.list.updateAvailableTooltip', { version: pkg.available_version }) +
                     (isCiVersion(pkg.available_version || '')
                       ? t('installed.list.ciVersionNote')
                       : '')
                   }
-                >
-                  <CircleArrowUp
-                    class="text-info mr-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      props.onUpdate(pkg);
-                    }}
-                  />
-                </div>
+                  tooltipClass="tooltip-bottom"
+                  class="mr-1 h-4 w-4"
+                  iconClass="h-4 w-4"
+                />
               </Show>
               <Show when={pkg.installation_type === 'custom'}>
                 <div
