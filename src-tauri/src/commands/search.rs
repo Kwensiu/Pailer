@@ -8,14 +8,22 @@ use rayon::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 
 type ManifestCache = Arc<Vec<CachedManifest>>;
-type NameToBuckets = Arc<HashMap<String, Vec<String>>>;
+type ManifestBucketCache = HashMap<String, Arc<Vec<CachedManifest>>>;
+
+#[derive(Clone)]
+struct ManifestCacheSnapshot {
+    buckets: ManifestBucketCache,
+    flat: ManifestCache,
+}
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,8 +43,13 @@ fn collect_candidate_buckets(
         return Ok(candidate_buckets);
     }
 
-    let entries = std::fs::read_dir(buckets_dir)
-        .map_err(|e| format!("Failed to read buckets directory '{}': {}", buckets_dir.display(), e))?;
+    let entries = std::fs::read_dir(buckets_dir).map_err(|e| {
+        format!(
+            "Failed to read buckets directory '{}': {}",
+            buckets_dir.display(),
+            e
+        )
+    })?;
 
     for entry in entries.flatten() {
         let bucket_path = entry.path();
@@ -69,8 +82,73 @@ struct SearchQuery {
     exact: bool,
 }
 
-static MANIFEST_CACHE: Lazy<Mutex<Option<ManifestCache>>> = Lazy::new(|| Mutex::new(None));
-static NAME_TO_BUCKETS: Lazy<Mutex<Option<NameToBuckets>>> = Lazy::new(|| Mutex::new(None));
+#[derive(Default)]
+struct ManifestCacheState {
+    buckets: ManifestBucketCache,
+    cache: Option<ManifestCache>,
+    generation: u64,
+    populating: Option<Arc<Notify>>,
+}
+
+static MANIFEST_CACHE_STATE: Lazy<Mutex<ManifestCacheState>> =
+    Lazy::new(|| Mutex::new(ManifestCacheState::default()));
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ManifestCacheInvalidation {
+    All {
+        reason: &'static str,
+    },
+    RefreshBuckets {
+        bucket_names: Vec<String>,
+        bucket_paths: Vec<PathBuf>,
+        reason: &'static str,
+    },
+    RemoveBuckets {
+        bucket_names: Vec<String>,
+        reason: &'static str,
+    },
+}
+
+impl ManifestCacheInvalidation {
+    fn log_message(&self) -> String {
+        match self {
+            Self::All { reason } => {
+                format!("Manifest cache invalidated globally ({reason}).")
+            }
+            Self::RefreshBuckets {
+                bucket_names,
+                reason,
+                ..
+            } => {
+                format!(
+                    "Manifest cache refreshed for bucket scope [{}] ({reason}).",
+                    bucket_names.join(", ")
+                )
+            }
+            Self::RemoveBuckets {
+                bucket_names,
+                reason,
+            } => {
+                format!(
+                    "Manifest cache removed bucket scope [{}] ({reason}).",
+                    bucket_names.join(", ")
+                )
+            }
+        }
+    }
+}
+
+fn normalize_bucket_scope<'a>(bucket_names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut bucket_names = bucket_names
+        .into_iter()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    bucket_names.sort();
+    bucket_names.dedup();
+    bucket_names
+}
 
 fn is_manifest_cache_prebuild_enabled<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
     let store = match app.store(PathBuf::from("settings.json")) {
@@ -207,7 +285,59 @@ fn parse_cached_manifest(path: &Path) -> Option<CachedManifest> {
     })
 }
 
-async fn populate_manifest_cache(scoop_path: &Path) -> Result<ManifestCache, String> {
+fn build_manifest_cache_snapshot(mut manifests: Vec<CachedManifest>) -> ManifestCacheSnapshot {
+    manifests.sort_by(|left, right| {
+        left.package
+            .source
+            .cmp(&right.package.source)
+            .then_with(|| left.normalized_name.cmp(&right.normalized_name))
+            .then_with(|| left.package.name.cmp(&right.package.name))
+    });
+
+    let mut bucket_vectors: HashMap<String, Vec<CachedManifest>> = HashMap::new();
+    for manifest in manifests {
+        bucket_vectors
+            .entry(manifest.package.source.clone())
+            .or_default()
+            .push(manifest);
+    }
+
+    let mut normalized_bucket_names = bucket_vectors.keys().cloned().collect::<Vec<_>>();
+    normalized_bucket_names.sort();
+
+    let mut flat = Vec::new();
+    for bucket_name in normalized_bucket_names {
+        if let Some(bucket_manifests) = bucket_vectors.get(&bucket_name) {
+            flat.extend(bucket_manifests.iter().cloned());
+        }
+    }
+
+    let buckets = bucket_vectors
+        .into_iter()
+        .map(|(bucket_name, manifests)| (bucket_name, Arc::new(manifests)))
+        .collect::<ManifestBucketCache>();
+
+    ManifestCacheSnapshot {
+        buckets,
+        flat: Arc::new(flat),
+    }
+}
+
+fn flatten_manifest_cache(buckets: &ManifestBucketCache) -> ManifestCache {
+    let mut bucket_names = buckets.keys().cloned().collect::<Vec<_>>();
+    bucket_names.sort();
+
+    let mut flat = Vec::new();
+    for bucket_name in bucket_names {
+        if let Some(bucket_manifests) = buckets.get(&bucket_name) {
+            flat.extend(bucket_manifests.iter().cloned());
+        }
+    }
+
+    Arc::new(flat)
+}
+
+async fn populate_manifest_cache(scoop_path: &Path) -> Result<ManifestCacheSnapshot, String> {
     let buckets_path = scoop_path.join("buckets");
     if !tokio::fs::try_exists(&buckets_path).await.unwrap_or(false) {
         return Err("Scoop buckets directory not found".to_string());
@@ -229,44 +359,106 @@ async fn populate_manifest_cache(scoop_path: &Path) -> Result<ManifestCache, Str
             .par_iter()
             .filter_map(|path| parse_cached_manifest(path))
             .collect::<Vec<_>>();
-        Arc::new(manifests)
+        build_manifest_cache_snapshot(manifests)
     })
     .await
     .map_err(|e| e.to_string())
 }
 
+async fn get_or_populate_manifests_singleflight<F, Fut>(
+    populate: F,
+) -> Result<(ManifestCache, bool), String>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = Result<ManifestCacheSnapshot, String>>,
+{
+    loop {
+        enum PopulateAction {
+            CacheHit(ManifestCache),
+            Wait(Pin<Box<dyn Future<Output = ()> + Send>>),
+            Populate {
+                notify: Arc<Notify>,
+                generation: u64,
+            },
+        }
+
+        let action = {
+            let mut state = MANIFEST_CACHE_STATE.lock().await;
+            if let Some(cache) = state.cache.as_ref().cloned() {
+                PopulateAction::CacheHit(cache)
+            } else if let Some(notify) = state.populating.as_ref() {
+                PopulateAction::Wait(Box::pin(notify.clone().notified_owned()))
+            } else {
+                let notify = Arc::new(Notify::new());
+                let generation = state.generation;
+                state.populating = Some(notify.clone());
+                PopulateAction::Populate { notify, generation }
+            }
+        };
+
+        match action {
+            PopulateAction::CacheHit(cache) => return Ok((cache, false)),
+            PopulateAction::Wait(notified) => {
+                notified.await;
+            }
+            PopulateAction::Populate { notify, generation } => {
+                let result = populate().await;
+
+                match result {
+                    Ok(snapshot) => {
+                        let mut state = MANIFEST_CACHE_STATE.lock().await;
+                        let is_active_population = state
+                            .populating
+                            .as_ref()
+                            .is_some_and(|active| Arc::ptr_eq(active, &notify));
+
+                        if state.generation == generation && is_active_population {
+                            state.buckets = snapshot.buckets.clone();
+                            state.cache = Some(snapshot.flat.clone());
+                            state.populating = None;
+                            notify.notify_waiters();
+
+                            return Ok((snapshot.flat, true));
+                        }
+
+                        if is_active_population {
+                            state.populating = None;
+                        }
+                        notify.notify_waiters();
+
+                        // Cache generation changed while populate was in-flight; discard stale
+                        // result and retry so callers observe post-invalidation data.
+                        continue;
+                    }
+                    Err(error) => {
+                        let mut state = MANIFEST_CACHE_STATE.lock().await;
+                        if state
+                            .populating
+                            .as_ref()
+                            .is_some_and(|active| Arc::ptr_eq(active, &notify))
+                        {
+                            state.populating = None;
+                        }
+                        notify.notify_waiters();
+
+                        return Err(error);
+                    }
+                }
+            }
+        }
+    }
+}
+
 async fn get_manifests<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<(ManifestCache, bool), String> {
-    // Try to get cache
-    let guard = MANIFEST_CACHE.lock().await;
-    if let Some(cache) = guard.as_ref() {
-        return Ok((cache.clone(), false));
-    }
-    drop(guard); // Release lock before populating
-
-    // Populate cache
-    log::info!("Cold search: Populating manifest cache.");
     let state = app.state::<AppState>();
     let scoop_path = state.scoop_path();
-    let manifests = populate_manifest_cache(&scoop_path).await?;
-
-    // Build name_to_buckets index
-    let mut name_to_buckets_map: HashMap<String, Vec<String>> = HashMap::new();
-    for manifest in manifests.iter() {
-        name_to_buckets_map
-            .entry(manifest.normalized_name.clone())
-            .or_default()
-            .push(manifest.package.source.clone());
-    }
-    let name_to_buckets = Arc::new(name_to_buckets_map);
-
-    // Store results
-    let mut guard = MANIFEST_CACHE.lock().await;
-    *guard = Some(manifests.clone());
-    *NAME_TO_BUCKETS.lock().await = Some(name_to_buckets.clone());
-
-    Ok((manifests, true))
+    get_or_populate_manifests_singleflight(|| {
+        log::info!("Cold search: Populating manifest cache.");
+        populate_manifest_cache(&scoop_path)
+    })
+    .await
 }
 
 fn match_query(value: &str, query: &SearchQuery) -> bool {
@@ -447,11 +639,215 @@ pub async fn warm_manifest_cache<R: tauri::Runtime>(
     }
 }
 
+fn build_manifest_cache_snapshot_from_bucket_paths(
+    bucket_paths: Vec<PathBuf>,
+) -> ManifestCacheSnapshot {
+    let manifest_paths = bucket_paths
+        .into_iter()
+        .flat_map(find_manifests_in_bucket)
+        .collect::<Vec<_>>();
+    let manifests = manifest_paths
+        .par_iter()
+        .filter_map(|path| parse_cached_manifest(path))
+        .collect::<Vec<_>>();
+    build_manifest_cache_snapshot(manifests)
+}
+
+async fn invalidate_manifest_cache_with_scope(scope: ManifestCacheInvalidation) {
+    let log_message = scope.log_message();
+    let action = {
+        let mut state = MANIFEST_CACHE_STATE.lock().await;
+        match scope {
+            ManifestCacheInvalidation::All { .. } => InvalidationAction::Full {
+                notify: clear_manifest_cache_locked(&mut state),
+            },
+            ManifestCacheInvalidation::RemoveBuckets { bucket_names, .. } => {
+                if state.cache.is_none() || state.populating.is_some() {
+                    InvalidationAction::Full {
+                        notify: clear_manifest_cache_locked(&mut state),
+                    }
+                } else {
+                    let mut removed = false;
+                    for bucket_name in bucket_names {
+                        removed |= state.buckets.remove(&bucket_name).is_some();
+                    }
+
+                    if removed {
+                        state.cache = Some(flatten_manifest_cache(&state.buckets));
+                    }
+
+                    InvalidationAction::Partial
+                }
+            }
+            ManifestCacheInvalidation::RefreshBuckets {
+                bucket_names,
+                bucket_paths,
+                ..
+            } => {
+                if state.cache.is_none() || state.populating.is_some() {
+                    InvalidationAction::Full {
+                        notify: clear_manifest_cache_locked(&mut state),
+                    }
+                } else {
+                    state.generation += 1;
+                    InvalidationAction::RefreshBuckets {
+                        generation: state.generation,
+                        bucket_names,
+                        bucket_paths,
+                    }
+                }
+            }
+        }
+    };
+
+    match action {
+        InvalidationAction::Full { notify } => {
+            if let Some(notify) = notify {
+                // Conservative behavior: invalidate does not cancel the in-flight scan, but it wakes
+                // waiters so they can re-check state and avoid getting stuck if population aborts.
+                notify.notify_waiters();
+            }
+        }
+        InvalidationAction::Partial => {}
+        InvalidationAction::RefreshBuckets {
+            generation,
+            bucket_names,
+            bucket_paths,
+        } => {
+            let snapshot = tokio::task::spawn_blocking(move || {
+                build_manifest_cache_snapshot_from_bucket_paths(bucket_paths)
+            })
+            .await
+            .map_err(|error| error.to_string());
+
+            match snapshot {
+                Ok(snapshot) => {
+                    let mut state = MANIFEST_CACHE_STATE.lock().await;
+                    if state.generation == generation && state.populating.is_none() {
+                        for bucket_name in bucket_names {
+                            state.buckets.remove(&bucket_name);
+                        }
+                        state.buckets.extend(snapshot.buckets);
+                        state.cache = Some(flatten_manifest_cache(&state.buckets));
+                    }
+                }
+                Err(error) => {
+                    log::warn!(
+                        "Failed to refresh manifest cache bucket scope incrementally: {}",
+                        error
+                    );
+                    notify_manifest_cache_waiters(clear_manifest_cache_state().await);
+                }
+            }
+        }
+    }
+    log::info!("{}", log_message);
+}
+
+async fn clear_manifest_cache_state() -> Option<Arc<Notify>> {
+    let mut state = MANIFEST_CACHE_STATE.lock().await;
+    clear_manifest_cache_locked(&mut state)
+}
+
+fn clear_manifest_cache_locked(state: &mut ManifestCacheState) -> Option<Arc<Notify>> {
+    let notify = state.populating.take();
+    state.buckets.clear();
+    state.cache = None;
+    state.generation += 1;
+    notify
+}
+
+fn notify_manifest_cache_waiters(notify: Option<Arc<Notify>>) {
+    if let Some(notify) = notify {
+        notify.notify_waiters();
+    }
+}
+
+enum InvalidationAction {
+    Full {
+        notify: Option<Arc<Notify>>,
+    },
+    Partial,
+    RefreshBuckets {
+        generation: u64,
+        bucket_names: Vec<String>,
+        bucket_paths: Vec<PathBuf>,
+    },
+}
+
 /// Invalidates the global manifest cache.
-/// This should be called after operations that change the available packages,
-/// such as installing or uninstalling a package or adding/removing buckets.
+///
+/// Keep this for callers whose impact cannot be scoped safely. More specific callers should use
+/// the bucket/package helpers below so future incremental cache updates have precise inputs.
 pub async fn invalidate_manifest_cache() {
-    *MANIFEST_CACHE.lock().await = None;
-    *NAME_TO_BUCKETS.lock().await = None;
-    log::info!("Manifest cache invalidated.");
+    invalidate_manifest_cache_with_scope(ManifestCacheInvalidation::All {
+        reason: "unscoped change",
+    })
+    .await;
+}
+
+pub async fn refresh_manifest_cache_for_bucket(
+    bucket_name: &str,
+    bucket_path: PathBuf,
+    reason: &'static str,
+) {
+    refresh_manifest_cache_for_buckets([(bucket_name, bucket_path)], reason).await;
+}
+
+pub async fn refresh_manifest_cache_for_buckets<'a>(
+    buckets: impl IntoIterator<Item = (&'a str, PathBuf)>,
+    reason: &'static str,
+) {
+    let mut buckets = buckets
+        .into_iter()
+        .filter_map(|(bucket_name, bucket_path)| {
+            let bucket_name = bucket_name.trim();
+            (!bucket_name.is_empty()).then(|| (bucket_name.to_string(), bucket_path))
+        })
+        .collect::<Vec<_>>();
+    buckets.sort_by(|left, right| left.0.cmp(&right.0));
+    buckets.dedup_by(|left, right| left.0 == right.0);
+
+    if buckets.is_empty() {
+        invalidate_manifest_cache().await;
+        return;
+    }
+
+    let bucket_names = buckets
+        .iter()
+        .map(|(bucket_name, _)| bucket_name.clone())
+        .collect::<Vec<_>>();
+    let bucket_paths = buckets
+        .into_iter()
+        .map(|(_, bucket_path)| bucket_path)
+        .collect::<Vec<_>>();
+
+    invalidate_manifest_cache_with_scope(ManifestCacheInvalidation::RefreshBuckets {
+        bucket_names,
+        bucket_paths,
+        reason,
+    })
+    .await;
+}
+
+pub async fn remove_manifest_cache_for_bucket(bucket_name: &str, reason: &'static str) {
+    remove_manifest_cache_for_buckets([bucket_name], reason).await;
+}
+
+pub async fn remove_manifest_cache_for_buckets<'a>(
+    bucket_names: impl IntoIterator<Item = &'a str>,
+    reason: &'static str,
+) {
+    let bucket_names = normalize_bucket_scope(bucket_names);
+
+    if bucket_names.is_empty() {
+        invalidate_manifest_cache().await;
+        return;
+    }
+
+    invalidate_manifest_cache_with_scope(ManifestCacheInvalidation::RemoveBuckets {
+        bucket_names,
+        reason,
+    })
+    .await;
 }

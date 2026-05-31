@@ -4,7 +4,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{command, Emitter};
 
-use crate::commands::search::invalidate_manifest_cache;
+use crate::commands::search::{
+    refresh_manifest_cache_for_bucket, refresh_manifest_cache_for_buckets,
+    remove_manifest_cache_for_bucket,
+};
 use crate::utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,8 +188,12 @@ async fn install_bucket_internal(
             // Count manifests
             let manifest_count = utils::count_manifests(&bucket_path);
 
-            // Invalidate search cache so new bucket's packages are searchable
-            invalidate_manifest_cache().await;
+            refresh_manifest_cache_for_bucket(
+                &bucket_name,
+                bucket_path.clone(),
+                "bucket installed",
+            )
+            .await;
 
             log::info!(
                 "Successfully installed bucket '{}' with {} manifests",
@@ -356,9 +363,8 @@ pub async fn update_bucket(
     .await
     .map_err(|e| e.to_string())??;
 
-    // Invalidate search cache after bucket update (manifests may have changed)
     if result.success {
-        invalidate_manifest_cache().await;
+        refresh_manifest_cache_for_bucket(&bucket_name, bucket_path, "bucket updated").await;
     }
 
     Ok(result)
@@ -643,8 +649,18 @@ pub async fn update_all_buckets(
 
     log::info!("Completed updating {} buckets", results.len());
 
-    if results.iter().any(|r| r.success) {
-        invalidate_manifest_cache().await;
+    let changed_buckets = results
+        .iter()
+        .filter(|result| result.success)
+        .filter_map(|result| {
+            result
+                .bucket_path
+                .as_ref()
+                .map(|path| (result.bucket_name.as_str(), PathBuf::from(path)))
+        })
+        .collect::<Vec<_>>();
+    if !changed_buckets.is_empty() {
+        refresh_manifest_cache_for_buckets(changed_buckets, "bulk bucket update").await;
     }
 
     // Clear the scoop root cache after batch update to allow for fresh detection next time
@@ -672,8 +688,7 @@ pub async fn remove_bucket(bucket_name: String) -> Result<BucketInstallResult, S
 
     match remove_bucket_directory(&bucket_path) {
         Ok(_) => {
-            // Invalidate search cache so removed bucket's packages are no longer searchable
-            invalidate_manifest_cache().await;
+            remove_manifest_cache_for_bucket(&bucket_name, "bucket removed").await;
 
             log::info!("Successfully removed bucket '{}'", bucket_name);
             Ok(BucketInstallResult {

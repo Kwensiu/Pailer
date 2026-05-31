@@ -1,6 +1,5 @@
 use crate::commands::installed::{get_installed_package_state, invalidate_installed_cache};
 use crate::commands::powershell::{CommandResult, FinalStatus};
-use crate::commands::search::invalidate_manifest_cache;
 use crate::models::ScoopPackage;
 use crate::state::AppState;
 use serde::Serialize;
@@ -45,10 +44,6 @@ impl PackageMutationKind {
         }
     }
 
-    fn should_invalidate_manifest_cache(self) -> bool {
-        matches!(self, Self::Install | Self::Uninstall)
-    }
-
     fn should_resolve_final_package_state(self) -> bool {
         !matches!(self, Self::Uninstall)
     }
@@ -62,9 +57,6 @@ pub async fn finalize_single_package_mutation(
     package_source_hint: Option<&str>,
     operation_id: String,
 ) {
-    if kind.should_invalidate_manifest_cache() {
-        invalidate_manifest_cache().await;
-    }
     invalidate_installed_cache(state.clone()).await;
 
     let package_state = if kind.should_resolve_final_package_state() {
@@ -151,14 +143,6 @@ mod tests {
             PackageMutationKind::Uninstall.operation_name("git"),
             "Uninstalling git"
         );
-    }
-
-    #[test]
-    fn manifest_cache_invalidation_is_limited_to_manifest_changing_mutations() {
-        assert!(PackageMutationKind::Install.should_invalidate_manifest_cache());
-        assert!(PackageMutationKind::Uninstall.should_invalidate_manifest_cache());
-        assert!(!PackageMutationKind::Update.should_invalidate_manifest_cache());
-        assert!(!PackageMutationKind::ForceUpdate.should_invalidate_manifest_cache());
     }
 
     #[test]
