@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0](https://github.com/Kwensiu/Pailer/compare/v1.15.0...v1.16.0) (2026-05-31)
+
+
+### Features
+
+* **search:** coordinate manifest cache refreshes ([44d8184](https://github.com/Kwensiu/Pailer/commit/44d818435f4f0a74a3a0e083d2ec84ff18bcc93b))
+* **updates:** reflect running state in package actions ([b073f14](https://github.com/Kwensiu/Pailer/commit/b073f1436ca0d52e043aac276f17bfd8ae04474e))
+
+
+### Bug Fixes
+
+* **icons:** stabilize package icon cache ([372331d](https://github.com/Kwensiu/Pailer/commit/372331d3a94e84e62baaf7b0a7c6382f2514632d))
+* **updates:** refine Pailer self-update handling ([8f221f4](https://github.com/Kwensiu/Pailer/commit/8f221f4a9b68c0bf1fb9a31c196e691ce7841549))
+
+
+### Performance
+
+* **buckets:** reuse bucket fetches and refresh cache ([28afb23](https://github.com/Kwensiu/Pailer/commit/28afb23e08a369f7b0e38508a178570436650c72))
+
+
+### Refactoring
+
+* **operations:** refine minimized tray stack ([c94f177](https://github.com/Kwensiu/Pailer/commit/c94f177f00ade6886164764d8729e27852a1b0dc))
+* **scoop:** simplify stale refresh bypass ([980b7fd](https://github.com/Kwensiu/Pailer/commit/980b7fd2eedb9cada3449d7e5dd409fa1a257970))
+* **search:** split page logic into focused hooks ([56c3ea6](https://github.com/Kwensiu/Pailer/commit/56c3ea6040cfdb86a089e39fc39575e882189dbd))
+* update search logic, scoop bypass, tray stack ([#159](https://github.com/Kwensiu/Pailer/issues/159)) ([8ca2977](https://github.com/Kwensiu/Pailer/commit/8ca29771734c75799f8bee35e94801d56689fe63))
+
 ## [1.15.0](https://github.com/Kwensiu/Pailer/compare/v1.14.1...v1.15.0) (2026-05-27)
 
 
