@@ -22,9 +22,16 @@ interface IconCacheEntry {
   timestamp: number;
 }
 
+const SESSION_CACHE: Map<string, IconCacheEntry> = new Map();
+const FAILED_CACHE: Map<string, number> = new Map();
+const FAILED_CACHE_DURATION = 2 * 60 * 1000;
+
+const getIconCacheKey = (packageName: string, size: number): string =>
+  `${packageName.toLowerCase()}_${size}`;
+
 function getLocalStorageIconCache(packageName: string, size: number): IconCacheEntry | null {
   try {
-    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}_${size}`;
+    const key = `${ICON_CACHE_PREFIX}${getIconCacheKey(packageName, size)}`;
     const cached = localStorage.getItem(key);
     if (cached) {
       const parsed: IconCacheEntry = JSON.parse(cached);
@@ -41,12 +48,51 @@ function getLocalStorageIconCache(packageName: string, size: number): IconCacheE
 
 function setLocalStorageIconCache(packageName: string, dataUrl: string, size: number): void {
   try {
-    const key = `${ICON_CACHE_PREFIX}${packageName.toLowerCase()}_${size}`;
+    const cacheKey = getIconCacheKey(packageName, size);
+    const key = `${ICON_CACHE_PREFIX}${cacheKey}`;
     const entry: IconCacheEntry = { dataUrl, timestamp: Date.now() };
+    SESSION_CACHE.set(cacheKey, entry);
     localStorage.setItem(key, JSON.stringify(entry));
   } catch {
     // Ignore quota errors
   }
+}
+
+function getCachedIcon(packageName: string, size: number): IconCacheEntry | null {
+  const cacheKey = getIconCacheKey(packageName, size);
+  const sessionCached = SESSION_CACHE.get(cacheKey);
+  if (sessionCached) {
+    if (Date.now() - sessionCached.timestamp < CACHE_DURATION) {
+      return sessionCached;
+    }
+    SESSION_CACHE.delete(cacheKey);
+  }
+
+  const localCached = getLocalStorageIconCache(packageName, size);
+  if (localCached) {
+    SESSION_CACHE.set(cacheKey, localCached);
+  }
+
+  return localCached;
+}
+
+function isRecentlyFailed(packageName: string, size: number): boolean {
+  const cacheKey = getIconCacheKey(packageName, size);
+  const failedAt = FAILED_CACHE.get(cacheKey);
+  if (!failedAt) {
+    return false;
+  }
+
+  if (Date.now() - failedAt > FAILED_CACHE_DURATION) {
+    FAILED_CACHE.delete(cacheKey);
+    return false;
+  }
+
+  return true;
+}
+
+function markIconFailed(packageName: string, size: number): void {
+  FAILED_CACHE.set(getIconCacheKey(packageName, size), Date.now());
 }
 
 export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIconsReturn {
@@ -111,6 +157,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
             failed.forEach((f) => next.add(f));
             return next;
           });
+          failed.forEach((name) => markIconFailed(name, currentSize));
         }
       } catch (error) {
         console.debug('Failed to fetch package icons:', error);
@@ -133,7 +180,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
     const cachedIcons: Record<string, string> = {};
 
     packageNames.forEach((name) => {
-      const cached = getLocalStorageIconCache(name.toLowerCase(), currentSize);
+      const cached = getCachedIcon(name, currentSize);
       if (cached) {
         cachedIcons[name] = cached.dataUrl;
       }
@@ -150,15 +197,33 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
       () => options.packageNames(),
       (packageNames) => {
         if (packageNames.length === 0) {
-          setIcons({});
           return;
         }
 
-        // Find packages that need fetching (not in cache and not already failed)
-        const failed = failedIcons();
+        const currentSize = iconSize();
         const currentIcons = icons();
+        const cachedIcons: Record<string, string> = {};
+
+        packageNames.forEach((name) => {
+          if (currentIcons[name]) {
+            return;
+          }
+
+          const cached = getCachedIcon(name, currentSize);
+          if (cached) {
+            cachedIcons[name] = cached.dataUrl;
+          }
+        });
+
+        const cachedIconNames = Object.keys(cachedIcons);
+        if (cachedIconNames.length > 0) {
+          setIcons((prev) => ({ ...prev, ...cachedIcons }));
+        }
+
+        // Find packages that need fetching (not in cache and not already failed)
+        const availableIcons = { ...currentIcons, ...cachedIcons };
         const missingPackages = packageNames.filter(
-          (name) => !currentIcons[name] && !failed.has(name.toLowerCase())
+          (name) => !availableIcons[name] && !isRecentlyFailed(name, currentSize)
         );
 
         if (missingPackages.length === 0) {
@@ -185,6 +250,8 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
       // Ignore errors
     }
 
+    SESSION_CACHE.clear();
+    FAILED_CACHE.clear();
     setIcons({});
     setFailedIcons(new Set<string>());
     setPendingPackages(new Map());
