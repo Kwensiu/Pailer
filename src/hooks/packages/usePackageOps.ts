@@ -98,13 +98,10 @@ const checkAndSetupPailerSelfUpdate = async (
       setPailerUpdateConfirmOpen(true);
 
       return true; // Block normal update flow
-    } else {
-      // Handle non-Scoop installation
-      console.warn('Pailer is not installed via Scoop, cannot use self-update');
-      const message = t('pailerUpdate.notScoopInstall');
-      showWarningNotification(message);
-      return true; // Block normal update flow
     }
+
+    console.info('Pailer is not installed via Scoop; allowing normal package update');
+    return false;
   } catch (err) {
     // Handle unexpected errors during capability check
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -128,11 +125,6 @@ const checkAndSetupPailerSelfUpdate = async (
 const showErrorNotification = (message: string) => {
   console.error('Pailer Error:', message);
   toast.error(message);
-};
-
-const showWarningNotification = (message: string) => {
-  console.warn('Pailer Warning:', message);
-  toast.warning(message);
 };
 
 const addCloseListener = (handler: (wasSuccess: boolean) => void) => {

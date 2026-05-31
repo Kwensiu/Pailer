@@ -186,7 +186,7 @@ pub async fn update_pailer_self<R: Runtime>(app: AppHandle<R>) -> Result<String,
     log::info!("Starting self-update process");
     let mut command = Command::new("cmd");
     command
-        .arg("/K")
+        .arg("/C")
         .arg(script_path.to_string_lossy().to_string())
         .current_dir(std::env::temp_dir());
 

@@ -127,6 +127,4 @@ echo [Pailer] restart exit code: 0>>"%LOG_FILE%"
 echo [Pailer] Self-update finished at %date% %time%
 echo [Pailer] Self-update finished at %date% %time%>>"%LOG_FILE%"
 echo Log: %LOG_FILE%
-echo Press any key to exit...
-pause >NUL
 exit /b 0

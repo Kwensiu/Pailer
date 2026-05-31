@@ -50,7 +50,7 @@ export default function PackageUpdateAction(props: PackageUpdateActionProps) {
     >
       <button
         type="button"
-        class={`inline-flex h-4 w-4 items-center justify-center p-0 leading-none transition-transform hover:scale-125 ${
+        class={`inline-flex h-4 w-4 cursor-pointer items-center justify-center p-0 leading-none transition-transform hover:scale-125 ${
           updateOperation.isUpdating() ? 'text-info hover:text-error' : 'text-primary'
         }`}
         onClick={handleClick}
