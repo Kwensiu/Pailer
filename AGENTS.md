@@ -76,6 +76,12 @@ Global state managed via SolidJS stores in `src/stores/`:
 - Shared context menu keys under `buttons.contextMenu.*`
 - Page-specific keys under respective sections (e.g., `installed.list.*`)
 
+### Package Operations
+
+- Scoop package install/update commands may trigger Scoop self-update and bucket refresh when Scoop considers its cache stale. Keep bypass logic centralized in the Rust command layer; avoid UI-level hacks that mutate user Scoop state.
+- Reuse `src/stores/operations.ts` and package hooks for running operation state. If multiple UI entry points control the same package update, they should share the same running/cancel state instead of keeping local copies.
+- The minimized operations tray depends on CSS stacking and transitions. Preserve stable item dimensions, z-index ordering, and rendered item count when tuning hover animations.
+
 ## Build & Run
 
 ```shell
