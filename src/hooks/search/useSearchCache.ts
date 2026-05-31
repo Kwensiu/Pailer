@@ -1,4 +1,3 @@
-import { getManifestCache } from '../buckets/useBuckets';
 import { ScoopPackage } from '../../types/scoop';
 
 // Global search cache manager
@@ -247,26 +246,6 @@ export function useSearchCache(): UseSearchCacheReturn {
     if (searchCache) {
       return searchCache.packages;
     }
-
-    const manifestCache = getManifestCache(bucketName);
-    if (manifestCache && searchTerm.trim()) {
-      const query = searchTerm.toLowerCase();
-      return manifestCache.manifests
-        .filter((manifest) => manifest.toLowerCase().includes(query))
-        .map((manifest) => ({
-          name: manifest,
-          version: '',
-          source: bucketName,
-          updated: '',
-          is_installed: false,
-          info: '',
-          match_source: 'name' as const,
-          available_version: undefined,
-          installation_type: 'standard',
-          has_multiple_versions: false,
-        }));
-    }
-
     return null;
   };
 

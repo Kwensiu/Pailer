@@ -1,7 +1,16 @@
 /* Minimized indicators container */
 .minimized-indicators-container {
-  @apply pointer-events-none fixed bottom-4 left-4 z-50 flex max-h-[80vh] flex-col gap-2 overflow-y-auto;
+  @apply pointer-events-auto fixed bottom-4 left-4 z-50 flex max-h-[80vh] flex-col gap-0 overflow-y-auto;
+  --tray-stack-gap: clamp(0.45rem, calc(1.65rem - (var(--tray-count) * 0.16rem)), 1.1rem);
   scrollbar-width: none;
+}
+
+.minimized-indicators-container--collapsed {
+  @apply overflow-visible;
+}
+
+.minimized-indicators-container--expanded {
+  @apply overflow-y-auto;
 }
 
 .minimized-indicators-container::-webkit-scrollbar {
@@ -10,22 +19,43 @@
 
 /* Single minimized indicator */
 .minimized-indicator {
-  @apply border-base-300 bg-base-200/60 pointer-events-auto relative h-auto w-60 max-w-60 min-w-60 cursor-pointer rounded-xl border-2 p-2 backdrop-blur-md transition-all duration-300 ease-in-out;
+  @apply border-base-300 bg-base-200/60 pointer-events-auto relative isolate h-auto w-60 max-w-60 min-w-60 cursor-pointer rounded-xl border-2 p-2 backdrop-blur-md transition-colors duration-200 ease-in-out;
   animation: minimized-indicator-enter 300ms cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity;
+  max-height: 3rem;
+  transition-property: background-color, border-color, box-shadow, margin, opacity, transform;
+  will-change: opacity, transform;
+}
+
+.minimized-indicators-container--collapsed .minimized-indicator {
+  margin-top: calc(-3rem + var(--tray-stack-gap));
+  opacity: max(0.34, calc(1 - (var(--index) * 0.16)));
+  z-index: calc(1000 - var(--index));
+}
+
+.minimized-indicators-container--collapsed .minimized-indicator:first-child {
+  margin-top: 0;
+}
+
+.minimized-indicators-container--expanded .minimized-indicator {
+  margin-top: 0.5rem;
+  opacity: 1;
+  z-index: calc(1000 - var(--index));
+}
+
+.minimized-indicators-container--expanded .minimized-indicator:first-child {
+  margin-top: 0;
 }
 
 /* Border animation for in-progress indicators */
 .minimized-indicator--in-progress {
   position: relative;
-  animation: minimized-indicator-enter 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .minimized-indicator--in-progress::before {
   content: '';
   position: absolute;
   inset: -2px;
-  border-radius: 0.75rem;
+  border-radius: inherit;
   padding: 2px;
   background: conic-gradient(
     from var(--gradient-angle),
@@ -46,7 +76,8 @@
     linear-gradient(#fff 0 0);
   mask-composite: exclude;
   animation: border-flow 3s linear infinite;
-  z-index: -1;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Light theme background */
@@ -61,7 +92,7 @@
 
 /* Indicator content */
 .minimized-indicator__content {
-  @apply flex items-center justify-between;
+  @apply relative z-20 flex items-center justify-between;
 }
 
 .minimized-indicator__title {
@@ -72,26 +103,15 @@
   @apply flex shrink-0 items-center;
 }
 
-/* Special status indicators */
-.minimized-indicator--more,
-.minimized-indicator--collapse {
-  @apply bg-base-300 border-base-300 justify-center border-2 border-dashed text-center;
-}
-
-.minimized-indicator--more:hover,
-.minimized-indicator--collapse:hover {
-  @apply bg-base-300;
-}
-
 /* Enter animation */
 @keyframes minimized-indicator-enter {
   from {
     opacity: 0;
-    transform: translateY(calc(var(--index) * 60px + 20px));
+    transform: translateY(0.75rem);
   }
   to {
     opacity: 1;
-    transform: translateY(calc(var(--index) * 60px));
+    transform: translateY(0);
   }
 }
 
@@ -99,11 +119,11 @@
 @keyframes minimized-indicator-exit {
   from {
     opacity: 1;
-    transform: translateY(calc(var(--index) * 60px));
+    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: translateY(calc(var(--index) * 60px + 20px));
+    transform: translateY(0.75rem);
   }
 }
 
@@ -111,18 +131,14 @@
   animation: minimized-indicator-exit 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Minimize animation */
-.minimizing .modal {
-  @apply opacity-0;
-  transform: translate(-50%, 300px) !important;
-  transition: all 300ms ease-out !important;
-  animation: none !important;
-}
-
-/* Responsive design - position only */
+/* Responsive design */
 @media (max-width: 640px) {
   .minimized-indicators-container {
     @apply right-2 bottom-2 left-2 gap-1;
+  }
+
+  .minimized-indicator {
+    @apply w-full max-w-none min-w-0;
   }
 }
 
@@ -131,34 +147,39 @@
     @apply top-4 right-4 bottom-auto left-4 max-h-none flex-row overflow-x-auto;
   }
 
-  .minimized-indicator {
-    transform: translateX(calc(var(--index) * 250px));
-  }
-
-  .minimized-indicator:hover {
-    transform: translateX(calc(var(--index) * 250px));
-  }
-
   @keyframes minimized-indicator-enter {
     from {
       opacity: 0;
-      transform: translateX(calc(var(--index) * 250px + 20px));
+      transform: translateX(0.75rem);
     }
     to {
       opacity: 1;
-      transform: translateX(calc(var(--index) * 250px));
+      transform: translateX(0);
     }
   }
 
   @keyframes minimized-indicator-exit {
     from {
       opacity: 1;
-      transform: translateX(calc(var(--index) * 250px));
+      transform: translateX(0);
     }
     to {
       opacity: 0;
-      transform: translateX(calc(var(--index) * 250px + 20px));
+      transform: translateX(0.75rem);
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimized-indicator,
+  .minimized-indicator.exiting,
+  .minimized-indicator--in-progress::before {
+    animation: none;
+  }
+
+  .minimized-indicator {
+    transition: none;
+    will-change: auto;
   }
 }
 

@@ -14,6 +14,7 @@ import { t } from '../../../i18n';
 import { useGlobalSearchHotkey } from '../../../hooks';
 import { VersionTypeFilter } from '../../../types/scoop';
 import Dropdown from '../../common/Dropdown';
+import { useRunningUpdateOperation } from '../../../hooks/packages/useRunningUpdateOperation';
 
 const isValidVersionType = (value: string): value is VersionTypeFilter =>
   ['all', 'versioned', 'held'].includes(value);
@@ -48,6 +49,10 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   let searchInputRef: HTMLInputElement | undefined;
   let focusTimeoutId: ReturnType<typeof setTimeout> | undefined;
   const [isExpanded, setIsExpanded] = createSignal(false);
+  const [updateAllHovered, setUpdateAllHovered] = createSignal(false);
+  const updateAllOperation = useRunningUpdateOperation({
+    logPrefix: 'InstalledPageHeader',
+  });
 
   useGlobalSearchHotkey({
     shouldClear: () => props.searchQuery().length > 0,
@@ -92,6 +97,13 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         focusTimeoutId = undefined;
       }
     });
+  });
+
+  createEffect(() => {
+    if (!updateAllOperation.isUpdating()) {
+      setUpdateAllHovered(false);
+      updateAllOperation.clearCancelRetry();
+    }
   });
 
   const toggleViewMode = () => {
@@ -158,7 +170,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         </Show>
         {/* Update All Button or Status Button */}
         <Show
-          when={props.updatableCount() > 0}
+          when={props.updatableCount() > 0 || updateAllOperation.isUpdating()}
           fallback={
             <button
               class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
@@ -182,10 +194,34 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             </button>
           }
         >
-          <button class="btn btn-secondary gap-2" onClick={props.onUpdateAll}>
-            <CircleArrowUp class="h-4 w-4" />
-            <span class="hidden md:inline">{t('installed.header.updateAll')}&nbsp;</span>
-            <span>({props.updatableCount()})</span>
+          <button
+            class="btn btn-secondary gap-2"
+            classList={{
+              'btn-error': updateAllOperation.isUpdating() && updateAllHovered(),
+              'btn-secondary': !updateAllOperation.isUpdating() || !updateAllHovered(),
+            }}
+            onClick={() => {
+              if (updateAllOperation.isUpdating()) {
+                updateAllOperation.requestCancel();
+              } else {
+                props.onUpdateAll();
+              }
+            }}
+            onMouseEnter={() => setUpdateAllHovered(true)}
+            onMouseLeave={() => setUpdateAllHovered(false)}
+          >
+            <Show when={!updateAllOperation.isUpdating()}>
+              <CircleArrowUp class="h-4 w-4" />
+            </Show>
+            <span class="hidden md:inline">
+              {updateAllOperation.isUpdating()
+                ? updateAllHovered()
+                  ? t('buttons.cancel')
+                  : t('buttons.updating')
+                : t('installed.header.updateAll')}
+              &nbsp;
+            </span>
+            <span>{updateAllOperation.isUpdating() ? '' : `(${props.updatableCount()})`}</span>
           </button>
         </Show>
 

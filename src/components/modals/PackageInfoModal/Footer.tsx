@@ -1,8 +1,9 @@
-import { Show } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import { Download, ChevronUp } from 'lucide-solid';
 import Dropdown from '../../common/Dropdown';
 import { t } from '../../../i18n';
 import type { PackageInfoModalProps, PackageRunEntry } from './types';
+import { useRunningUpdateOperation } from '../../../hooks/packages/useRunningUpdateOperation';
 
 interface ConfirmActionReturn {
   isConfirming: (key: string) => boolean;
@@ -31,6 +32,43 @@ interface PackageInfoModalFooterProps {
 export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
   const hasRunEntries = () => props.runEntries().length > 0;
   const hasMultipleRunEntries = () => props.runEntries().length > 1;
+  const [updateButtonHovered, setUpdateButtonHovered] = createSignal(false);
+  const updateOperation = useRunningUpdateOperation({
+    packageName: () => props.pkg?.name,
+    logPrefix: 'PackageInfoModalFooter',
+  });
+
+  const handleUpdateClick = () => {
+    if (updateOperation.isUpdating()) {
+      updateOperation.requestCancel();
+      return;
+    }
+
+    if (props.updateConfirm.isConfirming('update')) {
+      props.updateConfirm.cancelConfirm('update');
+      if (props.pkg) {
+        if (props.onForceUpdate) {
+          props.onForceUpdate(props.pkg);
+        } else {
+          console.warn('onForceUpdate is not provided for force update operation');
+        }
+        props.onPackageStateChanged?.();
+      }
+      return;
+    }
+
+    if (props.hasUpdate()) {
+      if (props.pkg && props.onUpdate) {
+        props.onUpdate(props.pkg);
+        props.onPackageStateChanged?.();
+      } else {
+        console.warn('onUpdate is not provided for update operation');
+      }
+      return;
+    }
+
+    props.updateConfirm.startConfirm('update');
+  };
 
   return (
     <div class="flex w-full items-center justify-between">
@@ -82,43 +120,39 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
                 class="btn join-item btn-l-split"
                 classList={{
                   'btn-info btn-soft':
-                    props.hasUpdate() && !props.updateConfirm.isConfirming('update'),
+                    props.hasUpdate() &&
+                    !props.updateConfirm.isConfirming('update') &&
+                    !updateOperation.isUpdating(),
                   'btn-soft text-base-content/50':
-                    !props.hasUpdate() && !props.updateConfirm.isConfirming('update'),
+                    !props.hasUpdate() &&
+                    !props.updateConfirm.isConfirming('update') &&
+                    !updateOperation.isUpdating(),
                   'btn-warning min-w-24': props.updateConfirm.isConfirming('update'),
+                  'btn-info btn-soft min-w-24':
+                    updateOperation.isUpdating() && !updateButtonHovered(),
+                  'btn-error min-w-24': updateOperation.isUpdating() && updateButtonHovered(),
                 }}
-                onClick={() => {
-                  if (props.updateConfirm.isConfirming('update')) {
-                    props.updateConfirm.cancelConfirm('update');
-                    if (props.pkg) {
-                      if (props.onForceUpdate) {
-                        props.onForceUpdate(props.pkg);
-                      } else {
-                        console.warn('onForceUpdate is not provided for force update operation');
-                      }
-                      props.onPackageStateChanged?.();
-                    }
-                  } else if (props.hasUpdate()) {
-                    if (props.pkg && props.onUpdate) {
-                      props.onUpdate(props.pkg);
-                      props.onPackageStateChanged?.();
-                    } else {
-                      console.warn('onUpdate is not provided for update operation');
-                    }
-                  } else {
-                    props.updateConfirm.startConfirm('update');
-                  }
-                }}
+                onClick={handleUpdateClick}
+                onMouseEnter={() => setUpdateButtonHovered(true)}
+                onMouseLeave={() => setUpdateButtonHovered(false)}
               >
-                {props.updateConfirm.isConfirming('update')
-                  ? t('packageInfo.forceUpdate')
-                  : t('packageInfo.update')}
+                {updateOperation.isUpdating()
+                  ? updateButtonHovered()
+                    ? t('buttons.cancel')
+                    : t('buttons.updating')
+                  : props.updateConfirm.isConfirming('update')
+                    ? t('packageInfo.forceUpdate')
+                    : t('packageInfo.update')}
               </button>
               <Dropdown
                 direction="up"
                 position="end"
                 trigger={
-                  <button type="button" class="btn btn-soft join-item btn-r-split">
+                  <button
+                    type="button"
+                    class="btn btn-soft join-item btn-r-split"
+                    disabled={updateOperation.isUpdating()}
+                  >
                     <ChevronUp class="h-4 w-4 shrink-0" />
                   </button>
                 }

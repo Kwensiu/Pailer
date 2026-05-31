@@ -14,8 +14,8 @@ export default function ScoopUpdateSettings() {
       description={t('settings.scoopUpdate.description')}
       headerAction={
         <SettingsToggle
-          checked={settings.scoop.bypassSelfUpdate}
-          onChange={async (checked) => await setScoopSettings({ bypassSelfUpdate: checked })}
+          checked={settings.scoop.skipPreUpdateRefresh}
+          onChange={async (checked) => await setScoopSettings({ skipPreUpdateRefresh: checked })}
           showStatusLabel={true}
         />
       }

@@ -11,9 +11,8 @@ import SearchResultsList from '../components/page/search/SearchResultsList';
 
 import { createSignal, createEffect, onCleanup, onMount, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import { useSearch, createTauriSignal } from '../hooks';
-import { useBuckets, type BucketInfo } from '../hooks/buckets/useBuckets';
-import { searchCacheManager } from '../hooks/search/useSearchCache';
+import { useSearch, createTauriSignal, useSearchBucketInfo, useSearchManifest } from '../hooks';
+import { useBuckets } from '../hooks/buckets/useBuckets';
 import { t } from '../i18n';
 import { RefreshCw, Settings } from 'lucide-solid';
 import installedPackagesStore from '../stores/installedPackagesStore';
@@ -51,7 +50,6 @@ function SearchPage() {
     syncSelectedPackage,
     closeOperationModal,
     cleanup,
-    restoreSearchResults,
     refreshSearchResults,
     bucketFilter,
     setBucketFilter,
@@ -61,17 +59,8 @@ function SearchPage() {
   const [currentPage, setCurrentPage] = createTauriSignal('searchCurrentPage', 1);
   const [uniqueBuckets, setUniqueBuckets] = createSignal<string[]>([]);
   const [refreshing, setRefreshing] = createSignal(false);
-  const [selectedBucket, setSelectedBucket] = createSignal<string | null>(null);
-  const [bucketInfo, setBucketInfo] = createSignal<BucketInfo | null>(null);
-  const [bucketInfoLoading, setBucketInfoLoading] = createSignal(false);
-  const [bucketInfoError, setBucketInfoError] = createSignal<string | null>(null);
   const [bucketGitUrlMap, setBucketGitUrlMap] = createSignal<Map<string, string>>(new Map());
   const [bucketGitBranchMap, setBucketGitBranchMap] = createSignal<Map<string, string>>(new Map());
-  const [manifestPackage, setManifestPackage] = createSignal<string | null>(null);
-  const [manifestSource, setManifestSource] = createSignal<string | null>(null);
-  const [manifestContent, setManifestContent] = createSignal<string | null>(null);
-  const [manifestLoading, setManifestLoading] = createSignal(false);
-  const [manifestError, setManifestError] = createSignal<string | null>(null);
   const [changeBucketModalOpen, setChangeBucketModalOpen] = createSignal(false);
   const [currentPackageForBucketChange, setCurrentPackageForBucketChange] =
     createSignal<ScoopPackage | null>(null);
@@ -80,18 +69,25 @@ function SearchPage() {
   const isRefreshing = () => refreshing() || loading();
 
   const { getBucketInfo, buckets, fetchBuckets } = useBuckets();
-
-  // AbortController instances for request cancellation
-  let currentBucketController: AbortController | null = null;
-  let currentManifestController: AbortController | null = null;
-
-  // Bucket info cache for performance optimization
-  const bucketInfoCache = new Map<string, { info: BucketInfo; timestamp: number }>();
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
-  const MAX_CACHE_SIZE = 50; // Maximum cache entries limit
+  const {
+    selectedBucket,
+    bucketInfo,
+    bucketInfoLoading,
+    bucketInfoError,
+    handleViewBucket,
+    closeBucketModal,
+  } = useSearchBucketInfo(getBucketInfo);
+  const {
+    manifestPackage,
+    manifestSource,
+    manifestContent,
+    manifestLoading,
+    manifestError,
+    closeManifestModal,
+    handleViewManifest,
+  } = useSearchManifest();
 
   onMount(async () => {
-    restoreSearchResults();
     await fetchBuckets();
   });
 
@@ -126,133 +122,6 @@ function SearchPage() {
     activeTab();
     setCurrentPage(1);
   });
-
-  const handleViewBucket = async (bucketName: string) => {
-    // Cancel previous request (reuse useSearch pattern)
-    if (currentBucketController) {
-      currentBucketController.abort();
-      currentBucketController = null;
-    }
-
-    // Check cache (reuse SearchCacheManager pattern)
-    const cached = bucketInfoCache.get(bucketName);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      setSelectedBucket(bucketName);
-      setBucketInfoLoading(false);
-      setBucketInfoError(null);
-      setBucketInfo(cached.info);
-      return;
-    }
-
-    // Limit cache size, prioritize evicting oldest entries
-    if (bucketInfoCache.size >= MAX_CACHE_SIZE) {
-      let oldestKey: string | null = null;
-      let oldestTimestamp = Infinity;
-
-      bucketInfoCache.forEach((value, key) => {
-        if (value.timestamp < oldestTimestamp) {
-          oldestTimestamp = value.timestamp;
-          oldestKey = key;
-        }
-      });
-
-      if (oldestKey) {
-        bucketInfoCache.delete(oldestKey);
-      }
-    }
-
-    setSelectedBucket(bucketName);
-    setBucketInfoLoading(true);
-    setBucketInfo(null);
-    setBucketInfoError(null);
-
-    currentBucketController = new AbortController();
-    const { signal } = currentBucketController;
-
-    try {
-      const info = await getBucketInfo(bucketName);
-      // Check if request was cancelled
-      if (signal.aborted) return;
-
-      if (info) {
-        setBucketInfo(info);
-        // Cache result (reuse SearchCacheManager pattern)
-        bucketInfoCache.set(bucketName, { info, timestamp: Date.now() });
-      } else {
-        setBucketInfoError(t('search.bucketInfo.notFound'));
-      }
-    } catch (error) {
-      if (signal.aborted) return; // Ignore cancelled request errors
-      console.error('Failed to get bucket info:', error);
-      setBucketInfoError(t('search.bucketInfo.loadFailed'));
-    } finally {
-      if (!signal.aborted) {
-        setBucketInfoLoading(false);
-        currentBucketController = null;
-      }
-    }
-  };
-
-  const closeManifestModal = () => {
-    if (currentManifestController) {
-      currentManifestController.abort();
-      currentManifestController = null;
-    }
-    setManifestPackage(null);
-    setManifestSource(null);
-    setManifestContent(null);
-    setManifestLoading(false);
-    setManifestError(null);
-  };
-
-  const handleViewManifest = async (pkg: { name: string; source: string }) => {
-    // Abort previous manifest request to prevent race conditions
-    if (currentManifestController) {
-      currentManifestController.abort();
-      currentManifestController = null;
-    }
-
-    setManifestPackage(pkg.name);
-    setManifestSource(pkg.source);
-    setManifestLoading(true);
-    setManifestError(null);
-    setManifestContent(null);
-
-    currentManifestController = new AbortController();
-    const { signal } = currentManifestController;
-
-    try {
-      const result = await invoke<string>('get_package_manifest', {
-        packageName: pkg.name,
-        bucket: pkg.source,
-      });
-      // Early return if request was aborted
-      if (signal.aborted) return;
-
-      setManifestContent(result);
-    } catch (error) {
-      // Ignore errors from cancelled requests
-      if (signal.aborted) return;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      setManifestError(errorMsg);
-      console.error(`Failed to fetch manifest for ${pkg.name}:`, errorMsg);
-    } finally {
-      if (!signal.aborted) {
-        setManifestLoading(false);
-        currentManifestController = null;
-      }
-    }
-  };
-
-  const handleCloseBucketModal = () => {
-    if (currentBucketController) {
-      currentBucketController.abort();
-      currentBucketController = null;
-    }
-    setSelectedBucket(null);
-    setBucketInfo(null);
-    setBucketInfoError(null);
-  };
 
   const handleOpenChangeBucket = (pkg: ScoopPackage) => {
     setCurrentPackageForBucketChange(pkg);
@@ -311,18 +180,6 @@ function SearchPage() {
       );
     }
   };
-
-  // Listen to global cache invalidation events
-  onMount(() => {
-    const unsubscribe = searchCacheManager.subscribe(() => {
-      // Clear bucket cache when global cache is invalidated
-      bucketInfoCache.clear();
-    });
-
-    onCleanup(() => {
-      unsubscribe();
-    });
-  });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -413,15 +270,6 @@ function SearchPage() {
 
   onCleanup(() => {
     cleanup();
-    // Clean up ongoing requests to prevent memory leaks
-    if (currentBucketController) {
-      currentBucketController.abort();
-      currentBucketController = null;
-    }
-    if (currentManifestController) {
-      currentManifestController.abort();
-      currentManifestController = null;
-    }
   });
 
   return (
@@ -515,7 +363,7 @@ function SearchPage() {
             onViewBucket={handleViewBucket}
             onPackageStateChanged={() => {
               // This will be called when install buttons are clicked
-              // The actual refresh will happen in closeOperationModal when the operation completes
+              // The actual refresh happens from the global operation-finished invalidation
             }}
             currentPage={currentPage()}
             onPageChange={handlePageChange}
@@ -603,7 +451,7 @@ function SearchPage() {
           manifestsLoading={bucketInfoLoading()}
           loading={bucketInfoLoading() && !bucketInfo()}
           error={bucketInfoError()}
-          onClose={handleCloseBucketModal}
+          onClose={closeBucketModal}
         />
       </Show>
       <OptionsModal

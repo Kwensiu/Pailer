@@ -176,7 +176,7 @@ const performInstall = (pkg: ScoopPackage) => {
     packageName: pkg.name,
     bucket: pkg.source,
     operationId,
-    bypassSelfUpdate: settingsStore.settings.scoop.bypassSelfUpdate,
+    skipPreUpdateRefresh: settingsStore.settings.scoop.skipPreUpdateRefresh,
   }).catch((err) => {
     console.error(`Installation invocation failed for ${pkg.name}:`, err);
     setOperationNextStep(null);
@@ -278,8 +278,8 @@ const handleUpdate = async (pkg: ScoopPackage) => {
   } as Parameters<typeof addOperation>[0]);
 
   // Call backend command with operationId
-  const bypassSelfUpdate = settingsStore.settings.scoop.bypassSelfUpdate;
-  invoke('update_package', { packageName: pkg.name, operationId, bypassSelfUpdate }).catch(
+  const skipPreUpdateRefresh = settingsStore.settings.scoop.skipPreUpdateRefresh;
+  invoke('update_package', { packageName: pkg.name, operationId, skipPreUpdateRefresh }).catch(
     (err) => {
       console.error('Update invocation failed:', err);
       setCurrentOperation(null);
@@ -320,12 +320,12 @@ const handleForceUpdate = async (pkg: ScoopPackage) => {
     forceUpdate: true,
   } as Parameters<typeof addOperation>[0]);
 
-  const bypassSelfUpdate = settingsStore.settings.scoop.bypassSelfUpdate;
+  const skipPreUpdateRefresh = settingsStore.settings.scoop.skipPreUpdateRefresh;
   invoke('update_package', {
     packageName: pkg.name,
     force: true,
     operationId,
-    bypassSelfUpdate,
+    skipPreUpdateRefresh,
   }).catch((err) => {
     console.error('Force update invocation failed:', err);
     setCurrentOperation(null);

@@ -14,7 +14,7 @@ use tauri::{AppHandle, State, Window};
 /// * `package_name` - The name of package to install.
 /// * `bucket` - The name of bucket to install from. If empty or "None", default buckets are used.
 /// * `operation_id` - Optional operation ID for tracking.
-/// * `bypass_self_update` - Whether to bypass Scoop's self-update check.
+/// * `skip_pre_update_refresh` - Whether to bypass Scoop's stale self/bucket refresh check.
 #[tauri::command]
 pub async fn install_package(
     window: Window,
@@ -23,7 +23,7 @@ pub async fn install_package(
     package_name: String,
     bucket: String,
     operation_id: Option<String>,
-    bypass_self_update: Option<bool>,
+    skip_pre_update_refresh: Option<bool>,
 ) -> Result<(), String> {
     let event_window = window.clone();
     let bucket_opt =
@@ -44,7 +44,7 @@ pub async fn install_package(
         Some(&package_name),
         bucket_opt,
         operation_id.clone(),
-        bypass_self_update.unwrap_or(false),
+        skip_pre_update_refresh.unwrap_or(false),
     )
     .await;
 

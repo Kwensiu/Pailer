@@ -8,6 +8,9 @@ use crate::state::AppState;
 use tauri::{AppHandle, State, Window};
 
 /// Updates a specific Scoop package.
+///
+/// When `skip_pre_update_refresh` is enabled, the command skips Scoop's stale
+/// self/bucket refresh path for this process only.
 #[tauri::command]
 pub async fn update_package(
     window: Window,
@@ -16,7 +19,7 @@ pub async fn update_package(
     package_name: String,
     force: Option<bool>,
     operation_id: Option<String>,
-    bypass_self_update: Option<bool>,
+    skip_pre_update_refresh: Option<bool>,
 ) -> Result<(), String> {
     log::info!("Updating package '{}'", package_name);
     let event_window = window.clone();
@@ -36,7 +39,7 @@ pub async fn update_package(
         Some(&package_name),
         None,
         operation_id.clone(),
-        bypass_self_update.unwrap_or(false),
+        skip_pre_update_refresh.unwrap_or(false),
     )
     .await;
 

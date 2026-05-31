@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use super::model::{
-    is_scoop_related_path, looks_like_filesystem_path, normalize_aumid,
-    normalize_executable_path, to_normcase_path, NotifyIconEntry,
+    is_scoop_related_path, looks_like_filesystem_path, normalize_aumid, normalize_executable_path,
+    to_normcase_path, NotifyIconEntry,
 };
 
 #[cfg(windows)]

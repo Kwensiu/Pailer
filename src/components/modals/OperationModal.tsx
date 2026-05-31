@@ -463,7 +463,7 @@ function OperationModal(props: OperationModalProps) {
         packageName: currentOp.isScan ? undefined : currentOp.packageName,
         bucketName: currentOp.isScan ? undefined : currentOp.bucketName,
         forceUpdate: !currentOp.isScan && currentOp.forceUpdate === true,
-        bypassSelfUpdate: settingsStore.settings.scoop.bypassSelfUpdate,
+        skipPreUpdateRefresh: settingsStore.settings.scoop.skipPreUpdateRefresh,
       });
     } catch (error) {
       // Only update if EVENT_FINISHED hasn't already moved the operation to a terminal state.

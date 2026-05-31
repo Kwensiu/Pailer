@@ -176,6 +176,7 @@ export interface Dict {
     switchBucket: string;
     uninstall: string;
     updateAll: string;
+    updating: string;
     view: string;
   };
   common: {

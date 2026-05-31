@@ -213,11 +213,45 @@ pub fn create_powershell_command(command_str: &str) -> Command {
     cmd
 }
 
-/// Builds the Scoop update-all command while suppressing Scoop self-update.
-/// This intentionally relies on Scoop's current internal `is_scoop_outdated`
-/// function and should remain the single integration point for that hack.
-pub fn build_scoop_update_all_skip_self_update_command() -> String {
-    "function global:is_scoop_outdated { return $false }; Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly; scoop update *".to_string()
+fn quote_powershell_single(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+fn scoop_update_override_preamble() -> String {
+    let mut script = String::new();
+    script.push_str("$scoopRoot = (scoop prefix scoop).Trim(); ");
+    script.push_str(". \"$scoopRoot\\lib\\core.ps1\"; ");
+    script.push_str(". \"$scoopRoot\\lib\\buckets.ps1\"; ");
+    script.push_str(". \"$scoopRoot\\lib\\commands.ps1\"; ");
+    script.push_str("function global:is_scoop_outdated { return $false }; ");
+    script.push_str("Set-Item -Path Function:\\global:is_scoop_outdated -Options ReadOnly;");
+    script
+}
+
+/// Builds the Scoop update-all command.
+///
+/// When `bypass` is enabled, it suppresses Scoop's stale self/bucket refresh
+/// path for this PowerShell process only.
+pub fn build_scoop_update_all_command(bypass: bool) -> String {
+    if bypass {
+        format!("{} scoop update *", scoop_update_override_preamble())
+    } else {
+        "scoop update *".to_string()
+    }
+}
+
+/// Builds a single-package Scoop update command that bypasses Scoop's
+/// stale-check path for this PowerShell process only.
+pub fn build_scoop_update_bypass_command(package_name: &str, force: bool) -> String {
+    let escaped_package = quote_powershell_single(package_name);
+    let force_flag = if force { " -f" } else { "" };
+
+    format!(
+        "{} & \"$scoopRoot\\libexec\\scoop-update.ps1\" '{}'{}",
+        scoop_update_override_preamble(),
+        escaped_package,
+        force_flag
+    )
 }
 
 /// Checks if PowerShell Core (pwsh) is available on the system.

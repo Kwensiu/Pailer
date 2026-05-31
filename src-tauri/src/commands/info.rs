@@ -342,7 +342,9 @@ fn collect_manifest_bin_candidates(
         collect_bin_value_candidates(bin_value, package_name, &mut items);
     }
 
-    if let Some(architecture) = manifest_json.get("architecture").and_then(|value| value.as_object())
+    if let Some(architecture) = manifest_json
+        .get("architecture")
+        .and_then(|value| value.as_object())
     {
         for key in current_scoop_architecture_keys() {
             let Some(arch_entry) = architecture.get(*key) else {
@@ -359,10 +361,7 @@ fn collect_manifest_bin_candidates(
 
 fn resolve_executable_from_relative(current_dir: &Path, relative_path: &str) -> Option<PathBuf> {
     let rel = Path::new(relative_path);
-    let mut candidates = vec![
-        current_dir.join(rel),
-        current_dir.join("bin").join(rel),
-    ];
+    let mut candidates = vec![current_dir.join(rel), current_dir.join("bin").join(rel)];
 
     let has_ext = rel.extension().is_some();
     if !has_ext {

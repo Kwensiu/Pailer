@@ -1,5 +1,5 @@
 import { For, Show, createEffect, onCleanup, Accessor } from 'solid-js';
-import { CircleArrowUp, Lock, ArrowUp, ArrowDown, Package } from 'lucide-solid';
+import { Lock, ArrowUp, ArrowDown, Package } from 'lucide-solid';
 import type { ScoopPackage } from '../../../types/scoop';
 import type { DisplayPackage } from '../../../stores/installedPackagesStore';
 import {
@@ -12,6 +12,7 @@ import heldStore from '../../../stores/held';
 import { formatIsoDate } from '../../../utils/date';
 import { t } from '../../../i18n';
 import HighlightText from '../../../components/common/HighlightText';
+import PackageUpdateAction from './PackageUpdateAction';
 import {
   useConfirmAction,
   useContextMenuState,
@@ -248,9 +249,10 @@ function PackageListView(props: PackageListViewProps) {
                             pkg.installation_type !== 'custom'
                           }
                         >
-                          <div
-                            class="tooltip tooltip-right shrink-0"
-                            data-tip={
+                          <PackageUpdateAction
+                            pkg={pkg}
+                            onUpdate={props.onUpdate}
+                            tooltip={
                               t('installed.list.updateAvailableTooltip', {
                                 version: pkg.available_version,
                               }) +
@@ -258,12 +260,10 @@ function PackageListView(props: PackageListViewProps) {
                                 ? t('installed.list.ciVersionNote')
                                 : '')
                             }
-                          >
-                            <CircleArrowUp
-                              class="text-primary ml-1 h-4 w-4 cursor-pointer transition-transform hover:scale-125"
-                              onClick={() => props.onUpdate(pkg)}
-                            />
-                          </div>
+                            tooltipClass="tooltip-right shrink-0"
+                            class="ml-1 h-4 w-4"
+                            iconClass="h-4 w-4"
+                          />
                         </Show>
                         <Show when={pkg.installation_type === 'custom'}>
                           <div

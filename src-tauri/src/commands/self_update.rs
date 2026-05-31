@@ -126,7 +126,10 @@ pub async fn update_pailer_self<R: Runtime>(app: AppHandle<R>) -> Result<String,
     let update_script = script_template
         .replace("{PID}", &current_pid.to_string())
         .replace("{RESTART_EXE}", &restart_exe.to_string_lossy())
-        .replace("{TRAY_SNAPSHOT_FILE}", &tray_snapshot_path.to_string_lossy())
+        .replace(
+            "{TRAY_SNAPSHOT_FILE}",
+            &tray_snapshot_path.to_string_lossy(),
+        )
         .replace(
             "{TRAY_MIGRATION_ENABLED}",
             if tray_migration_enabled { "1" } else { "0" },

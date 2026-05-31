@@ -471,6 +471,32 @@ const operationsStore = createRoot(() => {
       );
     };
 
+    const getRunningPackageOperation = (
+      packageName: string,
+      operationTypes?: OperationType[]
+    ): OperationState | undefined => {
+      return Object.values(operations).find(
+        (op) =>
+          !op.isScan &&
+          op.packageName === packageName &&
+          op.status === OperationStatusEnum.InProgress &&
+          (!operationTypes || operationTypes.includes(op.operationType))
+      );
+    };
+
+    const getRunningPackageUpdateOperation = (packageName: string) => {
+      return getRunningPackageOperation(packageName, [OperationType.Update]);
+    };
+
+    const getRunningUpdateAllOperation = () => {
+      return Object.values(operations).find(
+        (op) =>
+          !op.isScan &&
+          op.operationType === OperationType.UpdateAll &&
+          op.status === OperationStatusEnum.InProgress
+      );
+    };
+
     // Update active operations count - removed, using createMemo for automatic calculation
 
     // Check multi-instance warning
@@ -550,6 +576,9 @@ const operationsStore = createRoot(() => {
       toggleMinimize,
       setOperationStatus,
       getActiveOperations,
+      getRunningPackageOperation,
+      getRunningPackageUpdateOperation,
+      getRunningUpdateAllOperation,
 
       // Command execution methods
       setCommand,

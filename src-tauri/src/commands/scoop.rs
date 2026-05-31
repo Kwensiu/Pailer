@@ -1,12 +1,5 @@
 use super::powershell::{self, EVENT_CANCEL, EVENT_FINISHED, EVENT_OUTPUT};
-use lazy_static::lazy_static;
 use tauri::{Emitter, Window};
-use tokio::sync::Mutex;
-
-lazy_static! {
-    /// Serialises concurrent bypass updates to prevent LAST_UPDATE read-modify-restore races.
-    static ref LAST_UPDATE_LOCK: Mutex<()> = Mutex::new(());
-}
 
 /// Defines the supported Scoop operations.
 #[derive(Debug, Clone, Copy)]
@@ -59,6 +52,16 @@ fn build_scoop_cmd(
     bucket: Option<&str>,
     bypass: bool,
 ) -> Result<String, String> {
+    let build_update_command = |pkg: &str, force: bool| {
+        if bypass {
+            crate::commands::powershell::build_scoop_update_bypass_command(pkg, force)
+        } else if force {
+            format!("scoop update {} --force", pkg)
+        } else {
+            format!("scoop update {}", pkg)
+        }
+    };
+
     let command = match op {
         ScoopOp::Install => {
             let pkg = package.ok_or("A package name is required to install.")?;
@@ -85,25 +88,17 @@ fn build_scoop_cmd(
         }
         ScoopOp::Update => {
             let pkg = package.ok_or("A package name is required to update.")?;
-            if bypass {
-                format!("scoop config LAST_UPDATE ([System.DateTime]::Now.ToString('o')) | Out-Null; scoop update {}", pkg)
-            } else {
-                format!("scoop update {}", pkg)
-            }
+            build_update_command(pkg, false)
         }
         ScoopOp::UpdateForce => {
             let pkg = package.ok_or("A package name is required to force update.")?;
-            if bypass {
-                format!("scoop config LAST_UPDATE ([System.DateTime]::Now.ToString('o')) | Out-Null; scoop update {} --force", pkg)
-            } else {
-                format!("scoop update {} --force", pkg)
-            }
+            build_update_command(pkg, true)
         }
         ScoopOp::ClearCache => {
             let pkg = package.ok_or("A package name is required to clear the cache.")?;
             format!("scoop cache rm {}", pkg)
         }
-        ScoopOp::UpdateAll => crate::commands::powershell::build_scoop_update_all_skip_self_update_command(),
+        ScoopOp::UpdateAll => crate::commands::powershell::build_scoop_update_all_command(bypass),
     };
 
     Ok(command)
@@ -113,9 +108,6 @@ fn build_scoop_cmd(
 ///
 /// This function builds the Scoop command, creates a human-friendly operation
 /// name for the UI, and then executes it using the PowerShell runner.
-/// When bypass is true, holds LAST_UPDATE_LOCK for the full duration to prevent
-/// concurrent-update races, backs up LAST_UPDATE, and restores (or removes) it
-/// after — even on cancel.
 pub async fn execute_scoop(
     window: Window,
     op: ScoopOp,
@@ -124,26 +116,6 @@ pub async fn execute_scoop(
     operation_id: String,
     bypass: bool,
 ) -> Result<(), String> {
-    // Serialise all bypass updates: hold the lock until backup + operation + restore finish.
-    let _last_update_guard = if bypass {
-        Some(LAST_UPDATE_LOCK.lock().await)
-    } else {
-        None
-    };
-
-    // Backup LAST_UPDATE before single-package bypass updates so we can restore it after.
-    // `scoop config LAST_UPDATE` outputs "'LAST_UPDATE' is not set" (exit 0) when absent,
-    // so we must filter that message rather than relying on an empty-string check.
-    let last_update_backup = if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
-        powershell::run_simple_command("scoop config LAST_UPDATE")
-            .await
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty() && !s.contains("is not set"))
-    } else {
-        None
-    };
-
     let cmd = build_scoop_cmd(op, package, bucket, bypass)?;
     let op_name = generate_operation_name(op, package);
 
@@ -160,29 +132,6 @@ pub async fn execute_scoop(
     )
     .await;
 
-    // Restore LAST_UPDATE — runs even when the operation was cancelled,
-    // because run_and_stream_command always returns after killing the process.
-    if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
-        match last_update_backup {
-            Some(ref backup) => {
-                let escaped_backup = backup.replace('\'', "''");
-                let restore_cmd =
-                    format!("scoop config LAST_UPDATE '{}' | Out-Null", escaped_backup);
-                if let Err(e) = powershell::run_simple_command(&restore_cmd).await {
-                    log::error!("[{}] Failed to restore LAST_UPDATE: {}", operation_id, e);
-                }
-            }
-            None => {
-                // Key did not exist before bypass — remove it to leave no trace.
-                if let Err(e) =
-                    powershell::run_simple_command("scoop config rm LAST_UPDATE | Out-Null").await
-                {
-                    log::error!("[{}] Failed to remove LAST_UPDATE: {}", operation_id, e);
-                }
-            }
-        }
-    }
-
     result
 }
 
@@ -195,7 +144,7 @@ pub async fn retry_operation_elevated(
     package_name: Option<String>,
     bucket_name: Option<String>,
     force_update: Option<bool>,
-    bypass_self_update: Option<bool>,
+    skip_pre_update_refresh: Option<bool>,
 ) -> Result<(), String> {
     let op = match operation_type.as_str() {
         "install" => ScoopOp::Install,
@@ -217,24 +166,7 @@ pub async fn retry_operation_elevated(
         }
     };
 
-    let bypass = bypass_self_update.unwrap_or(false);
-
-    // Hold LAST_UPDATE_LOCK and backup/restore for bypass updates, same as execute_scoop.
-    let _last_update_guard = if bypass {
-        Some(LAST_UPDATE_LOCK.lock().await)
-    } else {
-        None
-    };
-
-    let last_update_backup = if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
-        powershell::run_simple_command("scoop config LAST_UPDATE")
-            .await
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty() && !s.contains("is not set"))
-    } else {
-        None
-    };
+    let bypass = skip_pre_update_refresh.unwrap_or(false);
 
     let scoop_cmd = build_scoop_cmd(op, package_name.as_deref(), bucket_name.as_deref(), bypass)?;
 
@@ -316,27 +248,6 @@ pub async fn retry_operation_elevated(
     };
 
     let _ = window.emit(EVENT_FINISHED, result);
-
-    // Restore LAST_UPDATE after elevated retry, same as execute_scoop.
-    if bypass && matches!(op, ScoopOp::Update | ScoopOp::UpdateForce) {
-        match last_update_backup {
-            Some(ref backup) => {
-                let escaped_backup = backup.replace('\'', "''");
-                let restore_cmd =
-                    format!("scoop config LAST_UPDATE '{}' | Out-Null", escaped_backup);
-                if let Err(e) = powershell::run_simple_command(&restore_cmd).await {
-                    log::error!("[{}] Failed to restore LAST_UPDATE: {}", operation_id, e);
-                }
-            }
-            None => {
-                if let Err(e) =
-                    powershell::run_simple_command("scoop config rm LAST_UPDATE | Out-Null").await
-                {
-                    log::error!("[{}] Failed to remove LAST_UPDATE: {}", operation_id, e);
-                }
-            }
-        }
-    }
 
     if success {
         Ok(())

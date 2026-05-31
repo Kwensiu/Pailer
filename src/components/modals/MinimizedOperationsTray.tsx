@@ -1,4 +1,4 @@
-import { createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
+import { createMemo, createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
 import { CircleCheckBig, CircleX, TriangleAlert, CircleSlash } from 'lucide-solid';
 import { useOperations } from '../../stores/operations';
 import type { MinimizedIndicatorProps } from '../../types/operations';
@@ -110,31 +110,31 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
 const MinimizedOperationsTray = () => {
   const { getActiveOperations, removeOperation, toggleMinimize } = useOperations();
 
-  const [showMore, setShowMore] = createSignal(false);
+  const [expanded, setExpanded] = createSignal(false);
   const cancelRetryCleanups = new Map<string, () => void>();
 
-  // Get minimized operations list
-  const getMinimizedOperations = () => {
+  const minimizedOperations = createMemo(() => {
     return getActiveOperations()
       .filter((op) => op.isMinimized)
-      .sort((a, b) => b.updatedAt - a.updatedAt); // Sort by update time in descending order
-  };
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  });
 
-  // Get visible operations list
-  const getVisibleOperations = () => {
-    const minimized = getMinimizedOperations();
-    const count = 5; // Fixed display 5 items
-    return showMore() ? minimized : minimized.slice(0, count);
-  };
+  const canExpandTray = () => minimizedOperations().length > 1;
+  const trayCount = () => minimizedOperations().length;
 
   // Handle indicator click
   const handleIndicatorClick = (operationId: string) => {
+    if (canExpandTray() && !expanded()) {
+      setExpanded(true);
+      return;
+    }
+
     toggleMinimize(operationId);
   };
 
   // Handle indicator close
   const handleIndicatorClose = (operationId: string) => {
-    const operation = getActiveOperations().find((op) => op.id === operationId);
+    const operation = minimizedOperations().find((op) => op.id === operationId);
     if (!operation) {
       console.warn(`[MinimizedOperationsTray] Operation not found: ${operationId}`);
       return;
@@ -160,17 +160,15 @@ const MinimizedOperationsTray = () => {
     removeOperation(operationId);
   };
 
-  // Calculate if there are more operations
-  const hasMoreOperations = () => {
-    const minimized = getMinimizedOperations();
-    return minimized.length > 5;
-  };
-
   // Keyboard navigation
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      setShowMore(false);
+      setExpanded(false);
     }
+  };
+
+  const collapseTray = () => {
+    setExpanded(false);
   };
 
   onMount(() => {
@@ -186,50 +184,31 @@ const MinimizedOperationsTray = () => {
   });
 
   return (
-    <Show when={getMinimizedOperations().length > 0}>
-      <div class="minimized-indicators-container">
-        <For each={getVisibleOperations()}>
+    <Show when={minimizedOperations().length > 0}>
+      <div
+        class="minimized-indicators-container"
+        classList={{
+          'minimized-indicators-container--expanded': expanded(),
+          'minimized-indicators-container--collapsed': !expanded(),
+        }}
+        style={`--tray-count: ${trayCount()};`}
+        onMouseEnter={() => canExpandTray() && setExpanded(true)}
+        onMouseLeave={collapseTray}
+        onFocusIn={() => canExpandTray() && setExpanded(true)}
+      >
+        <For each={minimizedOperations()}>
           {(operation, index) => (
             <MinimizedOperation
               operationId={operation.id}
               title={operation.title}
               status={operation.status}
               isMinimized={operation.isMinimized}
-              visible={true}
               onClick={() => handleIndicatorClick(operation.id)}
               onClose={() => handleIndicatorClose(operation.id)}
               index={index()}
             />
           )}
         </For>
-
-        {/* Show more button */}
-        <Show when={hasMoreOperations() && !showMore()}>
-          <button
-            class="minimized-indicator minimized-indicator--more"
-            style={`--index: ${getVisibleOperations().length};`}
-            onClick={() => setShowMore(true)}
-            aria-label={t('buttons.showMore')}
-          >
-            <div class="minimized-indicator__content">
-              <div class="minimized-indicator__title">+{getMinimizedOperations().length - 5}</div>
-            </div>
-          </button>
-        </Show>
-
-        {/* Collapse button */}
-        <Show when={showMore() && hasMoreOperations()}>
-          <button
-            class="minimized-indicator minimized-indicator--collapse"
-            style={`--index: ${getVisibleOperations().length};`}
-            onClick={() => setShowMore(false)}
-            aria-label={t('buttons.showLess')}
-          >
-            <div class="minimized-indicator__content">
-              <div class="minimized-indicator__title">{t('buttons.collapse')}</div>
-            </div>
-          </button>
-        </Show>
       </div>
     </Show>
   );
