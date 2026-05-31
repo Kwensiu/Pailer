@@ -62,7 +62,7 @@ interface Settings {
     executable: 'auto' | 'pwsh' | 'powershell';
   };
   scoop: {
-    bypassSelfUpdate: boolean;
+    skipPreUpdateRefresh: boolean;
   };
   search: {
     allowCachePrebuild: boolean;
@@ -111,7 +111,7 @@ const defaultSettings: Settings = {
     executable: 'auto',
   },
   scoop: {
-    bypassSelfUpdate: false,
+    skipPreUpdateRefresh: false,
   },
   search: {
     allowCachePrebuild: false,
@@ -235,8 +235,8 @@ function createSettingsStore() {
               executable: stored.powershell?.executable || defaultSettings.powershell.executable,
             },
             scoop: {
-              bypassSelfUpdate:
-                stored.scoop?.bypassSelfUpdate ?? defaultSettings.scoop.bypassSelfUpdate,
+              skipPreUpdateRefresh:
+                stored.scoop?.skipPreUpdateRefresh ?? defaultSettings.scoop.skipPreUpdateRefresh,
             },
             search: {
               ...defaultSettings.search,

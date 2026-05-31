@@ -760,8 +760,8 @@
       "title": "Scoop Configuration"
     },
     "scoopUpdate": {
-      "description": "Allow package install/update operations to skip Scoop self-update and bucket fetch.\nUses local manifests instead of remote versions, but may cause update issues.",
-      "title": "Bypass Scoop Self-Update (Beta)"
+      "description": "Skip Scoop's stale self/bucket refresh before package install and update operations.",
+      "title": "Skip Pre-Update Refresh (Beta)"
     },
     "startup": {
       "description": "Configure whether Pailer should automatically start when Windows boots.",

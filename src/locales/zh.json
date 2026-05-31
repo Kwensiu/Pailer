@@ -760,8 +760,8 @@
       "title": "Scoop 路径配置"
     },
     "scoopUpdate": {
-      "description": "允许软件包安装/更新跳过 Scoop 自更新和 Bucket 同步。\n将使用本地 Manifest 而非远程版本，但可能导致更新问题。",
-      "title": "绕过 Scoop 自更新（实验）"
+      "description": "在安装和更新软件包前，跳过 Scoop 因过期检查触发的自更新和 Bucket 同步。",
+      "title": "跳过更新前刷新（实验）"
     },
     "startup": {
       "description": "配置 Pailer 是否应该在 Windows 启动时自动运行。",

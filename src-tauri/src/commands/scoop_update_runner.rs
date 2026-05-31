@@ -19,7 +19,7 @@ impl ScoopUpdateAllOutput {
 }
 
 pub async fn run_update_all_headless() -> Result<ScoopUpdateAllOutput, String> {
-    let update_all_command = powershell::build_scoop_update_all_skip_self_update_command();
+    let update_all_command = powershell::build_scoop_update_all_command(true);
     let mut cmd = powershell::create_powershell_command(&update_all_command);
     let mut child = cmd
         .spawn()
