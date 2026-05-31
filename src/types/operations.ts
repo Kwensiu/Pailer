@@ -162,7 +162,6 @@ export interface MinimizedIndicatorProps {
   title: string;
   status: OperationStatus;
   isMinimized: boolean;
-  visible: boolean;
   onClick: () => void;
   onClose?: () => void;
   index?: number;
