@@ -128,6 +128,28 @@ fn load_bucket_info(bucket_path: &Path) -> Result<BucketInfo, String> {
     })
 }
 
+fn scan_buckets(buckets_path: &Path) -> Result<Vec<BucketInfo>, String> {
+    let bucket_dirs = fs::read_dir(buckets_path)
+        .map_err(|e| format!("Failed to read buckets directory: {}", e))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .collect::<Vec<_>>();
+
+    let mut buckets = Vec::new();
+
+    for entry in bucket_dirs {
+        let path = entry.path();
+        match load_bucket_info(&path) {
+            Ok(bucket) => buckets.push(bucket),
+            Err(e) => {
+                log::warn!("Skipping bucket at '{}': {}", path.display(), e);
+            }
+        }
+    }
+
+    Ok(buckets)
+}
+
 /// Fetches a list of all Scoop buckets by scanning the buckets directory.
 #[tauri::command]
 pub async fn get_buckets<R: Runtime>(
@@ -146,23 +168,9 @@ pub async fn get_buckets<R: Runtime>(
         return Ok(vec![]);
     }
 
-    let bucket_dirs = fs::read_dir(&buckets_path)
-        .map_err(|e| format!("Failed to read buckets directory: {}", e))?
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().is_dir())
-        .collect::<Vec<_>>();
-
-    let mut buckets = Vec::new();
-
-    for entry in bucket_dirs {
-        let path = entry.path();
-        match load_bucket_info(&path) {
-            Ok(bucket) => buckets.push(bucket),
-            Err(e) => {
-                log::warn!("Skipping bucket at '{}': {}", path.display(), e);
-            }
-        }
-    }
+    let buckets = tauri::async_runtime::spawn_blocking(move || scan_buckets(&buckets_path))
+        .await
+        .map_err(|e| format!("Failed to join bucket scan task: {}", e))??;
 
     log::info!("Found {} buckets", buckets.len());
     Ok(buckets)

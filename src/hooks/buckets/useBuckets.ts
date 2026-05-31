@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, getOwner, onCleanup } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ScoopPackage } from '../../types/scoop';
 
@@ -96,14 +96,29 @@ interface UseBucketsReturn {
 let cachedBuckets: BucketInfo[] | null = null;
 let isFetching = false;
 let globalError: string | null = null;
-const listeners: ((buckets: BucketInfo[]) => void)[] = [];
+let shouldRefreshCache = false;
+let inFlightFetch: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+const getCurrentBuckets = () => cachedBuckets || [];
+
+const notifyListeners = () => {
+  listeners.forEach((listener) => listener());
+};
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
 
 // Add a function to update the cache from outside the hook
 export function updateBucketsCache(buckets: BucketInfo[] | null) {
   cachedBuckets = buckets;
 
   // Notify all listeners of the cache update
-  listeners.forEach((listener) => listener(buckets || []));
+  notifyListeners();
 }
 
 // Export cache functions for external use
@@ -111,28 +126,43 @@ export { clearManifestCache, getManifestCache, setManifestCache };
 
 export function useBuckets(): UseBucketsReturn {
   // Initialize with cached data if available to avoid unnecessary loading state on page switches
-  const [buckets, setBuckets] = createSignal<BucketInfo[]>(cachedBuckets || []);
+  const [buckets, setBuckets] = createSignal<BucketInfo[]>(getCurrentBuckets());
   const [loading, setLoading] = createSignal(isFetching || !cachedBuckets);
   const [error, setError] = createSignal<string | null>(globalError);
 
-  const notifyListeners = (newBuckets: BucketInfo[]) => {
-    listeners.forEach((listener) => listener(newBuckets));
+  const syncFromGlobalState = () => {
+    setBuckets(getCurrentBuckets());
+    setLoading(isFetching);
+    setError(globalError);
   };
 
-  const subscribe = (listener: (buckets: BucketInfo[]) => void) => {
-    listeners.push(listener);
-    return () => {
-      const index = listeners.indexOf(listener);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
-    };
-  };
+  const runFetch = async (quiet: boolean) => {
+    isFetching = true;
+    globalError = null;
+    if (!quiet) {
+      setLoading(true);
+      setError(null);
+      notifyListeners();
+    }
 
-  let shouldRefreshCache = false;
+    try {
+      const result = await invoke<BucketInfo[]>('get_buckets');
+      cachedBuckets = result;
+      globalError = null;
+      shouldRefreshCache = false;
+    } catch (err) {
+      console.error('Failed to fetch buckets:', err);
+      globalError = err as string;
+    } finally {
+      isFetching = false;
+      inFlightFetch = null;
+      notifyListeners();
+    }
+  };
 
   const fetchBuckets = async (forceRefresh = false, quiet = false) => {
-    if (isFetching && !forceRefresh) {
+    if (inFlightFetch) {
+      await inFlightFetch;
       return;
     }
 
@@ -146,38 +176,8 @@ export function useBuckets(): UseBucketsReturn {
       return;
     }
 
-    if (!quiet) {
-      setLoading(true);
-      notifyListeners(buckets());
-    }
-    isFetching = true;
-    setError(null);
-
-    try {
-      const result = await invoke<BucketInfo[]>('get_buckets');
-      cachedBuckets = result;
-      globalError = null;
-      shouldRefreshCache = false;
-      setBuckets(result);
-      setError(null);
-      notifyListeners(result);
-    } catch (err) {
-      console.error('Failed to fetch buckets:', err);
-      const errMsg = err as string;
-      globalError = errMsg;
-      setError(errMsg);
-      // Notify listeners to sync loading and error state
-      notifyListeners(buckets());
-    } finally {
-      isFetching = false;
-      if (!quiet) {
-        setLoading(false);
-        notifyListeners(buckets());
-      } else {
-        // Even if quiet, we should notify listeners so they can sync their loading state
-        notifyListeners(buckets());
-      }
-    }
+    inFlightFetch = runFetch(quiet);
+    await inFlightFetch;
   };
 
   const markForRefresh = () => {
@@ -186,18 +186,21 @@ export function useBuckets(): UseBucketsReturn {
     clearManifestCache();
   };
 
-  const unsubscribe = subscribe((newBuckets) => {
-    setBuckets(newBuckets);
-    // Sync loading state with the global isFetching state
-    setLoading(isFetching);
-    // Sync error state with the global error state
-    setError(globalError);
-  });
+  const unsubscribe = subscribe(syncFromGlobalState);
 
-  // Return cleanup function instead of using onCleanup directly
+  let isCleanedUp = false;
+
   const cleanup = () => {
+    if (isCleanedUp) {
+      return;
+    }
+    isCleanedUp = true;
     unsubscribe();
   };
+
+  if (getOwner()) {
+    onCleanup(cleanup);
+  }
 
   const getBucketInfo = async (bucketName: string): Promise<BucketInfo | null> => {
     try {

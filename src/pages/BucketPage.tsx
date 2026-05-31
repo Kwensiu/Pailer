@@ -204,6 +204,32 @@ function BucketPage() {
     }
   };
 
+  const refreshBucketInfoInCache = async (bucketName: string): Promise<BucketInfo | null> => {
+    try {
+      const updatedBucketInfo = await invoke<BucketInfo>('get_bucket_info', {
+        bucketName: bucketName,
+      });
+
+      if (!updatedBucketInfo || updatedBucketInfo.name !== bucketName) {
+        throw new Error('Invalid bucket info received');
+      }
+
+      const currentBuckets = buckets();
+      const bucketExists = currentBuckets.some((bucket) => bucket.name === bucketName);
+      const updatedBuckets = bucketExists
+        ? currentBuckets.map((bucket: BucketInfo) =>
+            bucket.name === bucketName ? updatedBucketInfo : bucket
+          )
+        : [...currentBuckets, updatedBucketInfo];
+
+      updateBucketsCache(updatedBuckets);
+      return updatedBucketInfo;
+    } catch (error) {
+      console.error('Failed to refresh bucket info:', error);
+      return null;
+    }
+  };
+
   // Handle updating a single bucket
   const handleUpdateBucket = async (
     bucketName: string,
@@ -300,6 +326,17 @@ function BucketPage() {
         }
       }
 
+      if (result.success && shouldRefreshBuckets && !isBulkUpdateCancelling) {
+        clearManifestCache(bucketName);
+
+        const currentBucket = selectedBucket();
+        if (currentBucket && currentBucket.name === bucketName) {
+          await handleFetchManifests(bucketName);
+        }
+
+        await refreshBucketInfoInCache(bucketName);
+      }
+
       // Always return the correct result format for bulk update statistics
       return {
         success: result.success,
@@ -394,26 +431,10 @@ function BucketPage() {
       await handleFetchManifests(bucketName);
     }
 
-    try {
-      const updatedBucketInfo = await invoke<BucketInfo>('get_bucket_info', {
-        bucketName: bucketName,
-      });
-
-      if (updatedBucketInfo && updatedBucketInfo.name === bucketName) {
-        const currentBuckets = buckets();
-        const updatedBuckets = currentBuckets.map((bucket: BucketInfo) =>
-          bucket.name === bucketName ? updatedBucketInfo : bucket
-        );
-        updateBucketsCache(updatedBuckets);
-      } else {
-        throw new Error('Invalid bucket info received');
-      }
-    } catch (error) {
-      console.error('Failed to get updated bucket info:', error);
-      if (error instanceof Error && !error.message.includes('cancelled')) {
-        markForRefresh();
-        await fetchBuckets(true);
-      }
+    const updatedBucketInfo = await refreshBucketInfoInCache(bucketName);
+    if (!updatedBucketInfo) {
+      markForRefresh();
+      await fetchBuckets(true);
     }
   };
 
