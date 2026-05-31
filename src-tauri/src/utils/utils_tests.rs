@@ -8,11 +8,8 @@ fn reads_bucket_from_current_install_dir() {
     let scoop_dir = temp_dir.path();
     let install_dir = scoop_dir.join("apps").join("firefox").join("current");
     fs::create_dir_all(&install_dir).expect("create install dir");
-    fs::write(
-        install_dir.join("install.json"),
-        r#"{ "bucket": "spc" }"#,
-    )
-    .expect("write install json");
+    fs::write(install_dir.join("install.json"), r#"{ "bucket": "spc" }"#)
+        .expect("write install json");
 
     assert_eq!(
         get_installed_package_bucket(scoop_dir, "firefox"),
