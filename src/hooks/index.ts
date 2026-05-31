@@ -30,6 +30,10 @@ export { useVersionFetch } from './packages/useVersionFetch';
 // Search related
 export { useSearch } from './search/useSearch';
 export { useSearchCache, searchCacheManager, localStorageUtils } from './search/useSearchCache';
+export { parseSearchFormat } from './search/searchQuery';
+export type { ParsedSearch } from './search/searchQuery';
+export { useSearchBucketInfo } from './search/useSearchBucketInfo';
+export { useSearchManifest } from './search/useSearchManifest';
 
 // Bucket related
 export {

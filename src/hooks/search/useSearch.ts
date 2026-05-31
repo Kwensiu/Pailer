@@ -1,6 +1,5 @@
 import {
   createEffect,
-  createMemo,
   createSignal,
   on,
   onCleanup,
@@ -12,7 +11,7 @@ import { ScoopPackage, ScoopInfo } from '../../types/scoop';
 import { usePackageOperations } from '../packages/usePackageOps';
 import { usePackageInfo } from '../packages/usePackageInfo';
 import { OperationNextStep } from '../../types/operations';
-import { parseSearchFormat, type ParsedSearch } from '../global/useGlobalHotkey';
+import { parseSearchFormat, type ParsedSearch } from './searchQuery';
 import { useSearchCache, searchCacheManager } from './useSearchCache';
 
 interface UseSearchReturn {
@@ -52,17 +51,11 @@ interface UseSearchReturn {
   cleanup: () => void;
   // Refresh function
   refreshSearchResults: (force?: boolean) => Promise<void>;
-  // Restore search results
-  restoreSearchResults: () => void;
-  // Check if has cached results
-  hasCachedResults: () => boolean;
 
   // Bucket filter
   bucketFilter: () => string;
   setBucketFilter: Setter<string>;
 
-  // Manual cache invalidation
-  invalidateSearchCache: () => void;
   updatePackageInstalledBucketInResults: (packageName: string, installedBucket: string) => void;
 }
 
@@ -123,19 +116,13 @@ export function useSearch(): UseSearchReturn {
       searchResultsCache = null;
       currentSearchTermCache = null;
       setCacheVersion((v) => v + 1);
+
+      if (searchTerm().trim() && results().length > 0) {
+        void refreshSearchResults(true);
+      }
     });
 
     onCleanup(unsubscribe);
-  });
-
-  // Memoized check for cached results
-  const hasCachedResults = createMemo(() => {
-    return Boolean(
-      searchResultsCache &&
-      currentSearchTermCache === searchTerm() &&
-      searchTerm().trim() !== '' &&
-      currentCacheVersion === cacheVersion()
-    );
   });
 
   const handleSearch = async (force: boolean = false) => {
@@ -355,16 +342,6 @@ export function useSearch(): UseSearchReturn {
   const closeOperationModal = async (_operationId: string, wasSuccess: boolean) => {
     await packageOperations.closeOperationModal(wasSuccess);
     if (wasSuccess) {
-      // Only refresh search results if they might be affected by the package operation
-      const currentSearch = searchTerm().trim();
-      if (currentSearch && results().length > 0) {
-        // For bucket-specific searches, only refresh if we're actually showing results
-        // that might be affected by package operations (since package operations affect
-        // installed packages, and search results show available packages)
-        // For now, we refresh when there are search results to be conservative
-        await refreshSearchResults();
-      }
-
       // Update selectedPackage if it exists
       const currentSelected = packageInfo.selectedPackage();
       if (currentSelected) {
@@ -390,11 +367,6 @@ export function useSearch(): UseSearchReturn {
     }
 
     return filteredResults;
-  };
-
-  // Simple function to manually invalidate search cache
-  const invalidateSearchCache = () => {
-    searchCacheManager.invalidateCache();
   };
 
   const updatePackageInstalledBucketInResults = (packageName: string, installedBucket: string) => {
@@ -454,15 +426,9 @@ export function useSearch(): UseSearchReturn {
     cleanup,
     // Refresh function
     refreshSearchResults,
-    // Restore function
-    restoreSearchResults,
-    // Check cached results
-    hasCachedResults,
     // Bucket filter
     bucketFilter,
     setBucketFilter,
-    // Manual cache invalidation
-    invalidateSearchCache,
     updatePackageInstalledBucketInResults,
   };
 }
