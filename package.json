@@ -23,7 +23,7 @@
   "dependencies": {
     "@floating-ui/dom": "^1.7.4",
     "@solid-primitives/i18n": "^2.2.1",
-    "@tauri-apps/api": "^2.10.0",
+    "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-log": "^2.8.0",
     "@tauri-apps/plugin-opener": "^2.5.3",
@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.3",
-    "@tauri-apps/cli": "^2.10.1",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^25.6.0",
     "daisyui": "^5.5.19",
     "prettier": "^3.8.3",
