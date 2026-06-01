@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.1](https://github.com/Kwensiu/Pailer/compare/v1.16.0...v1.16.1) (2026-06-01)
+
+
+### Refactoring
+
+* centralize operation completion handling ([cf7fcd1](https://github.com/Kwensiu/Pailer/commit/cf7fcd1f8e435f7a3d096805b31519d96bbfdc70))
+* **tray:** improve app menu configuration ([d6902f8](https://github.com/Kwensiu/Pailer/commit/d6902f8f651a93f79c9692484c8cf7c75685d896))
+
 ## [1.16.0](https://github.com/Kwensiu/Pailer/compare/v1.15.0...v1.16.0) (2026-05-31)
 
 
