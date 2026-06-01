@@ -6,8 +6,8 @@ import PackageInfoModal from '../components/modals/PackageInfoModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import ScoopStatusModal from '../components/page/installed/ScoopStatusModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
-import OperationModal from '../components/modals/OperationModal';
 import { useInstalledPackages, usePackageOperations, handleBucketPackageClick } from '../hooks';
+import { useOperationFollowUp } from '../hooks/packages/useOperationFollowUp';
 import InstalledPageHeader from '../components/page/installed/InstalledPageHeader';
 import PackageListView from '../components/page/installed/PackageListView';
 import PackageGridView from '../components/page/installed/PackageGridView';
@@ -76,11 +76,6 @@ function InstalledPage(props: InstalledPageProps) {
 
   const {
     handleInstall,
-    operationTitle,
-    operationNextStep,
-    isScanning,
-    handleInstallConfirm,
-    closeOperationModal,
     pailerUpdateConfirmOpen,
     pailerUpdateType,
     handlePailerUpdateConfirm,
@@ -163,6 +158,32 @@ function InstalledPage(props: InstalledPageProps) {
 
   const isRefreshing = () => refreshing();
 
+  const refreshSelectedPackageAfterOperation = async () => {
+    await installedPackagesStore.silentRefetch();
+
+    const currentSelected = selectedPackage();
+    if (!currentSelected) {
+      return;
+    }
+
+    const refreshedPackage = installedPackagesStore
+      .packages()
+      .find((pkg) => pkg.name === currentSelected.name && pkg.source === currentSelected.source);
+    if (refreshedPackage) {
+      updateSelectedPackage(refreshedPackage);
+    }
+
+    await versionedPackagesStore.fetchPackageVersions(currentSelected.name, false);
+  };
+
+  const operationFollowUp = useOperationFollowUp(refreshSelectedPackageAfterOperation);
+
+  const handleInstallWithFollowUp = operationFollowUp.withFollowUp(handleInstall);
+  const handleUninstallWithFollowUp = operationFollowUp.withFollowUp(handleUninstall);
+  const handleUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleUpdate);
+  const handleForceUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleForceUpdate);
+  const handleUpdateAllWithFollowUp = operationFollowUp.withFollowUp(handleUpdateAll);
+
   onMount(() => {
     let disposed = false;
     let unlistenOperationFinished: (() => void) | undefined;
@@ -241,7 +262,7 @@ function InstalledPage(props: InstalledPageProps) {
       <div class="p-6">
         <InstalledPageHeader
           updatableCount={updatableCount}
-          onUpdateAll={handleUpdateAll}
+          onUpdateAll={handleUpdateAllWithFollowUp}
           onCheckStatus={handleCheckStatus}
           statusLoading={statusLoading}
           scoopStatus={scoopStatus}
@@ -365,11 +386,11 @@ function InstalledPage(props: InstalledPageProps) {
                   onViewInfo={handleFetchPackageInfo}
                   onViewInfoForVersions={handleFetchPackageInfoForVersions}
                   onSwitchVersion={handleSwitchVersion}
-                  onUpdate={handleUpdate}
+                  onUpdate={handleUpdateWithFollowUp}
                   onOpenFolder={handleOpenFolder}
                   onHold={handleHold}
                   onUnhold={handleUnhold}
-                  onUninstall={handleUninstall}
+                  onUninstall={handleUninstallWithFollowUp}
                   onChangeBucket={handleOpenChangeBucket}
                   operatingOn={operatingOn}
                   hasVersions={hasVersions}
@@ -386,10 +407,10 @@ function InstalledPage(props: InstalledPageProps) {
                 onViewBucketInfo={(bucketName) => setSelectedBucketForInfo(bucketName)}
                 onViewInfoForVersions={handleFetchPackageInfoForVersions}
                 onSwitchVersion={handleSwitchVersion}
-                onUpdate={handleUpdate}
+                onUpdate={handleUpdateWithFollowUp}
                 onHold={handleHold}
                 onUnhold={handleUnhold}
-                onUninstall={handleUninstall}
+                onUninstall={handleUninstallWithFollowUp}
                 onChangeBucket={handleOpenChangeBucket}
                 onOpenFolder={handleOpenFolder}
                 operatingOn={operatingOn}
@@ -418,41 +439,17 @@ function InstalledPage(props: InstalledPageProps) {
           loading={false}
           error={null}
           onClose={handleCloseInfoModalWithVersions}
-          onInstall={handleInstall}
-          onUninstall={handleUninstall}
-          onUpdate={handleUpdate}
-          onForceUpdate={handleForceUpdate}
+          onInstall={handleInstallWithFollowUp}
+          onUninstall={handleUninstallWithFollowUp}
+          onUpdate={handleUpdateWithFollowUp}
+          onForceUpdate={handleForceUpdateWithFollowUp}
           onChangeBucket={handleOpenChangeBucket}
           autoShowVersions={autoShowVersions()}
           hasVersions={hasVersions}
           onPackageStateChanged={async () => {
-            await installedPackagesStore.silentRefetch();
-
-            const currentSelected = selectedPackage();
-            if (currentSelected) {
-              const refreshedPackage = installedPackagesStore
-                .packages()
-                .find(
-                  (pkg) =>
-                    pkg.name === currentSelected.name && pkg.source === currentSelected.source
-                );
-              if (refreshedPackage) {
-                updateSelectedPackage(refreshedPackage);
-              }
-
-              await versionedPackagesStore.fetchPackageVersions(currentSelected.name, false);
-            }
+            await refreshSelectedPackageAfterOperation();
           }}
           context="installed"
-        />
-        <OperationModal
-          title={operationTitle()}
-          onClose={async (_operationId: string, wasSuccess: boolean) => {
-            await closeOperationModal(wasSuccess);
-          }}
-          isScan={isScanning()}
-          onInstallConfirm={handleInstallConfirm}
-          nextStep={operationNextStep() ?? undefined}
         />
         <ScoopStatusModal
           isOpen={showStatusModal()}

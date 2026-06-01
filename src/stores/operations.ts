@@ -52,6 +52,10 @@ export interface CommandExecutionState {
 const operationsStore = createRoot(() => {
   const trayMigrationPreparedOps = new Set<string>();
   const trayMigrationPreparePromises = new Map<string, Promise<void>>();
+  const completionFollowUps = new Map<
+    string,
+    Set<(result: OperationResult) => void | Promise<void>>
+  >();
 
   // Operation state store
   const [operations, setOperations] = createStore<Record<string, OperationState>>({});
@@ -247,6 +251,16 @@ const operationsStore = createRoot(() => {
         }
       })();
     }
+
+    const followUps = completionFollowUps.get(operationId);
+    if (followUps) {
+      completionFollowUps.delete(operationId);
+      for (const followUp of followUps) {
+        void Promise.resolve(followUp(result)).catch((error) => {
+          console.error(`[operations] completion follow-up failed for "${operationId}":`, error);
+        });
+      }
+    }
   };
 
   const ensureOperationListeners = () => {
@@ -433,11 +447,44 @@ const operationsStore = createRoot(() => {
       checkMultiInstanceWarning();
     };
 
+    const addCompletionFollowUp = (
+      operationId: string,
+      followUp: (result: OperationResult) => void | Promise<void>
+    ) => {
+      const existingOperation = untrack(() => operations[operationId]);
+      if (existingOperation?.result && TERMINAL_STATUSES.has(existingOperation.status)) {
+        void Promise.resolve(followUp(existingOperation.result)).catch((error) => {
+          console.error(`[operations] completion follow-up failed for "${operationId}":`, error);
+        });
+        return () => {};
+      }
+
+      const existing = completionFollowUps.get(operationId);
+      if (existing) {
+        existing.add(followUp);
+      } else {
+        completionFollowUps.set(operationId, new Set([followUp]));
+      }
+
+      return () => {
+        const current = completionFollowUps.get(operationId);
+        if (!current) {
+          return;
+        }
+
+        current.delete(followUp);
+        if (current.size === 0) {
+          completionFollowUps.delete(operationId);
+        }
+      };
+    };
+
     // Remove operation
     const removeOperation = (id: string) => {
       setOperations(id, undefined as any);
       trayMigrationPreparedOps.delete(id);
       trayMigrationPreparePromises.delete(id);
+      completionFollowUps.delete(id);
       // Active operations count will be automatically updated through createMemo
     };
 
@@ -569,6 +616,7 @@ const operationsStore = createRoot(() => {
 
       // Operation methods
       addOperation,
+      addCompletionFollowUp,
       removeOperation,
       updateOperation,
       addOperationOutput,

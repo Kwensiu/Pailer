@@ -1,6 +1,5 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
-import OperationModal from '../components/modals/OperationModal';
 import * as SC from '../components/page/settings';
 import heldStore from '../stores/held';
 import { t } from '../i18n';
@@ -14,7 +13,6 @@ interface SettingsPageProps {
 
 function SettingsPage(props: SettingsPageProps) {
   const { refetch: refetchHeldPackages } = heldStore;
-  const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
   const [isUnholding, setIsUnholding] = createSignal(false);
 
   const TABS = [
@@ -39,10 +37,6 @@ function SettingsPage(props: SettingsPageProps) {
       refetchHeldPackages();
       setIsUnholding(false);
     });
-  };
-
-  const handleCloseOperationModal = () => {
-    setOperationTitle(null);
   };
 
   return (
@@ -86,7 +80,7 @@ function SettingsPage(props: SettingsPageProps) {
 
                 <SC.HeldPackagesManagement
                   onUnhold={handleUnhold}
-                  operationInProgress={!!operationTitle() || isUnholding()}
+                  operationInProgress={isUnholding()}
                 />
                 <SC.ScoopUpdateSettings />
                 <SC.PowerShellSettings />
@@ -121,7 +115,6 @@ function SettingsPage(props: SettingsPageProps) {
           </div>
         </div>
       </div>
-      <OperationModal title={operationTitle()} onClose={handleCloseOperationModal} />
     </>
   );
 }

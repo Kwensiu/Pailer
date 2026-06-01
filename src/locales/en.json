@@ -456,6 +456,7 @@
     "installDate": "Install Date",
     "installed": "Installed",
     "installedVersion": "Installed Version",
+    "alreadyInstalled": "{{name}} is already installed",
     "installing": "Installing {{name}}",
     "latestVersion": "Latest Version",
     "license": "License",

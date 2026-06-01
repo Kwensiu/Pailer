@@ -1,7 +1,6 @@
 import PackageInfoModal from '../components/modals/PackageInfoModal';
 import ManifestModal from '../components/modals/ManifestModal';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
-import OperationModal from '../components/modals/OperationModal';
 import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 import OptionsModal from '../components/modals/OptionsModal';
 
@@ -19,6 +18,7 @@ import installedPackagesStore from '../stores/installedPackagesStore';
 import settingsStore from '../stores/settings';
 import { ScoopPackage } from '../types/scoop';
 import { toast } from '../components/common/ToastAlert';
+import { useOperationFollowUp } from '../hooks/packages/useOperationFollowUp';
 
 function SearchPage() {
   const ITEMS_PER_PAGE = 8;
@@ -35,20 +35,15 @@ function SearchPage() {
     info,
     infoLoading,
     infoError,
-    operationTitle,
-    operationNextStep,
-    isScanning,
     handleInstall,
     handleUninstall,
     handleUpdate,
     handleForceUpdate,
-    handleInstallConfirm,
     fetchPackageInfo,
     updateSelectedPackage,
     refreshSelectedPackageInfo,
     closeModal,
     syncSelectedPackage,
-    closeOperationModal,
     cleanup,
     refreshSearchResults,
     bucketFilter,
@@ -189,6 +184,41 @@ function SearchPage() {
       setRefreshing(false);
     }
   };
+
+  const refreshSelectedPackageAfterOperation = async () => {
+    await installedPackagesStore.silentRefetch();
+
+    const currentSelected = selectedPackage();
+    if (!currentSelected) {
+      return;
+    }
+
+    await refreshSearchResults(true);
+
+    const candidatePackages = [...packageResults(), ...binaryResults()];
+    const matchedPackage = syncSelectedPackage(candidatePackages);
+
+    if (!matchedPackage && currentSelected.is_installed) {
+      const fallbackPackage = {
+        ...currentSelected,
+        is_installed: false,
+        is_installed_from_current_bucket: false,
+        available_version: undefined,
+      };
+      updateSelectedPackage(fallbackPackage);
+      await refreshSelectedPackageInfo(fallbackPackage);
+      return;
+    }
+
+    await refreshSelectedPackageInfo(matchedPackage ?? currentSelected);
+  };
+
+  const operationFollowUp = useOperationFollowUp(refreshSelectedPackageAfterOperation);
+
+  const handleInstallWithFollowUp = operationFollowUp.withFollowUp(handleInstall);
+  const handleUninstallWithFollowUp = operationFollowUp.withFollowUp(handleUninstall);
+  const handleUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleUpdate);
+  const handleForceUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleForceUpdate);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -357,8 +387,8 @@ function SearchPage() {
             activeTab={activeTab()}
             onViewInfo={fetchPackageInfo}
             onViewManifest={handleViewManifest}
-            onInstall={handleInstall}
-            onUninstall={handleUninstall}
+            onInstall={handleInstallWithFollowUp}
+            onUninstall={handleUninstallWithFollowUp}
             onSwitchBucket={handleOpenChangeBucket}
             onViewBucket={handleViewBucket}
             onPackageStateChanged={() => {
@@ -379,33 +409,13 @@ function SearchPage() {
         loading={infoLoading()}
         error={infoError()}
         onClose={closeModal}
-        onInstall={handleInstall}
-        onUninstall={handleUninstall}
-        onUpdate={handleUpdate}
-        onForceUpdate={handleForceUpdate}
+        onInstall={handleInstallWithFollowUp}
+        onUninstall={handleUninstallWithFollowUp}
+        onUpdate={handleUpdateWithFollowUp}
+        onForceUpdate={handleForceUpdateWithFollowUp}
         context="search"
         onPackageStateChanged={async () => {
-          await installedPackagesStore.silentRefetch();
-
-          const currentSelected = selectedPackage();
-          if (!currentSelected) {
-            return;
-          }
-
-          const candidatePackages = [...packageResults(), ...binaryResults()];
-          const matchedPackage = syncSelectedPackage(candidatePackages);
-
-          if (!matchedPackage && currentSelected.is_installed) {
-            const fallbackPackage = {
-              ...currentSelected,
-              is_installed: false,
-              is_installed_from_current_bucket: false,
-              available_version: undefined,
-            };
-            await refreshSearchResults(true);
-            updateSelectedPackage(fallbackPackage);
-            await refreshSelectedPackageInfo(fallbackPackage);
-          }
+          await refreshSelectedPackageAfterOperation();
         }}
         bucketGitUrl={bucketGitUrlMap().get(selectedPackage()?.source ?? '') ?? null}
         bucketGitBranch={bucketGitBranchMap().get(selectedPackage()?.source ?? '') ?? null}
@@ -425,13 +435,6 @@ function SearchPage() {
           const source = manifestSource();
           return source ? (bucketGitBranchMap().get(source) ?? null) : null;
         })()}
-      />
-      <OperationModal
-        title={operationTitle()}
-        onClose={closeOperationModal}
-        isScan={isScanning()}
-        onInstallConfirm={handleInstallConfirm}
-        nextStep={operationNextStep() ?? undefined}
       />
       <ChangeBucketModal
         isOpen={changeBucketModalOpen()}

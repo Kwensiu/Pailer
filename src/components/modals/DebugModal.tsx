@@ -547,13 +547,15 @@ const DebugModal = () => {
 
       {/* Operation Modal for testing - Development Only */}
       <Show when={import.meta.env.DEV && operationId()}>
-        <OperationModal
-          operationId={operationId()}
-          title="Test Operation"
-          onClose={() => {
-            setOperationId(undefined);
-          }}
-        />
+        {(id) => (
+          <OperationModal
+            operationId={id() as string}
+            title="Test Operation"
+            onClose={() => {
+              setOperationId(undefined);
+            }}
+          />
+        )}
       </Show>
 
       {/* Scoop Config Wizard for testing - Development Only */}

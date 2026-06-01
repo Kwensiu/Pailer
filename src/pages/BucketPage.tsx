@@ -15,7 +15,6 @@ import { searchCacheManager } from '../hooks/search/useSearchCache';
 import { ScoopPackage } from '../types/scoop';
 import BucketInfoModal from '../components/modals/BucketInfoModal';
 import PackageInfoModal from '../components/modals/PackageInfoModal';
-import OperationModal from '../components/modals/OperationModal';
 import BucketSearch from '../components/page/buckets/BucketSearch';
 import BucketGrid from '../components/page/buckets/BucketGrid';
 import { BucketSearchResults } from '../components/page/buckets/BucketSearch';
@@ -25,6 +24,7 @@ import { t } from '../i18n';
 import { toast } from '../components/common/ToastAlert';
 import installedPackagesStore from '../stores/installedPackagesStore';
 import bucketBulkUpdateStore from '../stores/bucketBulkUpdateStore';
+import { useOperationFollowUp } from '../hooks/packages/useOperationFollowUp';
 
 const UPDATE_RESULT_DISPLAY_DURATION = 2000;
 
@@ -190,6 +190,65 @@ function BucketPage() {
     markForRefresh();
     await fetchBuckets(true);
   };
+
+  const refreshSelectedPackageAfterOperation = async () => {
+    await installedPackagesStore.silentRefetch();
+
+    const currentSelectedPackage = packageInfo.selectedPackage();
+    if (currentSelectedPackage) {
+      const matchedInstalledPackage = packageInfo.syncSelectedPackage(
+        installedPackagesStore.packages()
+      );
+
+      if (!matchedInstalledPackage && currentSelectedPackage.is_installed) {
+        const fallbackPackage = {
+          ...currentSelectedPackage,
+          is_installed: false,
+          is_installed_from_current_bucket: false,
+          available_version: undefined,
+        };
+        packageInfo.updateSelectedPackage(fallbackPackage);
+        await packageInfo.refreshSelectedPackageInfo(fallbackPackage);
+      }
+
+      try {
+        const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
+          'search_scoop',
+          {
+            term: currentSelectedPackage.name,
+          }
+        );
+        const match = response.packages.find(
+          (p) =>
+            p.name === currentSelectedPackage.name && p.source === currentSelectedPackage.source
+        );
+        if (match) {
+          const refreshedPackage = packageInfo.syncSelectedPackage(response.packages);
+          await packageInfo.refreshSelectedPackageInfo(refreshedPackage ?? currentSelectedPackage);
+        }
+      } catch (e) {
+        console.error('Failed to check package status', e);
+      }
+    }
+
+    const currentBucket = selectedBucket();
+    if (currentBucket) {
+      await handleFetchManifests(currentBucket.name);
+    }
+  };
+
+  const operationFollowUp = useOperationFollowUp(refreshSelectedPackageAfterOperation);
+
+  const handleInstallWithFollowUp = operationFollowUp.withFollowUp(packageOperations.handleInstall);
+  const handleUninstallWithFollowUp = operationFollowUp.withFollowUp(
+    packageOperations.handleUninstall
+  );
+  const handleUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(
+    packageOperations.handleUpdate
+  );
+  const handleForceUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(
+    packageOperations.handleForceUpdate
+  );
 
   // Handle fetching manifests for newly installed bucket
   const handleFetchManifests = async (bucketName: string) => {
@@ -659,70 +718,14 @@ function BucketPage() {
         loading={packageInfo.loading()}
         error={packageInfo.error()}
         onClose={packageInfo.closeModal}
-        onInstall={packageOperations.handleInstall}
-        onUninstall={packageOperations.handleUninstall}
-        onUpdate={packageOperations.handleUpdate}
-        onForceUpdate={packageOperations.handleForceUpdate}
+        onInstall={handleInstallWithFollowUp}
+        onUninstall={handleUninstallWithFollowUp}
+        onUpdate={handleUpdateWithFollowUp}
+        onForceUpdate={handleForceUpdateWithFollowUp}
         showBackButton={true}
         onPackageStateChanged={async () => {
-          await installedPackagesStore.silentRefetch();
-
-          const currentSelectedPackage = packageInfo.selectedPackage();
-          if (currentSelectedPackage) {
-            const matchedInstalledPackage = packageInfo.syncSelectedPackage(
-              installedPackagesStore.packages()
-            );
-
-            if (!matchedInstalledPackage && currentSelectedPackage.is_installed) {
-              const fallbackPackage = {
-                ...currentSelectedPackage,
-                is_installed: false,
-                is_installed_from_current_bucket: false,
-                available_version: undefined,
-              };
-              packageInfo.updateSelectedPackage(fallbackPackage);
-              await packageInfo.refreshSelectedPackageInfo(fallbackPackage);
-            }
-          }
-
-          // Refresh bucket manifests to reflect installation changes
-          const currentBucket = selectedBucket();
-          if (currentBucket) {
-            await handleFetchManifests(currentBucket.name);
-          }
+          await refreshSelectedPackageAfterOperation();
         }}
-      />
-
-      <OperationModal
-        title={packageOperations.operationTitle()}
-        onClose={async (_operationId: string, wasSuccess: boolean) => {
-          await packageOperations.closeOperationModal(wasSuccess);
-          if (wasSuccess) {
-            const currentSelected = packageInfo.selectedPackage();
-            if (currentSelected) {
-              try {
-                const response = await invoke<{ packages: ScoopPackage[]; is_cold: boolean }>(
-                  'search_scoop',
-                  {
-                    term: currentSelected.name,
-                  }
-                );
-                const match = response.packages.find(
-                  (p) => p.name === currentSelected.name && p.source === currentSelected.source
-                );
-                if (match) {
-                  const refreshedPackage = packageInfo.syncSelectedPackage(response.packages);
-                  await packageInfo.refreshSelectedPackageInfo(refreshedPackage ?? currentSelected);
-                }
-              } catch (e) {
-                console.error('Failed to check package status', e);
-              }
-            }
-          }
-        }}
-        isScan={packageOperations.isScanning()}
-        onInstallConfirm={packageOperations.handleInstallConfirm}
-        nextStep={packageOperations.operationNextStep() ?? undefined}
       />
     </div>
   );

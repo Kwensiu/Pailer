@@ -1,16 +1,8 @@
-import {
-  createEffect,
-  createSignal,
-  on,
-  onCleanup,
-  onMount,
-  type Setter,
-} from 'solid-js';
+import { createEffect, createSignal, on, onCleanup, onMount, type Setter } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ScoopPackage, ScoopInfo } from '../../types/scoop';
 import { usePackageOperations } from '../packages/usePackageOps';
 import { usePackageInfo } from '../packages/usePackageInfo';
-import { OperationNextStep } from '../../types/operations';
 import { parseSearchFormat, type ParsedSearch } from './searchQuery';
 import { useSearchCache, searchCacheManager } from './useSearchCache';
 
@@ -36,16 +28,11 @@ interface UseSearchReturn {
   updateSelectedPackage: (pkg: ScoopPackage) => void;
   syncSelectedPackage: (packages: ScoopPackage[]) => ScoopPackage | null;
 
-  // From usePackageOperations (with enhanced closeOperationModal)
-  operationTitle: () => string | null;
-  operationNextStep: () => OperationNextStep | null;
-  isScanning: () => boolean;
-  handleInstall: (pkg: ScoopPackage) => void;
-  handleUninstall: (pkg: ScoopPackage) => void;
-  handleUpdate: (pkg: ScoopPackage) => Promise<void>;
-  handleForceUpdate: (pkg: ScoopPackage) => Promise<void>;
-  handleInstallConfirm: () => void;
-  closeOperationModal: (operationId: string, wasSuccess: boolean) => Promise<void>;
+  // From usePackageOperations
+  handleInstall: (pkg: ScoopPackage) => string | null;
+  handleUninstall: (pkg: ScoopPackage) => string;
+  handleUpdate: (pkg: ScoopPackage) => Promise<string | null>;
+  handleForceUpdate: (pkg: ScoopPackage) => Promise<string | null>;
 
   // Cleanup function
   cleanup: () => void;
@@ -338,19 +325,6 @@ export function useSearch(): UseSearchReturn {
     }
   };
 
-  // Enhanced close operation modal that intelligently refreshes search results
-  const closeOperationModal = async (_operationId: string, wasSuccess: boolean) => {
-    await packageOperations.closeOperationModal(wasSuccess);
-    if (wasSuccess) {
-      // Update selectedPackage if it exists
-      const currentSelected = packageInfo.selectedPackage();
-      if (currentSelected) {
-        const refreshedPackage = packageInfo.syncSelectedPackage(results());
-        await packageInfo.refreshSelectedPackageInfo(refreshedPackage ?? currentSelected);
-      }
-    }
-  };
-
   const packageResults = () => results().filter((p) => p.match_source === 'name');
   const binaryResults = () => results().filter((p) => p.match_source === 'binary');
   const resultsToShow = () => {
@@ -411,16 +385,11 @@ export function useSearch(): UseSearchReturn {
     updateSelectedPackage: packageInfo.updateSelectedPackage,
     syncSelectedPackage: packageInfo.syncSelectedPackage,
 
-    // From usePackageOperations (with enhanced closeOperationModal)
-    operationTitle: packageOperations.operationTitle,
-    operationNextStep: packageOperations.operationNextStep,
-    isScanning: packageOperations.isScanning,
+    // From usePackageOperations
     handleInstall: packageOperations.handleInstall,
     handleUninstall: packageOperations.handleUninstall,
     handleUpdate: packageOperations.handleUpdate,
     handleForceUpdate: packageOperations.handleForceUpdate,
-    handleInstallConfirm: packageOperations.handleInstallConfirm,
-    closeOperationModal,
 
     // Cleanup function
     cleanup,

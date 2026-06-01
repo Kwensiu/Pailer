@@ -219,27 +219,15 @@ const getWarningMessage = (operation: any) => {
 };
 
 function OperationModal(props: OperationModalProps) {
-  const {
-    removeOperation,
-    toggleMinimize,
-    setOperationStatus,
-    updateOperation,
-    addOperationOutput,
-    generateOperationId,
-    operations,
-  } = useOperations();
+  const { toggleMinimize, setOperationStatus, updateOperation, addOperationOutput, operations } =
+    useOperations();
 
   const [isClosing, setIsClosing] = createSignal(false);
   const [rendered, setRendered] = createSignal(false);
   const [isMinimizing, setIsMinimizing] = createSignal(false);
   let cancelRetryCleanup: (() => void) | null = null;
 
-  const operationId = createMemo(() => {
-    if (props.operationId) {
-      return props.operationId;
-    }
-    return generateOperationId(props.title || 'operation');
-  });
+  const operationId = createMemo(() => props.operationId);
 
   const operation = createMemo(() => {
     return operations()[operationId()];
@@ -281,10 +269,6 @@ function OperationModal(props: OperationModalProps) {
         props.onOperationFinished(operationId(), isSuccessful({ status: newStatus }));
       }
       setLastFinishedStatus(newStatus);
-
-      if (newStatus === 'success' && props.nextStep) {
-        props.nextStep.onNext();
-      }
     }
 
     if (!isTerminal({ status: newStatus }) && finishedStatus !== null) {
@@ -298,41 +282,6 @@ function OperationModal(props: OperationModalProps) {
     if (!currentOp) return;
 
     setRendered(true);
-
-    if (isTerminal(currentOp)) {
-      return;
-    }
-
-    let isDisposed = false;
-    let listenersSetup = false;
-
-    const setupListeners = async () => {
-      if (listenersSetup) return;
-      listenersSetup = true;
-
-      // Listen for VirusTotal scan success events from global store
-      const handleVirusTotalSuccess = (event: CustomEvent) => {
-        if (isDisposed) return;
-        if (event.detail.operationId === operationId()) {
-          props.onInstallConfirm?.();
-        }
-      };
-
-      window.addEventListener('virustotal-scan-success', handleVirusTotalSuccess as EventListener);
-
-      onCleanup(() => {
-        window.removeEventListener(
-          'virustotal-scan-success',
-          handleVirusTotalSuccess as EventListener
-        );
-      });
-    };
-
-    setupListeners();
-
-    onCleanup(() => {
-      isDisposed = true;
-    });
   });
 
   createEffect(() => {
@@ -370,8 +319,6 @@ function OperationModal(props: OperationModalProps) {
       } catch (error) {
         console.error('Error calling onClose:', error);
       }
-
-      removeOperation(operationId());
     }, 300);
   };
 
@@ -384,7 +331,6 @@ function OperationModal(props: OperationModalProps) {
       // Close the modal if operation is completed/cancelled
       cancelRetryCleanup?.();
       cancelRetryCleanup = null;
-      removeOperation(operationId());
       props.onClose(operationId(), isSuccessful(currentOperation));
     }
   };

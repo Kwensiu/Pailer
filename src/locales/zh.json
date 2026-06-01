@@ -456,6 +456,7 @@
     "installDate": "安装日期",
     "installed": "目录",
     "installedVersion": "版本",
+    "alreadyInstalled": "{{name}} 已安装",
     "installing": "正在安装 {{name}}",
     "latestVersion": "最新版本",
     "license": "许可证",

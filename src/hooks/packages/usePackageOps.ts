@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { ScoopPackage } from '../../types/scoop';
-import { OperationNextStep, OperationStatus, OperationType } from '../../types/operations';
+import { OperationStatus, OperationType } from '../../types/operations';
 import installedPackagesStore from '../../stores/installedPackagesStore';
 import { useOperations } from '../../stores/operations';
 import { t } from '../../i18n';
@@ -9,19 +9,11 @@ import { toast } from '../../components/common/ToastAlert';
 import settingsStore from '../../stores/settings';
 
 interface UsePackageOperationsReturn {
-  operationTitle: () => string | null;
-  setOperationTitle: (title: string | null) => void;
-  operationNextStep: () => OperationNextStep | null;
-  isScanning: () => boolean;
-  pendingInstallPackage: () => ScoopPackage | null;
-  handleInstall: (pkg: ScoopPackage) => void;
-  handleInstallConfirm: () => void;
-  handleUninstall: (pkg: ScoopPackage) => void;
-  handleUpdate: (pkg: ScoopPackage) => Promise<void>;
-  handleForceUpdate: (pkg: ScoopPackage) => Promise<void>;
-  handleUpdateAll: () => void;
-  closeOperationModal: (wasSuccess: boolean) => Promise<void>;
-  addCloseListener: (handler: (wasSuccess: boolean) => void) => () => void;
+  handleInstall: (pkg: ScoopPackage) => string | null;
+  handleUninstall: (pkg: ScoopPackage) => string;
+  handleUpdate: (pkg: ScoopPackage) => Promise<string | null>;
+  handleForceUpdate: (pkg: ScoopPackage) => Promise<string | null>;
+  handleUpdateAll: () => string;
   // Pailer self-update confirmation
   pailerUpdateConfirmOpen: () => boolean;
   setPailerUpdateConfirmOpen: (open: boolean) => void;
@@ -30,19 +22,8 @@ interface UsePackageOperationsReturn {
   handlePailerUpdateCancel: () => void;
 }
 
-const { addOperation } = useOperations();
-
-const [operationTitle, setOperationTitle] = createSignal<string | null>(null);
-const [operationNextStep, setOperationNextStep] = createSignal<OperationNextStep | null>(null);
-const [isScanning, setIsScanning] = createSignal(false);
-const [pendingInstallPackage, setPendingInstallPackage] = createSignal<ScoopPackage | null>(null);
-const [, setCurrentOperation] = createSignal<{
-  type: 'install' | 'uninstall' | 'update' | 'update-all';
-  packageName: string;
-  bucket?: string;
-  id: string; // Simple operation ID to avoid race conditions
-} | null>(null);
-const closeHandlers = new Set<(wasSuccess: boolean) => void>();
+const { addOperation, addOperationOutput, setOperationResult, generateOperationId } =
+  useOperations();
 
 // Pailer self-update confirmation state
 const [pailerUpdateConfirmOpen, setPailerUpdateConfirmOpen] = createSignal(false);
@@ -127,30 +108,28 @@ const showErrorNotification = (message: string) => {
   toast.error(message);
 };
 
-const addCloseListener = (handler: (wasSuccess: boolean) => void) => {
-  closeHandlers.add(handler);
-  return () => {
-    closeHandlers.delete(handler);
-  };
+const markOperationStartFailed = (operationId: string, operationName: string, error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  addOperationOutput(operationId, {
+    operationId,
+    source: 'error',
+    line: `[Pailer] Failed to start operation: ${message}`,
+    message,
+  });
+  setOperationResult(operationId, {
+    operationId,
+    success: false,
+    operationName,
+    errorCount: 1,
+    finalStatus: OperationStatus.Error,
+    message,
+    timestamp: Date.now(),
+  });
 };
 
-const performInstall = (pkg: ScoopPackage) => {
-  // Ensure clean state before starting new operation
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  // Track current operation
-  const operationId = `install-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
-  setCurrentOperation({
-    type: 'install',
-    packageName: pkg.name,
-    bucket: pkg.source,
-    id: operationId,
-  });
-
+const performInstall = (pkg: ScoopPackage): string => {
+  const operationId = generateOperationId(`install-${pkg.name}`);
   const title = t('packageInfo.installing', { name: pkg.name });
-  setOperationTitle(title);
 
   addOperation({
     id: operationId,
@@ -171,48 +150,24 @@ const performInstall = (pkg: ScoopPackage) => {
     skipPreUpdateRefresh: settingsStore.settings.scoop.skipPreUpdateRefresh,
   }).catch((err) => {
     console.error(`Installation invocation failed for ${pkg.name}:`, err);
-    setOperationNextStep(null);
-    setCurrentOperation(null);
+    markOperationStartFailed(operationId, title, err);
   });
+
+  return operationId;
 };
 
 const handleInstall = (pkg: ScoopPackage) => {
   if (installedPackagesStore.packages().some((p) => p.name === pkg.name)) {
-    setOperationNextStep({
-      buttonLabel: 'OK',
-      onNext: () => setOperationNextStep(null),
-    } as OperationNextStep);
-    return;
+    toast.info(t('packageInfo.alreadyInstalled', { name: pkg.name }));
+    return null;
   }
 
-  performInstall(pkg);
+  return performInstall(pkg);
 };
 
-const handleInstallConfirm = () => {
-  const pkg = pendingInstallPackage();
-  if (pkg) {
-    performInstall(pkg);
-    setPendingInstallPackage(null);
-  }
-};
-
-const handleUninstall = (pkg: ScoopPackage) => {
-  // Ensure clean state before starting new operation
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  // Track current operation
-  const operationId = `uninstall-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
-  setCurrentOperation({
-    type: 'uninstall',
-    packageName: pkg.name,
-    bucket: pkg.source,
-    id: operationId,
-  });
-
+const handleUninstall = (pkg: ScoopPackage): string => {
+  const operationId = generateOperationId(`uninstall-${pkg.name}`);
   const title = t('packageInfo.uninstalling', { name: pkg.name });
-  setOperationTitle(title);
 
   addOperation({
     id: operationId,
@@ -232,30 +187,19 @@ const handleUninstall = (pkg: ScoopPackage) => {
     operationId,
   }).catch((err) => {
     console.error(`Uninstallation invocation failed for ${pkg.name}:`, err);
-    setOperationNextStep(null);
-    setCurrentOperation(null);
+    markOperationStartFailed(operationId, title, err);
   });
+
+  return operationId;
 };
 
-const handleUpdate = async (pkg: ScoopPackage) => {
+const handleUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
   if (await checkAndSetupPailerSelfUpdate(pkg, 'update')) {
-    return;
+    return null;
   }
 
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  const operationId = `update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
-  setCurrentOperation({
-    type: 'update',
-    packageName: pkg.name,
-    bucket: pkg.source,
-    id: operationId,
-  });
-
+  const operationId = generateOperationId(`update-${pkg.name}`);
   const title = t('packageInfo.updating', { name: pkg.name });
-  setOperationTitle(title);
 
   addOperation({
     id: operationId,
@@ -274,30 +218,20 @@ const handleUpdate = async (pkg: ScoopPackage) => {
   invoke('update_package', { packageName: pkg.name, operationId, skipPreUpdateRefresh }).catch(
     (err) => {
       console.error('Update invocation failed:', err);
-      setCurrentOperation(null);
+      markOperationStartFailed(operationId, title, err);
     }
   );
+
+  return operationId;
 };
 
-const handleForceUpdate = async (pkg: ScoopPackage) => {
+const handleForceUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
   if (await checkAndSetupPailerSelfUpdate(pkg, 'force-update')) {
-    return;
+    return null;
   }
 
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  const operationId = `force-update-${pkg.name}-${Math.floor(Date.now() / 1000)}`;
-  setCurrentOperation({
-    type: 'update',
-    packageName: pkg.name,
-    bucket: pkg.source,
-    id: operationId,
-  });
-
+  const operationId = generateOperationId(`force-update-${pkg.name}`);
   const title = t('packageInfo.forceUpdating', { name: pkg.name });
-  setOperationTitle(title);
 
   addOperation({
     id: operationId,
@@ -320,26 +254,15 @@ const handleForceUpdate = async (pkg: ScoopPackage) => {
     skipPreUpdateRefresh,
   }).catch((err) => {
     console.error('Force update invocation failed:', err);
-    setCurrentOperation(null);
+    markOperationStartFailed(operationId, title, err);
   });
+
+  return operationId;
 };
 
-const handleUpdateAll = () => {
-  // Ensure clean state before starting new operation
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  // Track current operation
-  const operationId = `update-all-${Math.floor(Date.now() / 1000)}`;
-  setCurrentOperation({
-    type: 'update-all',
-    packageName: 'all-packages',
-    id: operationId,
-  });
-
+const handleUpdateAll = (): string => {
+  const operationId = generateOperationId('update-all');
   const title = t('buttons.updateAll');
-  setOperationTitle(title);
 
   addOperation({
     id: operationId,
@@ -355,8 +278,10 @@ const handleUpdateAll = () => {
   // Call backend command
   invoke('update_all_packages', { operationId }).catch((err) => {
     console.error('Update all invocation failed:', err);
-    setCurrentOperation(null);
+    markOperationStartFailed(operationId, title, err);
   });
+
+  return operationId;
 };
 
 const handlePailerUpdateConfirm = async () => {
@@ -373,33 +298,13 @@ const handlePailerUpdateCancel = () => {
   setPendingPailerUpdate(null);
 };
 
-const closeOperationModal = async (wasSuccess: boolean) => {
-  // Clear all operation states to ensure clean slate for next operation
-  setOperationTitle(null);
-  setOperationNextStep(null);
-  setIsScanning(false);
-  setPendingInstallPackage(null);
-
-  setCurrentOperation(null);
-
-  closeHandlers.forEach((handler) => handler(wasSuccess));
-};
-
 export function usePackageOperations(): UsePackageOperationsReturn {
   return {
-    operationTitle,
-    setOperationTitle,
-    operationNextStep,
-    isScanning,
-    pendingInstallPackage,
     handleInstall,
-    handleInstallConfirm,
     handleUninstall,
     handleUpdate,
     handleForceUpdate,
     handleUpdateAll,
-    closeOperationModal,
-    addCloseListener,
     // Pailer self-update confirmation
     pailerUpdateConfirmOpen,
     setPailerUpdateConfirmOpen,

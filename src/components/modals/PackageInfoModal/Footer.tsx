@@ -52,7 +52,6 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
         } else {
           console.warn('onForceUpdate is not provided for force update operation');
         }
-        props.onPackageStateChanged?.();
       }
       return;
     }
@@ -60,7 +59,6 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
     if (props.hasUpdate()) {
       if (props.pkg && props.onUpdate) {
         props.onUpdate(props.pkg);
-        props.onPackageStateChanged?.();
       } else {
         console.warn('onUpdate is not provided for update operation');
       }
@@ -83,7 +81,6 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
                 props.uninstallConfirm.cancelConfirm('uninstall');
                 if (props.pkg) {
                   props.onUninstall?.(props.pkg);
-                  props.onPackageStateChanged?.();
                 }
               } else {
                 props.uninstallConfirm.startConfirm('uninstall');
@@ -105,7 +102,6 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
               onClick={() => {
                 if (props.pkg) {
                   props.onInstall!(props.pkg);
-                  props.onPackageStateChanged?.();
                 }
               }}
             >
@@ -167,7 +163,6 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
                         } else {
                           console.warn('onForceUpdate is not provided for force update operation');
                         }
-                        props.onPackageStateChanged?.();
                       }
                     },
                   },

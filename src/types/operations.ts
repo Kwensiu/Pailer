@@ -50,7 +50,7 @@ export interface OperationNextStep {
 }
 
 /**
- * Modal state for operation display
+ * Legacy modal state shape for operation display.
  */
 export interface ModalState {
   operationTitle: string | null;
@@ -144,7 +144,6 @@ export interface PackageOperationState {
   packageName: string;
   bucketName?: string;
   forceUpdate?: boolean;
-  onInstallConfirm?: () => void;
   nextStep?: OperationNextStep;
 }
 
@@ -171,13 +170,11 @@ export interface MinimizedIndicatorProps {
  * Operation modal props interface
  */
 export interface OperationModalProps {
-  operationId?: string;
+  operationId: string;
   title: string | null;
   onClose: (operationId: string, wasSuccess: boolean) => void;
   onOperationFinished?: (operationId: string, wasSuccess: boolean) => void;
   nextStep?: OperationNextStep;
-  isScan?: boolean;
-  onInstallConfirm?: () => void;
 }
 
 /**
