@@ -792,14 +792,21 @@ export interface Dict {
       show: string;
     };
     trayApps: {
+      addToTray: string;
       availableApps: string;
+      availableAppsDescription: string;
       configure: string;
+      dragToReorder: string;
       enableTrayApps: string;
       enableTrayAppsDescription: string;
       manageContextMenu: string;
       manageTrayAppsDescription: string;
       noAvailableApps: string;
+      noSearchResults: string;
       noSelectedApps: string;
+      removeFromTray: string;
+      reset: string;
+      searchPlaceholder: string;
       selectedApps: string;
       title: string;
     };

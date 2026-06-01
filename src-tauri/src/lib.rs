@@ -363,6 +363,7 @@ pub fn run() {
             tray::refresh_tray_apps_menu,
             tray::get_current_language,
             tray::get_scoop_app_shortcuts,
+            tray::get_scoop_app_shortcut_icons,
             i18n::update_backend_tray_strings,
             commands::update_config::reload_update_config,
             commands::update_config::get_update_channel,

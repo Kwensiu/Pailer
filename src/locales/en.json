@@ -792,15 +792,22 @@
       "show": "Show Pailer"
     },
     "trayApps": {
-      "availableApps": "Available Applications",
+      "addToTray": "Add to tray menu",
+      "availableApps": "Apps Available to Add",
+      "availableAppsDescription": "Choose apps to show in the system tray",
       "configure": "Configure",
+      "dragToReorder": "Drag selected apps to reorder the tray menu",
       "enableTrayApps": "Enable Tray Applications",
       "enableTrayAppsDescription": "Show application shortcuts in the system tray right-click menu",
       "manageContextMenu": "Manage Context Menu",
       "manageTrayAppsDescription": "Configure applications to display in the tray right-click menu",
       "noAvailableApps": "No more available applications",
+      "noSearchResults": "No matching applications",
       "noSelectedApps": "No applications selected yet",
-      "selectedApps": "Selected Applications",
+      "removeFromTray": "Remove from tray menu",
+      "reset": "Reset",
+      "searchPlaceholder": "Search installed apps...",
+      "selectedApps": "Added Applications",
       "title": "Tray Applications"
     },
     "virustotal": {

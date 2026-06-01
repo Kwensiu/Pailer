@@ -887,6 +887,36 @@ fn get_or_create_package_icon_data_url(
     )))
 }
 
+pub fn get_or_create_icon_data_url_for_shortcut<R: Runtime>(
+    app: &AppHandle<R>,
+    shortcut: &crate::utils::ScoopAppShortcut,
+    size: Option<i32>,
+) -> Result<Option<String>, String> {
+    let target_path = PathBuf::from(&shortcut.target_path);
+    if !target_path.exists() {
+        return Ok(None);
+    }
+
+    let (icon_source_path, icon_index) =
+        parse_icon_location(shortcut.icon_path.as_deref(), &target_path);
+    let icon_source_path =
+        resolve_icon_source_path(icon_source_path, &shortcut.shortcut_path, &target_path);
+
+    if !icon_source_path.exists() {
+        return Ok(None);
+    }
+
+    let cache_dir = get_package_icon_cache_dir(app)?;
+    let cache_name = format!("tray_{}", shortcut.name);
+    let source = ResolvedPackageIconSource {
+        shortcut_path: shortcut.shortcut_path.clone(),
+        icon_source_path,
+        icon_index,
+    };
+
+    get_or_create_package_icon_data_url(&cache_dir, &cache_name, &source, size.unwrap_or(32))
+}
+
 #[tauri::command]
 pub async fn get_installed_package_icons<R: Runtime>(
     app: AppHandle<R>,

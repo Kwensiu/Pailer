@@ -792,15 +792,22 @@
       "show": "显示 Pailer"
     },
     "trayApps": {
-      "availableApps": "可用的应用程序",
+      "addToTray": "添加到托盘菜单",
+      "availableApps": "可添加的应用程序",
+      "availableAppsDescription": "选择需要显示在系统托盘的应用",
       "configure": "配置",
+      "dragToReorder": "拖拽已选择应用以调整托盘菜单顺序",
       "enableTrayApps": "启用托盘应用程序",
       "enableTrayAppsDescription": "在系统托盘右键菜单中显示应用程序快捷方式",
       "manageContextMenu": "管理右键菜单",
       "manageTrayAppsDescription": "配置在托盘右键菜单中显示的应用程序",
       "noAvailableApps": "没有更多可用的应用程序",
+      "noSearchResults": "没有匹配的应用程序",
       "noSelectedApps": "尚未选择任何应用程序",
-      "selectedApps": "已选择的应用程序",
+      "removeFromTray": "从托盘菜单移除",
+      "reset": "重置",
+      "searchPlaceholder": "搜索已安装应用...",
+      "selectedApps": "已加入的应用程序",
       "title": "托盘应用程序"
     },
     "virustotal": {

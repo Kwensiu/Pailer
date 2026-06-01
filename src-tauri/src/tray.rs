@@ -504,3 +504,41 @@ pub fn get_scoop_app_shortcuts() -> Result<Vec<serde_json::Value>, String> {
         Err(e) => Err(format!("Failed to get Scoop app shortcuts: {}", e)),
     }
 }
+
+#[tauri::command]
+pub async fn get_scoop_app_shortcut_icons<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    app_names: Vec<String>,
+    size: Option<i32>,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let requested_names = app_names
+        .into_iter()
+        .map(|name| name.to_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    let shortcuts = crate::utils::get_scoop_app_shortcuts()?;
+    let mut result = std::collections::HashMap::new();
+
+    for shortcut in shortcuts {
+        if !requested_names.contains(&shortcut.name.to_lowercase()) {
+            continue;
+        }
+
+        match crate::commands::package_icon::get_or_create_icon_data_url_for_shortcut(
+            &app, &shortcut, size,
+        ) {
+            Ok(Some(data_url)) => {
+                result.insert(shortcut.name, data_url);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                log::debug!(
+                    "Failed to resolve tray shortcut icon for '{}': {}",
+                    shortcut.name,
+                    error
+                );
+            }
+        }
+    }
+
+    Ok(result)
+}
