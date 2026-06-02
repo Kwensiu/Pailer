@@ -63,7 +63,8 @@ interface Settings {
   };
   scoop: {
     skipPreUpdateRefresh: boolean;
-    updateAllMode: 'queue' | 'concurrent';
+    operationMode: 'queue' | 'concurrent';
+    updateAllMode?: 'queue' | 'concurrent';
   };
   search: {
     allowCachePrebuild: boolean;
@@ -113,7 +114,7 @@ const defaultSettings: Settings = {
   },
   scoop: {
     skipPreUpdateRefresh: false,
-    updateAllMode: 'queue',
+    operationMode: 'queue',
   },
   search: {
     allowCachePrebuild: false,
@@ -239,7 +240,10 @@ function createSettingsStore() {
             scoop: {
               skipPreUpdateRefresh:
                 stored.scoop?.skipPreUpdateRefresh ?? defaultSettings.scoop.skipPreUpdateRefresh,
-              updateAllMode: stored.scoop?.updateAllMode ?? defaultSettings.scoop.updateAllMode,
+              operationMode:
+                stored.scoop?.operationMode ??
+                stored.scoop?.updateAllMode ??
+                defaultSettings.scoop.operationMode,
             },
             search: {
               ...defaultSettings.search,

@@ -763,12 +763,12 @@
       "title": "Scoop 路径配置"
     },
     "scoopUpdate": {
-      "description": "在安装和更新软件包前，跳过 Scoop 因过期检查触发的自更新和 Bucket 同步。",
-      "title": "跳过更新前刷新（实验）",
-      "updateAllMode": "全部更新执行方式",
-      "updateAllModeConcurrent": "并发",
-      "updateAllModeDescription": "队列更适合 Scoop；并发接近一次性点击所有软件包更新。",
-      "updateAllModeQueue": "队列"
+      "skipPreUpdateRefresh": "跳过自更新与同步（实验）",
+      "skipPreUpdateRefreshDescription": "在安装和更新软件包前，跳过 Scoop 因过期检查触发的自更新和 Bucket 同步。",
+      "operationMode": "Scoop 操作方式",
+      "operationModeConcurrent": "并发",
+      "operationModeDescription": "用于安装、卸载、更新等包操作。队列会按顺序执行，并发会同时启动多个操作。",
+      "operationModeQueue": "队列"
     },
     "startup": {
       "description": "配置 Pailer 是否应该在 Windows 启动时自动运行。",

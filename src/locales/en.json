@@ -763,12 +763,12 @@
       "title": "Scoop Configuration"
     },
     "scoopUpdate": {
-      "description": "Skip Scoop's stale self/bucket refresh before package install and update operations.",
-      "title": "Skip Pre-Update Refresh (Beta)",
-      "updateAllMode": "Update All Mode",
-      "updateAllModeConcurrent": "Concurrent",
-      "updateAllModeDescription": "Queue is safer for Scoop; concurrent behaves like clicking every package update at once.",
-      "updateAllModeQueue": "Queue"
+      "skipPreUpdateRefresh": "Skip Self-Update and Sync (Beta)",
+      "skipPreUpdateRefreshDescription": "Skip Scoop's stale self/bucket refresh before package install and update operations.",
+      "operationMode": "Scoop Operation Mode",
+      "operationModeConcurrent": "Concurrent",
+      "operationModeDescription": "Applies to package installs, uninstalls, and updates. Queue runs operations in order; concurrent starts multiple operations at once.",
+      "operationModeQueue": "Queue"
     },
     "startup": {
       "description": "Configure whether Pailer should automatically start when Windows boots.",
