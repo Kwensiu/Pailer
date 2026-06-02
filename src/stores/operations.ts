@@ -52,6 +52,7 @@ export interface CommandExecutionState {
 const operationsStore = createRoot(() => {
   const trayMigrationPreparedOps = new Set<string>();
   const trayMigrationPreparePromises = new Map<string, Promise<void>>();
+  const pendingRefreshUpdateBatches = new Set<string>();
   const completionFollowUps = new Map<
     string,
     Set<(result: OperationResult) => void | Promise<void>>
@@ -71,7 +72,10 @@ const operationsStore = createRoot(() => {
   // Current active operations count - automatically calculated using createMemo
   const activeOperationsCount = createMemo(() => {
     return Object.values(operations).filter(
-      (op) => op.status === OperationStatusEnum.InProgress || op.isMinimized
+      (op) =>
+        op.status === OperationStatusEnum.InProgress ||
+        op.status === OperationStatusEnum.Queued ||
+        op.isMinimized
     ).length;
   });
 
@@ -122,6 +126,29 @@ const operationsStore = createRoot(() => {
     OperationStatusEnum.Error,
     OperationStatusEnum.Cancelled,
   ]);
+
+  const runPostMutationRefresh = async () => {
+    await installedPackagesStore.silentRefetch();
+    searchCacheManager.invalidateCache();
+  };
+
+  const hasActiveUpdateBatchOperation = (batchId: string) => {
+    return Object.values(operations).some(
+      (op) =>
+        !op.isScan &&
+        op.updateBatchId === batchId &&
+        (op.status === OperationStatusEnum.InProgress || op.status === OperationStatusEnum.Queued)
+    );
+  };
+
+  const maybeFlushUpdateBatchRefresh = (batchId: string) => {
+    if (!pendingRefreshUpdateBatches.has(batchId) || hasActiveUpdateBatchOperation(batchId)) {
+      return;
+    }
+
+    pendingRefreshUpdateBatches.delete(batchId);
+    void runPostMutationRefresh();
+  };
 
   // Set operation result
   const setOperationResult = (operationId: string, result: OperationResult) => {
@@ -345,9 +372,17 @@ const operationsStore = createRoot(() => {
                 operationType === OperationType.Update ||
                 operationType === OperationType.UpdateAll
               ) {
-                installedPackagesStore.silentRefetch();
-                searchCacheManager.invalidateCache();
+                if (op.updateBatchId) {
+                  pendingRefreshUpdateBatches.add(op.updateBatchId);
+                  maybeFlushUpdateBatchRefresh(op.updateBatchId);
+                } else {
+                  void runPostMutationRefresh();
+                }
               }
+            }
+
+            if (op && !op.isScan && op.updateBatchId) {
+              maybeFlushUpdateBatchRefresh(op.updateBatchId);
             }
           } else {
             console.warn(
@@ -361,6 +396,70 @@ const operationsStore = createRoot(() => {
         console.error('Failed to setup operation-finished listener:', e);
       }
     })();
+  };
+
+  const prepareTrayMigrationIfNeeded = (operation: OperationState) => {
+    if (
+      !settingsStore.settings.automation.autoTrayConfigMigration ||
+      operation.isScan ||
+      (operation.operationType !== OperationType.Update &&
+        operation.operationType !== OperationType.UpdateAll) ||
+      operation.status !== OperationStatusEnum.InProgress ||
+      trayMigrationPreparedOps.has(operation.id)
+    ) {
+      return;
+    }
+
+    trayMigrationPreparedOps.add(operation.id);
+    const startLine = '[Pailer][tray-migration] Started prepare snapshot';
+    setOperations(operation.id, 'output', (prev) => [
+      ...(prev || []),
+      {
+        operationId: operation.id,
+        source: 'system',
+        line: startLine,
+        message: 'tray migration prepare started',
+        timestamp: Date.now(),
+      },
+    ]);
+    const preparePromise = invoke<TrayMigrationPrepareResult>('prepare_tray_config_migration', {
+      args: {
+        operation_id: operation.id,
+        operation_type: operation.operationType,
+        package_name: operation.operationType === OperationType.Update ? operation.packageName : null,
+        preserve_versioned_installs:
+          settingsStore.settings.automation.preserveTrayEntriesForVersionedInstalls,
+      },
+    })
+      .then((res) => {
+        setOperations(operation.id, 'output', (prev) => [
+          ...(prev || []),
+          {
+            operationId: operation.id,
+            source: 'system',
+            line: `[Pailer][tray-migration] Prepared snapshot, found ${res.captured} entries across ${res.package_count} package(s)`,
+            message: 'tray migration prepare done',
+            timestamp: Date.now(),
+          },
+        ]);
+      })
+      .catch((err) => {
+        console.warn(`[tray-migration] prepare failed for ${operation.id}:`, err);
+        setOperations(operation.id, 'output', (prev) => [
+          ...(prev || []),
+          {
+            operationId: operation.id,
+            source: 'error',
+            line: `[Pailer][tray-migration] Prepare failed: ${String(err)}`,
+            message: String(err),
+            timestamp: Date.now(),
+          },
+        ]);
+      })
+      .finally(() => {
+        trayMigrationPreparePromises.delete(operation.id);
+      });
+    trayMigrationPreparePromises.set(operation.id, preparePromise);
   };
 
   // Operation management Hook
@@ -382,66 +481,7 @@ const operationsStore = createRoot(() => {
       setOperations(newOperation.id, newOperation);
       // Active operations count will be automatically updated through createMemo
 
-      if (
-        settingsStore.settings.automation.autoTrayConfigMigration &&
-        !newOperation.isScan &&
-        (newOperation.operationType === OperationType.Update ||
-          newOperation.operationType === OperationType.UpdateAll) &&
-        newOperation.status === OperationStatusEnum.InProgress &&
-        !trayMigrationPreparedOps.has(newOperation.id)
-      ) {
-        trayMigrationPreparedOps.add(newOperation.id);
-        const startLine = '[Pailer][tray-migration] Started prepare snapshot';
-        setOperations(newOperation.id, 'output', (prev) => [
-          ...(prev || []),
-          {
-            operationId: newOperation.id,
-            source: 'system',
-            line: startLine,
-            message: 'tray migration prepare started',
-            timestamp: Date.now(),
-          },
-        ]);
-        const preparePromise = invoke<TrayMigrationPrepareResult>('prepare_tray_config_migration', {
-          args: {
-            operation_id: newOperation.id,
-            operation_type: newOperation.operationType,
-            package_name:
-              newOperation.operationType === OperationType.Update ? newOperation.packageName : null,
-            preserve_versioned_installs:
-              settingsStore.settings.automation.preserveTrayEntriesForVersionedInstalls,
-          },
-        })
-          .then((res) => {
-            setOperations(newOperation.id, 'output', (prev) => [
-              ...(prev || []),
-              {
-                operationId: newOperation.id,
-                source: 'system',
-                line: `[Pailer][tray-migration] Prepared snapshot, found ${res.captured} entries across ${res.package_count} package(s)`,
-                message: 'tray migration prepare done',
-                timestamp: Date.now(),
-              },
-            ]);
-          })
-          .catch((err) => {
-            console.warn(`[tray-migration] prepare failed for ${newOperation.id}:`, err);
-            setOperations(newOperation.id, 'output', (prev) => [
-              ...(prev || []),
-              {
-                operationId: newOperation.id,
-                source: 'error',
-                line: `[Pailer][tray-migration] Prepare failed: ${String(err)}`,
-                message: String(err),
-                timestamp: Date.now(),
-              },
-            ]);
-          })
-          .finally(() => {
-            trayMigrationPreparePromises.delete(newOperation.id);
-          });
-        trayMigrationPreparePromises.set(newOperation.id, preparePromise);
-      }
+      prepareTrayMigrationIfNeeded(newOperation);
 
       // Check if multi-instance warning needs to be displayed
       checkMultiInstanceWarning();
@@ -481,19 +521,31 @@ const operationsStore = createRoot(() => {
 
     // Remove operation
     const removeOperation = (id: string) => {
+      const operation = untrack(() => operations[id]);
       setOperations(id, undefined as any);
       trayMigrationPreparedOps.delete(id);
       trayMigrationPreparePromises.delete(id);
       completionFollowUps.delete(id);
+      if (operation && !operation.isScan && operation.updateBatchId) {
+        maybeFlushUpdateBatchRefresh(operation.updateBatchId);
+      }
       // Active operations count will be automatically updated through createMemo
     };
 
     // Update operation status
     const updateOperation = (id: string, updates: Partial<OperationState>) => {
+      if (!untrack(() => operations[id])) {
+        return;
+      }
+
       setOperations(id, {
         ...updates,
         updatedAt: Date.now(),
       });
+      const operation = untrack(() => operations[id]);
+      if (operation) {
+        prepareTrayMigrationIfNeeded(operation);
+      }
     };
 
     // Toggle minimize status
@@ -514,7 +566,10 @@ const operationsStore = createRoot(() => {
     // Get active operations
     const getActiveOperations = () => {
       return Object.values(operations).filter(
-        (op) => op.status === OperationStatusEnum.InProgress || op.isMinimized
+        (op) =>
+          op.status === OperationStatusEnum.InProgress ||
+          op.status === OperationStatusEnum.Queued ||
+          op.isMinimized
       );
     };
 
@@ -526,9 +581,15 @@ const operationsStore = createRoot(() => {
         (op) =>
           !op.isScan &&
           op.packageName === packageName &&
-          op.status === OperationStatusEnum.InProgress &&
+          (op.status === OperationStatusEnum.InProgress ||
+            op.status === OperationStatusEnum.Queued) &&
           (!operationTypes || operationTypes.includes(op.operationType))
       );
+    };
+
+    const getQueuedOperation = (operationId: string) => {
+      const op = operations[operationId];
+      return op?.status === OperationStatusEnum.Queued ? op : undefined;
     };
 
     const getRunningPackageUpdateOperation = (packageName: string) => {
@@ -549,9 +610,11 @@ const operationsStore = createRoot(() => {
     // Check multi-instance warning
     const checkMultiInstanceWarning = () => {
       const warning = multiInstanceWarning();
-      const activeCount = activeOperationsCount(); // Use computed property
+      const runningCount = Object.values(operations).filter(
+        (op) => op.status === OperationStatusEnum.InProgress
+      ).length;
 
-      if (warning.enabled && !warning.dismissed && activeCount >= warning.threshold) {
+      if (warning.enabled && !warning.dismissed && runningCount >= warning.threshold) {
         return true;
       }
       return false;
@@ -627,6 +690,7 @@ const operationsStore = createRoot(() => {
       getRunningPackageOperation,
       getRunningPackageUpdateOperation,
       getRunningUpdateAllOperation,
+      getQueuedOperation,
 
       // Command execution methods
       setCommand,

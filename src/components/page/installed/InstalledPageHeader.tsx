@@ -22,6 +22,7 @@ const isValidVersionType = (value: string): value is VersionTypeFilter =>
 interface InstalledHeaderProps {
   updatableCount: Accessor<number>;
   onUpdateAll: () => void;
+  updateAllBatchId: Accessor<string | null>;
   onCheckStatus?: () => void;
   statusLoading?: Accessor<boolean>;
   scoopStatus?: Accessor<any>;
@@ -51,6 +52,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   const [isExpanded, setIsExpanded] = createSignal(false);
   const [updateAllHovered, setUpdateAllHovered] = createSignal(false);
   const updateAllOperation = useRunningUpdateOperation({
+    updateBatchId: props.updateAllBatchId,
     logPrefix: 'InstalledPageHeader',
   });
 
@@ -100,7 +102,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
   });
 
   createEffect(() => {
-    if (!updateAllOperation.isUpdating()) {
+    if (!updateAllOperation.isActive()) {
       setUpdateAllHovered(false);
       updateAllOperation.clearCancelRetry();
     }
@@ -170,7 +172,7 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
         </Show>
         {/* Update All Button or Status Button */}
         <Show
-          when={props.updatableCount() > 0 || updateAllOperation.isUpdating()}
+          when={props.updatableCount() > 0 || updateAllOperation.isActive()}
           fallback={
             <button
               class="btn btn-ghost bg-base-100 btn-circle tooltip tooltip-bottom"
@@ -197,11 +199,11 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
           <button
             class="btn btn-secondary gap-2"
             classList={{
-              'btn-error': updateAllOperation.isUpdating() && updateAllHovered(),
-              'btn-secondary': !updateAllOperation.isUpdating() || !updateAllHovered(),
+              'btn-error': updateAllOperation.isActive() && updateAllHovered(),
+              'btn-secondary': !updateAllOperation.isActive() || !updateAllHovered(),
             }}
             onClick={() => {
-              if (updateAllOperation.isUpdating()) {
+              if (updateAllOperation.isActive()) {
                 updateAllOperation.requestCancel();
               } else {
                 props.onUpdateAll();
@@ -210,18 +212,18 @@ function InstalledPageHeader(props: InstalledHeaderProps) {
             onMouseEnter={() => setUpdateAllHovered(true)}
             onMouseLeave={() => setUpdateAllHovered(false)}
           >
-            <Show when={!updateAllOperation.isUpdating()}>
+            <Show when={!updateAllOperation.isActive()}>
               <CircleArrowUp class="h-4 w-4" />
             </Show>
             <span class="hidden md:inline">
-              {updateAllOperation.isUpdating()
+              {updateAllOperation.isActive()
                 ? updateAllHovered()
                   ? t('buttons.cancel')
                   : t('buttons.updating')
                 : t('installed.header.updateAll')}
               &nbsp;
             </span>
-            <span>{updateAllOperation.isUpdating() ? '' : `(${props.updatableCount()})`}</span>
+            <span>{updateAllOperation.isActive() ? '' : `(${props.updatableCount()})`}</span>
           </button>
         </Show>
 

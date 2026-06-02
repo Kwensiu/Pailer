@@ -479,6 +479,7 @@
     "update": "更新",
     "updateDate": "更新日期",
     "updating": "更新 {{name}}",
+    "waitingUpdate": "等待更新 {{name}}",
     "version": "版本",
     "versionSwitch": "版本切换",
     "viewBucketInfo": "点击查看仓库信息",
@@ -763,7 +764,11 @@
     },
     "scoopUpdate": {
       "description": "在安装和更新软件包前，跳过 Scoop 因过期检查触发的自更新和 Bucket 同步。",
-      "title": "跳过更新前刷新（实验）"
+      "title": "跳过更新前刷新（实验）",
+      "updateAllMode": "全部更新执行方式",
+      "updateAllModeConcurrent": "并发",
+      "updateAllModeDescription": "队列更适合 Scoop；并发接近一次性点击所有软件包更新。",
+      "updateAllModeQueue": "队列"
     },
     "startup": {
       "description": "配置 Pailer 是否应该在 Windows 启动时自动运行。",
@@ -835,6 +840,7 @@
     "failed": "失败",
     "inProgress": "运行中...",
     "loading": "加载中...",
+    "queued": "等待中",
     "warning": "警告"
   },
   "virustotal": {

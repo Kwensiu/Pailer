@@ -26,7 +26,7 @@ export default function PackageUpdateAction(props: PackageUpdateActionProps) {
       e.stopPropagation();
     }
 
-    if (updateOperation.isUpdating()) {
+    if (updateOperation.isActive()) {
       updateOperation.requestCancel();
       return;
     }
@@ -43,7 +43,7 @@ export default function PackageUpdateAction(props: PackageUpdateActionProps) {
         props.tooltipClass ?? ''
       } ${props.class ?? ''}`}
       data-tip={
-        updateOperation.isUpdating()
+        updateOperation.isActive()
           ? t('buttons.cancel')
           : (props.tooltip ?? t('installed.list.update'))
       }
@@ -51,19 +51,19 @@ export default function PackageUpdateAction(props: PackageUpdateActionProps) {
       <button
         type="button"
         class={`inline-flex h-4 w-4 cursor-pointer items-center justify-center p-0 leading-none transition-transform hover:scale-125 ${
-          updateOperation.isUpdating() ? 'text-info hover:text-error' : 'text-primary'
+          updateOperation.isActive() ? 'text-info hover:text-error' : 'text-primary'
         }`}
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         aria-label={
-          updateOperation.isUpdating()
+          updateOperation.isActive()
             ? t('buttons.cancel')
             : (props.tooltip ?? t('installed.list.update'))
         }
       >
         <Show
-          when={updateOperation.isUpdating()}
+          when={updateOperation.isActive()}
           fallback={<CircleArrowUp class={`h-4 w-4 ${props.iconClass ?? ''}`} />}
         >
           <Show

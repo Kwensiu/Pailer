@@ -39,7 +39,7 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
   });
 
   const handleUpdateClick = () => {
-    if (updateOperation.isUpdating()) {
+    if (updateOperation.isActive()) {
       updateOperation.requestCancel();
       return;
     }
@@ -118,21 +118,21 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
                   'btn-info btn-soft':
                     props.hasUpdate() &&
                     !props.updateConfirm.isConfirming('update') &&
-                    !updateOperation.isUpdating(),
+                    !updateOperation.isActive(),
                   'btn-soft text-base-content/50':
                     !props.hasUpdate() &&
                     !props.updateConfirm.isConfirming('update') &&
-                    !updateOperation.isUpdating(),
+                    !updateOperation.isActive(),
                   'btn-warning min-w-24': props.updateConfirm.isConfirming('update'),
                   'btn-info btn-soft min-w-24':
-                    updateOperation.isUpdating() && !updateButtonHovered(),
-                  'btn-error min-w-24': updateOperation.isUpdating() && updateButtonHovered(),
+                    updateOperation.isActive() && !updateButtonHovered(),
+                  'btn-error min-w-24': updateOperation.isActive() && updateButtonHovered(),
                 }}
                 onClick={handleUpdateClick}
                 onMouseEnter={() => setUpdateButtonHovered(true)}
                 onMouseLeave={() => setUpdateButtonHovered(false)}
               >
-                {updateOperation.isUpdating()
+                {updateOperation.isActive()
                   ? updateButtonHovered()
                     ? t('buttons.cancel')
                     : t('buttons.updating')
@@ -147,7 +147,7 @@ export function PackageInfoModalFooter(props: PackageInfoModalFooterProps) {
                   <button
                     type="button"
                     class="btn btn-soft join-item btn-r-split"
-                    disabled={updateOperation.isUpdating()}
+                    disabled={updateOperation.isActive()}
                   >
                     <ChevronUp class="h-4 w-4 shrink-0" />
                   </button>

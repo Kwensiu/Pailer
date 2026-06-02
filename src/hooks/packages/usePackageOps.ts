@@ -13,7 +13,7 @@ interface UsePackageOperationsReturn {
   handleUninstall: (pkg: ScoopPackage) => string;
   handleUpdate: (pkg: ScoopPackage) => Promise<string | null>;
   handleForceUpdate: (pkg: ScoopPackage) => Promise<string | null>;
-  handleUpdateAll: () => string;
+  handleUpdateAll: (packages: ScoopPackage[]) => Promise<string | null>;
   // Pailer self-update confirmation
   pailerUpdateConfirmOpen: () => boolean;
   setPailerUpdateConfirmOpen: (open: boolean) => void;
@@ -22,8 +22,15 @@ interface UsePackageOperationsReturn {
   handlePailerUpdateCancel: () => void;
 }
 
-const { addOperation, addOperationOutput, setOperationResult, generateOperationId } =
-  useOperations();
+const {
+  addOperation,
+  addOperationOutput,
+  addCompletionFollowUp,
+  setOperationResult,
+  updateOperation,
+  getQueuedOperation,
+  generateOperationId,
+} = useOperations();
 
 // Pailer self-update confirmation state
 const [pailerUpdateConfirmOpen, setPailerUpdateConfirmOpen] = createSignal(false);
@@ -127,6 +134,36 @@ const markOperationStartFailed = (operationId: string, operationName: string, er
   });
 };
 
+const waitForOperation = (operationId: string): Promise<void> =>
+  new Promise((resolve) => {
+    addCompletionFollowUp(operationId, () => {
+      resolve();
+    });
+  });
+
+const runUpdatePackageOperation = (
+  operationId: string,
+  pkg: ScoopPackage,
+  title: string,
+  force = false
+) => {
+  updateOperation(operationId, {
+    title,
+    status: OperationStatus.InProgress,
+  });
+
+  const skipPreUpdateRefresh = settingsStore.settings.scoop.skipPreUpdateRefresh;
+  invoke('update_package', {
+    packageName: pkg.name,
+    force: force || undefined,
+    operationId,
+    skipPreUpdateRefresh,
+  }).catch((err) => {
+    console.error(force ? 'Force update invocation failed:' : 'Update invocation failed:', err);
+    markOperationStartFailed(operationId, title, err);
+  });
+};
+
 const performInstall = (pkg: ScoopPackage): string => {
   const operationId = generateOperationId(`install-${pkg.name}`);
   const title = t('packageInfo.installing', { name: pkg.name });
@@ -213,14 +250,7 @@ const handleUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
     bucketName: pkg.source,
   } as Parameters<typeof addOperation>[0]);
 
-  // Call backend command with operationId
-  const skipPreUpdateRefresh = settingsStore.settings.scoop.skipPreUpdateRefresh;
-  invoke('update_package', { packageName: pkg.name, operationId, skipPreUpdateRefresh }).catch(
-    (err) => {
-      console.error('Update invocation failed:', err);
-      markOperationStartFailed(operationId, title, err);
-    }
-  );
+  runUpdatePackageOperation(operationId, pkg, title);
 
   return operationId;
 };
@@ -246,42 +276,131 @@ const handleForceUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
     forceUpdate: true,
   } as Parameters<typeof addOperation>[0]);
 
-  const skipPreUpdateRefresh = settingsStore.settings.scoop.skipPreUpdateRefresh;
-  invoke('update_package', {
-    packageName: pkg.name,
-    force: true,
-    operationId,
-    skipPreUpdateRefresh,
-  }).catch((err) => {
-    console.error('Force update invocation failed:', err);
-    markOperationStartFailed(operationId, title, err);
-  });
+  runUpdatePackageOperation(operationId, pkg, title, true);
 
   return operationId;
 };
 
-const handleUpdateAll = (): string => {
-  const operationId = generateOperationId('update-all');
-  const title = t('buttons.updateAll');
+const handleUpdateAll = async (packages: ScoopPackage[]): Promise<string | null> => {
+  const updatablePackages = packages.filter((pkg) => !!pkg.available_version);
+  if (updatablePackages.length === 0) {
+    return null;
+  }
 
-  addOperation({
-    id: operationId,
-    title,
-    status: OperationStatus.InProgress,
-    isMinimized: true,
-    output: [],
-    isScan: false,
-    operationType: OperationType.UpdateAll,
-    packageName: 'all-packages',
-  } as Parameters<typeof addOperation>[0]);
+  const batchId = generateOperationId('update-all-batch');
 
-  // Call backend command
-  invoke('update_all_packages', { operationId }).catch((err) => {
-    console.error('Update all invocation failed:', err);
-    markOperationStartFailed(operationId, title, err);
-  });
+  if (settingsStore.settings.scoop.updateAllMode === 'concurrent') {
+    const operationEntries: { pkg: ScoopPackage; operationId: string; title: string }[] = [];
 
-  return operationId;
+    for (const pkg of updatablePackages) {
+      const operationId = generateOperationId(`update-${pkg.name}`);
+      const title = t('packageInfo.updating', { name: pkg.name });
+      operationEntries.push({ pkg, operationId, title });
+
+      addOperation({
+        id: operationId,
+        title: t('packageInfo.waitingUpdate', { name: pkg.name }),
+        status: OperationStatus.Queued,
+        isMinimized: true,
+        output: [],
+        isScan: false,
+        operationType: OperationType.Update,
+        packageName: pkg.name,
+        bucketName: pkg.source,
+        updateBatchId: batchId,
+      } as Parameters<typeof addOperation>[0]);
+    }
+
+    void (async () => {
+      for (const { pkg, operationId, title } of operationEntries) {
+        if (!getQueuedOperation(operationId)) {
+          continue;
+        }
+
+        const blockedBySelfUpdate = await checkAndSetupPailerSelfUpdate(pkg, 'update');
+        if (!getQueuedOperation(operationId)) {
+          continue;
+        }
+
+        if (blockedBySelfUpdate) {
+          setOperationResult(operationId, {
+            operationId,
+            success: false,
+            operationName: t('packageInfo.waitingUpdate', { name: pkg.name }),
+            errorCount: 0,
+            warningCount: 0,
+            finalStatus: OperationStatus.Cancelled,
+            message: t('operation.cancelled', { name: pkg.name }),
+            timestamp: Date.now(),
+          });
+          continue;
+        }
+
+        runUpdatePackageOperation(operationId, pkg, title);
+      }
+    })();
+
+    return batchId;
+  }
+
+  const queuedOperationIds: string[] = [];
+
+  for (const pkg of updatablePackages) {
+    const operationId = generateOperationId(`queued-update-${pkg.name}`);
+    queuedOperationIds.push(operationId);
+
+    addOperation({
+      id: operationId,
+      title: t('packageInfo.waitingUpdate', { name: pkg.name }),
+      status: OperationStatus.Queued,
+      isMinimized: true,
+      output: [],
+      isScan: false,
+      operationType: OperationType.Update,
+      packageName: pkg.name,
+      bucketName: pkg.source,
+      updateBatchId: batchId,
+    } as Parameters<typeof addOperation>[0]);
+  }
+
+  void (async () => {
+    for (let index = 0; index < updatablePackages.length; index += 1) {
+      const pkg = updatablePackages[index];
+      const operationId = queuedOperationIds[index];
+
+      if (!getQueuedOperation(operationId)) {
+        continue;
+      }
+
+      const blockedBySelfUpdate = await checkAndSetupPailerSelfUpdate(pkg, 'update');
+      if (!getQueuedOperation(operationId)) {
+        continue;
+      }
+
+      if (blockedBySelfUpdate) {
+        setOperationResult(operationId, {
+          operationId,
+          success: false,
+          operationName: t('packageInfo.waitingUpdate', { name: pkg.name }),
+          errorCount: 0,
+          warningCount: 0,
+          finalStatus: OperationStatus.Cancelled,
+          message: t('operation.cancelled', { name: pkg.name }),
+          timestamp: Date.now(),
+        });
+        continue;
+      }
+
+      if (!getQueuedOperation(operationId)) {
+        continue;
+      }
+
+      runUpdatePackageOperation(operationId, pkg, t('packageInfo.updating', { name: pkg.name }));
+      await waitForOperation(operationId);
+    }
+  })();
+
+  return batchId;
 };
 
 const handlePailerUpdateConfirm = async () => {

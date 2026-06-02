@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, onMount, onCleanup, Component } from 'solid-js';
-import { CircleCheckBig, CircleX, TriangleAlert, CircleSlash } from 'lucide-solid';
+import { CircleCheckBig, CircleX, TriangleAlert, CircleSlash, Clock3 } from 'lucide-solid';
 import { useOperations } from '../../stores/operations';
 import type { MinimizedIndicatorProps } from '../../types/operations';
 import { OperationStatus } from '../../types/operations';
@@ -23,6 +23,18 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
 
   const getStatusIcon = () => {
     switch (props.status) {
+      case 'queued':
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.cancel')}
+            title={t('buttons.cancel')}
+          >
+            <Clock3 class="text-base-content/60 h-4 w-4" />
+          </button>
+        );
       case 'in-progress':
         return (
           <button
@@ -60,6 +72,8 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
 
   const getStatusText = () => {
     switch (props.status) {
+      case 'queued':
+        return t('status.queued');
       case 'in-progress':
         return t('status.inProgress');
       case 'success':
@@ -137,6 +151,11 @@ const MinimizedOperationsTray = () => {
     const operation = minimizedOperations().find((op) => op.id === operationId);
     if (!operation) {
       console.warn(`[MinimizedOperationsTray] Operation not found: ${operationId}`);
+      return;
+    }
+
+    if (operation.status === OperationStatus.Queued) {
+      removeOperation(operationId);
       return;
     }
 

@@ -479,6 +479,7 @@
     "update": "Update",
     "updateDate": "Update Date",
     "updating": "Updating {{name}}",
+    "waitingUpdate": "Waiting to update {{name}}",
     "version": "Version",
     "versionSwitch": "Version Switch",
     "viewBucketInfo": "Click to view bucket information",
@@ -763,7 +764,11 @@
     },
     "scoopUpdate": {
       "description": "Skip Scoop's stale self/bucket refresh before package install and update operations.",
-      "title": "Skip Pre-Update Refresh (Beta)"
+      "title": "Skip Pre-Update Refresh (Beta)",
+      "updateAllMode": "Update All Mode",
+      "updateAllModeConcurrent": "Concurrent",
+      "updateAllModeDescription": "Queue is safer for Scoop; concurrent behaves like clicking every package update at once.",
+      "updateAllModeQueue": "Queue"
     },
     "startup": {
       "description": "Configure whether Pailer should automatically start when Windows boots.",
@@ -835,6 +840,7 @@
     "failed": "Failed",
     "inProgress": "In Progress",
     "loading": "Loading...",
+    "queued": "Queued",
     "warning": "Warning"
   },
   "virustotal": {

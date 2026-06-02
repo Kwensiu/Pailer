@@ -21,6 +21,7 @@ export type OutputSource =
  * Operation status enum
  */
 export enum OperationStatus {
+  Queued = 'queued',
   InProgress = 'in-progress',
   Success = 'success',
   Warning = 'warning',
@@ -143,6 +144,7 @@ export interface PackageOperationState {
   operationType: OperationType;
   packageName: string;
   bucketName?: string;
+  updateBatchId?: string;
   forceUpdate?: boolean;
   nextStep?: OperationNextStep;
 }

@@ -6,6 +6,10 @@ import { t } from '../../../i18n';
 
 export default function ScoopUpdateSettings() {
   const { settings, setScoopSettings } = settingsStore;
+  const updateAllModeLabel = () =>
+    settings.scoop.updateAllMode === 'queue'
+      ? t('settings.scoopUpdate.updateAllModeQueue')
+      : t('settings.scoopUpdate.updateAllModeConcurrent');
 
   return (
     <Card
@@ -19,6 +23,26 @@ export default function ScoopUpdateSettings() {
           showStatusLabel={true}
         />
       }
-    />
+    >
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <div class="font-medium">{t('settings.scoopUpdate.updateAllMode')}</div>
+          <div class="text-base-content/60 text-sm">
+            {t('settings.scoopUpdate.updateAllModeDescription')}
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm"
+          onClick={async () =>
+            await setScoopSettings({
+              updateAllMode: settings.scoop.updateAllMode === 'queue' ? 'concurrent' : 'queue',
+            })
+          }
+        >
+          {updateAllModeLabel()}
+        </button>
+      </div>
+    </Card>
   );
 }

@@ -10,6 +10,7 @@ import { ansiToHtml, stripAnsi, hasAnsiCodes } from '../../utils/ansiUtils';
 import { requestCancelWithRetry } from '../../utils/operationCancellation';
 import settingsStore from '../../stores/settings';
 import {
+  isActive,
   isRunning,
   isTerminal,
   isSuccessful,
@@ -327,6 +328,8 @@ function OperationModal(props: OperationModalProps) {
     if (isRunning(currentOperation)) {
       // Cancel the operation but don't close the modal
       requestOperationCancel();
+    } else if (currentOperation?.status === OperationStatus.Queued) {
+      handleCloseOrCancelPanel(OperationStatus.Cancelled);
     } else {
       // Close the modal if operation is completed/cancelled
       cancelRetryCleanup?.();
@@ -340,13 +343,15 @@ function OperationModal(props: OperationModalProps) {
 
     if (isRunning(currentOperation)) {
       requestOperationCancel();
+    } else if (currentOperation?.status === OperationStatus.Queued) {
+      handleCloseOrCancelPanel(OperationStatus.Cancelled);
     }
   };
 
   const handleMainButtonClick = (e: MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling to modal
     const currentOperation = operation();
-    if (isRunning(currentOperation)) {
+    if (isActive(currentOperation)) {
       handleCancelOperation();
     } else {
       handleCloseOrCancelPanel(currentOperation?.status);
@@ -429,7 +434,7 @@ function OperationModal(props: OperationModalProps) {
   };
 
   const getCloseButtonText = () => {
-    return isRunning(operation()) ? t('buttons.cancel') : t('buttons.close');
+    return isActive(operation()) ? t('buttons.cancel') : t('buttons.close');
   };
 
   const handleMinimize = () => {

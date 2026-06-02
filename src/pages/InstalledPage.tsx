@@ -16,7 +16,8 @@ import ChangeBucketModal from '../components/modals/ChangeBucketModal';
 import { t } from '../i18n';
 import versionedPackagesStore from '../stores/versionedPackagesStore';
 import installedPackagesStore from '../stores/installedPackagesStore';
-import type { OperationResult } from '../types/operations';
+import { OperationStatus, type OperationResult } from '../types/operations';
+import { useOperations } from '../stores/operations';
 
 interface InstalledPageProps {
   onNavigate?: (view: View) => void;
@@ -87,6 +88,8 @@ function InstalledPage(props: InstalledPageProps) {
   );
   const [showStatusModal, setShowStatusModal] = createSignal(false);
   const [selectedBucketForInfo, setSelectedBucketForInfo] = createSignal<string | null>(null);
+  const [updateAllBatchId, setUpdateAllBatchId] = createSignal<string | null>(null);
+  const { operations } = useOperations();
 
   // Bucket manifests state
   const [bucketManifests, setBucketManifests] = createSignal<string[]>([]);
@@ -182,7 +185,27 @@ function InstalledPage(props: InstalledPageProps) {
   const handleUninstallWithFollowUp = operationFollowUp.withFollowUp(handleUninstall);
   const handleUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleUpdate);
   const handleForceUpdateWithFollowUp = operationFollowUp.withAsyncFollowUp(handleForceUpdate);
-  const handleUpdateAllWithFollowUp = operationFollowUp.withFollowUp(handleUpdateAll);
+  const handleUpdateAllPackages = async () => {
+    setUpdateAllBatchId(await handleUpdateAll(processedPackages()));
+  };
+
+  createEffect(() => {
+    const batchId = updateAllBatchId();
+    if (!batchId) {
+      return;
+    }
+
+    const hasActiveBatchOperation = Object.values(operations()).some(
+      (op) =>
+        !op.isScan &&
+        op.updateBatchId === batchId &&
+        (op.status === OperationStatus.InProgress || op.status === OperationStatus.Queued)
+    );
+
+    if (!hasActiveBatchOperation) {
+      setUpdateAllBatchId(null);
+    }
+  });
 
   onMount(() => {
     let disposed = false;
@@ -262,7 +285,8 @@ function InstalledPage(props: InstalledPageProps) {
       <div class="p-6">
         <InstalledPageHeader
           updatableCount={updatableCount}
-          onUpdateAll={handleUpdateAllWithFollowUp}
+          onUpdateAll={handleUpdateAllPackages}
+          updateAllBatchId={updateAllBatchId}
           onCheckStatus={handleCheckStatus}
           statusLoading={statusLoading}
           scoopStatus={scoopStatus}
