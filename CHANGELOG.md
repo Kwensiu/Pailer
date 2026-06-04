@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0](https://github.com/Kwensiu/Pailer/compare/v1.16.1...v1.17.0) (2026-06-04)
+
+
+### Features
+
+* add global scoop operation queue mode ([42773c7](https://github.com/Kwensiu/Pailer/commit/42773c7db15945949141babe40594e8360699dcf))
+* queue per-package update all operations ([eb98c19](https://github.com/Kwensiu/Pailer/commit/eb98c198950ca9e92be9d62eb1ad1cff43c74d5b))
+
+
+### Bug Fixes
+
+* **ci:** align Tauri JS packages with Rust crate ([8b8aa66](https://github.com/Kwensiu/Pailer/commit/8b8aa66306f403acd566ceb48627817ecb599e46))
+* clarify tray icon cleanup behavior ([cce71e4](https://github.com/Kwensiu/Pailer/commit/cce71e4dc863e44dcb4b4099bda67630a0c321e8))
+* polish operation modal and tray interactions ([4bbc305](https://github.com/Kwensiu/Pailer/commit/4bbc305164bf25a5bd7fc1297ab1f0af55da5e06))
+
 ## [1.16.1](https://github.com/Kwensiu/Pailer/compare/v1.16.0...v1.16.1) (2026-06-01)
 
 
