@@ -48,11 +48,41 @@ const MinimizedOperation: Component<MinimizedIndicatorProps> = (props) => {
           </button>
         );
       case 'success':
-        return <CircleCheckBig class="text-success h-4 w-4" />;
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.close')}
+            title={t('buttons.close')}
+          >
+            <CircleCheckBig class="text-success h-4 w-4" />
+          </button>
+        );
       case 'warning':
-        return <TriangleAlert class="text-warning h-4 w-4" />;
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.close')}
+            title={t('buttons.close')}
+          >
+            <TriangleAlert class="text-warning h-4 w-4" />
+          </button>
+        );
       case 'error':
-        return <CircleX class="text-error h-4 w-4" />;
+        return (
+          <button
+            type="button"
+            class="btn btn-xs btn-circle btn-ghost"
+            onClick={handleCancelClick}
+            aria-label={t('buttons.close')}
+            title={t('buttons.close')}
+          >
+            <CircleX class="text-error h-4 w-4" />
+          </button>
+        );
       case 'cancelled':
         return (
           <button
@@ -130,7 +160,7 @@ const MinimizedOperationsTray = () => {
   const minimizedOperations = createMemo(() => {
     return getActiveOperations()
       .filter((op) => op.isMinimized)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+      .sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
   });
 
   const canExpandTray = () => minimizedOperations().length > 1;

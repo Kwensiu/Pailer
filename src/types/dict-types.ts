@@ -161,6 +161,7 @@ export interface Dict {
     goToBuckets: string;
     install: string;
     later: string;
+    minimize: string;
     openPath: string;
     refresh: string;
     remove: string;

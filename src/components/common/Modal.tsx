@@ -19,6 +19,8 @@ const unlockBodyScroll = () => {
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onEscape?: () => void;
+  onBackdropClick?: () => void;
   title?: string | JSX.Element;
   size?: 'small' | 'medium' | 'large' | 'full';
   showCloseButton?: boolean;
@@ -187,6 +189,10 @@ export default function Modal(props: ModalProps) {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopImmediatePropagation();
+      if (props.onEscape) {
+        props.onEscape();
+        return;
+      }
       handleClose();
       return;
     }
@@ -251,6 +257,10 @@ export default function Modal(props: ModalProps) {
   });
 
   const handleBackdropClick = () => {
+    if (props.onBackdropClick) {
+      props.onBackdropClick();
+      return;
+    }
     if (!props.preventBackdropClose) {
       handleClose();
     }
@@ -260,7 +270,7 @@ export default function Modal(props: ModalProps) {
   const getAnimationClasses = () => {
     if (props.isMinimizing) {
       return {
-        modalBox: 'transition-all duration-300 ease-in-out opacity-0',
+        modalBox: 'transition-all duration-300 ease-in-out scale-95 opacity-0',
         backdrop: 'transition-all duration-300 ease-in-out !opacity-0',
       };
     }

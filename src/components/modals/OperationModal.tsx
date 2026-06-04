@@ -19,6 +19,8 @@ import {
 import Modal from '../common/Modal';
 import { useScrollManager } from '../common/ScrollManager';
 
+const OPERATION_MODAL_ANIMATION_MS = 300;
+
 const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (
   props
 ) => {
@@ -267,7 +269,11 @@ function OperationModal(props: OperationModalProps) {
       (prevStatus === null || newStatus !== prevStatus)
     ) {
       if (props.onOperationFinished) {
-        props.onOperationFinished(operationId(), isSuccessful({ status: newStatus }));
+        try {
+          props.onOperationFinished(operationId(), isSuccessful({ status: newStatus }));
+        } catch (error) {
+          console.error('Error calling onOperationFinished:', error);
+        }
       }
       setLastFinishedStatus(newStatus);
     }
@@ -290,7 +296,7 @@ function OperationModal(props: OperationModalProps) {
       const timer = setTimeout(() => {
         setRendered(false);
         setIsClosing(false);
-      }, 300);
+      }, OPERATION_MODAL_ANIMATION_MS);
       return () => clearTimeout(timer);
     }
   });
@@ -320,14 +326,13 @@ function OperationModal(props: OperationModalProps) {
       } catch (error) {
         console.error('Error calling onClose:', error);
       }
-    }, 300);
+    }, OPERATION_MODAL_ANIMATION_MS);
   };
 
   const handleForceClose = () => {
     const currentOperation = operation();
     if (isRunning(currentOperation)) {
-      // Cancel the operation but don't close the modal
-      requestOperationCancel();
+      handleMinimize();
     } else if (currentOperation?.status === OperationStatus.Queued) {
       handleCloseOrCancelPanel(OperationStatus.Cancelled);
     } else {
@@ -462,7 +467,7 @@ function OperationModal(props: OperationModalProps) {
           setIsMinimizing(false);
           toggleMinimize(operationId());
         }
-      }, 300);
+      }, OPERATION_MODAL_ANIMATION_MS);
     } else if (currentOperation) {
       emit('panel-minimize-state', {
         isMinimized: false,
@@ -482,7 +487,7 @@ function OperationModal(props: OperationModalProps) {
 
   createEffect(() => {
     const op = currentOperation();
-    setIsModalOpen(rendered() && !!op && !op.isMinimized);
+    setIsModalOpen(rendered() && !!op && !op.isMinimized && !isClosing());
   });
 
   const handleModalClose = () => {
@@ -497,10 +502,12 @@ function OperationModal(props: OperationModalProps) {
     <Modal
       isOpen={isModalOpen()}
       onClose={handleModalClose}
+      onEscape={handleMinimize}
+      onBackdropClick={handleMinimize}
       title={currentOperation()?.title || ''}
       size="large"
       showCloseButton={false}
-      preventBackdropClose={true}
+      preventBackdropClose={false}
       animation="scale"
       zIndex="80"
       isMinimizing={isMinimizing()}
@@ -511,7 +518,8 @@ function OperationModal(props: OperationModalProps) {
           <button
             class="btn btn-sm btn-circle btn-ghost hover:bg-base-300 transition-colors duration-200"
             onClick={handleMinimize}
-            title="Minimize"
+            aria-label={t('buttons.minimize')}
+            title={t('buttons.minimize')}
           >
             <Minimize2 class="h-6 w-6 sm:h-5 sm:w-5" />
           </button>

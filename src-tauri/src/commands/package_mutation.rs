@@ -86,7 +86,7 @@ pub async fn finalize_single_package_mutation(
         PackageMutationFinishedEvent {
             result: CommandResult {
                 success: true,
-                operation_id,
+                operation_id: operation_id.clone(),
                 operation_name: kind.operation_name(package_name),
                 error_count: None,
                 warning_count: None,
@@ -100,6 +100,17 @@ pub async fn finalize_single_package_mutation(
             package_source,
             package_state,
         },
+    );
+
+    emit_installed_packages_changed(
+        window,
+        match kind {
+            PackageMutationKind::Install => "install",
+            PackageMutationKind::Update => "update",
+            PackageMutationKind::ForceUpdate => "force-update",
+            PackageMutationKind::Uninstall => "uninstall",
+        },
+        Some(operation_id),
     );
 }
 
