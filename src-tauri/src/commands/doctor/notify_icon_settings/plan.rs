@@ -265,3 +265,109 @@ pub(super) fn build_migration_plan(
         failed,
     }
 }
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use crate::commands::doctor::notify_icon_settings::model::{
+        build_scoop_prefixes, to_normcase_path,
+    };
+    use std::fs;
+
+    fn entry(subkey: &str, path: &std::path::Path, promoted: Option<u32>) -> NotifyIconEntry {
+        NotifyIconEntry {
+            subkey: subkey.to_string(),
+            path: path.to_string_lossy().replace('/', "\\"),
+            path_norm: to_normcase_path(&path.to_string_lossy()),
+            promoted,
+            app_user_model_id: None,
+        }
+    }
+
+    fn entry_with_aumid(
+        subkey: &str,
+        path: &std::path::Path,
+        app_user_model_id: &str,
+    ) -> NotifyIconEntry {
+        NotifyIconEntry {
+            app_user_model_id: Some(app_user_model_id.to_string()),
+            ..entry(subkey, path, None)
+        }
+    }
+
+    fn app_exe_path(
+        scoop_root: &std::path::Path,
+        package_name: &str,
+        version: &str,
+    ) -> std::path::PathBuf {
+        let app_dir = scoop_root.join("apps").join(package_name).join(version);
+        fs::create_dir_all(&app_dir).unwrap();
+        let exe_path = app_dir.join(format!("{package_name}.exe"));
+        fs::write(&exe_path, b"").unwrap();
+        exe_path
+    }
+
+    #[test]
+    fn dedupe_keeps_current_entry_and_drops_old_version_entries() {
+        let temp = tempfile::tempdir().unwrap();
+        let scoop_root = temp.path();
+        let prefixes = build_scoop_prefixes(scoop_root);
+        let current_path = app_exe_path(scoop_root, "foo", "current");
+        let old_path = app_exe_path(scoop_root, "foo", "1.0.0");
+
+        let plan = build_dedupe_plan(
+            vec![
+                entry("old", &old_path, None),
+                entry("current", &current_path, None),
+            ],
+            &prefixes,
+            vec![],
+        );
+
+        assert_eq!(plan.pairs.len(), 1);
+        assert_eq!(plan.pairs[0].identity, "local:foo:foo.exe");
+        assert_eq!(plan.pairs[0].keep_subkey, "current");
+        assert_eq!(plan.pairs[0].drop_subkey, "old");
+    }
+
+    #[test]
+    fn dedupe_propagates_is_promoted_from_dropped_entry_to_current_entry() {
+        let temp = tempfile::tempdir().unwrap();
+        let scoop_root = temp.path();
+        let prefixes = build_scoop_prefixes(scoop_root);
+        let current_path = app_exe_path(scoop_root, "bar", "current");
+        let old_path = app_exe_path(scoop_root, "bar", "2.0.0");
+
+        let plan = build_dedupe_plan(
+            vec![
+                entry("current", &current_path, None),
+                entry("old", &old_path, Some(1)),
+            ],
+            &prefixes,
+            vec![],
+        );
+
+        assert_eq!(plan.pairs.len(), 1);
+        assert_eq!(plan.pairs[0].propagated_is_promoted, Some(1));
+    }
+
+    #[test]
+    fn dedupe_skips_entries_with_stable_app_user_model_id() {
+        let temp = tempfile::tempdir().unwrap();
+        let scoop_root = temp.path();
+        let prefixes = build_scoop_prefixes(scoop_root);
+        let current_path = app_exe_path(scoop_root, "baz", "current");
+        let old_path = app_exe_path(scoop_root, "baz", "3.0.0");
+
+        let plan = build_dedupe_plan(
+            vec![
+                entry_with_aumid("current", &current_path, "com.example.baz"),
+                entry_with_aumid("old", &old_path, "com.example.baz"),
+            ],
+            &prefixes,
+            vec![],
+        );
+
+        assert!(plan.pairs.is_empty());
+    }
+}
