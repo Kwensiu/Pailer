@@ -667,8 +667,8 @@
     },
     "bucketAutoUpdate": {
       "active": "当前：{{interval}}",
-      "autoUpdatePackages": "同时更新软件包",
-      "autoUpdatePackagesDescription": "仓库更新后将尝试更新已安装的软件包",
+      "autoUpdatePackages": "Bucket 更新后更新软件包",
+      "autoUpdatePackagesDescription": "自动更新 Bucket 成功后，继续执行 scoop update *",
       "customInterval": "自定义间隔",
       "customIntervalDescription": "自定义计划（分钟、小时、天、周）。",
       "customIntervalSaved": "自定义间隔已保存",

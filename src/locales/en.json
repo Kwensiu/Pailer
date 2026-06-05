@@ -667,8 +667,8 @@
     },
     "bucketAutoUpdate": {
       "active": "Active: {{interval}}",
-      "autoUpdatePackages": "Auto Update Packages",
-      "autoUpdatePackagesDescription": "Run full package update after bucket refresh",
+      "autoUpdatePackages": "Update Packages After Bucket Update",
+      "autoUpdatePackagesDescription": "After automatic bucket updates succeed, continue with scoop update *",
       "customInterval": "Custom Interval",
       "customIntervalDescription": "Define a custom schedule (minutes, hours, days, weeks).",
       "customIntervalSaved": "Custom interval saved",

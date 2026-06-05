@@ -1,5 +1,7 @@
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::commands::package_mutation::emit_installed_packages_changed;
+
 pub fn start_background_tasks(app: AppHandle) {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use tokio::time::sleep;
@@ -84,6 +86,14 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
     .flatten()
     .and_then(|v| v.as_bool())
     .unwrap_or(false);
+    let auto_update_packages = crate::commands::settings::get_config_value(
+        app_handle.clone(),
+        "buckets.autoUpdatePackagesEnabled".to_string(),
+    )
+    .ok()
+    .flatten()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
 
     // Notify UI that the update process is starting only if not silent update
     if !silent_update_enabled {
@@ -115,34 +125,36 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                 results.len()
             );
 
-            // Send result to UI, also fix emit.
-            if let Some(window) = app_handle.get_webview_window("main") {
-                for result in &results {
-                    let line = if result.success {
-                        format!("✓ Updated bucket: {}", result.bucket_name)
-                    } else {
-                        format!(
-                            "✗ Failed to update {}: {}",
-                            result.bucket_name, result.message
-                        )
-                    };
+            // Notify UI of bucket results only if not silent update.
+            if !silent_update_enabled {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    for result in &results {
+                        let line = if result.success {
+                            format!("✓ Updated bucket: {}", result.bucket_name)
+                        } else {
+                            format!(
+                                "✗ Failed to update {}: {}",
+                                result.bucket_name, result.message
+                            )
+                        };
 
-                    let _ = window.emit(
-                        "operation-output",
-                        serde_json::json!({
-                            "line": line.clone(),
-                            "source": if result.success { "stdout" } else { "stderr" },
-                            "operationId": operation_id
-                        }),
-                    );
+                        let _ = window.emit(
+                            "operation-output",
+                            serde_json::json!({
+                                "line": line.clone(),
+                                "source": if result.success { "stdout" } else { "stderr" },
+                                "operationId": operation_id
+                            }),
+                        );
+                    }
+
+                    let _ = window.emit("operation-finished", serde_json::json!({
+                        "success": successes == results.len(),
+                        "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len()),
+                        "operationId": operation_id,
+                        "finalStatus": if successes == results.len() { "success" } else { "error" }
+                    }));
                 }
-
-                let _ = window.emit("operation-finished", serde_json::json!({
-                    "success": successes == results.len(),
-                    "message": format!("Bucket update completed: {} of {} succeeded", successes, results.len()),
-                    "operationId": operation_id,
-                    "finalStatus": if successes == results.len() { "success" } else { "error" }
-                }));
             }
 
             // Save the last update time
@@ -152,42 +164,36 @@ async fn run_auto_update(app_handle: &tauri::AppHandle, run_started_at: u64) {
                 serde_json::json!(run_started_at),
             );
 
-            // Check if packages need update
-            let auto_update_packages = crate::commands::settings::get_config_value(
-                app_handle.clone(),
-                "buckets.autoUpdatePackagesEnabled".to_string(),
-            )
-            .ok()
-            .flatten()
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
             if auto_update_packages {
                 update_packages_after_buckets(app_handle, silent_update_enabled).await;
+            } else if successes > 0 {
+                emit_installed_packages_changed(app_handle, "bucket-update", None);
             }
         }
         Err(e) => {
             log::warn!("Auto bucket update failed: {}", e);
 
-            if let Some(window) = app_handle.get_webview_window("main") {
-                let _ = window.emit(
-                    "operation-output",
-                    serde_json::json!({
-                        "line": format!("Error: {}", e),
-                        "source": "stderr",
-                        "operationId": operation_id
-                    }),
-                );
+            if !silent_update_enabled {
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.emit(
+                        "operation-output",
+                        serde_json::json!({
+                            "line": format!("Error: {}", e),
+                            "source": "stderr",
+                            "operationId": operation_id
+                        }),
+                    );
 
-                let _ = window.emit(
-                    "operation-finished",
-                    serde_json::json!({
-                        "success": false,
-                        "message": format!("Bucket update failed: {}", e),
-                        "operationId": operation_id,
-                        "finalStatus": "error"
-                    }),
-                );
+                    let _ = window.emit(
+                        "operation-finished",
+                        serde_json::json!({
+                            "success": false,
+                            "message": format!("Bucket update failed: {}", e),
+                            "operationId": operation_id,
+                            "finalStatus": "error"
+                        }),
+                    );
+                }
             }
 
             // keep the timestamp to avoid frequent retries even if it fails
