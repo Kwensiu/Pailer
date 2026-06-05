@@ -452,44 +452,10 @@ fn setup_windows_specific(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-// Resolve Scoop installation path - Windows only
-// Returns error if path cannot be resolved (no config + auto-detection failed)
+// Resolve the configured Scoop installation path - Windows only.
+// Returns error if the user has not configured a path yet.
 fn resolve_scoop_path(app_handle: tauri::AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    // First, try to get configured path
-    match utils::resolve_scoop_root(app_handle.clone()) {
-        Ok(path) => Ok(path),
-        Err(e) => {
-            log::warn!("Could not resolve scoop root path from config: {}", e);
-
-            // Try auto-detection on first launch
-            log::info!("Attempting auto-detection of Scoop installation...");
-            match crate::commands::settings::auto_detect_scoop_path() {
-                Ok(detected_path) => {
-                    log::info!("Auto-detected Scoop path: {}", detected_path);
-
-                    // Persist the detected path for future launches
-                    if let Err(save_err) = crate::commands::settings::set_scoop_path(
-                        app_handle.clone(),
-                        detected_path.clone(),
-                    ) {
-                        log::warn!("Failed to persist auto-detected path: {}", save_err);
-                    } else {
-                        log::info!("Auto-detected path saved to configuration");
-                    }
-
-                    Ok(PathBuf::from(detected_path))
-                }
-                Err(detect_err) => {
-                    log::error!("Auto-detection failed: {}", detect_err);
-                    Err(format!(
-                        "Cannot resolve Scoop path: {}. Please configure manually in settings.",
-                        detect_err
-                    )
-                    .into())
-                }
-            }
-        }
-    }
+    utils::configured_scoop_root(app_handle).map_err(|e| e.into())
 }
 
 // Show the main application windows

@@ -210,11 +210,15 @@ fn build_tray_menu_with_language(
     menu_items.push(Box::new(show));
     menu_items.push(Box::new(hide));
     let shortcuts_result = if let Some(app_state) = app.try_state::<AppState>() {
-        let scoop_path = app_state.scoop_path();
-        get_scoop_app_shortcuts_with_path(scoop_path.as_path())
+        if !app_state.is_scoop_configured() {
+            Ok(Vec::new())
+        } else {
+            let scoop_path = app_state.scoop_path();
+            get_scoop_app_shortcuts_with_path(scoop_path.as_path())
+        }
     } else {
-        // Fallback to automatic detection if state is not available
-        crate::utils::get_scoop_app_shortcuts()
+        crate::utils::current_scoop_root(app)
+            .and_then(|scoop_path| get_scoop_app_shortcuts_with_path(scoop_path.as_path()))
     };
 
     if let Ok(shortcuts) = shortcuts_result {
@@ -487,8 +491,11 @@ pub fn get_current_language(app: tauri::AppHandle<tauri::Wry>) -> Result<String,
 }
 
 #[tauri::command]
-pub fn get_scoop_app_shortcuts() -> Result<Vec<serde_json::Value>, String> {
-    match crate::utils::get_scoop_app_shortcuts() {
+pub fn get_scoop_app_shortcuts(
+    app: tauri::AppHandle<tauri::Wry>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let scoop_path = crate::utils::current_scoop_root(&app)?;
+    match crate::utils::get_scoop_app_shortcuts_with_path(scoop_path.as_path()) {
         Ok(shortcuts) => {
             let result: Vec<serde_json::Value> = shortcuts
                 .into_iter()
@@ -515,7 +522,8 @@ pub async fn get_scoop_app_shortcut_icons<R: tauri::Runtime>(
         .into_iter()
         .map(|name| name.to_lowercase())
         .collect::<std::collections::HashSet<_>>();
-    let shortcuts = crate::utils::get_scoop_app_shortcuts()?;
+    let scoop_path = crate::utils::current_scoop_root(&app)?;
+    let shortcuts = crate::utils::get_scoop_app_shortcuts_with_path(scoop_path.as_path())?;
     let mut result = std::collections::HashMap::new();
 
     for shortcut in shortcuts {

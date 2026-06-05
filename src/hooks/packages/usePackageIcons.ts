@@ -1,6 +1,7 @@
 import { createSignal, createEffect, on, onCleanup, onMount, Accessor } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { localStorageUtils } from '../search/useSearchCache';
+import settingsStore from '../../stores/settings';
 
 interface UsePackageIconsOptions {
   packageNames: Accessor<string[]>;
@@ -26,12 +27,19 @@ const SESSION_CACHE: Map<string, IconCacheEntry> = new Map();
 const FAILED_CACHE: Map<string, number> = new Map();
 const FAILED_CACHE_DURATION = 2 * 60 * 1000;
 
-const getIconCacheKey = (packageName: string, size: number): string =>
-  `${packageName.toLowerCase()}_${size}`;
+const normalizeScoopPathForCache = (path?: string): string =>
+  (path || 'unconfigured').trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
 
-function getLocalStorageIconCache(packageName: string, size: number): IconCacheEntry | null {
+const getIconCacheKey = (packageName: string, size: number, scoopPath: string): string =>
+  `${normalizeScoopPathForCache(scoopPath)}_${packageName.toLowerCase()}_${size}`;
+
+function getLocalStorageIconCache(
+  packageName: string,
+  size: number,
+  scoopPath: string
+): IconCacheEntry | null {
   try {
-    const key = `${ICON_CACHE_PREFIX}${getIconCacheKey(packageName, size)}`;
+    const key = `${ICON_CACHE_PREFIX}${getIconCacheKey(packageName, size, scoopPath)}`;
     const cached = localStorage.getItem(key);
     if (cached) {
       const parsed: IconCacheEntry = JSON.parse(cached);
@@ -46,9 +54,14 @@ function getLocalStorageIconCache(packageName: string, size: number): IconCacheE
   return null;
 }
 
-function setLocalStorageIconCache(packageName: string, dataUrl: string, size: number): void {
+function setLocalStorageIconCache(
+  packageName: string,
+  dataUrl: string,
+  size: number,
+  scoopPath: string
+): void {
   try {
-    const cacheKey = getIconCacheKey(packageName, size);
+    const cacheKey = getIconCacheKey(packageName, size, scoopPath);
     const key = `${ICON_CACHE_PREFIX}${cacheKey}`;
     const entry: IconCacheEntry = { dataUrl, timestamp: Date.now() };
     SESSION_CACHE.set(cacheKey, entry);
@@ -58,8 +71,8 @@ function setLocalStorageIconCache(packageName: string, dataUrl: string, size: nu
   }
 }
 
-function getCachedIcon(packageName: string, size: number): IconCacheEntry | null {
-  const cacheKey = getIconCacheKey(packageName, size);
+function getCachedIcon(packageName: string, size: number, scoopPath: string): IconCacheEntry | null {
+  const cacheKey = getIconCacheKey(packageName, size, scoopPath);
   const sessionCached = SESSION_CACHE.get(cacheKey);
   if (sessionCached) {
     if (Date.now() - sessionCached.timestamp < CACHE_DURATION) {
@@ -68,7 +81,7 @@ function getCachedIcon(packageName: string, size: number): IconCacheEntry | null
     SESSION_CACHE.delete(cacheKey);
   }
 
-  const localCached = getLocalStorageIconCache(packageName, size);
+  const localCached = getLocalStorageIconCache(packageName, size, scoopPath);
   if (localCached) {
     SESSION_CACHE.set(cacheKey, localCached);
   }
@@ -76,8 +89,8 @@ function getCachedIcon(packageName: string, size: number): IconCacheEntry | null
   return localCached;
 }
 
-function isRecentlyFailed(packageName: string, size: number): boolean {
-  const cacheKey = getIconCacheKey(packageName, size);
+function isRecentlyFailed(packageName: string, size: number, scoopPath: string): boolean {
+  const cacheKey = getIconCacheKey(packageName, size, scoopPath);
   const failedAt = FAILED_CACHE.get(cacheKey);
   if (!failedAt) {
     return false;
@@ -91,8 +104,8 @@ function isRecentlyFailed(packageName: string, size: number): boolean {
   return true;
 }
 
-function markIconFailed(packageName: string, size: number): void {
-  FAILED_CACHE.set(getIconCacheKey(packageName, size), Date.now());
+function markIconFailed(packageName: string, size: number, scoopPath: string): void {
+  FAILED_CACHE.set(getIconCacheKey(packageName, size, scoopPath), Date.now());
 }
 
 export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIconsReturn {
@@ -100,14 +113,17 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
   const [isLoading, setIsLoading] = createSignal(false);
   const [failedIcons, setFailedIcons] = createSignal<Set<string>>(new Set());
   const iconSize = () => options.size || 32;
+  const scoopPath = () => settingsStore.settings.scoopPath || '';
 
   // Use Map to track pending packages, avoiding infinite Set growth
   const [pendingPackages, setPendingPackages] = createSignal<Map<string, number>>(new Map());
   const [requestTimeoutId, setRequestTimeoutId] = createSignal<number | null>(null);
+  let previousScoopPath = scoopPath();
 
   function scheduleBatchFetch(newPackages: string[]): void {
     const now = Date.now();
     const currentSize = iconSize();
+    const currentScoopPath = scoopPath();
 
     // Merge into pending request queue with timestamp for tracking
     setPendingPackages((prev) => {
@@ -141,7 +157,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
 
         // Cache successfully fetched icons
         Object.entries(fetchedIcons).forEach(([name, dataUrl]) => {
-          setLocalStorageIconCache(name, dataUrl, currentSize);
+          setLocalStorageIconCache(name, dataUrl, currentSize, currentScoopPath);
         });
 
         // Only add successfully fetched icons
@@ -157,7 +173,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
             failed.forEach((f) => next.add(f));
             return next;
           });
-          failed.forEach((name) => markIconFailed(name, currentSize));
+          failed.forEach((name) => markIconFailed(name, currentSize, currentScoopPath));
         }
       } catch (error) {
         console.debug('Failed to fetch package icons:', error);
@@ -177,10 +193,11 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
 
     const packageNames = options.packageNames();
     const currentSize = iconSize();
+    const currentScoopPath = scoopPath();
     const cachedIcons: Record<string, string> = {};
 
     packageNames.forEach((name) => {
-      const cached = getCachedIcon(name, currentSize);
+      const cached = getCachedIcon(name, currentSize, currentScoopPath);
       if (cached) {
         cachedIcons[name] = cached.dataUrl;
       }
@@ -194,8 +211,16 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
   // Fetch missing icons - track packageNames changes
   createEffect(
     on(
-      () => options.packageNames(),
-      (packageNames) => {
+      () => [options.packageNames(), scoopPath()] as const,
+      ([packageNames]) => {
+        const currentScoopPath = scoopPath();
+        if (currentScoopPath !== previousScoopPath) {
+          previousScoopPath = currentScoopPath;
+          setIcons({});
+          setFailedIcons(new Set());
+          setPendingPackages(new Map());
+        }
+
         if (packageNames.length === 0) {
           return;
         }
@@ -209,7 +234,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
             return;
           }
 
-          const cached = getCachedIcon(name, currentSize);
+          const cached = getCachedIcon(name, currentSize, currentScoopPath);
           if (cached) {
             cachedIcons[name] = cached.dataUrl;
           }
@@ -223,7 +248,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
         // Find packages that need fetching (not in cache and not already failed)
         const availableIcons = { ...currentIcons, ...cachedIcons };
         const missingPackages = packageNames.filter(
-          (name) => !availableIcons[name] && !isRecentlyFailed(name, currentSize)
+          (name) => !availableIcons[name] && !isRecentlyFailed(name, currentSize, currentScoopPath)
         );
 
         if (missingPackages.length === 0) {

@@ -3,11 +3,10 @@ use crate::commands::settings;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
-use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -63,284 +62,9 @@ pub fn is_scoop_installation() -> bool {
     }
 }
 
-#[derive(Debug, Clone)]
-struct ScoopRootCandidateInfo {
-    path: PathBuf,
-    has_apps_dir: bool,
-    has_buckets_dir: bool,
-}
-
-fn push_candidate(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>, path: PathBuf) {
-    if path.as_os_str().is_empty() {
-        return;
-    }
-
-    let key = path.to_string_lossy().to_lowercase();
-    if seen.insert(key) {
-        log::debug!("Adding candidate path: {}", path.display());
-        candidates.push(path);
-    }
-}
-
-fn collect_common_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>) {
-    log::info!("Collecting common Scoop path candidates");
-
-    // Priority 1: Environment variables
-    if let Ok(scoop_path) = env::var("SCOOP") {
-        log::info!("Found SCOOP environment variable: {}", scoop_path);
-        push_candidate(seen, candidates, PathBuf::from(scoop_path));
-    }
-
-    if let Ok(global_path) = env::var("SCOOP_GLOBAL") {
-        log::info!("Found SCOOP_GLOBAL environment variable: {}", global_path);
-        push_candidate(seen, candidates, PathBuf::from(global_path));
-    }
-
-    // Priority 2: Try to get scoop root from scoop command itself (most reliable)
-    if let Ok(scoop_root) = get_scoop_root_from_command() {
-        log::info!("Found scoop root from command: {}", scoop_root.display());
-        push_candidate(seen, candidates, scoop_root);
-    } else {
-        // Priority 3: Common fallback paths
-        log::info!("Using fallback detection");
-
-        // User profile scoop installation
-        if let Ok(user_profile) = env::var("USERPROFILE") {
-            push_candidate(seen, candidates, PathBuf::from(user_profile).join("scoop"));
-        }
-
-        // Additional environment variables from old version
-        if let (Ok(home_drive), Ok(home_path)) = (env::var("HOMEDRIVE"), env::var("HOMEPATH")) {
-            let combined = format!("{}{}", home_drive.trim_end_matches('\\'), home_path);
-            push_candidate(seen, candidates, PathBuf::from(combined).join("scoop"));
-        }
-
-        if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
-            push_candidate(
-                seen,
-                candidates,
-                PathBuf::from(local_app_data).join("scoop"),
-            );
-        }
-
-        // System-wide installation
-        if let Ok(program_data) = env::var("PROGRAMDATA") {
-            push_candidate(seen, candidates, PathBuf::from(program_data).join("scoop"));
-        }
-
-        // System drive dynamic detection
-        if let Ok(system_drive) = env::var("SystemDrive") {
-            let drive_root = system_drive.trim_end_matches('\\');
-            push_candidate(
-                seen,
-                candidates,
-                PathBuf::from(format!("{}\\scoop", drive_root)),
-            );
-        }
-
-        // Common hardcoded paths
-        push_candidate(seen, candidates, PathBuf::from(r"C:\scoop"));
-        push_candidate(seen, candidates, PathBuf::from(r"C:\ProgramData\scoop"));
-    }
-}
-
-fn collect_user_profile_candidates(seen: &mut HashSet<String>, candidates: &mut Vec<PathBuf>) {
-    log::info!("Collecting user profile candidates");
-    let mut roots = Vec::new();
-
-    if let Ok(system_drive) = env::var("SystemDrive") {
-        let mut drive_root = PathBuf::from(system_drive.trim_end_matches('\\'));
-        drive_root.push("Users");
-        roots.push(drive_root);
-    }
-
-    roots.push(PathBuf::from(r"C:\Users"));
-
-    for root in roots {
-        if !root.is_dir() {
-            continue;
-        }
-
-        // Limit the number of user directories to scan for performance
-        let mut user_count = 0;
-        const MAX_USERS_TO_SCAN: usize = 10;
-
-        if let Ok(entries) = fs::read_dir(&root) {
-            for entry in entries.filter_map(Result::ok) {
-                user_count += 1;
-                if user_count > MAX_USERS_TO_SCAN {
-                    log::info!(
-                        "Stopping user directory scan after {} users for performance",
-                        MAX_USERS_TO_SCAN
-                    );
-                    break;
-                }
-
-                let user_dir = entry.path();
-                let scoop_dir = user_dir.join("scoop");
-                if scoop_dir.is_dir() {
-                    log::info!("Found user scoop directory: {}", scoop_dir.display());
-                    push_candidate(seen, candidates, scoop_dir);
-                }
-
-                let local_scoop_dir = user_dir.join("AppData").join("Local").join("scoop");
-                if local_scoop_dir.is_dir() {
-                    log::info!(
-                        "Found local AppData scoop directory: {}",
-                        local_scoop_dir.display()
-                    );
-                    push_candidate(seen, candidates, local_scoop_dir);
-                }
-            }
-        }
-    }
-}
-
-pub fn build_candidate_list<I>(extras: I) -> Vec<PathBuf>
-where
-    I: IntoIterator<Item = PathBuf>,
-{
-    log::info!("Building candidate list");
-    let mut seen = HashSet::new();
-    let mut candidates = Vec::new();
-
-    for path in extras {
-        log::info!("Adding extra path to candidates: {}", path.display());
-        push_candidate(&mut seen, &mut candidates, path);
-    }
-
-    collect_common_candidates(&mut seen, &mut candidates);
-    collect_user_profile_candidates(&mut seen, &mut candidates);
-
-    log::info!("Built candidate list with {} paths", candidates.len());
-    for (i, candidate) in candidates.iter().enumerate() {
-        log::debug!("Candidate {}: {}", i, candidate.display());
-    }
-
-    candidates
-}
-
-#[allow(dead_code)]
-fn evaluate_scoop_candidate(path: PathBuf) -> Option<ScoopRootCandidateInfo> {
-    log::debug!("Evaluating Scoop candidate: {}", path.display());
-
-    if !path.is_dir() {
-        log::debug!("Skipping invalid candidate: {}", path.display());
-        return None;
-    }
-
-    let apps_dir = path.join("apps");
-    let buckets_dir = path.join("buckets");
-    let has_apps_dir = apps_dir.is_dir();
-    let has_buckets_dir = buckets_dir.is_dir();
-
-    if !has_apps_dir && !has_buckets_dir {
-        log::debug!("Candidate rejected - missing both apps and buckets directories");
-        return None;
-    }
-
-    let installed_count = if has_apps_dir {
-        match fs::read_dir(&apps_dir) {
-            Ok(entries) => {
-                let count = entries
-                    .filter_map(Result::ok)
-                    .filter(|entry| entry.path().is_dir())
-                    .take(200)
-                    .count();
-                log::debug!("Found {} installed apps in apps directory", count);
-                count
-            }
-            Err(e) => {
-                log::warn!("Failed to read apps directory: {}", e);
-                0
-            }
-        }
-    } else {
-        0
-    };
-
-    log::debug!(
-        "Valid Scoop root candidate: {} (apps_dir={}, buckets_dir={}, installed={})",
-        path.display(),
-        has_apps_dir,
-        has_buckets_dir,
-        installed_count
-    );
-
-    Some(ScoopRootCandidateInfo {
-        path,
-        has_apps_dir,
-        has_buckets_dir,
-    })
-}
-
-#[allow(dead_code)]
-fn select_best_scoop_root(
-    candidates: Vec<PathBuf>,
-    preferred: Option<&PathBuf>,
-) -> Option<ScoopRootCandidateInfo> {
-    log::debug!(
-        "Selecting best Scoop root from {} candidates",
-        candidates.len()
-    );
-
-    // Use preferred path if available
-    if let Some(preferred_path) = preferred {
-        if let Some(candidate) = candidates.iter().find(|path| **path == *preferred_path) {
-            if let Some(info) = evaluate_scoop_candidate(candidate.clone()) {
-                log::info!("Using preferred Scoop root: {}", preferred_path.display());
-                return Some(info);
-            }
-        }
-    }
-
-    // Collect all valid candidates
-    let mut valid_candidates: Vec<ScoopRootCandidateInfo> = candidates
-        .into_iter()
-        .filter_map(|candidate| evaluate_scoop_candidate(candidate))
-        .collect();
-
-    // Sort by priority: has apps+buckets > has apps > has buckets
-    valid_candidates.sort_by(|a, b| {
-        let a_priority = (a.has_apps_dir, a.has_buckets_dir);
-        let b_priority = (b.has_apps_dir, b.has_buckets_dir);
-        b_priority.cmp(&a_priority)
-    });
-
-    if let Some(best) = valid_candidates.into_iter().next() {
-        let selection_type = if best.has_apps_dir && best.has_buckets_dir {
-            "with apps and buckets"
-        } else if best.has_apps_dir {
-            "with apps directory"
-        } else {
-            "with buckets directory"
-        };
-
-        log::info!(
-            "Selected Scoop root {}: {}",
-            selection_type,
-            best.path.display()
-        );
-        Some(best)
-    } else {
-        log::warn!("No valid Scoop root found");
-        None
-    }
-}
-
-/// Resolve the root directory of Scoop on the host machine.
-///
-/// The resolver inspects the persisted setting first, then scores a set of
-/// likely directories (environment variables, known install paths, user
-/// profiles) by checking for Scoop buckets and installed apps. The best match
-/// is remembered for future runs so MSI/Elevated launches still find the
-/// user's Scoop data.
-///
-/// # Errors
-/// Returns Err when no Scoop path is configured.
-/// This function no longer auto-detects paths - it only uses the configured path.
-pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, String> {
-    log::info!("Resolving Scoop root directory");
+/// Returns the Scoop root saved in Pailer settings.
+pub fn configured_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, String> {
+    log::info!("Reading configured Scoop root directory");
 
     let stored_path = settings::get_scoop_path(app.clone())
         .ok()
@@ -351,9 +75,27 @@ pub fn resolve_scoop_root<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, Stri
         log::info!("Using configured Scoop path: {}", path.display());
         return Ok(path.clone());
     } else {
-        log::warn!("No Scoop path configured in settings");
-        return Err("No Scoop path configured. Please configure it in settings.".to_string());
+        log::warn!("No Scoop path configured in Pailer settings");
+        Err("No Scoop path configured. Please configure it in settings.".to_string())
     }
+}
+
+/// Returns the current Scoop root from runtime state when available.
+///
+/// This is the preferred path lookup for commands because it keeps callers
+/// aligned with the configured Scoop root and any runtime path changes.
+pub fn current_scoop_root<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
+    if let Some(state) = app.try_state::<crate::state::AppState>() {
+        if state.is_scoop_configured() {
+            let path = state.scoop_path();
+            log::debug!("Using runtime Scoop path: {}", path.display());
+            return Ok(path);
+        }
+
+        log::warn!("Runtime Scoop path is not configured");
+    }
+
+    configured_scoop_root(app.clone())
 }
 
 // -----------------------------------------------------------------------------
@@ -635,46 +377,6 @@ pub fn get_scoop_app_shortcuts_with_path(
     Ok(shortcuts)
 }
 
-/// Try to get scoop root by running scoop config command
-fn get_scoop_root_from_command() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    use std::process::Command;
-
-    log::info!("Attempting to get scoop root from command");
-
-    let output = Command::new("scoop")
-        .args(&["config", "root_path"])
-        .output();
-
-    match output {
-        Ok(result) => {
-            if result.status.success() {
-                let scoop_path = String::from_utf8(result.stdout)?;
-                let trimmed_path = scoop_path.trim();
-
-                if !trimmed_path.is_empty() && PathBuf::from(trimmed_path).exists() {
-                    log::info!("Found scoop root from command: {}", trimmed_path);
-                    return Ok(PathBuf::from(trimmed_path));
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&result.stderr);
-                log::debug!("scoop config root_path failed: {}", stderr);
-            }
-        }
-        Err(e) => {
-            log::debug!("Failed to execute scoop command: {}", e);
-        }
-    }
-
-    Err("Failed to get scoop root from command".into())
-}
-
-/// Legacy wrapper for backwards compatibility - tries to find Scoop root automatically
-pub fn get_scoop_app_shortcuts() -> Result<Vec<ScoopAppShortcut>, String> {
-    // Try to find Scoop root automatically for backwards compatibility
-    let scoop_root = get_scoop_root_fallback();
-    get_scoop_app_shortcuts_with_path(&scoop_root)
-}
-
 /// Check if a path is a valid Scoop candidate (has apps or buckets directory)
 pub fn is_valid_scoop_candidate(path: &PathBuf) -> bool {
     if !path.exists() || !path.is_dir() {
@@ -693,8 +395,6 @@ pub fn is_valid_scoop_candidate(path: &PathBuf) -> bool {
 
 use std::sync::{Mutex, OnceLock};
 
-// Global cache for Scoop root to avoid repeated detection
-static SCOOP_ROOT_CACHE: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 static SCOOP_APP_SHORTCUTS_CACHE: OnceLock<Mutex<Option<ScoopAppShortcutsCache>>> = OnceLock::new();
 
 fn get_path_modified_ms(path: &Path) -> u128 {
@@ -735,70 +435,6 @@ fn update_scoop_app_shortcuts_cache(shortcuts_dir: &Path, shortcuts: &[ScoopAppS
             dir_modified_ms: get_path_modified_ms(shortcuts_dir),
             shortcuts: shortcuts.to_vec(),
         });
-    }
-}
-
-/// Get Scoop root directory as fallback when AppState is not available
-pub fn get_scoop_root_fallback() -> PathBuf {
-    // Try to get from cache first
-    let cache = SCOOP_ROOT_CACHE.get_or_init(|| Mutex::new(None));
-
-    // Check if we have a cached value
-    {
-        let cached_value = cache.lock().unwrap();
-        if let Some(ref path) = *cached_value {
-            log::debug!("Using cached Scoop root: {}", path.display());
-            return path.clone();
-        }
-    }
-
-    // Simple detection: check SCOOP env var first
-    if let Ok(scoop_path) = env::var("SCOOP") {
-        let path = PathBuf::from(&scoop_path);
-        if path.join("apps").is_dir() {
-            log::info!("Using SCOOP environment variable: {}", path.display());
-            let mut cached_value = cache.lock().unwrap();
-            *cached_value = Some(path.clone());
-            return path;
-        }
-    }
-
-    // Fallback to common paths
-    let mut common_paths = vec![
-        PathBuf::from(r"C:\ProgramData\scoop"),
-        PathBuf::from(r"C:\scoop"),
-    ];
-
-    // Add user profile scoop path dynamically
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        common_paths.insert(0, PathBuf::from(user_profile).join("scoop"));
-    }
-
-    for path in common_paths {
-        if path.join("apps").is_dir() {
-            log::info!("Found Scoop at: {}", path.display());
-            let mut cached_value = cache.lock().unwrap();
-            *cached_value = Some(path.clone());
-            return path;
-        }
-    }
-
-    // Default fallback
-    let default_path = PathBuf::from("C:\\scoop");
-    log::warn!("Using default Scoop path: {}", default_path.display());
-
-    let mut cached_value = cache.lock().unwrap();
-    *cached_value = Some(default_path.clone());
-
-    default_path
-}
-
-/// Clear the Scoop root cache (useful when Scoop configuration changes)
-pub fn clear_scoop_root_cache() {
-    if let Some(cache) = SCOOP_ROOT_CACHE.get() {
-        let mut cached_value = cache.lock().unwrap();
-        *cached_value = None;
-        log::info!("Scoop root cache cleared");
     }
 }
 

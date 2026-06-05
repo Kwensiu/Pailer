@@ -308,6 +308,10 @@ function createSettingsStore() {
     }
   };
 
+  const updateSettingsState = (newSettings: Partial<Settings>) => {
+    setSettings({ ...settings, ...newSettings });
+  };
+
   const setVirusTotalSettings = async (newVtSettings: Partial<Settings['virustotal']>) => {
     await saveSettings({
       virustotal: {
@@ -385,12 +389,8 @@ function createSettingsStore() {
   };
 
   const setScoopPath = async (path: string) => {
-    try {
-      await invoke('set_scoop_path', { path });
-      await saveSettings({ scoopPath: path, scoopPathManuallyConfigured: true });
-    } catch (error) {
-      console.error('Failed to set scoop path:', error);
-    }
+    const savedPath = await invoke<string>('set_scoop_path', { path });
+    updateSettingsState({ scoopPath: savedPath, scoopPathManuallyConfigured: true });
   };
 
   const setScoopSettings = async (newScoopSettings: Partial<Settings['scoop']>) => {

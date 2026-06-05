@@ -36,9 +36,8 @@ pub struct BucketUpdateProgressEvent {
 }
 
 // Get the buckets directory path
-fn get_buckets_dir() -> Result<PathBuf, String> {
-    // Use fallback method to get scoop directory
-    let scoop_dir = utils::get_scoop_root_fallback();
+fn get_buckets_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let scoop_dir = utils::current_scoop_root(app)?;
     log::debug!(
         "Using buckets directory: {}",
         scoop_dir.join("buckets").display()
@@ -47,15 +46,15 @@ fn get_buckets_dir() -> Result<PathBuf, String> {
 }
 
 // Check if bucket already exists
-fn bucket_exists(bucket_name: &str) -> Result<bool, String> {
-    let buckets_dir = get_buckets_dir()?;
+fn bucket_exists(app: &tauri::AppHandle, bucket_name: &str) -> Result<bool, String> {
+    let buckets_dir = get_buckets_dir(app)?;
     let bucket_path = buckets_dir.join(bucket_name);
     Ok(bucket_path.exists())
 }
 
 // Get bucket directory path
-fn get_bucket_path(bucket_name: &str) -> Result<PathBuf, String> {
-    let buckets_dir = get_buckets_dir()?;
+fn get_bucket_path(app: &tauri::AppHandle, bucket_name: &str) -> Result<PathBuf, String> {
+    let buckets_dir = get_buckets_dir(app)?;
     Ok(buckets_dir.join(bucket_name))
 }
 
@@ -132,6 +131,7 @@ fn compress_git_refs(repo: &Repository, bucket_name: &str) {
 
 // Main function to install a bucket
 async fn install_bucket_internal(
+    app: tauri::AppHandle,
     options: BucketInstallOptions,
 ) -> Result<BucketInstallResult, String> {
     let BucketInstallOptions { name, url, force } = options;
@@ -147,7 +147,7 @@ async fn install_bucket_internal(
     };
 
     // Check if bucket already exists
-    if bucket_exists(&bucket_name)? && !force {
+    if bucket_exists(&app, &bucket_name)? && !force {
         return Ok(BucketInstallResult {
             success: false,
             message: format!(
@@ -155,12 +155,16 @@ async fn install_bucket_internal(
                 bucket_name
             ),
             bucket_name: bucket_name.clone(),
-            bucket_path: Some(get_bucket_path(&bucket_name)?.to_string_lossy().to_string()),
+            bucket_path: Some(
+                get_bucket_path(&app, &bucket_name)?
+                    .to_string_lossy()
+                    .to_string(),
+            ),
             manifest_count: None,
         });
     }
 
-    let bucket_path = get_bucket_path(&bucket_name)?;
+    let bucket_path = get_bucket_path(&app, &bucket_name)?;
 
     // If force is true and bucket exists, remove it first
     if force && bucket_path.exists() {
@@ -223,10 +227,13 @@ async fn install_bucket_internal(
 
 // Tauri command to install a bucket
 #[command]
-pub async fn install_bucket(options: BucketInstallOptions) -> Result<BucketInstallResult, String> {
+pub async fn install_bucket(
+    app: tauri::AppHandle,
+    options: BucketInstallOptions,
+) -> Result<BucketInstallResult, String> {
     log::info!("Installing bucket: {} from {}", options.name, options.url);
 
-    match install_bucket_internal(options).await {
+    match install_bucket_internal(app, options).await {
         Ok(result) => {
             log::info!("Bucket installation result: {:?}", result);
             Ok(result)
@@ -247,6 +254,7 @@ pub async fn install_bucket(options: BucketInstallOptions) -> Result<BucketInsta
 // Command to check if a bucket can be installed (validation only)
 #[command]
 pub async fn validate_bucket_install(
+    app: tauri::AppHandle,
     name: String,
     url: String,
 ) -> Result<BucketInstallResult, String> {
@@ -284,7 +292,7 @@ pub async fn validate_bucket_install(
     };
 
     // Check if bucket already exists and get path atomically
-    let (already_exists, bucket_path) = match get_bucket_path(&bucket_name) {
+    let (already_exists, bucket_path) = match get_bucket_path(&app, &bucket_name) {
         Ok(path) => {
             let exists = path.exists();
             let path_str = if exists {
@@ -319,12 +327,12 @@ pub async fn validate_bucket_install(
 // Command to update a bucket (git pull)
 #[command]
 pub async fn update_bucket(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     bucket_name: String,
 ) -> Result<BucketInstallResult, String> {
     log::info!("Updating bucket: {}", bucket_name);
 
-    let bucket_path = get_bucket_path(&bucket_name)?;
+    let bucket_path = get_bucket_path(&app, &bucket_name)?;
 
     if !bucket_path.exists() {
         let result = BucketInstallResult {
@@ -569,10 +577,7 @@ pub async fn update_all_buckets(
 ) -> Result<Vec<BucketInstallResult>, String> {
     log::info!("Updating all buckets (auto-update task)");
 
-    // Pre-fetch and cache the scoop root to avoid repeated path detection
-    let _scoop_root = utils::get_scoop_root_fallback();
-
-    let buckets_dir = match get_buckets_dir() {
+    let buckets_dir = match get_buckets_dir(&app) {
         Ok(p) => p,
         Err(e) => return Err(format!("Failed to resolve buckets directory: {}", e)),
     };
@@ -663,18 +668,18 @@ pub async fn update_all_buckets(
         refresh_manifest_cache_for_buckets(changed_buckets, "bulk bucket update").await;
     }
 
-    // Clear the scoop root cache after batch update to allow for fresh detection next time
-    crate::utils::clear_scoop_root_cache();
-
     Ok(results)
 }
 
 // Command to remove a bucket
 #[command]
-pub async fn remove_bucket(bucket_name: String) -> Result<BucketInstallResult, String> {
+pub async fn remove_bucket(
+    app: tauri::AppHandle,
+    bucket_name: String,
+) -> Result<BucketInstallResult, String> {
     log::info!("Removing bucket: {}", bucket_name);
 
-    let bucket_path = get_bucket_path(&bucket_name)?;
+    let bucket_path = get_bucket_path(&app, &bucket_name)?;
 
     if !bucket_path.exists() {
         return Ok(BucketInstallResult {

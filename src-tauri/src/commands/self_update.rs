@@ -81,7 +81,7 @@ fn resolve_self_restart_executable(current_dir: &PathBuf) -> Result<PathBuf, Str
 }
 
 fn resolve_pailer_current_restart_exe<R: Runtime>(app: AppHandle<R>) -> Result<PathBuf, String> {
-    let scoop_root = utils::resolve_scoop_root(app)?;
+    let scoop_root = utils::configured_scoop_root(app)?;
     let current_dir = scoop_root.join("apps").join("pailer").join("current");
     if !current_dir.is_dir() {
         return Err(format!(

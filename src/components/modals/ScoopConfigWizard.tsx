@@ -5,6 +5,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import Modal from '../common/Modal';
 import { toast } from '../common/ToastAlert';
 import { t } from '../../i18n';
+import settingsStore from '../../stores/settings';
 
 interface ScoopConfigWizardProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ScoopConfigWizardProps {
 }
 
 export default function ScoopConfigWizard(props: ScoopConfigWizardProps) {
+  const { setScoopPath: saveScoopPath } = settingsStore;
   const [scoopPath, setScoopPath] = createSignal('');
   const [validating, setValidating] = createSignal(false);
   const [validationResult, setValidationResult] = createSignal<{
@@ -160,7 +162,7 @@ irm get.scoop.sh -outfile 'install.ps1'
     }
 
     try {
-      await invoke('set_scoop_path', { path: scoopPath() });
+      await saveScoopPath(scoopPath());
       props.onConfigured();
     } catch (error) {
       showValidationResult(
