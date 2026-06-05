@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.1](https://github.com/Kwensiu/Pailer/compare/v1.17.0...v1.17.1) (2026-06-05)
+
+
+### Bug Fixes
+
+* clarify silent bucket auto update refresh ([15aa7b6](https://github.com/Kwensiu/Pailer/commit/15aa7b6a5060ddc10b979ed348a033d28ab56b82))
+* extract Scoop path settings module ([2305065](https://github.com/Kwensiu/Pailer/commit/23050655fd391fb717f3a55b638de589846e1df7))
+* handle configured Scoop root ([d353d73](https://github.com/Kwensiu/Pailer/commit/d353d7324c2bf541a395a41372491dc77ff62459))
+
 ## [1.17.0](https://github.com/Kwensiu/Pailer/compare/v1.16.1...v1.17.0) (2026-06-04)
 
 
