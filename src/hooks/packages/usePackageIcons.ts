@@ -71,7 +71,11 @@ function setLocalStorageIconCache(
   }
 }
 
-function getCachedIcon(packageName: string, size: number, scoopPath: string): IconCacheEntry | null {
+function getCachedIcon(
+  packageName: string,
+  size: number,
+  scoopPath: string
+): IconCacheEntry | null {
   const cacheKey = getIconCacheKey(packageName, size, scoopPath);
   const sessionCached = SESSION_CACHE.get(cacheKey);
   if (sessionCached) {
@@ -217,7 +221,7 @@ export function usePackageIcons(options: UsePackageIconsOptions): UsePackageIcon
         if (currentScoopPath !== previousScoopPath) {
           previousScoopPath = currentScoopPath;
           setIcons({});
-          setFailedIcons(new Set());
+          setFailedIcons(new Set<string>());
           setPendingPackages(new Map());
         }
 

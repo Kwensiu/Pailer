@@ -9,6 +9,19 @@ interface ManifestCache {
   bucketName: string;
 }
 
+export interface BucketManifestPage {
+  manifests: string[];
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+}
+
+interface BucketManifestCount {
+  bucket_name: string;
+  manifest_count: number;
+}
+
 const MANIFEST_CACHE_PREFIX = 'bucket_manifests_';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 
@@ -75,10 +88,12 @@ export interface BucketInfo {
   name: string;
   path: string;
   manifest_count: number;
+  manifest_count_loaded?: boolean;
   is_git_repo: boolean;
   git_url?: string;
   git_branch?: string;
   last_updated?: string;
+  details_loaded?: boolean;
 }
 
 interface UseBucketsReturn {
@@ -86,9 +101,17 @@ interface UseBucketsReturn {
   loading: () => boolean;
   error: () => string | null;
   fetchBuckets: (forceRefresh?: boolean, quiet?: boolean) => Promise<void>;
+  fetchBucketSummaries: (forceRefresh?: boolean, quiet?: boolean) => Promise<void>;
+  preloadBucketDetails: () => Promise<void>;
   markForRefresh: () => void;
   getBucketInfo: (bucketName: string) => Promise<BucketInfo | null>;
+  hydrateBucketManifestCounts: (bucketNames: string[]) => Promise<BucketInfo[]>;
+  hydrateBucketInfo: (bucketName: string) => Promise<BucketInfo | null>;
   getBucketManifests: (bucketName: string, forceRefresh?: boolean) => Promise<string[]>;
+  getBucketManifestsPage: (
+    bucketName: string,
+    options?: { query?: string; offset?: number; limit?: number }
+  ) => Promise<BucketManifestPage>;
   clearManifestCache: (bucketName?: string) => void;
   cleanup: () => void;
 }
@@ -98,7 +121,16 @@ let isFetching = false;
 let globalError: string | null = null;
 let shouldRefreshCache = false;
 let inFlightFetch: Promise<void> | null = null;
+let inFlightSummaryFetch: Promise<void> | null = null;
+const inFlightBucketManifestCount = new Map<string, number>();
+const inFlightBucketInfo = new Map<string, Promise<BucketInfo | null>>();
 const listeners = new Set<() => void>();
+let preloadPromise: Promise<void> | null = null;
+let preloadPromiseGeneration = -1;
+let bucketCacheGeneration = 0;
+let bucketManifestCountRequestId = 0;
+const BUCKET_MANIFEST_COUNT_BATCH_SIZE = 8;
+const BUCKET_DETAIL_CONCURRENCY = 2;
 
 const getCurrentBuckets = () => cachedBuckets || [];
 
@@ -113,9 +145,22 @@ const subscribe = (listener: () => void) => {
   };
 };
 
+const normalizeBucketInfo = (bucket: BucketInfo): BucketInfo => ({
+  ...bucket,
+  manifest_count_loaded: bucket.manifest_count_loaded ?? bucket.details_loaded ?? true,
+  details_loaded: bucket.details_loaded ?? true,
+});
+
+const replaceCachedBuckets = (buckets: BucketInfo[] | null) => {
+  cachedBuckets = buckets?.map(normalizeBucketInfo) ?? null;
+  bucketCacheGeneration += 1;
+};
+
+const isCurrentBucketCacheGeneration = (generation: number) => generation === bucketCacheGeneration;
+
 // Add a function to update the cache from outside the hook
 export function updateBucketsCache(buckets: BucketInfo[] | null) {
-  cachedBuckets = buckets;
+  replaceCachedBuckets(buckets);
 
   // Notify all listeners of the cache update
   notifyListeners();
@@ -147,7 +192,7 @@ export function useBuckets(): UseBucketsReturn {
 
     try {
       const result = await invoke<BucketInfo[]>('get_buckets');
-      cachedBuckets = result;
+      replaceCachedBuckets(result);
       globalError = null;
       shouldRefreshCache = false;
     } catch (err) {
@@ -160,10 +205,41 @@ export function useBuckets(): UseBucketsReturn {
     }
   };
 
+  const runSummaryFetch = async (quiet: boolean) => {
+    isFetching = true;
+    globalError = null;
+    if (!quiet) {
+      setLoading(true);
+      setError(null);
+      notifyListeners();
+    }
+
+    try {
+      const result = await invoke<BucketInfo[]>('get_bucket_summaries');
+      replaceCachedBuckets(result);
+      globalError = null;
+      shouldRefreshCache = false;
+      void preloadBucketDetails();
+    } catch (err) {
+      console.error('Failed to fetch bucket summaries:', err);
+      globalError = err as string;
+    } finally {
+      isFetching = false;
+      inFlightSummaryFetch = null;
+      notifyListeners();
+    }
+  };
+
   const fetchBuckets = async (forceRefresh = false, quiet = false) => {
     if (inFlightFetch) {
       await inFlightFetch;
-      return;
+      if (!forceRefresh) {
+        return;
+      }
+    }
+
+    if (inFlightSummaryFetch) {
+      await inFlightSummaryFetch;
     }
 
     // If we have cached data and it's not a force refresh, use it immediately
@@ -173,6 +249,7 @@ export function useBuckets(): UseBucketsReturn {
       if (!quiet) {
         setLoading(false);
       }
+      void preloadBucketDetails();
       return;
     }
 
@@ -180,8 +257,41 @@ export function useBuckets(): UseBucketsReturn {
     await inFlightFetch;
   };
 
+  const fetchBucketSummaries = async (forceRefresh = false, quiet = false) => {
+    if (inFlightFetch) {
+      await inFlightFetch;
+      if (!forceRefresh) {
+        return;
+      }
+    }
+
+    if (inFlightSummaryFetch) {
+      await inFlightSummaryFetch;
+      if (!forceRefresh) {
+        return;
+      }
+    }
+
+    if (cachedBuckets && !forceRefresh && !shouldRefreshCache) {
+      setBuckets(cachedBuckets);
+      if (!quiet) {
+        setLoading(false);
+      }
+      void preloadBucketDetails();
+      return;
+    }
+
+    inFlightSummaryFetch = runSummaryFetch(quiet);
+    await inFlightSummaryFetch;
+  };
+
   const markForRefresh = () => {
     shouldRefreshCache = true;
+    bucketCacheGeneration += 1;
+    preloadPromise = null;
+    preloadPromiseGeneration = -1;
+    inFlightBucketManifestCount.clear();
+    inFlightBucketInfo.clear();
     // Clear all manifest caches when buckets need refresh
     clearManifestCache();
   };
@@ -211,6 +321,176 @@ export function useBuckets(): UseBucketsReturn {
     }
   };
 
+  const hydrateBucketManifestCounts = async (bucketNames: string[]): Promise<BucketInfo[]> => {
+    const requestGeneration = bucketCacheGeneration;
+    const namesToCount = bucketNames.filter((bucketName) => {
+      const existingBucket = cachedBuckets?.find((bucket) => bucket.name === bucketName);
+      return (
+        existingBucket &&
+        !existingBucket.manifest_count_loaded &&
+        !inFlightBucketManifestCount.has(bucketName)
+      );
+    });
+
+    if (namesToCount.length === 0) {
+      return [];
+    }
+
+    const requestId = ++bucketManifestCountRequestId;
+    namesToCount.forEach((bucketName) => inFlightBucketManifestCount.set(bucketName, requestId));
+
+    try {
+      const counts = await invoke<BucketManifestCount[]>('get_bucket_manifest_counts', {
+        bucketNames: namesToCount,
+      });
+      const countByBucket = new Map(
+        counts.map((count) => [count.bucket_name, count.manifest_count])
+      );
+      const updatedBuckets: BucketInfo[] = [];
+
+      if (!isCurrentBucketCacheGeneration(requestGeneration)) {
+        return updatedBuckets;
+      }
+
+      cachedBuckets = (cachedBuckets || []).map((bucket) => {
+        const manifestCount = countByBucket.get(bucket.name);
+        if (manifestCount === undefined) {
+          return bucket;
+        }
+
+        const nextBucketInfo = normalizeBucketInfo({
+          ...bucket,
+          manifest_count: manifestCount,
+          manifest_count_loaded: true,
+        });
+        updatedBuckets.push(nextBucketInfo);
+        return nextBucketInfo;
+      });
+      notifyListeners();
+      return updatedBuckets;
+    } catch (err) {
+      console.error('Failed to count bucket manifests:', err);
+      return [];
+    } finally {
+      namesToCount.forEach((bucketName) => {
+        if (inFlightBucketManifestCount.get(bucketName) === requestId) {
+          inFlightBucketManifestCount.delete(bucketName);
+        }
+      });
+    }
+  };
+
+  const hydrateBucketInfo = async (bucketName: string): Promise<BucketInfo | null> => {
+    const existingBucket = cachedBuckets?.find((bucket) => bucket.name === bucketName);
+    if (existingBucket?.details_loaded) {
+      return existingBucket;
+    }
+
+    const requestGeneration = bucketCacheGeneration;
+    const inFlight = inFlightBucketInfo.get(bucketName);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request = getBucketInfo(bucketName)
+      .then((bucketInfo) => {
+        if (!bucketInfo) {
+          return null;
+        }
+
+        const nextBucketInfo = normalizeBucketInfo(bucketInfo);
+        const currentBuckets = cachedBuckets || [];
+        if (!isCurrentBucketCacheGeneration(requestGeneration)) {
+          return null;
+        }
+
+        const bucketExists = currentBuckets.some((bucket) => bucket.name === bucketName);
+        if (!bucketExists) {
+          return null;
+        }
+
+        cachedBuckets = currentBuckets.map((bucket) =>
+          bucket.name === bucketName ? nextBucketInfo : bucket
+        );
+        notifyListeners();
+        return nextBucketInfo;
+      })
+      .finally(() => {
+        if (inFlightBucketInfo.get(bucketName) === request) {
+          inFlightBucketInfo.delete(bucketName);
+        }
+      });
+
+    inFlightBucketInfo.set(bucketName, request);
+    return request;
+  };
+
+  const preloadBucketDetails = async (): Promise<void> => {
+    const requestedGeneration = bucketCacheGeneration;
+
+    if (preloadPromise) {
+      const activePreloadGeneration = preloadPromiseGeneration;
+      await preloadPromise;
+      if (
+        activePreloadGeneration === requestedGeneration &&
+        requestedGeneration === bucketCacheGeneration
+      ) {
+        return;
+      }
+    }
+
+    const isPreloadGenerationCurrent = () => requestedGeneration === bucketCacheGeneration;
+
+    const nextPreloadPromise = (async () => {
+      const bucketsToCount = getCurrentBuckets()
+        .filter((bucket) => !bucket.manifest_count_loaded)
+        .map((bucket) => bucket.name);
+
+      for (
+        let index = 0;
+        index < bucketsToCount.length;
+        index += BUCKET_MANIFEST_COUNT_BATCH_SIZE
+      ) {
+        if (!isPreloadGenerationCurrent()) {
+          return;
+        }
+
+        await hydrateBucketManifestCounts(
+          bucketsToCount.slice(index, index + BUCKET_MANIFEST_COUNT_BATCH_SIZE)
+        );
+      }
+
+      if (!isPreloadGenerationCurrent()) {
+        return;
+      }
+
+      const bucketsToHydrate = getCurrentBuckets()
+        .filter((bucket) => !bucket.details_loaded)
+        .map((bucket) => bucket.name);
+
+      for (let index = 0; index < bucketsToHydrate.length; index += BUCKET_DETAIL_CONCURRENCY) {
+        if (!isPreloadGenerationCurrent()) {
+          return;
+        }
+
+        await Promise.allSettled(
+          bucketsToHydrate
+            .slice(index, index + BUCKET_DETAIL_CONCURRENCY)
+            .map((bucketName) => hydrateBucketInfo(bucketName))
+        );
+      }
+    })().finally(() => {
+      if (preloadPromise === nextPreloadPromise) {
+        preloadPromise = null;
+        preloadPromiseGeneration = -1;
+      }
+    });
+
+    preloadPromise = nextPreloadPromise;
+    preloadPromiseGeneration = bucketCacheGeneration;
+    await preloadPromise;
+  };
+
   const getBucketManifests = async (
     bucketName: string,
     forceRefresh = false
@@ -238,14 +518,42 @@ export function useBuckets(): UseBucketsReturn {
     }
   };
 
+  const getBucketManifestsPage = async (
+    bucketName: string,
+    options: { query?: string; offset?: number; limit?: number } = {}
+  ): Promise<BucketManifestPage> => {
+    try {
+      return await invoke<BucketManifestPage>('get_bucket_manifests_page', {
+        bucketName,
+        query: options.query?.trim() || null,
+        offset: options.offset ?? 0,
+        limit: options.limit ?? 80,
+      });
+    } catch (err) {
+      console.error(`Failed to get manifest page for bucket ${bucketName}:`, err);
+      return {
+        manifests: [],
+        total: 0,
+        offset: options.offset ?? 0,
+        limit: options.limit ?? 80,
+        has_more: false,
+      };
+    }
+  };
+
   return {
     buckets,
     loading,
     error,
     fetchBuckets,
+    fetchBucketSummaries,
+    preloadBucketDetails,
     markForRefresh,
     getBucketInfo,
+    hydrateBucketManifestCounts,
+    hydrateBucketInfo,
     getBucketManifests,
+    getBucketManifestsPage,
     clearManifestCache,
     cleanup,
   };

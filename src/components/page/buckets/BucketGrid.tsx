@@ -48,7 +48,7 @@ function BucketGrid(props: BucketGridProps) {
       contentContainer={false}
       class="bg-base-100"
       loading={!!props.loading}
-      showLoadingPlaceholder={!!props.loading}
+      showLoadingPlaceholder={!!props.loading && props.buckets.length === 0}
       loadingLabel={t('bucket.grid.loading')}
       headerAction={
         <Show when={props.onUpdateAll && props.buckets.some((b) => b.is_git_repo)}>

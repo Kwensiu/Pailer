@@ -3,9 +3,25 @@ use crate::models::BucketInfo;
 use crate::state::AppState;
 use crate::utils;
 use git2::Repository;
+use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use tauri::{AppHandle, Runtime, State};
+
+#[derive(Serialize)]
+pub struct BucketManifestPage {
+    pub manifests: Vec<String>,
+    pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+    pub has_more: bool,
+}
+
+#[derive(Serialize)]
+pub struct BucketManifestCount {
+    pub bucket_name: String,
+    pub manifest_count: u32,
+}
 
 /// Checks if a directory is a Git repository by looking for .git directory.
 fn is_git_repo(path: &Path) -> bool {
@@ -121,10 +137,37 @@ fn load_bucket_info(bucket_path: &Path) -> Result<BucketInfo, String> {
         name: bucket_name,
         path: bucket_path.to_string_lossy().to_string(),
         manifest_count,
+        manifest_count_loaded: true,
         is_git_repo,
         git_url,
         git_branch,
         last_updated,
+        details_loaded: true,
+    })
+}
+
+/// Loads only the bucket fields needed to render the page shell.
+fn load_bucket_summary(bucket_path: &Path) -> Result<BucketInfo, String> {
+    let bucket_name = bucket_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| format!("Invalid bucket directory name: {:?}", bucket_path))?
+        .to_string();
+
+    if !bucket_path.is_dir() {
+        return Err(format!("Bucket path is not a directory: {:?}", bucket_path));
+    }
+
+    Ok(BucketInfo {
+        name: bucket_name,
+        path: bucket_path.to_string_lossy().to_string(),
+        manifest_count: 0,
+        manifest_count_loaded: false,
+        is_git_repo: is_git_repo(bucket_path),
+        git_url: None,
+        git_branch: None,
+        last_updated: None,
+        details_loaded: false,
     })
 }
 
@@ -143,6 +186,28 @@ fn scan_buckets(buckets_path: &Path) -> Result<Vec<BucketInfo>, String> {
             Ok(bucket) => buckets.push(bucket),
             Err(e) => {
                 log::warn!("Skipping bucket at '{}': {}", path.display(), e);
+            }
+        }
+    }
+
+    Ok(buckets)
+}
+
+fn scan_bucket_summaries(buckets_path: &Path) -> Result<Vec<BucketInfo>, String> {
+    let bucket_dirs = fs::read_dir(buckets_path)
+        .map_err(|e| format!("Failed to read buckets directory: {}", e))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .collect::<Vec<_>>();
+
+    let mut buckets = Vec::new();
+
+    for entry in bucket_dirs {
+        let path = entry.path();
+        match load_bucket_summary(&path) {
+            Ok(bucket) => buckets.push(bucket),
+            Err(e) => {
+                log::warn!("Skipping bucket summary at '{}': {}", path.display(), e);
             }
         }
     }
@@ -174,6 +239,67 @@ pub async fn get_buckets<R: Runtime>(
 
     log::info!("Found {} buckets", buckets.len());
     Ok(buckets)
+}
+
+/// Fetches lightweight Scoop bucket summaries without counting manifests or reading git metadata.
+#[tauri::command]
+pub async fn get_bucket_summaries<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<Vec<BucketInfo>, String> {
+    log::info!("Fetching Scoop bucket summaries from filesystem");
+
+    let buckets_path = state.scoop_path().join("buckets");
+
+    if !buckets_path.is_dir() {
+        log::warn!(
+            "Scoop buckets directory does not exist at: {}",
+            buckets_path.display()
+        );
+        return Ok(vec![]);
+    }
+
+    let buckets =
+        tauri::async_runtime::spawn_blocking(move || scan_bucket_summaries(&buckets_path))
+            .await
+            .map_err(|e| format!("Failed to join bucket summary scan task: {}", e))??;
+
+    log::info!("Found {} bucket summaries", buckets.len());
+    Ok(buckets)
+}
+
+/// Counts package manifests for buckets without reading git metadata.
+#[tauri::command]
+pub async fn get_bucket_manifest_counts<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    bucket_names: Vec<String>,
+) -> Result<Vec<BucketManifestCount>, String> {
+    let buckets_path = state.scoop_path().join("buckets");
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut counts = Vec::with_capacity(bucket_names.len());
+
+        for bucket_name in bucket_names {
+            let bucket_path = buckets_path.join(&bucket_name);
+            if !bucket_path.is_dir() {
+                log::warn!(
+                    "Skipping manifest count for missing bucket '{}'",
+                    bucket_name
+                );
+                continue;
+            }
+
+            counts.push(BucketManifestCount {
+                bucket_name,
+                manifest_count: utils::count_manifests(&bucket_path),
+            });
+        }
+
+        counts
+    })
+    .await
+    .map_err(|e| format!("Failed to join bucket manifest counts task: {}", e))
 }
 
 /// Gets detailed information about a specific bucket.
@@ -209,15 +335,43 @@ pub async fn get_bucket_manifests<R: Runtime>(
         return Err(format!("Bucket '{}' does not exist", bucket_name));
     }
 
+    let manifests = collect_bucket_manifests(&bucket_path, None)?;
+
+    log::info!(
+        "Found {} manifests in bucket '{}'",
+        manifests.len(),
+        bucket_name
+    );
+    Ok(manifests)
+}
+
+fn collect_bucket_manifests(
+    bucket_path: &Path,
+    query: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let normalized_query = query
+        .map(str::trim)
+        .filter(|q| !q.is_empty())
+        .map(|q| q.to_lowercase());
+    let matches_query = |manifest: &str| {
+        normalized_query
+            .as_ref()
+            .map(|q| manifest.to_lowercase().contains(q))
+            .unwrap_or(true)
+    };
+
     let mut manifests = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(&bucket_path) {
+    if let Ok(entries) = fs::read_dir(bucket_path) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
                 if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
                     if !file_stem.starts_with('.') && file_stem != "bucket" {
-                        manifests.push(format!("{} (root)", file_stem));
+                        let manifest = format!("{} (root)", file_stem);
+                        if matches_query(&manifest) {
+                            manifests.push(manifest);
+                        }
                     }
                 }
             }
@@ -231,7 +385,9 @@ pub async fn get_bucket_manifests<R: Runtime>(
                 let path = entry.path();
                 if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
                     if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        manifests.push(file_stem.to_string());
+                        if matches_query(file_stem) {
+                            manifests.push(file_stem.to_string());
+                        }
                     }
                 }
             }
@@ -239,12 +395,50 @@ pub async fn get_bucket_manifests<R: Runtime>(
     }
 
     manifests.sort();
-    log::info!(
-        "Found {} manifests in bucket '{}'",
-        manifests.len(),
-        bucket_name
-    );
     Ok(manifests)
+}
+
+/// Lists a page of manifest files in a specific bucket, optionally filtered by package name.
+#[tauri::command]
+pub async fn get_bucket_manifests_page<R: Runtime>(
+    _app: AppHandle<R>,
+    state: State<'_, AppState>,
+    bucket_name: String,
+    query: Option<String>,
+    offset: usize,
+    limit: usize,
+) -> Result<BucketManifestPage, String> {
+    log::info!(
+        "Getting manifests page for bucket '{}' (offset={}, limit={}, query={:?})",
+        bucket_name,
+        offset,
+        limit,
+        query
+    );
+
+    let bucket_path = state.scoop_path().join("buckets").join(&bucket_name);
+
+    if !bucket_path.exists() {
+        return Err(format!("Bucket '{}' does not exist", bucket_name));
+    }
+
+    let page_limit = limit.clamp(1, 500);
+    let manifests = collect_bucket_manifests(&bucket_path, query.as_deref())?;
+    let total = manifests.len();
+    let page = manifests
+        .into_iter()
+        .skip(offset)
+        .take(page_limit)
+        .collect::<Vec<_>>();
+    let next_offset = offset.saturating_add(page.len());
+
+    Ok(BucketManifestPage {
+        manifests: page,
+        total,
+        offset,
+        limit: page_limit,
+        has_more: next_offset < total,
+    })
 }
 
 /// Fetches all available branches for a git bucket.

@@ -95,10 +95,22 @@ pub struct BucketInfo {
     pub name: String,
     pub path: String,
     pub manifest_count: u32,
+    #[serde(default = "default_bucket_manifest_count_loaded")]
+    pub manifest_count_loaded: bool,
     pub is_git_repo: bool,
     pub git_url: Option<String>,
     pub git_branch: Option<String>,
     pub last_updated: Option<String>,
+    #[serde(default = "default_bucket_details_loaded")]
+    pub details_loaded: bool,
+}
+
+fn default_bucket_details_loaded() -> bool {
+    true
+}
+
+fn default_bucket_manifest_count_loaded() -> bool {
+    true
 }
 
 // -----------------------------------------------------------------------------

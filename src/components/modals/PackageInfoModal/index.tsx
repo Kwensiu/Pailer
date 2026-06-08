@@ -18,7 +18,7 @@ import { PackageInfoModalFooter } from './Footer';
 import type { PackageInfoModalProps, PackageRunEntry } from './types';
 
 function PackageInfoModal(props: PackageInfoModalProps) {
-  const { buckets } = useBuckets();
+  const { buckets, hydrateBucketInfo } = useBuckets();
   const packageNames = createMemo(() => (props.pkg?.name ? [props.pkg.name] : []));
   const { icons: packageIcons } = usePackageIcons({ packageNames, size: 128 });
 
@@ -182,7 +182,10 @@ function PackageInfoModal(props: PackageInfoModalProps) {
       setBucketError(null);
 
       const existingBucket = buckets().find((b) => b.name === bucketName);
-      const bucketInfo = existingBucket ?? (await invoke<any>('get_bucket_info', { bucketName }));
+      const bucketInfo =
+        existingBucket?.details_loaded === false
+          ? await hydrateBucketInfo(bucketName)
+          : (existingBucket ?? (await invoke<any>('get_bucket_info', { bucketName })));
 
       // NEVER auto-load manifests when opening BucketInfoModal from PackageInfoModal.
       // This is because we only need a summary, and loading all manifests is heavy.

@@ -6,6 +6,9 @@ export interface BucketInfoModalProps {
   bucketName?: string;
   manifests: string[];
   manifestsLoading: boolean;
+  manifestsLoadingMore?: boolean;
+  manifestsTotal?: number;
+  manifestsHasMore?: boolean;
   loading?: boolean;
   error: string | null;
   searchBucket?: SearchableBucket;
@@ -14,7 +17,8 @@ export interface BucketInfoModalProps {
   onClose: () => void;
   onPackageClick?: (packageName: string, bucketName: string) => void;
   onBucketInstalled?: () => void;
-  onFetchManifests?: (bucketName: string) => Promise<void>;
+  onFetchManifests?: (bucketName: string, query?: string) => Promise<void>;
+  onLoadMoreManifests?: (bucketName: string, query?: string) => Promise<void>;
   onBucketUpdated?: (bucketName: string, newBranch?: string) => void;
   zIndex?: string;
   fromPackageModal?: boolean;

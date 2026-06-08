@@ -126,8 +126,8 @@ export interface Dict {
     install: string;
     installing: string;
     lastUpdated: string;
-    loadAllPackages: string;
-    loadAllWarning: string;
+    loadedPackages: string;
+    loadMorePackages: string;
     loadPackages: string;
     loadingPackages: string;
     localDirectory: string;
@@ -141,7 +141,6 @@ export interface Dict {
     refreshManifests: string;
     removing: string;
     repository: string;
-    tooManyPackages: string;
     type: string;
     unknown: string;
     viewOnGithub: string;

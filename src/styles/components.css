@@ -134,6 +134,18 @@ body.dropdown-open [data-dropdown-allow='true'] * {
   background-color: var(--color-base-50);
 }
 
+.bucket-card-skeleton {
+  background-color: color-mix(in srgb, var(--color-base-content) 16%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-base-content) 10%, transparent),
+    transparent
+  );
+  background-size: 220% 100%;
+  animation: skeleton 1.8s ease-in-out infinite;
+}
+
 /* Custom Button Styles */
 .btn-autocheck {
   @apply bg-base-200/50 text-base-content/70 hover:bg-base-300/50 hover:text-base-content;

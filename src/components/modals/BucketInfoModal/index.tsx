@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useBucketInstall } from '../../../hooks/buckets/useBucketInstall';
 import { clearManifestCache } from '../../../hooks/buckets/useBuckets';
 import { RefreshCw, Package } from 'lucide-solid';
@@ -11,82 +11,101 @@ import { BucketInfoModalFooter } from './Footer';
 import { BucketDetailRenderer } from './DetailRenderer';
 import type { BucketInfoModalProps } from './types';
 
+const MANIFEST_SEARCH_DEBOUNCE_MS = 300;
+
 function ManifestsList(props: {
   manifests: string[];
-  loading: boolean;
+  loadingPage: boolean;
+  loadingNextPage?: boolean;
+  total?: number;
+  hasMore?: boolean;
   onPackageClick?: (packageName: string) => void;
-  searchQuery?: string;
-  showAll?: boolean;
-  onLoadAll?: () => void;
+  onLoadMore?: () => void;
   class?: string;
 }) {
-  const filteredManifests = createMemo(() => {
-    const query = props.searchQuery?.trim().toLowerCase();
-    if (!query) return props.manifests;
-    return props.manifests.filter((manifest) => manifest.toLowerCase().includes(query));
-  });
-  const isLargeList = () => filteredManifests().length > 1500;
-  const shouldShowAll = () => props.showAll || !isLargeList();
+  const hasManifests = () => props.manifests.length > 0;
+  const isShowingStaleManifests = () => props.loadingPage && hasManifests();
 
   return (
-    <div class={props.class || ''}>
+    <div class={`flex min-h-0 flex-col ${props.class || ''}`}>
       <Show
-        when={!props.loading}
+        when={!props.loadingPage || hasManifests()}
         fallback={
-          <div class="z-0 flex items-center gap-2 py-4">
-            <span class="loading loading-spinner loading-sm"></span>
-            <span class="text-sm">{t('bucketInfo.loadingPackages')}</span>
+          <div class="z-0 flex items-center justify-center py-4">
+            <span class="inline-flex items-center gap-2 text-sm">
+              <span class="loading loading-spinner loading-sm"></span>
+              {t('bucketInfo.loadingPackages')}
+            </span>
           </div>
         }
       >
         <Show
-          when={filteredManifests().length > 0}
+          when={props.manifests.length > 0}
           fallback={
             <div class="py-4 text-center">
               <p class="text-base-content/70 text-sm">{t('bucketInfo.noPackagesFound')}</p>
             </div>
           }
         >
-          <Show
-            when={isLargeList() && !shouldShowAll()}
-            fallback={
-              <div class="max-h-72 min-h-9 overflow-y-auto">
-                <div
-                  class="grid gap-1 text-xs"
-                  style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));"
-                >
-                  <For each={filteredManifests()}>
-                    {(manifest) => {
-                      const cleanName = manifest.replace(/ \(root\)$/, '');
-                      return (
-                        <button
-                          type="button"
-                          class="btn btn-soft btn-sm w-full justify-start rounded-lg"
-                          onClick={() => props.onPackageClick?.(cleanName)}
-                          title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
-                        >
-                          <Package size={14} />
-                          {manifest}
-                        </button>
-                      );
-                    }}
-                  </For>
-                </div>
-              </div>
-            }
+          <div
+            class="max-h-72 min-h-9 overflow-y-auto transition-opacity duration-150"
+            classList={{
+              'pointer-events-none select-none opacity-55': isShowingStaleManifests(),
+            }}
+            aria-busy={isShowingStaleManifests()}
           >
-            <div class="py-20 text-center">
-              <div class="mb-4">
-                <p class="text-base-content/70 mb-2 text-sm">
-                  {t('bucketInfo.tooManyPackages', { count: filteredManifests().length })}
-                </p>
-                <p class="text-base-content/50 text-xs">{t('bucketInfo.loadAllWarning')}</p>
-              </div>
-              <button class="btn btn-primary btn-sm" onClick={() => props.onLoadAll?.()}>
-                {t('bucketInfo.loadAllPackages')}
-              </button>
+            <div
+              class="grid gap-1 text-xs"
+              style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));"
+            >
+              <For each={props.manifests}>
+                {(manifest) => {
+                  const cleanName = manifest.replace(/ \(root\)$/, '');
+                  return (
+                    <button
+                      type="button"
+                      class="btn btn-soft btn-sm w-full justify-start rounded-lg"
+                      onClick={() => props.onPackageClick?.(cleanName)}
+                      disabled={isShowingStaleManifests()}
+                      title={t('bucketInfo.clickToViewInfo', { name: cleanName })}
+                    >
+                      <Package size={14} />
+                      {manifest}
+                    </button>
+                  );
+                }}
+              </For>
             </div>
-          </Show>
+          </div>
+          <div
+            class="mt-3 flex h-6 items-center justify-between gap-3 transition-opacity duration-150"
+            classList={{
+              'pointer-events-none select-none opacity-55': isShowingStaleManifests(),
+            }}
+            aria-busy={isShowingStaleManifests()}
+          >
+            <span class="text-base-content/45 inline-flex min-w-0 flex-1 items-center text-xs">
+              {t('bucketInfo.loadedPackages', {
+                loaded: props.manifests.length,
+                total: props.total ?? props.manifests.length,
+              })}
+            </span>
+            <div class="flex w-24 justify-end">
+              <Show when={props.hasMore}>
+                <button
+                  type="button"
+                  class="btn btn-soft btn-xs"
+                  onClick={() => props.onLoadMore?.()}
+                  disabled={props.loadingNextPage || isShowingStaleManifests()}
+                >
+                  <Show when={props.loadingNextPage} fallback={t('bucketInfo.loadMorePackages')}>
+                    <span class="loading loading-spinner loading-xs"></span>
+                    {t('bucketInfo.loadingPackages')}
+                  </Show>
+                </button>
+              </Show>
+            </div>
+          </div>
         </Show>
       </Show>
     </div>
@@ -97,12 +116,12 @@ function BucketInfoModal(props: BucketInfoModalProps) {
   const bucketInstall = useBucketInstall();
 
   const [manifestQuery, setManifestQuery] = createSignal('');
+  const [manifestSearchPending, setManifestSearchPending] = createSignal(false);
+  let manifestSearchTimer: ReturnType<typeof setTimeout> | undefined;
 
   const bucketName = () => props.bucket?.name || props.searchBucket?.name || props.bucketName || '';
   const modalBucketName = () => bucketName();
   const isExternalBucket = () => !props.bucket && !!props.searchBucket;
-
-  const [showAllManifests, setShowAllManifests] = createSignal(false);
 
   const handleInstallBucket = async () => {
     if (!props.searchBucket) return;
@@ -139,21 +158,52 @@ function BucketInfoModal(props: BucketInfoModalProps) {
     }
   };
 
-  const handleLoadAllManifests = () => setShowAllManifests(true);
-
   const handleFetchPackages = async () => {
     const name = bucketName();
     if (!name || !props.onFetchManifests) return;
-    await props.onFetchManifests(name);
+    await props.onFetchManifests(name, manifestQuery());
   };
 
   const handleRefreshManifests = async () => {
     const name = bucketName();
     if (!name) return;
+    if (manifestSearchTimer) {
+      clearTimeout(manifestSearchTimer);
+      manifestSearchTimer = undefined;
+    }
+    setManifestSearchPending(false);
     clearManifestCache(name);
     if (props.onFetchManifests) {
-      await props.onFetchManifests(name);
+      await props.onFetchManifests(name, manifestQuery());
     }
+  };
+
+  const handleManifestSearchInput = async (value: string) => {
+    setManifestQuery(value);
+    const name = bucketName();
+    if (!name || !props.onFetchManifests) return;
+
+    if (manifestSearchTimer) {
+      clearTimeout(manifestSearchTimer);
+    }
+
+    setManifestSearchPending(true);
+    manifestSearchTimer = setTimeout(() => {
+      manifestSearchTimer = undefined;
+      setManifestSearchPending(false);
+      void props.onFetchManifests?.(name, value);
+    }, MANIFEST_SEARCH_DEBOUNCE_MS);
+  };
+
+  const handleLoadMoreManifests = async () => {
+    const name = bucketName();
+    if (!name || !props.onLoadMoreManifests) return;
+    if (manifestSearchTimer) {
+      clearTimeout(manifestSearchTimer);
+      manifestSearchTimer = undefined;
+    }
+    setManifestSearchPending(false);
+    await props.onLoadMoreManifests(name, manifestQuery());
   };
 
   const handleBranchChanged = (newBranch: string) => {
@@ -161,6 +211,13 @@ function BucketInfoModal(props: BucketInfoModalProps) {
       props.onBucketUpdated(bucketName(), newBranch);
     }
   };
+
+  onCleanup(() => {
+    if (manifestSearchTimer) {
+      clearTimeout(manifestSearchTimer);
+    }
+    setManifestSearchPending(false);
+  });
 
   const orderedDetails = createMemo(() => {
     if (!props.bucket) return [];
@@ -173,7 +230,12 @@ function BucketInfoModal(props: BucketInfoModalProps) {
           ? t('bucketInfo.gitRepository')
           : t('bucketInfo.localDirectory'),
       },
-      { key: 'packages', label: t('bucketInfo.packages'), value: props.bucket.manifest_count },
+      {
+        key: 'packages',
+        label: t('bucketInfo.packages'),
+        value:
+          props.bucket.manifest_count_loaded === false ? undefined : props.bucket.manifest_count,
+      },
       { key: 'branch', label: t('bucketInfo.branch'), value: props.bucket.git_branch },
       { key: 'lastUpdated', label: t('bucketInfo.lastUpdated'), value: props.bucket.last_updated },
       { key: 'path', label: t('bucketInfo.path'), value: props.bucket.path },
@@ -331,34 +393,40 @@ function BucketInfoModal(props: BucketInfoModalProps) {
                       <h4 class="text-sm font-semibold tracking-wide uppercase opacity-70">
                         {t('bucketInfo.packages')}
                       </h4>
-                      <Show when={props.manifests.length > 0}>
-                        <button
-                          class="btn btn-ghost btn-xs"
-                          onClick={handleRefreshManifests}
-                          title={t('bucketInfo.refreshManifests')}
-                        >
-                          <RefreshCw class="h-3 w-3" />
-                        </button>
-                      </Show>
+                      <div class="flex h-6 w-6 items-center justify-center">
+                        <Show when={props.manifests.length > 0}>
+                          <button
+                            class="btn btn-ghost btn-xs h-6 min-h-6 w-6 p-0"
+                            onClick={handleRefreshManifests}
+                            title={t('bucketInfo.refreshManifests')}
+                            disabled={props.manifestsLoading}
+                          >
+                            <RefreshCw
+                              class={`h-3 w-3 ${props.manifestsLoading ? 'animate-spin' : ''}`}
+                            />
+                          </button>
+                        </Show>
+                      </div>
                     </div>
-                    <Show when={props.manifests.length > 0}>
+                    <Show when={props.manifests.length > 0 || manifestQuery()}>
                       <input
                         type="text"
                         value={manifestQuery()}
-                        onInput={(e) => setManifestQuery(e.currentTarget.value)}
+                        onInput={(e) => void handleManifestSearchInput(e.currentTarget.value)}
                         placeholder={t('app.search')}
                         class="input input-sm input-bordered mb-2 w-full rounded-lg"
                       />
                     </Show>
                     <ManifestsList
                       manifests={props.manifests}
-                      loading={props.manifestsLoading}
+                      loadingPage={props.manifestsLoading || manifestSearchPending()}
+                      loadingNextPage={props.manifestsLoadingMore}
+                      total={props.manifestsTotal}
+                      hasMore={props.manifestsHasMore}
                       onPackageClick={(name) =>
                         props.onPackageClick?.(name, resolvedBucketState().name)
                       }
-                      searchQuery={manifestQuery()}
-                      showAll={showAllManifests()}
-                      onLoadAll={handleLoadAllManifests}
+                      onLoadMore={handleLoadMoreManifests}
                       class="min-h-0 flex-1"
                     />
                   </>

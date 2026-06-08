@@ -21,9 +21,13 @@ interface BucketCardProps {
 
 function BucketCard(props: BucketCardProps) {
   const { effectiveTheme } = settingsStore;
+  const detailsLoaded = () => props.bucket.details_loaded ?? true;
+  const manifestCountLoaded = () => props.bucket.manifest_count_loaded ?? true;
+  const linkTarget = () => props.bucket.git_url || props.bucket.path;
+  const openBucketLocation = () => openPath(linkTarget());
 
   return (
-    <div class="relative">
+    <div class="relative h-full">
       <Card
         title={
           <h3
@@ -36,62 +40,89 @@ function BucketCard(props: BucketCardProps) {
           </h3>
         }
         headerAction={
-          <Show
-            when={props.bucket.git_branch}
-            fallback={
-              <Show when={!props.bucket.is_git_repo}>
-                <div class="badge badge-soft badge-sm border-base-content/30 bg-base-200 border backdrop-blur-sm">
-                  {t('bucket.card.local')}
-                </div>
-              </Show>
-            }
-          >
-            <BranchSelector
-              bucketName={props.bucket.name}
-              currentBranch={props.bucket.git_branch}
-              onBranchChanged={(newBranch) => {
-                // Refresh bucket info after branch change
-                props.onBucketUpdated?.(props.bucket.name, newBranch);
-              }}
-            />
-          </Show>
-        }
-        description={
-          <div class="text-base-content/70 text-sm">
-            <div class="mb-1 flex items-center gap-1">
-              <span class="text-info text-xl font-bold">{props.bucket.manifest_count}</span>
-              <span class="text-sm">{t('bucket.card.packages')}</span>
-            </div>
-            <Show when={props.bucket.last_updated}>
-              <div class="text-base-content/50 text-xs">
-                {t('bucket.card.updated', { date: formatBucketDate(props.bucket.last_updated) })}
-              </div>
+          <div class="flex h-6 min-w-16 items-center justify-end">
+            <Show
+              when={props.bucket.git_branch}
+              fallback={
+                <Show
+                  when={!props.bucket.is_git_repo}
+                  fallback={
+                    <Show when={!detailsLoaded()}>
+                      <div
+                        class="badge badge-soft badge-sm border-primary/30 bg-primary/10 min-w-16 cursor-not-allowed border opacity-70 backdrop-blur-sm"
+                        aria-disabled="true"
+                      >
+                        <span class="bucket-card-skeleton h-2 w-8 rounded"></span>
+                      </div>
+                    </Show>
+                  }
+                >
+                  <Show when={detailsLoaded()}>
+                    <div class="badge badge-soft badge-sm border-base-content/30 bg-base-200 border backdrop-blur-sm">
+                      {t('bucket.card.local')}
+                    </div>
+                  </Show>
+                </Show>
+              }
+            >
+              <BranchSelector
+                bucketName={props.bucket.name}
+                currentBranch={props.bucket.git_branch}
+                onBranchChanged={(newBranch) => {
+                  // Refresh bucket info after branch change
+                  props.onBucketUpdated?.(props.bucket.name, newBranch);
+                }}
+              />
             </Show>
           </div>
         }
+        description={
+          <div class="text-base-content/70 min-h-11 text-sm">
+            <div class="mb-1 flex h-7 items-center gap-1">
+              <span class="flex min-w-8 items-center">
+                <Show
+                  when={manifestCountLoaded()}
+                  fallback={<span class="bucket-card-skeleton h-6 w-10 rounded"></span>}
+                >
+                  <span class="text-info text-xl leading-7 font-bold">
+                    {props.bucket.manifest_count}
+                  </span>
+                </Show>
+              </span>
+              <span class="text-sm">{t('bucket.card.packages')}</span>
+            </div>
+            <div class="text-base-content/50 h-4 text-xs">
+              <Show
+                when={detailsLoaded()}
+                fallback={
+                  <>
+                    {t('bucket.card.updated', { date: '' })}
+                    <span class="bucket-card-skeleton ml-1 inline-block h-3 w-16 rounded align-[-2px]"></span>
+                  </>
+                }
+              >
+                {t('bucket.card.updated', {
+                  date: props.bucket.last_updated
+                    ? formatBucketDate(props.bucket.last_updated)
+                    : '',
+                })}
+              </Show>
+            </div>
+          </div>
+        }
         contentContainer={false}
-        class={`card-bucket ${effectiveTheme()}`}
+        class={`card-bucket h-full ${effectiveTheme()}`}
       >
-        {props.bucket.git_url ? (
-          <div
-            class="text-base-content/60 bg-base-200 mt-2 cursor-pointer truncate rounded px-2 py-1 font-mono text-xs hover:underline"
-            onClick={() => openPath(props.bucket.git_url!)}
-            title={props.bucket.git_url}
-          >
-            {props.bucket.git_url}
-          </div>
-        ) : (
-          <div
-            class="text-base-content/60 bg-base-200 mt-2 cursor-pointer truncate rounded px-2 py-1 font-mono text-xs hover:underline"
-            onClick={() => openPath(props.bucket.path)}
-            title={props.bucket.path}
-          >
-            {props.bucket.path}
-          </div>
-        )}
+        <div
+          class="text-base-content/60 bg-base-200 mt-2 h-7 cursor-pointer truncate rounded px-2 py-1 font-mono text-xs leading-5 hover:underline"
+          onClick={openBucketLocation}
+          title={linkTarget()}
+        >
+          {linkTarget()}
+        </div>
 
         {/* Action buttons */}
-        <div class="mt-3 flex gap-2">
+        <div class="mt-3 flex min-h-8 gap-2">
           <button
             class="btn btn-info btn-sm flex-1 gap-2"
             onClick={() => props.onViewBucket(props.bucket)}

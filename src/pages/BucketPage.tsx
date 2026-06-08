@@ -30,8 +30,17 @@ const UPDATE_RESULT_DISPLAY_DURATION = 2000;
 
 function BucketPage() {
   const ITEMS_PER_PAGE = 8;
-  const { buckets, loading, error, fetchBuckets, markForRefresh, getBucketManifests, cleanup } =
-    useBuckets();
+  const {
+    buckets,
+    loading,
+    error,
+    fetchBucketSummaries,
+    preloadBucketDetails,
+    markForRefresh,
+    hydrateBucketInfo,
+    getBucketManifestsPage,
+    cleanup,
+  } = useBuckets();
   const packageInfo = usePackageInfo();
   const packageOperations = usePackageOperations();
   const bulkUpdate = bucketBulkUpdateStore;
@@ -39,6 +48,11 @@ function BucketPage() {
   const [selectedBucket, setSelectedBucket] = createSignal<BucketInfo | null>(null);
   const [manifests, setManifests] = createSignal<string[]>([]);
   const [manifestsLoading, setManifestsLoading] = createSignal(false);
+  const [manifestsLoadingMore, setManifestsLoadingMore] = createSignal(false);
+  const [manifestsTotal, setManifestsTotal] = createSignal(0);
+  const [manifestsHasMore, setManifestsHasMore] = createSignal(false);
+  const MANIFESTS_PAGE_SIZE = 80;
+  let activeManifestRequestToken = 0;
 
   // Search state
   const [isSearchActive, setIsSearchActive] = createSignal(false);
@@ -63,9 +77,11 @@ function BucketPage() {
   let resultTimerIds: Map<string, number> = new Map();
 
   onMount(() => {
-    // If we already have buckets (from preloading), don't force a refresh
-    // useBuckets() will automatically use cachedBuckets if available
-    fetchBuckets(false);
+    // Load the bucket shell first, then let the shared bucket cache finish details in the background.
+    void (async () => {
+      await fetchBucketSummaries(false);
+      await preloadBucketDetails();
+    })();
   });
 
   onCleanup(() => {
@@ -76,7 +92,7 @@ function BucketPage() {
   createEffect(() => {
     if (bulkUpdate.needsRefresh() && bulkUpdate.updateState().status !== 'updating') {
       void (async () => {
-        await fetchBuckets(true, true);
+        await fetchBucketSummaries(true, true);
         bulkUpdate.clearRefreshFlag();
       })();
     }
@@ -129,11 +145,9 @@ function BucketPage() {
   };
 
   const handleViewBucket = async (bucket: BucketInfo) => {
-    setSelectedBucket(bucket);
-    setManifestsLoading(true);
-    const bucketManifests = await getBucketManifests(bucket.name);
-    setManifests(bucketManifests);
-    setManifestsLoading(false);
+    const detailedBucket = bucket.details_loaded ? bucket : await hydrateBucketInfo(bucket.name);
+    setSelectedBucket(detailedBucket || bucket);
+    await handleFetchManifests(bucket.name);
   };
 
   // Additional state for external bucket modal
@@ -159,6 +173,8 @@ function BucketPage() {
         git_branch: 'main', // Default branch
         last_updated: searchBucket.last_updated,
         manifest_count: searchBucket.apps,
+        manifest_count_loaded: true,
+        details_loaded: true,
       };
 
       setSelectedBucket(bucketInfo);
@@ -169,10 +185,14 @@ function BucketPage() {
   };
 
   const closeModal = () => {
+    activeManifestRequestToken += 1;
     setSelectedBucket(null);
     setSelectedSearchBucket(null);
     setManifests([]);
     setManifestsLoading(false);
+    setManifestsLoadingMore(false);
+    setManifestsTotal(0);
+    setManifestsHasMore(false);
   };
 
   const handlePackageClick = async (packageName: string, bucketName: string) => {
@@ -188,7 +208,7 @@ function BucketPage() {
 
   const handleBucketInstalled = async () => {
     markForRefresh();
-    await fetchBuckets(true);
+    await fetchBucketSummaries(true);
   };
 
   const refreshSelectedPackageAfterOperation = async () => {
@@ -251,15 +271,63 @@ function BucketPage() {
   );
 
   // Handle fetching manifests for newly installed bucket
-  const handleFetchManifests = async (bucketName: string) => {
+  const handleFetchManifests = async (bucketName: string, query = '') => {
+    const requestToken = ++activeManifestRequestToken;
+    const normalizedQuery = query.trim();
     setManifestsLoading(true);
     try {
-      const bucketManifests = await getBucketManifests(bucketName);
-      setManifests(bucketManifests);
+      const page = await getBucketManifestsPage(bucketName, {
+        query: normalizedQuery,
+        offset: 0,
+        limit: MANIFESTS_PAGE_SIZE,
+      });
+      if (requestToken !== activeManifestRequestToken) {
+        return;
+      }
+      setManifests(page.manifests);
+      setManifestsTotal(page.total);
+      setManifestsHasMore(page.has_more);
     } catch (error) {
+      if (requestToken !== activeManifestRequestToken) {
+        return;
+      }
       console.error('Failed to fetch manifests for bucket:', bucketName, error);
     } finally {
-      setManifestsLoading(false);
+      if (requestToken === activeManifestRequestToken) {
+        setManifestsLoading(false);
+      }
+    }
+  };
+
+  const handleLoadMoreManifests = async (bucketName: string, query = '') => {
+    if (manifestsLoadingMore() || !manifestsHasMore()) {
+      return;
+    }
+
+    const requestToken = activeManifestRequestToken;
+    const normalizedQuery = query.trim();
+    setManifestsLoadingMore(true);
+    try {
+      const page = await getBucketManifestsPage(bucketName, {
+        query: normalizedQuery,
+        offset: manifests().length,
+        limit: MANIFESTS_PAGE_SIZE,
+      });
+      if (requestToken !== activeManifestRequestToken) {
+        return;
+      }
+      setManifests((current) => [...current, ...page.manifests]);
+      setManifestsTotal(page.total);
+      setManifestsHasMore(page.has_more);
+    } catch (error) {
+      if (requestToken !== activeManifestRequestToken) {
+        return;
+      }
+      console.error('Failed to fetch more manifests for bucket:', bucketName, error);
+    } finally {
+      if (requestToken === activeManifestRequestToken) {
+        setManifestsLoadingMore(false);
+      }
     }
   };
 
@@ -469,7 +537,7 @@ function BucketPage() {
   // Handle manual reload of local buckets
   const handleReloadLocalBuckets = async () => {
     markForRefresh();
-    await fetchBuckets(true);
+    await fetchBucketSummaries(true);
   };
 
   // Handle bucket update (e.g., branch switch)
@@ -493,7 +561,7 @@ function BucketPage() {
     const updatedBucketInfo = await refreshBucketInfoInCache(bucketName);
     if (!updatedBucketInfo) {
       markForRefresh();
-      await fetchBuckets(true);
+      await fetchBucketSummaries(true);
     }
   };
 
@@ -700,12 +768,20 @@ function BucketPage() {
               bucket={bucket}
               manifests={manifests()}
               manifestsLoading={manifestsLoading()}
+              manifestsLoadingMore={manifestsLoadingMore()}
+              manifestsTotal={manifestsTotal()}
+              manifestsHasMore={manifestsHasMore()}
               error={null}
               searchBucket={searchBucket || undefined}
               onClose={closeModal}
               onPackageClick={handlePackageClick}
               onBucketInstalled={handleBucketInstalled}
-              onFetchManifests={(bucketName: string) => handleFetchManifests(bucketName)}
+              onFetchManifests={(bucketName: string, query?: string) =>
+                handleFetchManifests(bucketName, query)
+              }
+              onLoadMoreManifests={(bucketName: string, query?: string) =>
+                handleLoadMoreManifests(bucketName, query)
+              }
               onBucketUpdated={handleBucketUpdated}
             />
           );

@@ -118,17 +118,18 @@ function App() {
     await Promise.allSettled([
       // Preload buckets
       (async () => {
-        console.log('🔄 [App] Preloading buckets...');
-        const { fetchBuckets, cleanup } = useBuckets();
+        console.log('🔄 [App] Preloading bucket summaries...');
+        const { fetchBucketSummaries, preloadBucketDetails, cleanup } = useBuckets();
         try {
-          // Use the internal fetchBuckets from a temporary useBuckets instance
+          // Use the internal fetchBucketSummaries from a temporary useBuckets instance
           // This keeps the logic encapsulated within the hook
-          await fetchBuckets(true, true); // forceRefresh=true, quiet=true
-          console.log('✅ [App] Buckets preloaded via hook');
-          info('Buckets preload completed');
+          await fetchBucketSummaries(true, true); // forceRefresh=true, quiet=true
+          await preloadBucketDetails();
+          console.log('✅ [App] Bucket summaries preloaded via hook');
+          info('Bucket summaries preload completed');
         } catch (err: unknown) {
-          console.log('⚠️ [App] Failed to preload buckets');
-          logError(`Failed to preload buckets: ${err}`);
+          console.log('⚠️ [App] Failed to preload bucket summaries');
+          logError(`Failed to preload bucket summaries: ${err}`);
         } finally {
           cleanup();
         }
