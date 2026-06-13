@@ -15,3 +15,5 @@ export { default as AppDataManagement } from './AppDataManagement';
 export { default as LanguageSettings } from './LanguageSettings';
 export { default as PowerShellSettings } from './PowerShellSettings';
 export { default as ScoopUpdateSettings } from './ScoopUpdateSettings';
+export { default as AutoEndProcessSettings } from './AutoEndProcessSettings';
+export { default as PreferencesSettings } from './PreferencesSettings';

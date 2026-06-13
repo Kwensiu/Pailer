@@ -108,26 +108,11 @@ fn contains_warning_keywords(line: &str) -> bool {
         return false;
     }
 
-    // Keep this intentionally minimal and tool-agnostic.
-    // It is used only to raise a "warning" flag for successful commands.
     let lower = trimmed.to_lowercase();
-    if lower.starts_with("warn") {
-        return true;
-    }
-
-    // Common warning/error indicators (case-insensitive)
-    let indicators = [
-        "warn",
-        "warning",
-        "not found",
-        "failed",
-        "cannot",
-        "unable to",
-        "denied",
-        "permission denied",
-        "access denied",
-    ];
-    indicators.iter().any(|&pat| lower.contains(pat))
+    lower.starts_with("warn ")
+        || lower.starts_with("warn:")
+        || lower.starts_with("warning ")
+        || lower.starts_with("warning:")
 }
 
 /// Represents a line of output from a command, specifying its source (stdout or stderr).
@@ -145,6 +130,7 @@ pub struct StreamOutput {
 #[serde(rename_all = "kebab-case")]
 pub enum FinalStatus {
     Success,
+    #[allow(dead_code)]
     Warning,
     Error,
     Cancelled,
@@ -474,11 +460,7 @@ async fn handle_command_completion(
     let was_successful = process_successful && detected_errors == 0;
 
     let final_status = if was_successful {
-        if warning_count.is_some() {
-            FinalStatus::Warning
-        } else {
-            FinalStatus::Success
-        }
+        FinalStatus::Success
     } else {
         FinalStatus::Error
     };
@@ -543,4 +525,47 @@ async fn handle_cancellation(
     }
 
     Err(format!("{} cancelled by user", operation_name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{contains_error_keywords, contains_warning_keywords, FinalStatus};
+
+    fn final_status_for_completion(
+        process_successful: bool,
+        detected_errors: usize,
+    ) -> FinalStatus {
+        let was_successful = process_successful && detected_errors == 0;
+        if was_successful {
+            FinalStatus::Success
+        } else {
+            FinalStatus::Error
+        }
+    }
+
+    #[test]
+    fn warning_detection_requires_explicit_warning_prefix() {
+        assert!(contains_warning_keywords("WARN manifest has caveats"));
+        assert!(contains_warning_keywords("WARNING: manifest has caveats"));
+        assert!(!contains_warning_keywords("Scoop is outdated"));
+        assert!(!contains_warning_keywords(
+            "Package not found in cache, downloading"
+        ));
+        assert!(!contains_warning_keywords(
+            "Install failed previously but retrying"
+        ));
+    }
+
+    #[test]
+    fn warning_lines_do_not_downgrade_successful_completion() {
+        let status = final_status_for_completion(true, 0);
+        assert!(matches!(status, FinalStatus::Success));
+    }
+
+    #[test]
+    fn explicit_error_prefix_still_fails_successful_processes() {
+        assert!(contains_error_keywords("ERROR The app is still running"));
+        let status = final_status_for_completion(true, 1);
+        assert!(matches!(status, FinalStatus::Error));
+    }
 }

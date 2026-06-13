@@ -2,7 +2,12 @@ import { createSignal, createEffect, createMemo, Show, For, Component, onCleanup
 import { emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { useOperations } from '../../stores/operations';
-import { OperationModalProps, OperationStatus } from '../../types/operations';
+import {
+  OperationModalProps,
+  OperationStatus,
+  OperationType,
+  type OperationState,
+} from '../../types/operations';
 import { X, Minimize2, ExternalLink } from 'lucide-solid';
 import { t } from '../../i18n';
 import { isErrorLineWithContext } from '../../utils/errorDetection';
@@ -20,6 +25,42 @@ import Modal from '../common/Modal';
 import { useScrollManager } from '../common/ScrollManager';
 
 const OPERATION_MODAL_ANIMATION_MS = 300;
+const RUNNING_PROCESS_DETECTED_TEXT = 'running process detected';
+
+interface ProcessTerminationTarget {
+  processId: number;
+  processName: string;
+}
+
+const extractRunningProcessTargets = (operation: OperationState | undefined) => {
+  if (!operation || operation.isScan || operation.operationType !== OperationType.Update) {
+    return [];
+  }
+
+  const lines = (operation.output || []).map((item) => stripAnsi(item.line));
+  const outputText = `${operation.result?.message || ''}\n${lines.join('\n')}`.toLowerCase();
+  const packageName = operation.packageName.toLowerCase();
+
+  if (
+    !outputText.includes(RUNNING_PROCESS_DETECTED_TEXT) ||
+    !outputText.includes(`instances of "${packageName}" are still running`)
+  ) {
+    return [];
+  }
+
+  const targets = new Map<number, ProcessTerminationTarget>();
+  for (const line of lines) {
+    const match = line.match(/^\s*\d+\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+(\d+)\s+\d+\s+(\S+)\s*$/);
+    if (match) {
+      const processId = Number(match[1]);
+      if (Number.isInteger(processId) && processId > 0) {
+        targets.set(processId, { processId, processName: match[2] });
+      }
+    }
+  }
+
+  return [...targets.values()];
+};
 
 const LineWithLinks: Component<{ line: string; isStderr?: boolean; previousLines?: string[] }> = (
   props
@@ -241,6 +282,8 @@ function OperationModal(props: OperationModalProps) {
   const [previousStatus, setPreviousStatus] = createSignal<OperationStatus | null>(null);
   const [lastFinishedStatus, setLastFinishedStatus] = createSignal<OperationStatus | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = createSignal(true);
+  const [isKillRetrying, setIsKillRetrying] = createSignal(false);
+  const [killRetryForceMode, setKillRetryForceMode] = createSignal(false);
 
   // Initialize scroll manager with reactive scrollRef
   const scrollManager = useScrollManager({
@@ -395,6 +438,95 @@ function OperationModal(props: OperationModalProps) {
     );
   };
 
+  const runningProcessTargets = createMemo(() => extractRunningProcessTargets(operation()));
+  const canKillAndRetry = createMemo(() => {
+    const op = operation();
+    return (
+      !!op &&
+      (op.status === OperationStatus.Error || op.status === OperationStatus.Warning) &&
+      runningProcessTargets().length > 0
+    );
+  });
+
+  const handleKillAndRetry = async () => {
+    const currentOp = operation();
+    const processTargets = runningProcessTargets();
+    const force = killRetryForceMode();
+
+    if (!currentOp || currentOp.isScan || processTargets.length === 0 || isKillRetrying()) {
+      return;
+    }
+
+    setIsKillRetrying(true);
+
+    addOperationOutput(operationId(), {
+      operationId: operationId(),
+      source: 'system',
+      line: `[Pailer] ${force ? 'Force ending' : 'Safely ending'} running process(es): ${processTargets
+        .map((target) => `${target.processName} (${target.processId})`)
+        .join(', ')}`,
+      message: force ? 'Force ending running processes' : 'Safely ending running processes',
+    });
+
+    try {
+      await invoke('terminate_processes', { processTargets, force });
+      addOperationOutput(operationId(), {
+        operationId: operationId(),
+        source: 'system',
+        line: `[Pailer] ${force ? 'Processes force ended' : 'Processes safely ended'}.`,
+        message: force ? 'Processes force ended' : 'Processes safely ended',
+      });
+
+      if (!force) {
+        setKillRetryForceMode(true);
+        return;
+      }
+
+      addOperationOutput(operationId(), {
+        operationId: operationId(),
+        source: 'system',
+        line: '[Pailer] Retrying update...',
+        message: 'Retrying update',
+      });
+
+      updateOperation(operationId(), {
+        status: OperationStatus.InProgress,
+        result: undefined,
+      });
+
+      invoke('update_package', {
+        packageName: currentOp.packageName,
+        force: currentOp.forceUpdate || undefined,
+        operationId: operationId(),
+        skipPreUpdateRefresh: settingsStore.settings.scoop.skipPreUpdateRefresh,
+      }).catch((error) => {
+        const op = operation();
+        if (op && op.status === OperationStatus.InProgress) {
+          updateOperation(operationId(), {
+            status: OperationStatus.Error,
+          });
+        }
+        addOperationOutput(operationId(), {
+          operationId: operationId(),
+          source: 'error',
+          line: `[Pailer] Failed to start retry update: ${String(error)}`,
+          message: String(error),
+        });
+      });
+    } catch (error) {
+      if (!force) {
+        setKillRetryForceMode(true);
+      }
+      addOperationOutput(operationId(), {
+        operationId: operationId(),
+        source: 'error',
+        line: `[Pailer] Failed to end process(es): ${String(error)}`,
+        message: String(error),
+      });
+    } finally {
+      setIsKillRetrying(false);
+    }
+  };
   const handleElevatedRetry = async () => {
     const currentOp = operation();
     if (!currentOp || currentOp.status !== OperationStatus.Error) return;
@@ -533,6 +665,25 @@ function OperationModal(props: OperationModalProps) {
       }
       footer={
         <div class="flex justify-end gap-2">
+          <Show when={canKillAndRetry()}>
+            <button
+              class="btn btn-footer btn-soft btn-warning"
+              disabled={isKillRetrying()}
+              onClick={() => void handleKillAndRetry()}
+            >
+              <Show
+                when={isKillRetrying()}
+                fallback={
+                  killRetryForceMode()
+                    ? t('buttons.forceKillProcessAndRetry')
+                    : t('buttons.safeKillProcessAndRetry')
+                }
+              >
+                <span class="loading loading-spinner loading-xs"></span>
+                {t('buttons.updating')}
+              </Show>
+            </button>
+          </Show>
           <Show when={hasElevationError()}>
             <button
               class="btn btn-footer btn-soft btn-warning"

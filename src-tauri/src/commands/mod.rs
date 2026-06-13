@@ -17,6 +17,7 @@ pub mod manifest;
 pub mod package_icon;
 pub mod package_mutation;
 pub mod powershell;
+pub mod process_control;
 pub mod scoop;
 pub mod scoop_update_runner;
 pub mod search;

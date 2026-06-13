@@ -187,12 +187,59 @@ const schedulePackageOperation = (operationId: string, start: () => Promise<bool
   void runPackageOperationQueue();
 };
 
+const shouldAutoEndProcessesForPackage = (packageName: string) => {
+  const scoopSettings = settingsStore.settings.scoop;
+  return (
+    scoopSettings.autoEndRunningProcesses &&
+    scoopSettings.autoEndProcessPackageAllowlist.some(
+      (configuredName) => configuredName.toLowerCase() === packageName.toLowerCase()
+    )
+  );
+};
+
+const autoEndPackageProcesses = async (
+  operationId: string,
+  packageName: string,
+  title: string,
+  force: boolean
+): Promise<boolean> => {
+  if (!shouldAutoEndProcessesForPackage(packageName)) {
+    return true;
+  }
+
+  updateOperation(operationId, {
+    title,
+    status: OperationStatus.InProgress,
+  });
+
+  addOperationOutput(operationId, {
+    operationId,
+    source: 'system',
+    line: `[Pailer] ${force ? 'Force ending' : 'Safely ending'} running process(es) for ${packageName}`,
+    message: `${force ? 'force ending' : 'safely ending'} running processes for ${packageName}`,
+  });
+
+  try {
+    await invoke('terminate_package_processes', { packageName, force });
+    addOperationOutput(operationId, {
+      operationId,
+      source: 'system',
+      line: `[Pailer] ${force ? 'Force ended' : 'Safely ended'} running process(es) for ${packageName}`,
+      message: `${force ? 'force ended' : 'safely ended'} running processes for ${packageName}`,
+    });
+    return true;
+  } catch (error) {
+    markOperationStartFailed(operationId, title, error);
+    return false;
+  }
+};
+
 const runUpdatePackageOperation = (
   operationId: string,
   pkg: ScoopPackage,
   title: string,
   force = false
-) => {
+): boolean => {
   updateOperation(operationId, {
     title,
     status: OperationStatus.InProgress,
@@ -208,6 +255,8 @@ const runUpdatePackageOperation = (
     console.error(force ? 'Force update invocation failed:' : 'Update invocation failed:', err);
     markOperationStartFailed(operationId, title, err);
   });
+
+  return true;
 };
 
 const performInstall = (pkg: ScoopPackage): string => {
@@ -235,6 +284,16 @@ const performInstall = (pkg: ScoopPackage): string => {
       title,
       status: OperationStatus.InProgress,
     });
+
+    const readyToInstall = await autoEndPackageProcesses(
+      operationId,
+      pkg.name,
+      title,
+      settingsStore.settings.scoop.autoEndProcessMode === 'force'
+    );
+    if (!readyToInstall) {
+      return false;
+    }
 
     invoke('install_package', {
       packageName: pkg.name,
@@ -341,8 +400,13 @@ const handleUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
       return false;
     }
 
-    runUpdatePackageOperation(operationId, pkg, title);
-    return true;
+    const readyToUpdate = await autoEndPackageProcesses(
+      operationId,
+      pkg.name,
+      title,
+      settingsStore.settings.scoop.autoEndProcessMode === 'force'
+    );
+    return readyToUpdate && runUpdatePackageOperation(operationId, pkg, title);
   });
 
   return operationId;
@@ -388,8 +452,13 @@ const handleForceUpdate = async (pkg: ScoopPackage): Promise<string | null> => {
       return false;
     }
 
-    runUpdatePackageOperation(operationId, pkg, title, true);
-    return true;
+    const readyToUpdate = await autoEndPackageProcesses(
+      operationId,
+      pkg.name,
+      title,
+      settingsStore.settings.scoop.autoEndProcessMode === 'force'
+    );
+    return readyToUpdate && runUpdatePackageOperation(operationId, pkg, title, true);
   });
 
   return operationId;
@@ -449,8 +518,13 @@ const handleUpdateAll = async (packages: ScoopPackage[]): Promise<string | null>
         return false;
       }
 
-      runUpdatePackageOperation(operationId, pkg, title);
-      return true;
+      const readyToUpdate = await autoEndPackageProcesses(
+        operationId,
+        pkg.name,
+        title,
+        settingsStore.settings.scoop.autoEndProcessMode === 'force'
+      );
+      return readyToUpdate && runUpdatePackageOperation(operationId, pkg, title);
     });
   }
 

@@ -17,6 +17,7 @@ function SettingsPage(props: SettingsPageProps) {
 
   const TABS = [
     { key: 'automation', labelkey: 'settings.category.automation' },
+    { key: 'preferences', labelkey: 'settings.category.preferences' },
     { key: 'management', labelkey: 'settings.category.management' },
     { key: 'security', labelkey: 'settings.category.security' },
     { key: 'window', labelkey: 'settings.category.windowUi' },
@@ -73,6 +74,13 @@ function SettingsPage(props: SettingsPageProps) {
               </div>
             </Show>
 
+            {/* Preferences Tab */}
+            <Show when={activeTab() === 'preferences'}>
+              <div class="space-y-6">
+                <SC.PreferencesSettings />
+              </div>
+            </Show>
+
             {/* Management Tab */}
             <Show when={activeTab() === 'management'}>
               <div class="space-y-6">
@@ -82,8 +90,6 @@ function SettingsPage(props: SettingsPageProps) {
                   onUnhold={handleUnhold}
                   operationInProgress={isUnholding()}
                 />
-                <SC.ScoopUpdateSettings />
-                <SC.PowerShellSettings />
               </div>
             </Show>
 

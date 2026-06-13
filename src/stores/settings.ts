@@ -65,6 +65,9 @@ interface Settings {
     skipPreUpdateRefresh: boolean;
     operationMode: 'queue' | 'concurrent';
     updateAllMode?: 'queue' | 'concurrent';
+    autoEndProcessMode: 'safe' | 'force';
+    autoEndRunningProcesses: boolean;
+    autoEndProcessPackageAllowlist: string[];
   };
   search: {
     allowCachePrebuild: boolean;
@@ -115,6 +118,9 @@ const defaultSettings: Settings = {
   scoop: {
     skipPreUpdateRefresh: false,
     operationMode: 'queue',
+    autoEndProcessMode: 'safe',
+    autoEndRunningProcesses: false,
+    autoEndProcessPackageAllowlist: [],
   },
   search: {
     allowCachePrebuild: false,
@@ -244,6 +250,14 @@ function createSettingsStore() {
                 stored.scoop?.operationMode ??
                 stored.scoop?.updateAllMode ??
                 defaultSettings.scoop.operationMode,
+              autoEndProcessMode:
+                stored.scoop?.autoEndProcessMode ?? defaultSettings.scoop.autoEndProcessMode,
+              autoEndRunningProcesses:
+                stored.scoop?.autoEndRunningProcesses ??
+                defaultSettings.scoop.autoEndRunningProcesses,
+              autoEndProcessPackageAllowlist:
+                stored.scoop?.autoEndProcessPackageAllowlist ??
+                defaultSettings.scoop.autoEndProcessPackageAllowlist,
             },
             search: {
               ...defaultSettings.search,

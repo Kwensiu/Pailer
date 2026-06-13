@@ -468,6 +468,14 @@ fn resolve_package_run_entries(
     Ok(resolved)
 }
 
+pub(crate) fn get_package_run_entry_names(
+    scoop_dir: &Path,
+    package_name: &str,
+) -> Result<Vec<String>, String> {
+    let entries = resolve_package_run_entries(scoop_dir, package_name)?;
+    Ok(entries.into_iter().map(|entry| entry.name).collect())
+}
+
 fn launch_executable(path: &Path) -> Result<(), String> {
     let ext = path
         .extension()

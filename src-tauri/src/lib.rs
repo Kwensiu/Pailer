@@ -285,6 +285,8 @@ pub fn run() {
             commands::settings::set_powershell_exe,
             commands::settings::get_available_powershell_executables,
             commands::powershell::request_cancel_operation,
+            commands::process_control::terminate_processes,
+            commands::process_control::terminate_package_processes,
             commands::virustotal::scan_package,
             commands::auto_cleanup::run_auto_cleanup,
             commands::doctor::checkup::run_scoop_checkup,

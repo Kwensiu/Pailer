@@ -168,6 +168,8 @@ export interface Dict {
     removeSelected: string;
     retry: string;
     retryAsAdmin: string;
+    safeKillProcessAndRetry: string;
+    forceKillProcessAndRetry: string;
     save: string;
     showLess: string;
     showMore: string;
@@ -716,6 +718,7 @@ export interface Dict {
       about: string;
       automation: string;
       management: string;
+      preferences: string;
       security: string;
       windowUi: string;
     };
@@ -749,6 +752,29 @@ export interface Dict {
       pwsh: string;
       title: string;
       windows: string;
+    };
+    autoEndProcess: {
+      addToAllowlist: string;
+      allowlistDescription: string;
+      allowlistedPackages: string;
+      allowlistedPackagesDescription: string;
+      availablePackages: string;
+      availablePackagesDescription: string;
+      defaultMode: string;
+      configure: string;
+      description: string;
+      manageAllowlist: string;
+      modalTitle: string;
+      modeForce: string;
+      modeSafe: string;
+      modeTitle: string;
+      noAllowlistedPackages: string;
+      noAvailablePackages: string;
+      noSearchResults: string;
+      removeFromAllowlist: string;
+      reset: string;
+      searchPlaceholder: string;
+      title: string;
     };
     scoopConfiguration: {
       description: string;

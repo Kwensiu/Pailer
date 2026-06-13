@@ -168,6 +168,8 @@
     "removeSelected": "Selected",
     "retry": "Retry",
     "retryAsAdmin": "Retry as Admin",
+    "safeKillProcessAndRetry": "Safely End Process and Retry",
+    "forceKillProcessAndRetry": "Force End Process and Retry",
     "save": "Save",
     "showLess": "Show Less",
     "showMore": "Show More",
@@ -718,6 +720,7 @@
       "about": "About",
       "automation": "Automation",
       "management": "Management",
+      "preferences": "Preferences",
       "security": "Security",
       "windowUi": "Window & UI"
     },
@@ -752,6 +755,29 @@
       "title": "PowerShell Executable",
       "windows": "Windows PowerShell"
     },
+    "autoEndProcess": {
+      "addToAllowlist": "Add to allowlist",
+      "allowlistDescription": "Only packages in the allowlist will have running processes ended automatically. The allowlist is empty by default.",
+      "allowlistedPackages": "Allowlist",
+      "allowlistedPackagesDescription": "Pailer will try to end matching processes before installing or updating these packages",
+      "availablePackages": "Installed Packages",
+      "availablePackagesDescription": "Choose from the actual installed package list",
+      "defaultMode": "Change the default end mode. Even safe mode should be used carefully to avoid data loss.",
+      "configure": "Configure",
+      "description": "Automatically end matching running processes before installing or updating allowlisted packages.",
+      "manageAllowlist": "Manage Allowlist",
+      "modalTitle": "Auto-End Process Allowlist",
+      "modeForce": "Force End",
+      "modeSafe": "Safe End",
+      "modeTitle": "End Mode",
+      "noAllowlistedPackages": "No packages added yet",
+      "noAvailablePackages": "No more packages available",
+      "noSearchResults": "No matching packages",
+      "removeFromAllowlist": "Remove from allowlist",
+      "reset": "Reset",
+      "searchPlaceholder": "Search installed packages...",
+      "title": "Auto-End Processes During Install"
+    },
     "scoopConfiguration": {
       "description": "Set your Scoop installation path. Changes take effect immediately.\nAuto-detects Scoop using environment variables, scoop config, and common paths.",
       "detectError": "Failed to detect Scoop path. Please make sure the SCOOP environment variable is set correctly.",
@@ -765,7 +791,7 @@
     "scoopUpdate": {
       "skipPreUpdateRefresh": "Skip Self-Update and Sync (Beta)",
       "skipPreUpdateRefreshDescription": "Skip Scoop's stale self/bucket refresh before package install and update operations.",
-      "operationMode": "Scoop Operation Mode",
+      "operationMode": "Operation Run Mode",
       "operationModeConcurrent": "Concurrent",
       "operationModeDescription": "Applies to package installs, uninstalls, and updates. Queue runs operations in order; concurrent starts multiple operations at once.",
       "operationModeQueue": "Queue"
