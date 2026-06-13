@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.2](https://github.com/Kwensiu/Pailer/compare/v1.17.1...v1.17.2) (2026-06-13)
+
+
+### Features
+
+* optimize bucket loading ([68f719b](https://github.com/Kwensiu/Pailer/commit/68f719b37c24705901f3de7949efd47ddc79f0e3))
+
+
+### Bug Fixes
+
+* refine warning semantics and process retry ([570a2a3](https://github.com/Kwensiu/Pailer/commit/570a2a37d14b04e09e63e37cefea124dc0ea4ce2))
+
 ## [1.17.1](https://github.com/Kwensiu/Pailer/compare/v1.17.0...v1.17.1) (2026-06-05)
 
 
