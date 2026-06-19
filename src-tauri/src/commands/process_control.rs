@@ -73,12 +73,10 @@ async fn terminate_validated_targets(
     process_targets: Vec<ProcessTerminationTarget>,
     force: bool,
 ) -> Result<(), String> {
-    use tokio::process::Command;
-
     let mut failures = Vec::new();
 
     for target in process_targets {
-        match current_process_name(target.process_id).await? {
+        match current_process_name(target.process_id)? {
             Some(current_name) if process_name_matches(&current_name, &target.process_name) => {}
             Some(current_name) => {
                 failures.push(format!(
@@ -92,33 +90,14 @@ async fn terminate_validated_targets(
             }
         }
 
-        let mut command = Command::new("taskkill");
-        command.args(["/PID", &target.process_id.to_string(), "/T"]);
-        if force {
-            command.arg("/F");
-        }
+        let result = if force {
+            force_terminate_process(target.process_id)
+        } else {
+            request_process_close(target.process_id)
+        };
 
-        let output = command.output().await.map_err(|err| {
-            format!(
-                "Failed to run taskkill for PID {}: {}",
-                target.process_id, err
-            )
-        })?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let message = if !stderr.is_empty() { stderr } else { stdout };
-
-            if is_taskkill_process_already_gone(&message) {
-                continue;
-            }
-
-            if current_process_name(target.process_id).await?.is_none() {
-                continue;
-            }
-
-            if !force && wait_for_process_exit(target.process_id, 1000).await? {
+        if let Err(message) = result {
+            if current_process_name(target.process_id)?.is_none() {
                 continue;
             }
 
@@ -126,11 +105,13 @@ async fn terminate_validated_targets(
             continue;
         }
 
-        if !force && !wait_for_process_exit(target.process_id, 1000).await? {
-            failures.push(format!(
-                "PID {} is still running after safe termination",
-                target.process_id
-            ));
+        if !wait_for_process_exit(target.process_id, 3000).await? {
+            let message = if force {
+                "is still running after force termination".to_string()
+            } else {
+                "did not exit after a safe close request".to_string()
+            };
+            failures.push(format!("PID {} {}", target.process_id, message));
         }
     }
 
@@ -172,32 +153,7 @@ async fn find_processes_for_package(
 async fn query_processes_by_name(
     process_name: &str,
 ) -> Result<Vec<ProcessTerminationTarget>, String> {
-    use tokio::process::Command;
-
-    let image_name = format!("{}.exe", normalize_process_name(process_name));
-    let output = Command::new("tasklist")
-        .args([
-            "/FI",
-            &format!("IMAGENAME eq {}", image_name),
-            "/FO",
-            "CSV",
-            "/NH",
-        ])
-        .output()
-        .await
-        .map_err(|err| {
-            format!(
-                "Failed to query running process '{}': {}",
-                process_name, err
-            )
-        })?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if stdout.is_empty() || stdout.starts_with("INFO:") {
-        return Ok(Vec::new());
-    }
-
-    parse_tasklist_csv(&stdout, process_name)
+    list_processes_by_name(process_name)
 }
 
 #[cfg(windows)]
@@ -206,7 +162,7 @@ async fn wait_for_process_exit(process_id: u32, timeout_ms: u64) -> Result<bool,
 
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     loop {
-        if current_process_name(process_id).await?.is_none() {
+        if current_process_name(process_id)?.is_none() {
             return Ok(true);
         }
 
@@ -219,58 +175,134 @@ async fn wait_for_process_exit(process_id: u32, timeout_ms: u64) -> Result<bool,
 }
 
 #[cfg(windows)]
-async fn current_process_name(process_id: u32) -> Result<Option<String>, String> {
-    use tokio::process::Command;
-
-    let output = Command::new("tasklist")
-        .args([
-            "/FI",
-            &format!("PID eq {}", process_id),
-            "/FO",
-            "CSV",
-            "/NH",
-        ])
-        .output()
-        .await
-        .map_err(|err| format!("Failed to query process PID {}: {}", process_id, err))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if stdout.is_empty() || stdout.starts_with("INFO:") {
-        return Ok(None);
-    }
-
-    let mut processes = parse_tasklist_csv(&stdout, "")?;
-    Ok(processes.pop().map(|target| target.process_name))
+fn current_process_name(process_id: u32) -> Result<Option<String>, String> {
+    Ok(list_processes()?
+        .into_iter()
+        .find(|target| target.process_id == process_id)
+        .map(|target| target.process_name))
 }
 
 #[cfg(windows)]
-fn parse_tasklist_csv(
-    output: &str,
-    expected_name: &str,
-) -> Result<Vec<ProcessTerminationTarget>, String> {
-    let mut reader = csv::ReaderBuilder::new()
-        .has_headers(false)
-        .from_reader(output.as_bytes());
-    let mut targets = Vec::new();
+fn list_processes_by_name(process_name: &str) -> Result<Vec<ProcessTerminationTarget>, String> {
+    Ok(list_processes()?
+        .into_iter()
+        .filter(|target| process_name_matches(&target.process_name, process_name))
+        .collect())
+}
 
-    for record in reader.records() {
-        let record = record.map_err(|err| format!("Failed to parse tasklist output: {}", err))?;
-        let Some(process_name) = record.get(0).map(|name| name.to_string()) else {
-            continue;
-        };
-        let Some(process_id) = record.get(1).and_then(|pid| pid.parse::<u32>().ok()) else {
-            continue;
-        };
+#[cfg(windows)]
+fn list_processes() -> Result<Vec<ProcessTerminationTarget>, String> {
+    use std::mem::size_of;
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
 
-        if expected_name.is_empty() || process_name_matches(&process_name, expected_name) {
-            targets.push(ProcessTerminationTarget {
-                process_id,
-                process_name,
-            });
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == INVALID_HANDLE_VALUE {
+            return Err(format!(
+                "Failed to create process snapshot: {}",
+                std::io::Error::last_os_error()
+            ));
         }
+
+        let mut entry = std::mem::zeroed::<PROCESSENTRY32W>();
+        entry.dwSize = size_of::<PROCESSENTRY32W>() as u32;
+
+        let mut targets = Vec::new();
+        let mut has_entry = Process32FirstW(snapshot, &mut entry) != 0;
+
+        while has_entry {
+            let nul_index = entry
+                .szExeFile
+                .iter()
+                .position(|code_unit| *code_unit == 0)
+                .unwrap_or(entry.szExeFile.len());
+            let process_name = String::from_utf16_lossy(&entry.szExeFile[..nul_index]);
+            if !process_name.is_empty() {
+                targets.push(ProcessTerminationTarget {
+                    process_id: entry.th32ProcessID,
+                    process_name,
+                });
+            }
+
+            has_entry = Process32NextW(snapshot, &mut entry) != 0;
+        }
+
+        let _ = CloseHandle(snapshot);
+        Ok(targets)
+    }
+}
+
+#[cfg(windows)]
+fn request_process_close(process_id: u32) -> Result<(), String> {
+    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE,
+    };
+
+    struct CloseRequest {
+        process_id: u32,
+        posted: bool,
     }
 
-    Ok(targets)
+    unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> i32 {
+        let request = &mut *(lparam as *mut CloseRequest);
+        let mut window_process_id = 0;
+        GetWindowThreadProcessId(hwnd, &mut window_process_id);
+
+        if window_process_id == request.process_id && PostMessageW(hwnd, WM_CLOSE, 0, 0) != 0 {
+            request.posted = true;
+        }
+
+        1
+    }
+
+    let mut request = CloseRequest {
+        process_id,
+        posted: false,
+    };
+
+    unsafe {
+        EnumWindows(
+            Some(enum_windows_proc),
+            &mut request as *mut CloseRequest as LPARAM,
+        );
+    }
+
+    if request.posted {
+        Ok(())
+    } else {
+        Err("No window found for safe close request".to_string())
+    }
+}
+
+#[cfg(windows)]
+fn force_terminate_process(process_id: u32) -> Result<(), String> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_TERMINATE, 0, process_id);
+        if handle.is_null() {
+            return Err(format!(
+                "Failed to open process for termination: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+
+        let terminated = TerminateProcess(handle, 1);
+        let terminate_error = std::io::Error::last_os_error();
+        CloseHandle(handle);
+
+        if terminated == 0 {
+            Err(format!("Failed to terminate process: {}", terminate_error))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[cfg(not(windows))]
@@ -297,16 +329,10 @@ fn process_name_matches(current_name: &str, expected_name: &str) -> bool {
     normalize_process_name(current_name) == normalize_process_name(expected_name)
 }
 
-#[cfg(windows)]
-fn is_taskkill_process_already_gone(message: &str) -> bool {
-    let normalized = message.to_ascii_lowercase();
-    normalized.contains("not found") || normalized.contains("not running")
-}
-
 #[cfg(test)]
 mod tests {
     #[cfg(windows)]
-    use super::{is_taskkill_process_already_gone, parse_tasklist_csv, process_name_matches};
+    use super::process_name_matches;
 
     #[test]
     #[cfg(windows)]
@@ -318,32 +344,5 @@ mod tests {
     #[cfg(windows)]
     fn process_name_mismatch_blocks_unrelated_pid() {
         assert!(!process_name_matches("notepad.exe", "flowscroll"));
-    }
-
-    #[test]
-    #[cfg(windows)]
-    fn taskkill_not_found_means_process_is_already_terminated() {
-        assert!(is_taskkill_process_already_gone(
-            "ERROR: The process \"16776\" not found."
-        ));
-    }
-
-    #[test]
-    #[cfg(windows)]
-    fn taskkill_access_denied_remains_a_failure() {
-        assert!(!is_taskkill_process_already_gone(
-            "ERROR: The process with PID 1234 could not be terminated. Reason: Access is denied."
-        ));
-    }
-
-    #[test]
-    #[cfg(windows)]
-    fn tasklist_parser_returns_matching_package_processes() {
-        let output = "\"flowscroll.exe\",\"7600\",\"Console\",\"1\",\"33,100 K\"\n\"notepad.exe\",\"1\",\"Console\",\"1\",\"1,000 K\"";
-        let targets = parse_tasklist_csv(output, "FlowScroll").unwrap();
-
-        assert_eq!(targets.len(), 1);
-        assert_eq!(targets[0].process_id, 7600);
-        assert_eq!(targets[0].process_name, "flowscroll.exe");
     }
 }

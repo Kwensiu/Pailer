@@ -215,8 +215,8 @@ const autoEndPackageProcesses = async (
   addOperationOutput(operationId, {
     operationId,
     source: 'system',
-    line: `[Pailer] ${force ? 'Force ending' : 'Safely ending'} running process(es) for ${packageName}`,
-    message: `${force ? 'force ending' : 'safely ending'} running processes for ${packageName}`,
+    line: `[Pailer] ${force ? 'Force ending' : 'Requesting safe close for'} running process(es) for ${packageName}`,
+    message: `${force ? 'force ending' : 'requesting safe close for'} running processes for ${packageName}`,
   });
 
   try {
@@ -224,8 +224,8 @@ const autoEndPackageProcesses = async (
     addOperationOutput(operationId, {
       operationId,
       source: 'system',
-      line: `[Pailer] ${force ? 'Force ended' : 'Safely ended'} running process(es) for ${packageName}`,
-      message: `${force ? 'force ended' : 'safely ended'} running processes for ${packageName}`,
+      line: `[Pailer] ${force ? 'Force ended' : 'Safe close requested for'} running process(es) for ${packageName}`,
+      message: `${force ? 'force ended' : 'safe close requested for'} running processes for ${packageName}`,
     });
     return true;
   } catch (error) {

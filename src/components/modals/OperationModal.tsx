@@ -462,10 +462,12 @@ function OperationModal(props: OperationModalProps) {
     addOperationOutput(operationId(), {
       operationId: operationId(),
       source: 'system',
-      line: `[Pailer] ${force ? 'Force ending' : 'Safely ending'} running process(es): ${processTargets
+      line: `[Pailer] ${force ? 'Force ending' : 'Requesting safe close for'} running process(es): ${processTargets
         .map((target) => `${target.processName} (${target.processId})`)
         .join(', ')}`,
-      message: force ? 'Force ending running processes' : 'Safely ending running processes',
+      message: force
+        ? 'Force ending running processes'
+        : 'Requesting safe close for running processes',
     });
 
     try {
@@ -473,8 +475,8 @@ function OperationModal(props: OperationModalProps) {
       addOperationOutput(operationId(), {
         operationId: operationId(),
         source: 'system',
-        line: `[Pailer] ${force ? 'Processes force ended' : 'Processes safely ended'}.`,
-        message: force ? 'Processes force ended' : 'Processes safely ended',
+        line: `[Pailer] ${force ? 'Processes force ended' : 'Safe close requested for processes'}.`,
+        message: force ? 'Processes force ended' : 'Safe close requested for processes',
       });
 
       if (!force) {
